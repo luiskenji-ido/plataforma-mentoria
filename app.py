@@ -1580,7 +1580,7 @@ def agendar_estudo():
             scopes=SCOPES
         )
         
-        service = build('calendar', 'v3', credentials=creds)
+        service = build('calendar', 'v3', credentials=creds, cache_discovery=False)
         
         # O cálculo corrigido do horário! 
         agora = dt.utcnow()
