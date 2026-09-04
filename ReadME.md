@@ -29,56 +29,27 @@ Markdown
 
 mentoria/
 	│
-	├── app.py                     		
-	├── models.py                  		
-	├── traducoes.py               		
-	├── client_secret.json         		
-	├── templates/                 		
-	│   ├── index.html             		
-	│   ├── base.html              		
-	│   ├── dashboard.html         		
-	│   ├── acompanhamento.html    		
-	│   ├── sessoes.html           		
-	│   ├── admin_usuarios.html    		
-	│   ├── admin_cursos.html      		
-	│   ├── admin_banco.html          	
-    │   ├── admin_solicitacoes.html  	
-	│   ├── cadastrar_perguntas.html  	
-	│   ├── perguntas_seguranca.html  	
-    │   └── trocar_senha.html 			
-	├── static/               			
-	├── uploads/              			
-	├── atualizar_*.py        			
-	└── README.md             			
-
-
-
-mentoria/
-│
-├── app.py	# Cérebro da aplicação, rotas, integrações (IA/Agenda) e controle do sino de notificações
-├── models.py	# Estrutura do Banco de Dados (Usuário, Curso, Acompanhamento, Sessão e QADuvida)
-├── traducoes.py	# Dicionário de internacionalização (i18n) para PT, EN e ES
-├── client_secret.json	# Credenciais OAuth2 para integração com APIs do Google
-├── templates/	# Páginas e interfaces HTML (Jinja2)
-│   ├── index.html	# Página inicial (login, recuperação e motivação)
-│   ├── base.html	# Template base estrutural contendo o Sino de Notificações Inteligente
-│   ├── dashboard.html # Painel Executivo e Matriz de Riscos
-│   ├── acompanhamento.html	# Gestão de progresso, Assistente Gemini, Q&A, uploads e modais expandidos
-│   ├── sessoes.html	# Controle de encontros de mentoria
-│   ├── admin_usuarios.html	# Governança de acessos, com suporte a múltiplos mentores e reset de segurança
-│   ├── admin_cursos.html	# Catálogo de portfólio e auditoria
-│   ├── admin_banco.html	# Gestão administrativa do banco de dados, backups e auditoria
-│   ├── admin_solicitacoes.html	# Gestão de solicitações de mentoria (Apenas Mentor Administrador)
-│   ├── cadastrar_perguntas.html	# Configuração de segurança
-│   ├── perguntas_seguranca.html	# Recuperação de senha baseada em perguntas
-│   └── trocar_senha.html	# Interface de troca de senha obrigatória
-├── static/	# Arquivos estáticos globais (CSS, JS, Imagens)
-├── uploads/	# Diretório de armazenamento seguro de arquivos anexados
-├── atualizar_*.py	# Scripts de migração e atualização de tabelas do BD
-└── README.md	# Documentação oficial do projeto
-
-
-
+	├── app.py							# Cérebro da aplicação, rotas, integrações (IA/Agenda) e controle do sino de notificações                     		
+	├── models.py						# Estrutura do Banco de Dados (Usuário, Curso, Acompanhamento, Sessão e QADuvida)   	              		
+	├── traducoes.py					# Dicionário de internacionalização (i18n) para PT, EN e ES               		
+	├── client_secret.json				# Credenciais OAuth2 para integração com APIs do Google		         		
+	├── templates/						# Páginas e interfaces HTML (Jinja2)               		
+	│   ├── index.html					# Página inicial (login, recuperação e motivação)             		
+	│   ├── base.html					# Template base estrutural contendo o Sino de Notificações Inteligente              		
+	│   ├── dashboard.html				# Painel Executivo e Matriz de Riscos         		
+	│   ├── acompanhamento.html			# Gestão de progresso, Assistente Gemini, Q&A, uploads e modais expandidos    		
+	│   ├── sessoes.html				# Controle de encontros de mentoria           		
+	│   ├── admin_usuarios.html			# Governança de acessos, com suporte a múltiplos mentores e reset de segurança    		
+	│   ├── admin_cursos.html			# Catálogo de portfólio e auditoria      		
+	│   ├── admin_banco.html			# Gestão administrativa do banco de dados, backups e auditoria          	
+    │   ├── admin_solicitacoes.html		# Gestão de solicitações de mentoria (Apenas Mentor Administrador)  	
+	│   ├── cadastrar_perguntas.html	# Configuração de segurança  	
+	│   ├── perguntas_seguranca.html 	# Recuperação de senha baseada em perguntas 	
+    │   └── trocar_senha.html			# Interface de troca de senha obrigatória 			
+	├── static/							# Arquivos estáticos globais (CSS, JS, Imagens)               			
+	├── uploads/						# Diretório de armazenamento seguro de arquivos anexados              			
+	├── atualizar_*.py					# Scripts de migração e atualização de tabelas do BD        			
+	└── README.md						# Documentação oficial do projeto             			
 
 
 
