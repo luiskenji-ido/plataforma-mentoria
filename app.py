@@ -26,7 +26,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-genai.configure(api_key=SUA_VARIAVEL_DE_CHAVE, transport='rest')
+genai.configure(api_key=os.environ.get('GOOGLE_API_KEY'), transport='rest')
 
 # Isso permite testarmos o login do Google no nosso computador (localhost) sem HTTPS
 os.environ['OAUTHLIB_INSECURE_TRANSPORT'] = '1'
@@ -1582,9 +1582,10 @@ def agendar_estudo():
         )
         proxy = httplib2.ProxyInfo(httplib2.socks.PROXY_TYPE_HTTP, 'proxy.server', 3128)
         http_autorizado = httplib2.Http(proxy_info=proxy)
-        
+
         service = build('calendar', 'v3', credentials=creds, http=http_autorizado, cache_discovery=False)
         
+                
         # O cálculo corrigido do horário! 
         agora = dt.utcnow()
         inicio = (agora + timedelta(days=1)).isoformat() + 'Z'
