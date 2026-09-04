@@ -1,0 +1,276 @@
+{% extends "base.html" %}
+
+{% block title %}{{ t('catalogo_cursos') }} - Mentoria{% endblock %}
+
+{% block content %}
+    <!-- CORREÇÃO VISUAL PARA O TEMA CLARO -->
+    <style>
+        body:not(.theme-escuro):not(.theme-futurista):not(.theme-vintage) .modal-content,
+        body.theme-claro .modal-content,
+        body:not([class*="escuro"]):not([class*="futurista"]):not([class*="vintage"]) .modal-content {
+            background-color: #ffffff !important;
+            color: #212529 !important;
+        }
+
+        body:not(.theme-escuro):not(.theme-futurista):not(.theme-vintage) .modal-body,
+        body.theme-claro .modal-body,
+        body:not([class*="escuro"]):not([class*="futurista"]):not([class*="vintage"]) .modal-body {
+            background-color: #ffffff !important;
+            color: #212529 !important;
+        }
+
+        body:not(.theme-escuro):not(.theme-futurista):not(.theme-vintage) .modal-footer,
+        body.theme-claro .modal-footer,
+        body:not([class*="escuro"]):not([class*="futurista"]):not([class*="vintage"]) .modal-footer {
+            background-color: #f8f9fa !important;
+        }
+
+        body:not(.theme-escuro):not(.theme-futurista):not(.theme-vintage) .modal-footer .btn-primary,
+        body.theme-claro .modal-footer .btn-primary,
+        body:not([class*="escuro"]):not([class*="futurista"]):not([class*="vintage"]) .modal-footer .btn-primary {
+            background-color: #0d6efd !important;
+            border-color: #0d6efd !important;
+            color: #ffffff !important;
+            opacity: 1 !important;
+        }
+    </style>
+
+    <!-- Área de Alertas -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for category, message in messages %}
+          <div class="alert alert-{{ category }} alert-dismissible fade show">
+            {{ message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+          </div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+
+    <h2 class="mb-4 text-primary fw-bold">{{ t('catalogo_cursos') }}</h2>
+    
+    <!-- Formulário de Cadastro de Curso -->
+    <div class="card shadow-sm mb-5 border-0">
+        <div class="card-header bg-white fw-bold text-success">
+            {{ t('adicionar_novo_curso') }}
+        </div>
+        <div class="card-body">
+            <form method="POST" action="{{ url_for('gerenciar_cursos') }}">
+                <div class="row align-items-end">
+                    <div class="col-md-3 mb-3">
+                        <label class="form-label text-muted">{{ t('nome_curso_material') }}</label>
+                        <input type="text" name="nome" class="form-control" value="{{ request.form.get('nome', '') }}" required>
+                    </div>
+                    <div class="col-md-3 mb-3">
+                        <label class="form-label text-muted">{{ t('plataforma') }}</label>
+                        <input type="text" name="plataforma" class="form-control" placeholder="Ex: Microsoft Learn" value="{{ request.form.get('plataforma', '') }}" required>
+                    </div>
+                    <div class="col-md-2 mb-3">
+                        <label class="form-label text-muted">{{ t('tipo') }}</label>
+                        <select name="tipo" class="form-select" required>
+                            <option value="Hard Skill">Hard Skill</option>
+                            <option value="Soft Skill">Soft Skill</option>
+                            <option value="Certificação">{{ t('tipo_certificado') }}</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2 mb-3">
+                        <label class="form-label text-muted">{{ t('carga_horaria_h') }}</label>
+                        <input type="number" name="carga_horaria" class="form-control" value="20" required>
+                    </div>
+                    <div class="col-md-2 mb-3">
+                        <label class="form-label text-muted">{{ t('status') }}</label>
+                        <select name="status" class="form-select" required>
+                            <option value="Ativo">{{ t('ativo') }}</option>
+                            <option value="Pendente">{{ t('pendente') }}</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="row align-items-end">
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label text-muted">{{ t('link_url') }}</label>
+                        <input type="url" name="url" class="form-control" placeholder="https://..." value="{{ request.form.get('link', '') }}">
+                    </div>
+                    <div class="col-md-3 mb-3">
+                        <label class="form-label text-muted">{{ t('exige_cert') }}</label>
+                        <select name="exige_certificado" class="form-select">
+                            <option value="Não">{{ t('nao') }}</option>
+                            <option value="Sim">{{ t('sim') }}</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3 mb-3">
+                        <button type="submit" class="btn btn-success w-100 fw-bold">{{ t('salvar_novo_curso') }}</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <!-- Tabela de Cursos -->
+    <div class="card shadow-sm border-0 mb-5">
+        <div class="card-header bg-white fw-bold text-secondary">
+            {{ t('cursos_disponiveis') }}
+        </div>
+        <div class="card-body p-0">
+            <table class="table table-hover align-middle mb-0 text-center">
+                <thead class="table-light">
+                    <tr>
+                        <th>{{ t('col_id') }}</th>
+                        <th>{{ t('col_nome_curso') }}</th>
+                        <th>{{ t('col_plataforma') }}</th>
+                        <th>{{ t('col_tipo') }}</th>
+                        <th>{{ t('col_carga') }}</th>
+                        <th>{{ t('col_status') }}</th>
+                        <th>{{ t('col_cadastrado_por') }}</th>
+                        <th>{{ t('col_acoes') }}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                {% for c in cursos %}
+                <tr>
+                    <td>{{ c.curso.id }}</td>
+                    <td class="fw-bold">{{ c.curso.nome_curso }}</td>
+                    <td>{{ c.curso.plataforma }}</td>
+                    <td>
+                        <span class="badge bg-secondary">
+                            {% if c.curso.tipo == 'Certificação' %}
+                                {{ t('tipo_certificado') }}
+                            {% else %}
+                                {{ c.curso.tipo }}
+                            {% endif %}
+                        </span>
+                    </td>
+                    <td>{{ c.curso.carga_horaria }}h</td>
+                    <td>
+                        {% if c.curso.status == 'Ativo' %}
+                            <span class="badge bg-success">{{ t('ativo') }}</span>
+                        {% elif c.curso.status == 'Desativado' %}
+                            <span class="badge bg-secondary">{{ t('status_desativado') }}</span>
+                        {% else %}
+                            <span class="badge bg-warning text-dark">{{ t('pendente') }}</span>
+                        {% endif %}
+                    </td>
+                    <td class="text-muted small fw-bold">{{ c.criado_por }}</td>
+                    <td>
+                        <button class="btn btn-sm btn-outline-primary fw-bold" data-bs-toggle="modal" data-bs-target="#modalEditarCurso{{ c.curso.id }}">
+                            {{ t('btn_editar') }}
+                        </button>
+                    </td>
+                </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- ========================================================= -->
+    <!-- ZONA DE MODAIS (ISOLADA DA TABELA)                        -->
+    <!-- ========================================================= -->
+    {% for c in cursos %}
+    <div class="modal fade text-start" id="modalEditarCurso{{ c.curso.id }}" tabindex="-1">
+        <div class="modal-dialog modal-lg modal-dialog-scrollable">
+            <div class="modal-content shadow" style="background-color: white; color: black;">
+                <form method="POST" action="{{ url_for('editar_curso', id=c.curso.id) }}">
+                    <div class="modal-header bg-primary text-white">
+                        <h5 class="modal-title">{{ t('editar') }} Curso: {{ c.curso.nome_curso }}</h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">{{ t('nome_curso_material') }}</label>
+                                <input type="text" name="nome" class="form-control" value="{{ c.curso.nome_curso }}" required>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">{{ t('plataforma') }}</label>
+                                <input type="text" name="plataforma" class="form-control" value="{{ c.curso.plataforma }}" required>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-4 mb-3">
+                                <label class="form-label">{{ t('tipo') }}</label>
+                                <select name="tipo" class="form-select" required>
+                                    <option value="Hard Skill" {% if c.curso.tipo == 'Hard Skill' %}selected{% endif %}>Hard Skill</option>
+                                    <option value="Soft Skill" {% if c.curso.tipo == 'Soft Skill' %}selected{% endif %}>Soft Skill</option>
+                                    <option value="Certificação" {% if c.curso.tipo == 'Certificação' %}selected{% endif %}>{{ t('tipo_certificado') }}</option>
+                                </select>
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label class="form-label">{{ t('carga_horaria_h') }}</label>
+                                <input type="number" name="carga_horaria" class="form-control" value="{{ c.curso.carga_horaria }}" required>
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label class="form-label">{{ t('status') }}</label>
+                                <select name="status" class="form-select" required>
+                                    <option value="Ativo" {% if c.curso.status == 'Ativo' %}selected{% endif %}>{{ t('ativo') }}</option>
+                                    <option value="Pendente" {% if c.curso.status == 'Pendente' %}selected{% endif %}>{{ t('pendente') }}</option>
+                                    <option value="Desativado" {% if c.curso.status == 'Desativado' %}selected{% endif %}>{{ t('status_desativado') }}</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-8 mb-3">
+                                <label class="form-label">{{ t('link_url') }}</label>
+                                <input type="url" name="url" class="form-control" value="{{ c.curso.url or '' }}">
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label class="form-label">{{ t('exige_cert') }}</label>
+                                <select name="exige_certificado" class="form-select">
+                                    <option value="Não" {% if c.curso.exige_certificado == 'Não' %}selected{% endif %}>{{ t('nao') }}</option>
+                                    <option value="Sim" {% if c.curso.exige_certificado == 'Sim' %}selected{% endif %}>{{ t('sim') }}</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label fw-bold text-danger">{{ t('motivo_desativacao_label') }}</label>
+                            <textarea name="motivo_desativacao" class="form-control" rows="2" placeholder="{{ t('motivo_desativacao_placeholder') }}">{{ c.curso.motivo_desativacao or '' }}</textarea>
+                        </div>
+                    </div>
+                    <!-- FORÇANDO A COR DO BOTÃO PARA SEMPRE APARECER -->
+                    <div class="modal-footer" style="background-color: #f8f9fa;">
+                        <button type="button" class="btn btn-secondary fw-bold" data-bs-dismiss="modal">{{ t('cancelar') }}</button>
+                        <button type="submit" class="btn btn-primary fw-bold" style="background-color: #0d6efd !important; color: white !important; border-color: #0d6efd !important;">{{ t('salvar_alteracoes') }}</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+
+<script>
+function iniciarTourDaPagina() {
+    introJs().setOptions({
+        steps: [
+            { intro: "<strong>Catálogo de Cursos:</strong> Gerencie todos os treinamentos da plataforma por aqui." },
+            { element: document.querySelector('.card.shadow-sm.mb-5.border-0'), intro: "Preencha este formulário para cadastrar um novo curso, definindo plataforma, carga horária e se exige certificado." },
+            { element: document.querySelector('.table'), intro: "Lista com todos os cursos ativos, pendentes ou desativados, permitindo edição rápida a qualquer momento." }
+        ],
+        nextLabel: 'Próximo', prevLabel: 'Anterior', doneLabel: 'Entendi!', showProgress: true
+    }).start();
+}
+</script>
+
+<script>
+function iniciarTourDaPagina() {
+    let passos = [
+        { intro: "{{ t('tour_cur_intro') | safe }}" },
+        { element: document.querySelector('.card, form'), intro: "{{ t('tour_cur_form') | safe }}" },
+        { element: document.querySelector('.table'), intro: "{{ t('tour_cur_tabela') | safe }}" }
+    ];
+    introJs().setOptions({
+        steps: passos, nextLabel: "{{ t('tour_btn_proximo') }}", prevLabel: "{{ t('tour_btn_anterior') }}", 
+        doneLabel: "{{ t('tour_btn_sessoes') }}", showProgress: true, showBullets: false
+    }).oncomplete(function() {
+        if(window.location.search.includes('tour_continuo=1')) {
+            window.location.href = "{{ url_for('sessoes') }}?tour_continuo=1";
+        }
+    }).start();
+}
+document.addEventListener("DOMContentLoaded", function() {
+    if(window.location.search.includes('tour_continuo=1')) setTimeout(iniciarTourDaPagina, 500);
+});
+</script>
+
+{% endblock %}

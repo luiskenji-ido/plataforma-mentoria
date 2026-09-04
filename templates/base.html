@@ -1,0 +1,819 @@
+<!DOCTYPE html>
+<html lang="{{ current_user.idioma if current_user.is_authenticated else 'pt' }}" data-theme="{{ current_user.tema if current_user.is_authenticated else 'claro' }}"></html>
+<head>
+    <meta charset="UTF-8">
+    <title>{% block title %}Mentoria{% endblock %}</title>
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    
+    <!-- ESTILOS DOS TEMAS PERSONALIZADOS -->
+    <style>
+        /* ==========================================
+           CORREÇÃO GLOBAL DOS MODAIS (TEMA CLARO)
+           Garante que NENHUM modal fique transparente
+           ========================================== */
+        html[data-theme="claro"] .modal-content,
+        html:not([data-theme="escuro"]):not([data-theme="futurista"]):not([data-theme="vintage"]) .modal-content,
+        html[data-theme="claro"] .modal-body,
+        html:not([data-theme="escuro"]):not([data-theme="futurista"]):not([data-theme="vintage"]) .modal-body {
+            background-color: #ffffff !important;
+            color: #212529 !important;
+        }
+
+        html[data-theme="claro"] .modal-footer,
+        html:not([data-theme="escuro"]):not([data-theme="futurista"]):not([data-theme="vintage"]) .modal-footer {
+            background-color: #f8f9fa !important;
+        }
+
+        html[data-theme="claro"] .modal-footer .btn-primary,
+        html:not([data-theme="escuro"]):not([data-theme="futurista"]):not([data-theme="vintage"]) .modal-footer .btn-primary {
+            background-color: #0d6efd !important;
+            border-color: #0d6efd !important;
+            color: #ffffff !important;
+            opacity: 1 !important;
+        }
+
+        /* ==========================================
+            AJUSTE DE CONTRASTE - TEMA CLARO
+            ========================================== */
+
+        /* 1. Fundo da página com um tom cinza-suave contrastante */
+        body, html[data-theme="claro"] {
+            background-color: #f1f5f9 !important; /* Cinza-frio que destaca elementos brancos */
+            color: #1e293b;
+        }
+
+        /* 2. Cards com bordas visíveis e sombra leve com profundidade */
+        html[data-theme="claro"] .card,
+        html:not([data-theme="escuro"]):not([data-theme="futurista"]):not([data-theme="vintage"]) .card {
+            background-color: #ffffff !important;
+            border: 1px solid #e2e8f0 !important; /* Borda fina para delimitar o contorno */
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -2px rgba(0, 0, 0, 0.05) !important; /* Sombra suave */
+            border-radius: 12px; /* Cantos levemente arredondados para um ar mais moderno */
+        }
+
+        /* 3. Destaque para os mini-cards de indicadores (topo) */
+        html[data-theme="claro"] .card-header,
+        html[data-theme="claro"] .alert-info,
+        html:not([data-theme="escuro"]):not([data-theme="futurista"]):not([data-theme="vintage"]) .card-header,
+        html:not([data-theme="escuro"]):not([data-theme="futurista"]):not([data-theme="vintage"]) .alert-info {
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        /* Suaviza as bordas dos campos de busca e seleção no Tema Claro */
+        html[data-theme="claro"] .form-control,
+        html[data-theme="claro"] .form-select,
+        html:not([data-theme="escuro"]):not([data-theme="futurista"]):not([data-theme="vintage"]) .form-control,
+        html:not([data-theme="escuro"]):not([data-theme="futurista"]):not([data-theme="vintage"]) .form-select {
+            border: 1px solid #dee2e6 !important; /* Borda cinza-claro bem suave */
+            background-color: #ffffff !important;
+        }
+
+        /* Quando o usuário clica no campo de busca para digitar */
+        html[data-theme="claro"] .form-control:focus,
+        html[data-theme="claro"] .form-select:focus,
+        html:not([data-theme="escuro"]):not([data-theme="futurista"]):not([data-theme="vintage"]) .form-control:focus,
+        html:not([data-theme="escuro"]):not([data-theme="futurista"]):not([data-theme="vintage"]) .form-select:focus {
+            border-color: #0d6efd !important; /* Destaca suavemente em azul ao focar */
+            box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.15) !important;
+        }
+
+        /* ==========================================
+           CORREÇÃO GLOBAL DE BOTÕES NO TEMA CLARO
+           ========================================== */
+        html[data-theme="claro"] .btn-primary,
+        html:not([data-theme="escuro"]):not([data-theme="futurista"]):not([data-theme="vintage"]) .btn-primary {
+            background-color: #0d6efd !important; 
+            border-color: #0d6efd !important;
+            color: #ffffff !important; 
+            opacity: 1 !important;
+        }
+
+        html[data-theme="claro"] .btn-primary:hover,
+        html:not([data-theme="escuro"]):not([data-theme="futurista"]):not([data-theme="vintage"]) .btn-primary:hover {
+            background-color: #0b5ed7 !important;
+            border-color: #0a58ca !important;
+        }
+
+
+        /* TEMA ESCURO (Midnight Warmth / Conforto Noturno) */
+        html[data-theme="escuro"] {
+            --bg-color: #121212 !important;          /* Grafite carvão muito aconchegante */
+            --text-color: #f4f4f5 !important;        /* Branco off-white suave */
+            --card-bg: #1e1e24 !important;           /* Superfície dos cards levemente destacada */
+            --nav-bg: #18181b !important;            /* Navbar integrada */
+            --border-color: #27272a !important;      /* Bordas discretas e limpas */
+            --table-bg: #1e1e24 !important;          
+            --table-text: #f4f4f5 !important;        
+            --table-header-bg: #121212 !important;   
+            --primary-btn-bg: #d97706 !important;    /* Âmbar / Ocre Elegante */
+            --primary-btn-hover: #b45309 !important; 
+            --input-bg: #18181b !important;          
+        }
+
+        /* Ajustes de títulos e textos específicos para o Tema Escuro */
+        [data-theme="escuro"] h2,
+        [data-theme="escuro"] h3,
+        [data-theme="escuro"] .text-primary,
+        [data-theme="escuro"] .navbar-brand {
+            color: #fbbf24 !important; /* Âmbar quente que traz personalidade única ao tema */
+        }
+
+        /* Links do Menu Superior no Tema Escuro */
+        [data-theme="escuro"] .navbar-nav .nav-link {
+            color: #a1a1aa !important; 
+        }
+
+        [data-theme="escuro"] .navbar-nav .nav-link:hover,
+        [data-theme="escuro"] .navbar-nav .nav-link.active {
+            color: #fbbf24 !important; 
+        }
+
+        /* Botão Sair / Logout harmonizado no Escuro */
+        [data-theme="escuro"] a.btn-outline-danger {
+            background-color: transparent !important;
+            border-color: #3f3f46 !important;
+            color: #d4d4d8 !important;
+        }
+
+        [data-theme="escuro"] a.btn-outline-danger:hover {
+            background-color: #991b1b !important; 
+            border-color: #991b1b !important;
+            color: #ffffff !important;
+        }
+
+        /* Campos de pesquisa, inputs e selects no Tema Escuro */
+        [data-theme="escuro"] input.form-control, 
+        [data-theme="escuro"] textarea.form-control, 
+        [data-theme="escuro"] select.form-select,
+        [data-theme="escuro"] .bg-light {
+            background-color: #18181b !important;
+            color: #f4f4f5 !important;
+            border-color: #3f3f46 !important;
+        }
+
+        [data-theme="escuro"] input.form-control::placeholder {
+            color: #71717a !important;
+        }
+
+        /* Botões secundários no Tema Escuro */
+        [data-theme="escuro"] .btn-info,
+        [data-theme="escuro"] .btn-warning,
+        [data-theme="escuro"] .btn-outline-primary,
+        [data-theme="escuro"] .btn-outline-secondary {
+            background-color: #27272a !important;
+            border-color: #3f3f46 !important;
+            color: #f4f4f5 !important;
+        }
+
+       /* Ajuste definitivo para o botão principal no Tema Escuro (Contraste Perfeito) */
+        [data-theme="escuro"] .btn-primary {
+            background-color: #f59e0b !important; /* Âmbar sólido e marcante */
+            border-color: #d97706 !important;
+            color: #18181b !important;            /* Texto e ícones em cor de carvão escuro para contraste máximo */
+            font-weight: 700 !important;
+            box-shadow: none !important;          /* Remove brilhos que somem com os ícones */
+        }
+
+        [data-theme="escuro"] .btn-primary:hover {
+            background-color: #fbbf24 !important; /* Fica um pouco mais claro ao passar o mouse */
+            border-color: #f59e0b !important;
+            color: #121212 !important;
+        }
+
+        /* Badges e Tags no Tema Escuro */
+        [data-theme="escuro"] .badge.bg-success,
+        [data-theme="escuro"] .bg-success {
+            background-color: #047857 !important; 
+            color: #ffffff !important;
+        }
+
+        [data-theme="escuro"] .badge.bg-danger,
+        [data-theme="escuro"] .bg-danger {
+            background-color: #be123c !important; 
+            color: #ffffff !important;
+        }
+
+        [data-theme="escuro"] .badge.bg-warning,
+        [data-theme="escuro"] .bg-warning {
+            background-color: #d97706 !important; 
+            color: #121212 !important;
+            font-weight: bold;
+        }
+
+        /* ==========================================
+        CORREÇÃO DO Q&A NO TEMA ESCURO
+        ========================================== */
+
+        /* Garante texto claro para mensagens e textos gerais do Q&A no modo escuro */
+        [data-theme="escuro"] .faq-history .text-dark,
+        [data-theme="escuro"] .faq-history p {
+            color: #e2e8f0 !important; /* Texto cinza bem claro/branco */
+        }
+
+        /* Fundo dos cartões de mensagens dentro do Q&A para se destacar no escuro */
+        [data-theme="escuro"] .faq-history .bg-white {
+            background-color: #2d3748 !important; /* Fundo cinza-escuro elegante */
+            border-color: #4a5568 !important;     /* Borda suave */
+        }
+
+        /* Garante visibilidade das datas e textos do autor */
+        [data-theme="escuro"] .faq-history .text-muted {
+            color: #cbd5e1 !important;
+        }
+
+
+        /* TEMA FUTURISTA (Obsidian Tech / Moderno) */
+        html[data-theme="futurista"] {
+            --bg-color: #0f172a !important;          
+            --text-color: #f1f5f9 !important;        
+            --card-bg: #1e293b !important;           
+            --nav-bg: #1e293b !important;            
+            --border-color: #334155 !important;      
+            --table-bg: #1e293b !important;          
+            --table-text: #f1f5f9 !important;        
+            --table-header-bg: #0f172a !important;   
+            --primary-btn-bg: #0284c7 !important;    
+            --primary-btn-hover: #0369a1 !important; 
+            --input-bg: #1e293b !important;          /* Fundo do input alinhado com os cards */
+        }
+
+        /* Ajustes de títulos e textos específicos para o Futurista */
+        [data-theme="futurista"] h2,
+        [data-theme="futurista"] h3,
+        [data-theme="futurista"] .text-primary,
+        [data-theme="futurista"] .navbar-brand {
+            color: #38bdf8 !important; 
+        }
+
+        /* CORREÇÃO 1: Links do Menu Superior (Sessions, Tracking, etc.) legíveis */
+        [data-theme="futurista"] .navbar-nav .nav-link {
+            color: #94a3b8 !important; /* Cinza claro elegante */
+        }
+
+        [data-theme="futurista"] .navbar-nav .nav-link:hover,
+        [data-theme="futurista"] .navbar-nav .nav-link.active {
+            color: #38bdf8 !important; /* Azul tecnológico quando ativo ou com mouse em cima */
+        }
+
+        /* CORREÇÃO 2: Botão Sair / Logout harmonizado (sai o vermelho agressivo) */
+        [data-theme="futurista"] a.btn-outline-danger {
+            background-color: transparent !important;
+            border-color: #475569 !important;
+            color: #cbd5e1 !important;
+        }
+
+        [data-theme="futurista"] a.btn-outline-danger:hover {
+            background-color: #e11d48 !important; /* Vermelho só aparece sutilmente ao passar o mouse */
+            border-color: #e11d48 !important;
+            color: #ffffff !important;
+        }
+
+        /* CORREÇÃO 3: Campos de pesquisa e selects integrados e suaves */
+        [data-theme="futurista"] input.form-control, 
+        [data-theme="futurista"] textarea.form-control, 
+        [data-theme="futurista"] select.form-select {
+            background-color: #1e293b !important;
+            color: #f1f5f9 !important;
+            border-color: #475569 !important;
+        }
+
+        [data-theme="futurista"] input.form-control::placeholder {
+            color: #64748b !important; /* Placeholder suave para não chamar atenção excessiva */
+        }
+
+        /* Botões secundários e principais no Tema Futurista */
+        [data-theme="futurista"] .btn-info,
+        [data-theme="futurista"] .btn-warning,
+        [data-theme="futurista"] .btn-outline-primary,
+        [data-theme="futurista"] .btn-outline-secondary {
+            background-color: #334155 !important;
+            border-color: #475569 !important;
+            color: #f1f5f9 !important;
+        }
+
+        [data-theme="futurista"] .btn-primary {
+            background-color: #0284c7 !important;
+            border-color: #0284c7 !important;
+            color: #ffffff !important;
+            font-weight: 600;
+        }
+
+        /* Badges e Tags no Futurista */
+        [data-theme="futurista"] .badge.bg-success,
+        [data-theme="futurista"] .bg-success {
+            background-color: #059669 !important; 
+            color: #ffffff !important;
+        }
+
+        [data-theme="futurista"] .badge.bg-danger,
+        [data-theme="futurista"] .bg-danger {
+            background-color: #e11d48 !important; 
+            color: #ffffff !important;
+        }
+
+        [data-theme="futurista"] .badge.bg-warning,
+        [data-theme="futurista"] .bg-warning {
+            background-color: #d97706 !important; 
+            color: #ffffff !important;
+        }
+
+        /* Ajuste fino para suavizar o bloco e o contorno da pesquisa no Tema Futurista */
+        [data-theme="futurista"] .bg-light {
+            background-color: #1e293b !important; /* Mescla o fundo cinza claro com o tom dos cards */
+            border-color: #334155 !important;
+        }
+
+        [data-theme="futurista"] #filtroBusca, 
+        [data-theme="futurista"] #ordenacaoTabela {
+            background-color: #0f172a !important; /* Fundo mais escuro para dar profundidade */
+            border-color: #334155 !important;    /* Borda sutil e discreta */
+            color: #f1f5f9 !important;
+        }
+
+        [data-theme="futurista"] #filtroBusca:focus, 
+        [data-theme="futurista"] #ordenacaoTabela:focus {
+            border-color: #38bdf8 !important;    /* Azul suave apenas quando clicar para digitar */
+            box-shadow: 0 0 5px rgba(56, 189, 248, 0.3) !important;
+        }
+
+        /* Ajuste fino do tom de azul para tags e botões no Tema Futurista */
+        [data-theme="futurista"] .btn-primary,
+        [data-theme="futurista"] .badge.bg-primary,
+        [data-theme="futurista"] span[style*="background"] {
+            background-color: #0284c7 !important; /* Azul petróleo/ciano intermediário e elegante */
+            border-color: #0ea5e9 !important;
+            color: #ffffff !important;
+        }
+
+        [data-theme="futurista"] .btn-primary:hover {
+            background-color: #0369a1 !important;
+        }
+
+        /* Suavizando as tags menores de plataforma (All Karaoke.Party, Panamericana, etc.) */
+        [data-theme="futurista"] .badge,
+        [data-theme="futurista"] span.badge {
+            background-color: #334155 !important;
+            color: #38bdf8 !important; /* Texto em azul claro suave */
+            border: 1px solid #475569 !important;
+        }
+
+        /* ==========================================
+        TEMA FUTURISTA - AJUSTES ESPECÍFICOS DO Q&A
+        ========================================== */
+
+        /* 1. Cores de texto das mensagens e perguntas no Tema Futurista */
+        [data-theme="futurista"] .faq-history .text-dark,
+        [data-theme="futurista"] .faq-history p {
+            color: #f1f5f9 !important; /* Texto branco/claro de alto contraste */
+        }
+
+        /* 2. Fundo translúcido com borda neon/suave para os cards de mensagens */
+        [data-theme="futurista"] .faq-history .bg-white {
+            background-color: rgba(255, 255, 255, 0.05) !important; /* Fundo levemente translúcido */
+            border: 1px solid rgba(13, 202, 240, 0.3) !important;      /* Borda com toque tecnológico/azulado */
+        }
+
+        /* 3. Cores secundárias (datas e nomes dos autores) no Tema Futurista */
+        [data-theme="futurista"] .faq-history .text-muted {
+            color: #94a3b8 !important; /* Cinza-azulado legível */
+        }
+
+
+        /* TEMA VINTAGE (Academia Clássica / Sépia Elegante) */
+        html[data-theme="vintage"] {
+            --bg-color: #F4F1EA !important;          
+            --text-color: #4A3B32 !important;        
+            --card-bg: #FCFAF5 !important;           
+            --nav-bg: #EAE3D2 !important;            
+            --border-color: #D5CABD !important;      
+            --table-bg: #FCFAF5 !important;          
+            --table-text: #4A3B32 !important;        
+            --table-header-bg: #EAE3D2 !important;   
+            --primary-btn-bg: #2A4D3E !important;    
+            --primary-btn-hover: #1F382E !important; 
+            --input-bg: #FDFBF7 !important;          
+        }
+
+        /* Aplicando as cores globais com base nas variáveis do tema ativo no HTML */
+        html, body {
+            background-color: var(--bg-color) !important;
+            color: var(--text-color) !important;
+        }
+
+        .card, .modal-content, .bg-white {
+            background-color: var(--card-bg) !important;
+            color: var(--text-color) !important;
+            border-color: var(--border-color) !important;
+        }
+
+        .navbar {
+            background-color: var(--nav-bg) !important;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        /* Forçando a estilização completa de tabelas em qualquer tema */
+        table, .table {
+            background-color: var(--table-bg) !important;
+            color: var(--table-text) !important;
+            border-color: var(--border-color) !important;
+        }
+
+        .table th {
+            background-color: var(--table-header-bg) !important;
+            color: var(--text-color) !important;
+            border-color: var(--border-color) !important;
+        }
+
+        .table td {
+            background-color: transparent !important;
+            color: var(--table-text) !important;
+            border-color: var(--border-color) !important;
+        }
+
+        /* Inputs e textareas adaptados aos temas */
+        input.form-control, textarea.form-control, select.form-select {
+            background-color: var(--input-bg) !important;
+            color: var(--text-color) !important;
+            border-color: var(--border-color) !important;
+        }
+
+        /* Botões primários dinâmicos baseados no tema */
+        .btn-primary {
+            background-color: var(--primary-btn-bg) !important;
+            border-color: var(--primary-btn-bg) !important;
+            color: #ffffff !important;
+        }
+
+        .btn-primary:hover {
+            background-color: var(--primary-btn-hover) !important;
+            border-color: var(--primary-btn-hover) !important;
+        }
+
+        /* Ajustes específicos para títulos e textos no Tema Vintage */
+        [data-theme="vintage"] h2,
+        [data-theme="vintage"] h3,
+        [data-theme="vintage"] .text-primary {
+            color: #2A4D3E !important; 
+        }
+
+        .text-muted {
+            color: #94a3b8 !important;
+        }
+
+        [data-theme="vintage"] .text-muted {
+            color: #7B6B5D !important;
+        }
+
+        /* Harmonização dos botões do topo no Tema Vintage */
+        [data-theme="vintage"] .btn-info,
+        [data-theme="vintage"] .btn-warning,
+        [data-theme="vintage"] .btn-outline-primary,
+        [data-theme="vintage"] .btn-outline-success {
+            background-color: #E2DCD3 !important;
+            border-color: #C8BEB0 !important;
+            color: #4A3B32 !important;
+            font-weight: 600;
+        }
+
+        [data-theme="vintage"] .btn-info:hover,
+        [data-theme="vintage"] .btn-warning:hover {
+            background-color: #D5CABD !important;
+            color: #2A4D3E !important;
+        }
+
+        /* Harmonização das Badges de Status no Vintage */
+        [data-theme="vintage"] .badge.bg-success,
+        [data-theme="vintage"] .bg-success {
+            background-color: #4A6B5B !important; 
+            color: #FFFFFF !important;
+        }
+
+        [data-theme="vintage"] .badge.bg-danger,
+        [data-theme="vintage"] .bg-danger {
+            background-color: #9E4735 !important; 
+            color: #FFFFFF !important;
+        }
+
+        [data-theme="vintage"] .badge.bg-warning,
+        [data-theme="vintage"] .bg-warning {
+            background-color: #C18C3D !important; 
+            color: #FFFFFF !important;
+        }
+
+        /* Harmonização de tags e selos no Tema Vintage */
+        [data-theme="vintage"] .badge,
+        [data-theme="vintage"] .rounded-pill,
+        [data-theme="vintage"] span[style*="background"],
+        [data-theme="vintage"] .btn-primary.btn-sm {
+            background-color: #D5CABD !important;
+            color: #4A3B32 !important;
+            border: 1px solid #C8BEB0 !important;
+        }
+
+        /* O selo "Started" no canto do card no Vintage */
+        [data-theme="vintage"] .btn.btn-primary,
+        [data-theme="vintage"] .badge.bg-primary {
+            background-color: #4A6B5B !important; /* Verde Sálvia suave */
+            border-color: #3B574A !important;
+            color: #FFFFFF !important;
+        }
+
+    </style>
+
+    <style>
+        /* Correção definitiva para a setinha em temas escuros */
+        [data-theme="escuro"] .dropdown-toggle::after,
+        [data-theme="futurista"] .dropdown-toggle::after {
+            border-top: 0.4em solid #ffffff !important;
+            border-right: 0.4em solid transparent !important;
+            border-left: 0.4em solid transparent !important;
+            color: #ffffff !important;
+        }
+    </style>
+
+    <style>
+        /* Correção definitiva para a setinha em temas escuros */
+        [data-theme="escuro"] .dropdown-toggle::after,
+        [data-theme="futurista"] .dropdown-toggle::after {
+            border-top: 0.4em solid #ffffff !important;
+            border-right: 0.4em solid transparent !important;
+            border-left: 0.4em solid transparent !important;
+            color: #ffffff !important;
+        }
+
+        /* Clareia o texto de fundo (placeholder) das caixas de texto nos temas escuros */
+        [data-theme="escuro"] .form-control::placeholder,
+        [data-theme="futurista"] .form-control::placeholder {
+            color: #adb5bd !important;
+            opacity: 1 !important;
+        }
+    </style>
+
+<!-- Bibliotecas do Intro.js (Globais para todas as páginas) -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/intro.js/7.2.0/introjs.min.css" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/intro.js/7.2.0/intro.min.js"></script>
+
+</head>
+<body>
+
+<!-- MENU DE NAVEGAÇÃO GLOBAL -->
+<nav class="navbar navbar-expand-lg mb-4 shadow-sm">
+  <div class="container-fluid">
+   <a class="navbar-brand fw-bold text-primary" href="{{ url_for('dashboard') }}">
+    🚀 {{ t('nome_app') }}
+   </a>
+    
+    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#menuPrincipal">
+      <span class="navbar-toggler-icon"></span>
+    </button>
+    
+    <div class="collapse navbar-collapse" id="menuPrincipal">
+      <!-- Links Principais do Menu Traduzidos Dinamicamente -->
+      <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+        
+        <!-- Dashboard / Painel Geral -->
+        <li class="nav-item">
+          <a class="nav-link fw-bold {% if request.endpoint == 'dashboard' %}text-primary border-bottom border-2 border-primary{% endif %}" href="{{ url_for('dashboard') }}">
+            {{ t('painel_geral') }}
+          </a>
+        </li>
+        
+        <!-- Cursos -->
+        {% if current_user.is_authenticated and current_user.tipo_usuario != 'Aluno' %}
+        <li class="nav-item">
+          <a class="nav-link fw-bold {% if request.endpoint == 'gerenciar_cursos' %}text-primary border-bottom border-2 border-primary{% endif %}" href="{{ url_for('gerenciar_cursos') }}">
+            {{ t('cursos') }}
+          </a>
+        </li>
+        {% endif %}
+
+        <!-- Sessões -->
+        <li class="nav-item">
+          <a class="nav-link fw-bold {% if request.endpoint == 'sessoes' %}text-primary border-bottom border-2 border-primary{% endif %}" href="{{ url_for('sessoes') }}">
+            {{ t('sessoes') }}
+          </a>
+        </li>
+
+        <!-- Acompanhamento -->
+        <li class="nav-item">
+          <a class="nav-link fw-bold {% if request.endpoint == 'acompanhamento' %}text-primary border-bottom border-2 border-primary{% endif %}" href="{{ url_for('acompanhamento') }}">
+            {{ t('acompanhamento') }}
+          </a>
+        </li>
+        
+        <!-- Gerenciar Cadastros (Apenas Admin) -->
+        {% if current_user.is_authenticated and current_user.tipo_usuario in ['Administrador', 'Mentor Administrador'] %}
+        <li class="nav-item">
+            <a class="nav-link fw-bold {% if request.endpoint == 'gerenciar_usuarios' %}text-primary border-bottom border-2 border-primary{% endif %}" href="{{ url_for('gerenciar_usuarios') }}">
+            {{ t('nav_cadastros') }}
+            </a>
+        </li>
+
+        <!-- RESTRIÇÃO APLICADA: Apenas Mentor Administrador vê este botão -->
+        {% if current_user.tipo_usuario == 'Mentor Administrador' %}
+        <li class="nav-item">
+            <a class="nav-link fw-bold {% if request.endpoint == 'gerenciar_solicitacoes' %}text-primary border-bottom border-2 border-primary{% endif %}" href="{{ url_for('gerenciar_solicitacoes') }}">
+                {{ t('solicitacoes') }}
+            </a>
+        </li>
+        {% endif %}
+
+        <!-- NOVO LINK: Manutenção do Banco -->
+        <li class="nav-item">
+            <a class="nav-link fw-bold text-danger {% if request.endpoint == 'manutencao_banco' %}border-bottom border-2 border-danger{% endif %}" href="{{ url_for('manutencao_banco') }}">
+                {{ t('manutencao_db') }}
+            </a>
+        </li>
+        
+    {% endif %}
+        
+      </ul>
+      
+      <!-- Lado Direito: Seletor de Idioma, Seletor de Tema, Identificação do Usuário e Logout -->
+      <div class="d-flex align-items-center gap-2">
+          {% if current_user.is_authenticated %}
+          
+          <!-- SINO DE NOTIFICAÇÕES -->
+                        <li class="nav-item dropdown position-relative list-unstyled mx-2">
+                            <a class="nav-link text-dark dropdown-toggle" href="#" id="navbarDropdownSino" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                🔔
+                                {% if novas_mensagens_count and novas_mensagens_count > 0 %}
+                                <span class="position-absolute top-25 start-75 translate-middle p-1 bg-danger border border-light rounded-circle">
+                                    <span class="visually-hidden">{{ t('nav_sino_novas_mensagens') }}</span>
+                                </span>
+                                {% endif %}
+                            </a>
+                            <ul class="dropdown-menu dropdown-menu-end shadow" aria-labelledby="navbarDropdownSino">
+                                <li><h6 class="dropdown-header">{{ t('nav_sino_titulo') }}</h6></li>
+                                {% if notificacoes_qa %}
+                                    {% for n in notificacoes_qa %}
+                                    <li>
+                                        <a class="dropdown-item small border-bottom py-2" href="{{ n.link }}">
+                                            {{ n.texto }}<br>
+                                            <span class="text-muted" style="font-size: 0.75rem;">
+                                                {{ n.data.strftime('%d/%m/%Y - %H:%M') if n.data else '' }}
+                                            </span>
+                                        </a>
+                                    </li>
+                                    {% endfor %}
+                                {% else %}
+                                    <li><span class="dropdown-item text-muted small">{{ t('nav_sino_vazio') }}</span></li>
+                                {% endif %}
+                            </ul>
+                        </li>
+
+          <!-- SELETOR DE IDIOMA NA NAVBAR -->
+          <div class="dropdown">
+              <button class="btn btn-outline-secondary dropdown-toggle btn-sm fw-bold" type="button" data-bs-toggle="dropdown">
+                  🌐 {{ t('idioma') }}: 
+                  {% if current_user.idioma == 'en' %}English
+                  {% elif current_user.idioma == 'es' %}Español
+                  {% else %}Português{% endif %}
+              </button>
+              <ul class="dropdown-menu dropdown-menu-end shadow">
+                  <li><a class="dropdown-item" href="{{ url_for('alterar_idioma', sigla_idioma='pt') }}">🇧🇷 Português (Brasil)</a></li>
+                  <li><a class="dropdown-item" href="{{ url_for('alterar_idioma', sigla_idioma='en') }}">🇺🇸 English</a></li>
+                  <li><a class="dropdown-item" href="{{ url_for('alterar_idioma', sigla_idioma='es') }}">🇪🇸 Español</a></li>
+              </ul>
+          </div>
+
+          <!-- SELETOR DE TEMAS ÚNICO NA NAVBAR -->
+          <div class="dropdown">
+              <button class="btn btn-outline-secondary dropdown-toggle btn-sm fw-bold" type="button" data-bs-toggle="dropdown">
+                  🎨 {{ t('tema') }}: 
+                  {% if current_user.tema == 'escuro' %}{{ t('tema_escuro') }}
+                  {% elif current_user.tema == 'futurista' %}{{ t('tema_futurista') }}
+                  {% elif current_user.tema == 'vintage' %}{{ t('tema_vintage') }}
+                  {% else %}{{ t('tema_claro') }}{% endif %}
+              </button>
+              <ul class="dropdown-menu dropdown-menu-end shadow">
+                  <li><a class="dropdown-item" href="{{ url_for('alterar_tema', nome_tema='claro') }}">☀️ {{ t('tema_claro') }}</a></li>
+                  <li><a class="dropdown-item" href="{{ url_for('alterar_tema', nome_tema='escuro') }}">🌙 {{ t('tema_escuro') }}</a></li>
+                  <li><a class="dropdown-item" href="{{ url_for('alterar_tema', nome_tema='futurista') }}">🚀 {{ t('tema_futurista') }}</a></li>
+                  <li><a class="dropdown-item" href="{{ url_for('alterar_tema', nome_tema='vintage') }}">📜 {{ t('tema_vintage') }}</a></li>
+              </ul>
+          </div>
+
+          <!-- IDENTIFICAÇÃO DO USUÁRIO -->
+          <span class="small d-none d-lg-inline ms-2">
+              {{ t('conectado') }}: <strong>{{ current_user.nome }}</strong>
+          </span>
+
+          <!-- BOTÃO DE TOUR DA PÁGINA -->
+            <button type="button" class="btn btn-outline-secondary btn-sm fw-bold ms-2" onclick="iniciarTourDaPagina()" title="Fazer um tour por esta tela">
+                🧭 Tour
+            </button>
+
+          <!-- BOTÃO SAIR / LOGOUT -->
+          <a href="{{ url_for('logout') }}" class="btn btn-outline-danger btn-sm fw-bold px-3 ms-2">{{ t('sair') }}</a>
+          {% endif %}
+      </div>
+    </div>
+  </div>
+</nav>
+
+<!-- ESPAÇO ONDE AS OUTRAS TELAS SERÃO INJETADAS -->
+<div class="container">
+    {% block content %}
+    {% endblock %}
+</div>
+
+<style>
+    /* ========================================================= */
+    /* HARMONIZAÇÃO DE MODAIS PARA TEMAS ESCUROS                 */
+    /* ========================================================= */
+    
+    /* Define as cores de fundo para Escuro e Futurista */
+    [data-theme="escuro"] .modal-content {
+        background-color: #212529 !important;
+        color: #f8f9fa !important;
+        border: 1px solid #495057 !important;
+    }
+    [data-theme="futurista"] .modal-content {
+        background-color: #0f172a !important; /* Azul neon escuro */
+        color: #f8fafc !important;
+        border: 1px solid #1e293b !important;
+    }
+    
+    /* Remove os fundos brancos (bg-white) e cinzas (bg-light) travados no HTML */
+    [data-theme="escuro"] .modal-content .modal-body,
+    [data-theme="escuro"] .modal-content .modal-footer,
+    [data-theme="escuro"] .modal-content .bg-white,
+    [data-theme="escuro"] .modal-content .bg-light,
+    [data-theme="futurista"] .modal-content .modal-body,
+    [data-theme="futurista"] .modal-content .modal-footer,
+    [data-theme="futurista"] .modal-content .bg-white,
+    [data-theme="futurista"] .modal-content .bg-light {
+        background-color: transparent !important;
+    }
+    
+        /* Garante que os rótulos de texto (labels) fiquem claros e legíveis */
+    [data-theme="escuro"] .modal-content label,
+    [data-theme="escuro"] .modal-content p,
+    [data-theme="futurista"] .modal-content label,
+    [data-theme="futurista"] .modal-content p {
+        color: #e9ecef !important;
+    }
+</style>
+
+<style>
+/* Inverte a cor do ícone de calendário nativo (de preto para branco) */
+    [data-theme="escuro"] input[type="date"]::-webkit-calendar-picker-indicator,
+    [data-theme="futurista"] input[type="date"]::-webkit-calendar-picker-indicator {
+        filter: invert(1);
+        cursor: pointer;
+    }
+</style>
+
+<style>
+/* Harmonização de textos em painéis (cards) para temas escuros */
+    [data-theme="escuro"] .card .text-dark,
+    [data-theme="escuro"] .card h4,
+    [data-theme="escuro"] .card h5,
+    [data-theme="escuro"] .card h6,
+    [data-theme="futurista"] .card .text-dark,
+    [data-theme="futurista"] .card h4,
+    [data-theme="futurista"] .card h5,
+    [data-theme="futurista"] .card h6 {
+        color: #ffffff !important;
+    }
+
+    /* Clareia os textos descritivos menores para facilitar a leitura */
+    [data-theme="escuro"] .card .text-muted,
+    [data-theme="futurista"] .card .text-muted {
+        color: #adb5bd !important;
+    }
+</style>
+
+<style>
+/* Inverte a cor do ícone de relógio no campo de hora (de preto para branco) */
+    [data-theme="escuro"] input[type="time"]::-webkit-calendar-picker-indicator,
+    [data-theme="futurista"] input[type="time"]::-webkit-calendar-picker-indicator {
+        filter: invert(1);
+        cursor: pointer;
+    }
+
+    /* Desenha a setinha de dropdown (select) na cor branca para temas escuros */
+    [data-theme="escuro"] .form-select,
+    [data-theme="futurista"] .form-select {
+        background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%23ffffff' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M2 5l6 6 6-6'/%3e%3c/svg%3e") !important;
+    }
+
+</style>
+
+
+<!-- Bootstrap JS -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+<script>
+    // Se a página atual ainda não tiver um tour configurado, mostra um aviso amigável
+    if (typeof iniciarTourDaPagina !== 'function') {
+        window.iniciarTourDaPagina = function() {
+            alert("O tour interativo para esta página está sendo construído!");
+        }
+    }
+</script>
+
+</body>
+</html>

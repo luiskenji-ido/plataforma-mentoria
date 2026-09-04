@@ -1,0 +1,240 @@
+{% extends "base.html" %}
+
+{% block title %}{{ t('sessoes_historico') }} - Mentoria{% endblock %}
+
+{% block content %}
+    <!-- Área de Alertas -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for category, message in messages %}
+          <div class="alert alert-{{ category }} alert-dismissible fade show">
+            {{ message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+          </div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 class="text-primary fw-bold">{{ t('sessoes_historico') }}</h2>
+        
+        {% if current_user.tipo_usuario != 'Aluno' %}
+        <button class="btn btn-primary fw-bold" data-bs-toggle="modal" data-bs-target="#modalAgendar">
+            {{ t('agendar_sessao') }}
+        </button>
+        {% endif %}
+    </div>
+
+    <!-- Tabela de Sessões -->
+    <div class="card shadow-sm border-0 mb-5">
+        <div class="card-body p-0">
+            <table class="table table-hover mb-0 text-center align-middle">
+                <thead class="table-light">
+                    <tr>
+                        <th>{{ t('col_data_hora') }}</th>
+                        <th>{{ t('col_mentor') }}</th>
+                        <th>{{ t('col_aluno') }}</th>
+                        <th>{{ t('col_observacoes') }}</th>
+                        <th>{{ t('col_acoes_feedback') }}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in sessoes %}
+                    <tr>
+                        <td class="fw-bold text-primary">{{ item.sessao.data_sessao.strftime('%d/%m/%Y às %H:%M') }}</td>
+                        <td>{{ item.mentor.nome }}</td>
+                        <td>{{ item.aluno.nome }}</td>
+                        <td class="text-muted small text-start">{{ item.sessao.observacoes }}</td>
+                        <td>
+                            <button class="btn btn-sm btn-outline-success fw-bold position-relative" data-bs-toggle="modal" data-bs-target="#modalFeedback{{ item.sessao.id }}">
+                                💬 {{ t('feedbacks') }} 
+                                <span class="badge bg-success rounded-pill">{{ item.feedbacks|length }}</span>
+                            </button>
+                        </td>
+                    </tr>
+
+                    <!-- ==========================================
+                         MODAL DE HISTÓRICO E ENVIO DE FEEDBACK 
+                         ========================================== -->
+                    <div class="modal fade text-start" id="modalFeedback{{ item.sessao.id }}" tabindex="-1">
+                        <!-- ADICIONADA A CLASSE modal-dialog-scrollable PARA ROLAGEM ISOLADA -->
+                        <div class="modal-dialog modal-lg modal-dialog-scrollable">
+                            <div class="modal-content">
+                                
+                                <div class="modal-header bg-success text-white">
+                                    <h5 class="modal-title">{{ t('historico_feedback_titulo') }} - {{ item.sessao.data_sessao.strftime('%d/%m/%Y') }}</h5>
+                                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                                </div>
+                                
+                                <!-- FORMULÁRIO ENGOLINDO CORPO E RODAPÉ (com display contents) -->
+                                <form method="POST" style="display: contents;">
+                                    <input type="hidden" name="acao" value="enviar_feedback">
+                                    <input type="hidden" name="sessao_id" value="{{ item.sessao.id }}">
+
+                                    <!-- CORPO DO MODAL (Com barra de rolagem fixada no meio) -->
+                                    <div class="modal-body" style="max-height: 65vh; overflow-y: auto;">
+                                        <div class="mb-4">
+                                            <h6 class="text-muted fw-bold mb-3">{{ t('historico_interacoes') }}</h6>
+                                            
+                                            {% if item.feedbacks %}
+                                                <div class="list-group">
+                                                    {% for f in item.feedbacks %}
+                                                    <div class="list-group-item list-group-item-action flex-column align-items-start mb-2 rounded border 
+                                                        {% if f.fb.visibilidade == 'Interno' %}border-warning bg-light{% endif %}">
+                                                        <div class="d-flex w-100 justify-content-between">
+                                                            <h5 class="mb-1 text-primary fs-6 fw-bold">
+                                                                {{ f.autor.nome }} 
+                                                                <span class="badge {% if f.fb.papel_autor == 'Mentor' %}bg-primary{% else %}bg-secondary{% endif %} ms-2">
+                                                                    {% if f.fb.papel_autor == 'Mentor' %}
+                                                                        {{ t('nivel_mentor') }}
+                                                                    {% else %}
+                                                                        {{ t('nivel_aluno') }}
+                                                                    {% endif %}
+                                                                </span>
+                                                                
+                                                                {% if f.fb.visibilidade == 'Interno' %}
+                                                                    <span class="badge bg-warning text-dark ms-1">{{ t('tag_nota_interna') }}</span>
+                                                                {% else %}
+                                                                    <span class="badge bg-success ms-1">{{ t('tag_publico_mentorado') }}</span>
+                                                                {% endif %}
+                                                            </h5>
+                                                            <small class="text-muted">{{ f.fb.data_envio.strftime('%d/%m/%Y %H:%M') }}</small>
+                                                        </div>
+                                                        <p class="mb-1 mt-2 text-dark">{{ f.fb.comentario }}</p>
+                                                    </div>
+                                                    {% endfor %}
+                                                </div>
+                                            {% else %}
+                                                <div class="alert alert-warning text-small py-2">{{ t('nenhum_feedback') }}</div>
+                                            {% endif %}
+                                        </div>
+
+                                        <hr>
+
+                                        <!-- ÁREA DE DIGITAÇÃO DE NOVO FEEDBACK -->
+                                        {% if current_user.tipo_usuario != 'Aluno' %}
+                                        <div class="mb-3">
+                                            <label class="form-label fw-bold text-muted">{{ t('visibilidade_feedback') }}</label>
+                                            <select name="visibilidade" class="form-select">
+                                                <option value="publico">{{ t('opcao_publico') }}</option>
+                                                <option value="privado">{{ t('opcao_privado') }}</option>
+                                            </select>
+                                        </div>
+                                        {% endif %}
+
+                                        <div class="mb-3">
+                                            <label class="form-label fw-bold text-success">{{ t('escrever_comentario_avaliacao') }}</label>
+                                            <textarea name="comentario" class="form-control" rows="3" placeholder="{{ t('placeholder_feedback') }}" required></textarea>
+                                        </div>
+                                    </div>
+
+                                    <!-- RODAPÉ DO MODAL (Fixo na parte inferior) -->
+                                    <div class="modal-footer bg-light">
+                                        <button type="button" class="btn btn-secondary fw-bold" data-bs-dismiss="modal">{{ t('cancelar') }}</button>
+                                        <button type="submit" class="btn btn-success fw-bold">{{ t('enviar_feedback') }}</button>
+                                    </div>
+
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                    {% else %}
+                    <tr>
+                        <td colspan="5" class="text-muted py-4">{{ t('nenhuma_sessao_encontrada') }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- MODAL DE AGENDAMENTO -->
+    {% if current_user.tipo_usuario != 'Aluno' %}
+    <div class="modal fade" id="modalAgendar" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title">{{ t('nova_sessao_mentoria') }}</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <form method="POST">
+                    <input type="hidden" name="acao" value="agendar">
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label class="form-label">{{ t('selecionar_aluno') }}</label>
+                            <select name="aluno_id" class="form-select" required>
+                                <option value="">{{ t('escolha_um_aluno') }}</option>
+                                {% for aluno in alunos %}
+                                    <option value="{{ aluno.id }}">{{ aluno.nome }} ({{ aluno.email }})</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">{{ t('data_e_hora') }}</label>
+                            <input type="datetime-local" name="data_sessao" class="form-control" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">{{ t('pauta_observacoes') }}</label>
+                            <textarea name="observacoes" class="form-control" rows="3" placeholder="{{ t('placeholder_pauta') }}"></textarea>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="submit" class="btn btn-primary w-100 fw-bold">{{ t('agendar_sessao') }}</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+<!-- ==========================================
+         SCRIPT PARA ABRIR O MODAL AUTOMATICAMENTE PELO SINO
+         ========================================== -->
+    <script>
+        document.addEventListener("DOMContentLoaded", function() {
+            const params = new URLSearchParams(window.location.search);
+            const idModal = params.get('abrir_modal');
+            
+            if (idModal) {
+                const modalElement = document.getElementById('modalFeedback' + idModal);
+                if (modalElement) {
+                    const modalInstancia = new bootstrap.Modal(modalElement);
+                    modalInstancia.show();
+                }
+            }
+        });
+    </script>
+
+<script>
+function iniciarTourDaPagina() {
+    let passos = [
+        { intro: "{{ t('tour_ses_intro') | safe }}" }
+    ];
+
+    // Busca pelas palavras nos 3 idiomas (Agendar, Schedule, Programar)
+    let btnAgendar = Array.from(document.querySelectorAll('a, button')).find(el => el.textContent.includes('Agendar') || el.textContent.includes('Schedule') || el.textContent.includes('Programar'));
+    if (btnAgendar) passos.push({ element: btnAgendar, intro: "{{ t('tour_ses_agendar') | safe }}" });
+
+    let tabelaSes = document.querySelector('.table');
+    if (tabelaSes) passos.push({ element: tabelaSes, intro: "{{ t('tour_ses_tabela') | safe }}" });
+
+    introJs().setOptions({
+        steps: passos, 
+        nextLabel: "{{ t('tour_btn_proximo') }}", 
+        prevLabel: "{{ t('tour_btn_anterior') }}", 
+        doneLabel: "{{ t('tour_btn_acompanhamento') }}", 
+        showProgress: true, 
+        showBullets: false
+    }).oncomplete(function() {
+        if(window.location.search.includes('tour_continuo=1')) {
+            window.location.href = "{{ url_for('acompanhamento') }}?tour_continuo=1";
+        }
+    }).start();
+}
+document.addEventListener("DOMContentLoaded", function() {
+    if(window.location.search.includes('tour_continuo=1')) setTimeout(iniciarTourDaPagina, 500);
+});
+</script>
+
+
+{% endblock %}

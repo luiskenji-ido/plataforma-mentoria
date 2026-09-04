@@ -1,0 +1,237 @@
+{% extends "base.html" %}
+{% block title %}{{ t('manutencao_titulo') }}{% endblock %}
+{% block content %}
+
+<!-- Área de Alertas -->
+{% with messages = get_flashed_messages(with_categories=true) %}
+  {% if messages %}
+    {% for category, message in messages %}
+      <div class="alert alert-{{ category }} alert-dismissible fade show">{{ message }}<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>
+    {% endfor %}
+  {% endif %}
+{% endwith %}
+
+<h2 class="mb-4 text-primary fw-bold">{{ t('manutencao_titulo') }}</h2>
+<p class="text-muted mb-4">{{ t('manutencao_subtitulo') }}</p>
+
+<!-- 1. BACKUP IMEDIATO -->
+<div class="card shadow-sm border-0 mb-4 border-start border-primary border-4">
+    <div class="card-body d-flex justify-content-between align-items-center">
+        <div>
+            <h5 class="fw-bold text-dark mb-1">{{ t('backup_imediato_titulo') }}</h5>
+            <p class="text-muted small mb-0">{{ t('backup_imediato_desc') }}</p>
+        </div>
+        <form method="POST" class="m-0">
+            <input type="hidden" name="acao" value="backup">
+            <button type="submit" class="btn btn-primary fw-bold px-4">
+                {{ t('btn_baixar_backup') }}
+            </button>
+        </form>
+    </div>
+</div>
+
+<!-- 2. BACKUP AGENDADO -->
+<div class="card shadow-sm border-0 mb-4 border-start border-info border-4">
+    <div class="card-body">
+        <h5 class="fw-bold text-dark mb-1">{{ t('backup_agendado_titulo') }}</h5>
+        <p class="text-muted small mb-3">{{ t('backup_agendado_desc') }}</p>
+        
+        <form method="POST" class="row align-items-end">
+            <input type="hidden" name="acao" value="agendar">
+            
+            <div class="col-md-2 mb-2">
+                <label class="form-label small text-muted fw-bold">{{ t('frequencia') }}</label>
+                <select class="form-select" name="frequencia">
+                    <option value="diario">{{ t('freq_diario') }}</option>
+                    <option value="semanal">{{ t('freq_semanal') }}</option>
+                    <option value="mensal">{{ t('freq_mensal') }}</option>
+                </select>
+            </div>
+
+            <!-- NOVO CAMPO: Calendário (Data de Início) -->
+            <div class="col-md-3 mb-2">
+                <label class="form-label small text-muted fw-bold">Data de Início</label>
+                <input type="date" name="data_inicio" class="form-control" required>
+            </div>
+            
+            <div class="col-md-2 mb-2">
+                <label class="form-label small text-muted fw-bold">{{ t('horario_execucao') }}</label>
+                <input type="time" class="form-control" name="horario" value="03:00" required>
+            </div>
+
+            <div class="col-md-3 mb-2">
+                <label class="form-label small text-muted fw-bold">{{ t('destino_interno') }}</label>
+                <input type="text" name="destino_interno" class="form-control" placeholder="Padrão: Backup_repository">
+            </div>
+            
+            <div class="col-md-2 mb-2">
+                <button type="submit" class="btn btn-info text-white fw-bold w-100">{{ t('btn_salvar_rotina') }}</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- 3. RESTAURAR BANCO -->
+<div class="card shadow-sm border-0 border-start border-danger border-4">
+    <div class="card-body">
+        <h5 class="fw-bold text-danger mb-1">{{ t('restaurar_titulo') }}</h5>
+        <p class="text-muted small mb-3">{{ t('restaurar_desc') }}</p>
+        
+        <form method="POST" enctype="multipart/form-data" class="d-flex gap-3 align-items-center">
+            <input type="hidden" name="acao" value="restaurar">
+            <div class="d-flex align-items-center w-50 border rounded bg-white px-2 py-1">
+            <input type="file" id="uploadDb" name="arquivo_db" accept=".db" required class="d-none" onchange="document.getElementById('nomeArquivo').innerText = this.files[0] ? this.files[0].name : `{{ t('nenhum_arquivo') }}`">
+            <label for="uploadDb" class="btn btn-sm btn-secondary mb-0 me-2 cursor-pointer">{{ t('btn_escolher_arquivo') }}</label>
+            <span id="nomeArquivo" class="text-muted small text-truncate" style="max-width: 60%;">{{ t('nenhum_arquivo') }}</span>
+            </div>
+
+            <button type="submit" class="btn btn-danger fw-bold px-4" onclick="return confirm(`{{ t('alerta_restaurar') }}`);">
+                {{ t('btn_restaurar') }}
+            </button>
+        </form>
+    </div>
+</div>
+
+<!-- 4. LIMPAR BANCO DE DADOS (ZONA DE PERIGO) -->
+<div class="card shadow-sm border-0 border-start border-danger border-4 mt-5 mb-4" style="background-color: #fff5f5;">
+    <div class="card-body">
+        <h5 class="fw-bold text-danger mb-1">{{ t('zona_perigo_titulo') }}</h5>
+        <p class="text-danger small mb-3">
+            {{ t('zona_perigo_desc') }}
+        </p>
+        
+        <form method="POST" class="m-0 text-end">
+            <input type="hidden" name="acao" value="limpar">
+            <button type="submit" class="btn btn-outline-danger fw-bold px-4" 
+                    onclick="return confirm(`{{ t('alerta_limpar') }}`);">
+                {{ t('btn_apagar_tudo') }}
+            </button>
+        </form>
+    </div>
+</div>
+
+<!-- 5. RELATÓRIO DE AUDITORIA E HISTÓRICO DE BACKUPS -->
+<div class="card shadow-sm border-0 border-start border-secondary border-4 mt-5 mb-4">
+    <div class="card-body">
+        <h5 class="fw-bold text-dark mb-3">{{ t('historico_auditoria_titulo') }}</h5>
+        
+        <!-- Formulário de Filtro de Datas e Botão de Apagar -->
+                <div class="d-flex justify-content-between align-items-end mb-4">
+                    
+                    <!-- Lado Esquerdo: Filtros -->
+                    <form method="GET" class="row align-items-end m-0">
+                        <div class="col-auto">
+                            <label class="form-label small text-muted">{{ t('data_inicial_filtro') }}</label>
+                            <input type="date" name="data_inicio" class="form-control" value="{{ data_inicio or '' }}">
+                        </div>
+                        <div class="col-auto">
+                            <label class="form-label small text-muted">{{ t('data_final_filtro') }}</label>
+                            <input type="date" name="data_fim" class="form-control" value="{{ data_fim or '' }}">
+                        </div>
+                        <div class="col-auto d-flex gap-2">
+                            <button type="submit" class="btn btn-secondary px-4">{{ t('btn_filtrar') }}</button>
+                            <a href="{{ url_for('manutencao_banco') }}" class="btn btn-outline-secondary px-4">{{ t('btn_limpar_filtro') }}</a>
+                        </div>
+                    </form>
+
+                    <!-- Lado Direito: Botão Vermelho -->
+                    {% if current_user.tipo_usuario == 'Administrador' %}
+                    <form method="POST" action="{{ url_for('manutencao_banco') }}" onsubmit="return confirm('⚠️ ZONA DE PERIGO: Tem certeza que deseja apagar permanentemente todo o histórico de auditoria? Esta ação irá gerar um log no servidor.');" class="m-0">
+                        <input type="hidden" name="acao" value="limpar_auditoria">
+                        <button type="submit" class="btn btn-outline-danger fw-bold shadow-sm">
+                            🗑️ Apagar Todo o Histórico
+                        </button>
+                    </form>
+                    {% endif %}
+                    
+                </div>
+
+        <div class="table-responsive">
+            <table class="table table-hover align-middle small text-center">
+                <thead class="table-light">
+                    <tr>
+                        <th>{{ t('col_data_registro') }}</th>
+                        <th>{{ t('col_tipo') }}</th>
+                        <th>{{ t('col_data_hora_alvo') }}</th>
+                        <th>{{ t('col_status') }}</th>
+                        <th>{{ t('col_usuario_autor') }}</th>
+                        <th>{{ t('col_destino_detalhes') }}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for log in logs_backup %}
+                    <tr>
+                        <td class="text-muted">{{ log.data_registro.strftime('%d/%m/%Y %H:%M') }}</td>
+                        <td class="fw-bold">{{ t('tipo_imediato') if log.tipo == 'Imediato' else t('tipo_agendado') }}</td>
+                        <td>{{ log.data_agendada or '--' }}</td>
+                        <td>
+                            {% if log.status == 'Sucesso' %}
+                                <span class="badge bg-success">{{ t('status_sucesso') }}</span>
+                            {% elif log.status == 'Falha' %}
+                                <span class="badge bg-danger">{{ t('status_falha') }}</span>
+                            {% else %}
+                                <span class="badge bg-warning text-dark">{{ t('status_pendente') }}</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ log.autor.nome if log.autor else 'Sistema' }}</td>
+                        <td class="text-start">
+                            <strong>{{ log.destino }}</strong><br>
+                            <span class="text-muted">{{ log.detalhes }}</span>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="6" class="text-muted py-3">{{ t('nenhum_registro_backup') }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script>
+function iniciarTourDaPagina() {
+    let passos = [
+        { intro: "{{ t('tour_man_intro') | safe }}" }
+    ];
+
+    let cartoes = document.querySelectorAll('.card');
+    if (cartoes.length > 0) passos.push({ element: cartoes[0], intro: "{{ t('tour_man_func1') | safe }}" });
+    if (cartoes.length > 1) passos.push({ element: cartoes[1], intro: "{{ t('tour_man_func2') | safe }}" });
+    if (cartoes.length > 2) passos.push({ element: cartoes[2], intro: "{{ t('tour_man_func3') | safe }}" });
+    if (cartoes.length > 3) passos.push({ element: cartoes[3], intro: "{{ t('tour_man_func4') | safe }}" });
+
+    let filtroDatas = document.querySelector('form[method="GET"]');
+    if (filtroDatas) passos.push({ element: filtroDatas, intro: "{{ t('tour_man_filtro') | safe }}" });
+
+    // Busca pelas palavras do histórico nos 3 idiomas (Histórico, History, Historial)
+    let botoes = Array.from(document.querySelectorAll('a, button'));
+    let btnApagar = botoes.find(el => el.textContent.includes('Histórico') || el.textContent.includes('History') || el.textContent.includes('Historial'));
+    if (btnApagar) passos.push({ element: btnApagar, intro: "{{ t('tour_man_apagar') | safe }}" });
+
+    let tabelaAudit = document.querySelector('.table');
+    if (tabelaAudit) passos.push({ element: tabelaAudit, intro: "{{ t('tour_man_auditoria') | safe }}" });
+
+    introJs().setOptions({
+        steps: passos, 
+        nextLabel: "{{ t('tour_btn_proximo') }}", 
+        prevLabel: "{{ t('tour_btn_anterior') }}", 
+        doneLabel: "{{ t('tour_btn_voltar') }}",
+        showProgress: true, 
+        showBullets: false
+    }).oncomplete(function() {
+        if(window.location.search.includes('tour_continuo=1')) {
+            window.location.href = "{{ url_for('dashboard') }}";
+        }
+    }).start();
+}
+
+document.addEventListener("DOMContentLoaded", function() {
+    if(window.location.search.includes('tour_continuo=1')) {
+        setTimeout(iniciarTourDaPagina, 500);
+    }
+});
+</script>
+
+{% endblock %}

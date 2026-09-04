@@ -1,0 +1,113 @@
+{% extends "base.html" %}
+{% block title %}{{ t('solicitacoes_mentoria') }}{% endblock %}
+{% block content %}
+
+<!-- Área de Alertas -->
+{% with messages = get_flashed_messages(with_categories=true) %}
+  {% if messages %}
+    {% for category, message in messages %}
+      <div class="alert alert-{{ category }} alert-dismissible fade show">{{ message }}<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>
+    {% endfor %}
+  {% endif %}
+{% endwith %}
+
+<h2 class="mb-4 text-primary fw-bold">{{ t('solicitacoes_mentoria') }}</h2>
+
+<!-- PAINEL DE FILTRO DE DATAS -->
+<div class="card shadow-sm border-0 mb-4">
+    <div class="card-body bg-light rounded p-3">
+        <form method="GET" action="{{ url_for('gerenciar_solicitacoes') }}" class="row align-items-end">
+            <div class="col-md-3 mb-2 mb-md-0">
+                <label class="form-label text-muted small fw-bold mb-1">{{ t('data_inicial') }}</label>
+                <input type="date" name="data_inicio" class="form-control form-control-sm" value="{{ data_inicio or '' }}">
+            </div>
+            <div class="col-md-3 mb-2 mb-md-0">
+                <label class="form-label text-muted small fw-bold mb-1">{{ t('data_final') }}</label>
+                <input type="date" name="data_fim" class="form-control form-control-sm" value="{{ data_fim or '' }}">
+            </div>
+            <div class="col-md-4">
+                <button type="submit" class="btn btn-sm btn-primary fw-bold me-2">{{ t('filtrar') }}</button>
+                <a href="{{ url_for('gerenciar_solicitacoes') }}" class="btn btn-sm btn-secondary">{{ t('limpar_filtro') }}</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- TABELA DE RESULTADOS -->
+<div class="table-responsive bg-white rounded shadow-sm border mb-5">
+    <table class="table table-hover align-middle mb-0 text-center small">
+        <thead class="table-light text-muted">
+            <tr>
+                <th>Data</th>
+                <th>{{ t('nome') }}</th>
+                <th>{{ t('email') }}</th>
+                <th class="w-25">{{ t('motivo') }}</th>
+                <th>Status</th>
+                <th>Ações</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for s in solicitacoes %}
+            <tr>
+                <td class="text-muted">{{ s.data_solicitacao.strftime('%d/%m/%Y') }}</td>
+                <td class="fw-bold">{{ s.nome }}</td>
+                <td>{{ s.email }}</td>
+                <td class="text-start text-muted" style="max-width: 250px; white-space: normal;">{{ s.motivo }}</td>
+                <td>
+                    {% if s.status == 'Pendente' %}
+                        <span class="badge bg-warning text-dark">{{ t('status_pendente') }}</span>
+                    {% elif s.status == 'Aprovado' %}
+                        <span class="badge bg-success">{{ t('status_aprovado') }}</span>
+                    {% else %}
+                        <span class="badge bg-danger">{{ t('status_negado') }}</span>
+                    {% endif %}
+                </td>
+                <td>
+                    {% if s.status == 'Pendente' %}
+                        <a href="{{ url_for('acao_solicitacao', id=s.id, acao='aprovar') }}" class="btn btn-sm btn-outline-success fw-bold me-1" title="Aprovar e Cadastrar">✔️</a>
+                        <a href="{{ url_for('acao_solicitacao', id=s.id, acao='negar') }}" class="btn btn-sm btn-outline-danger fw-bold" title="Negar Pedido" onclick="return confirm('Deseja realmente negar esta solicitação?');">❌</a>
+                    {% else %}
+                        <span class="text-muted small">{{ t('finalizado') }}</span>
+                    {% endif %}
+                </td>
+            </tr>
+            {% else %}
+            <tr><td colspan="6" class="text-muted py-4">{{ t('nenhuma_solicitacao_filtro') }}</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<script>
+function iniciarTourDaPagina() {
+    let passos = [
+        { intro: "{{ t('tour_sol_intro') | safe }}" }
+    ];
+
+    let tabelaSol = document.querySelector('.table') || document.querySelector('table');
+    if (tabelaSol) {
+        passos.push({ element: tabelaSol, intro: "{{ t('tour_sol_tabela') | safe }}" });
+    }
+
+    introJs().setOptions({
+        steps: passos, 
+        nextLabel: "{{ t('tour_btn_proximo') }}", 
+        prevLabel: "{{ t('tour_btn_anterior') }}", 
+        doneLabel: "{{ t('tour_btn_manutencao') }}", 
+        showProgress: true, 
+        showBullets: false
+    }).oncomplete(function() {
+        if(window.location.search.includes('tour_continuo=1')) {
+            window.location.href = "{{ url_for('manutencao_banco') }}?tour_continuo=1";
+        }
+    }).start();
+}
+
+document.addEventListener("DOMContentLoaded", function() {
+    if(window.location.search.includes('tour_continuo=1')) {
+        setTimeout(iniciarTourDaPagina, 500);
+    }
+});
+</script>
+
+{% endblock %}

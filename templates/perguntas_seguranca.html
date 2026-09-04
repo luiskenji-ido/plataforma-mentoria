@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <title>Recuperação de Senha</title>
+    <!-- Importa o estilo visual padrão do sistema -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body class="bg-light d-flex align-items-center justify-content-center" style="height: 100vh;">
+    
+    <div class="container" style="max-width: 500px;">
+        <!-- Área para exibir alertas de erro caso o usuário erre -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+            {% for category, message in messages %}
+              <div class="alert alert-{{ category }}">{{ message }}</div>
+            {% endfor %}
+          {% endif %}
+        {% endwith %}
+
+        <div class="card shadow-sm border-0">
+            <div class="card-header bg-primary text-white fw-bold text-center">Validação de Identidade</div>
+            <div class="card-body p-4">
+                <p class="text-muted small text-center mb-4">Responda corretamente a pelo menos <b>2 das 3</b> perguntas abaixo para criar uma nova senha.</p>
+                
+                <!-- Formulário que envia as respostas de volta para o Python validar -->
+                <form method="POST" action="{{ url_for('recuperar_senha') }}">
+                    <!-- Mantém o e-mail escondido para o sistema não esquecer quem está recuperando -->
+                    <input type="hidden" name="email_recuperacao" value="{{ email }}">
+                    
+                    <div class="mb-3">
+                        <label class="form-label text-muted fw-bold">{{ p1 }}</label>
+                        <input type="text" name="resposta_1" class="form-control" required>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label text-muted fw-bold">{{ p2 }}</label>
+                        <input type="text" name="resposta_2" class="form-control" required>
+                    </div>
+                    
+                    <div class="mb-4">
+                        <label class="form-label text-muted fw-bold">{{ p3 }}</label>
+                        <input type="text" name="resposta_3" class="form-control" required>
+                    </div>
+                    
+                    <button type="submit" class="btn btn-primary w-100 fw-bold">Validar Respostas</button>
+                    <a href="{{ url_for('login') }}" class="btn btn-link w-100 mt-2 text-muted">Cancelar e voltar</a>
+                </form>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

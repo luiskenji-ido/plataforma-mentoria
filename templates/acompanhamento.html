@@ -1,0 +1,888 @@
+{% extends "base.html" %}
+
+{% block title %}{{ t('acompanhamento_estudos') }} - Mentoria{% endblock %}
+
+{% block content %}
+    <!-- CORREÇÕES VISUAIS E HARMONIA DE CORES -->
+    <style>
+        /* ==========================================
+           CORREÇÃO DO BOTÃO PRINCIPAL (TEMA CLARO)
+           ========================================== */
+        html[data-theme="claro"] .btn-primary,
+        html:not([data-theme="escuro"]):not([data-theme="futurista"]):not([data-theme="vintage"]) .btn-primary {
+            background-color: #0d6efd !important;
+            border-color: #0d6efd !important;
+            color: #ffffff !important;
+            opacity: 1 !important;
+        }
+        html[data-theme="claro"] .btn-primary:hover,
+        html:not([data-theme="escuro"]):not([data-theme="futurista"]):not([data-theme="vintage"]) .btn-primary:hover {
+            background-color: #0b5ed7 !important;
+            border-color: #0a58ca !important;
+        }
+
+        /* Correção do fundo transparente no Modal do Tema Claro */
+        body:not(.theme-escuro):not(.theme-futurista):not(.theme-vintage) .modal-content,
+        body.theme-claro .modal-content,
+        body:not([class*="escuro"]):not([class*="futurista"]):not([class*="vintage"]) .modal-content {
+            background-color: #ffffff !important;
+            color: #212529 !important;
+        }
+
+        body:not(.theme-escuro):not(.theme-futurista):not(.theme-vintage) .modal-body,
+        body.theme-claro .modal-body,
+        body:not([class*="escuro"]):not([class*="futurista"]):not([class*="vintage"]) .modal-body {
+            background-color: #ffffff !important;
+            color: #212529 !important;
+        }
+
+        body:not(.theme-escuro):not(.theme-futurista):not(.theme-vintage) .modal-footer,
+        body.theme-claro .modal-footer,
+        body:not([class*="escuro"]):not([class*="futurista"]):not([class*="vintage"]) .modal-footer {
+            background-color: #f8f9fa !important;
+        }
+
+        /* ==========================================
+           HARMONIZAÇÃO DO BOTÃO "ACESSAR CURSO"
+           ========================================== */
+        .btn-acessar-curso {
+            background-color: #ffffff !important;
+            color: #495057 !important;
+            border: 1px solid #ced4da !important;
+            transition: all 0.3s ease;
+        }
+        .btn-acessar-curso:hover {
+            background-color: #f8f9fa !important;
+            color: #212529 !important;
+            border-color: #adb5bd !important;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+
+        html[data-theme="escuro"] .btn-acessar-curso {
+            background-color: transparent !important;
+            color: #a1a1aa !important;
+            border: 1px solid #3f3f46 !important;
+        }
+        html[data-theme="escuro"] .btn-acessar-curso:hover {
+            background-color: #27272a !important;
+            color: #f4f4f5 !important;
+            border-color: #52525b !important;
+        }
+
+        html[data-theme="futurista"] .btn-acessar-curso {
+            background-color: transparent !important;
+            color: #38bdf8 !important;
+            border: 1px solid #0ea5e9 !important;
+        }
+        html[data-theme="futurista"] .btn-acessar-curso:hover {
+            background-color: #1e293b !important;
+            box-shadow: 0 0 8px rgba(56, 189, 248, 0.4);
+        }
+
+        html[data-theme="vintage"] .btn-acessar-curso {
+            background-color: #FCFAF5 !important;
+            color: #4A3B32 !important;
+            border: 1px solid #D5CABD !important;
+        }
+        html[data-theme="vintage"] .btn-acessar-curso:hover {
+            background-color: #EAE3D2 !important;
+        }
+
+        /* ==========================================
+           HARMONIZAÇÃO DO BOTÃO "MATERIAL DE APOIO"
+           ========================================== */
+        .btn-material-apoio {
+            background-color: transparent !important;
+            color: #0a58ca !important; 
+            border: 1px solid #0a58ca !important;
+            transition: all 0.3s ease;
+        }
+        .btn-material-apoio:hover {
+            background-color: #0a58ca !important;
+            color: #ffffff !important;
+        }
+
+        html[data-theme="escuro"] .btn-material-apoio {
+            color: #38bdf8 !important;
+            border-color: #0ea5e9 !important;
+        }
+        html[data-theme="escuro"] .btn-material-apoio:hover {
+            background-color: #0ea5e9 !important;
+            color: #ffffff !important;
+        }
+
+        html[data-theme="futurista"] .btn-material-apoio {
+            color: #0ea5e9 !important;
+            border-color: #0ea5e9 !important;
+        }
+        html[data-theme="futurista"] .btn-material-apoio:hover {
+            background-color: #0ea5e9 !important;
+            color: #ffffff !important;
+            box-shadow: 0 0 8px rgba(14, 165, 233, 0.4);
+        }
+
+        html[data-theme="vintage"] .btn-material-apoio {
+            color: #2A4D3E !important;
+            border-color: #2A4D3E !important;
+        }
+        html[data-theme="vintage"] .btn-material-apoio:hover {
+            background-color: #2A4D3E !important;
+            color: #ffffff !important;
+        }
+
+        /* ==========================================
+            HARMONIZAÇÃO DOS BOTÕES E MODAL IA
+           ========================================== */
+            /* TEMA CLARO (Padrão) */
+            .btn-integra-agenda { background-color: #198754 !important; color: #ffffff !important; border: 1px solid #198754 !important; }
+            .btn-integra-agenda-off { background-color: transparent !important; color: #0d6efd !important; border: 1px solid #0d6efd !important; }
+            .btn-integra-notebook { background-color: transparent !important; color: #0d6efd !important; border: 1px solid #0d6efd !important; transition: all 0.3s ease; }
+            .btn-integra-notebook:hover { background-color: #0d6efd !important; color: #ffffff !important; }
+
+            #modalNotebookLM .modal-content { border-color: #0d6efd !important; }
+            #modalNotebookLM .modal-header { background-color: #0d6efd !important; color: #ffffff !important; }
+            #modalNotebookLM .modal-body { background-color: #f8f9fa !important; color: #212529 !important;}
+            #chat-box { background-color: #ffffff !important; border-color: #dee2e6 !important; }
+            .ia-bubble-bot { background-color: #ffffff !important; color: #212529 !important; border: 1px solid #0d6efd !important; }
+            .ia-bubble-user { background-color: #0d6efd !important; color: #ffffff !important; }
+            .ia-input { border-color: #0d6efd !important; background-color: #ffffff !important; color: #212529 !important; }
+            .ia-btn-send { background-color: #0d6efd !important; color: #ffffff !important; border-color: #0d6efd !important; }
+
+            /* TEMA ESCURO */
+            html[data-theme="escuro"] .btn-integra-agenda { background-color: #059669 !important; border-color: #059669 !important; }
+            html[data-theme="escuro"] .btn-integra-agenda-off { color: #38bdf8 !important; border-color: #0ea5e9 !important; }
+            html[data-theme="escuro"] .btn-integra-notebook { color: #a78bfa !important; border-color: #8b5cf6 !important; }
+            html[data-theme="escuro"] .btn-integra-notebook:hover { background-color: #8b5cf6 !important; color: #ffffff !important; }
+
+            html[data-theme="escuro"] #modalNotebookLM .modal-content { border-color: #374151 !important; background-color: #111827 !important; }
+            html[data-theme="escuro"] #modalNotebookLM .modal-header { background-color: #1f2937 !important; color: #f9fafb !important; border-bottom: 1px solid #374151; }
+            html[data-theme="escuro"] #modalNotebookLM .modal-body { background-color: #111827 !important; color: #d1d5db !important; }
+            html[data-theme="escuro"] #chat-box { background-color: #1f2937 !important; border-color: #374151 !important; }
+            html[data-theme="escuro"] .ia-bubble-bot { background-color: #374151 !important; color: #f9fafb !important; border: 1px solid #4b5563 !important; }
+            html[data-theme="escuro"] .ia-bubble-user { background-color: #2563eb !important; color: #ffffff !important; }
+            html[data-theme="escuro"] .ia-input { background-color: #1f2937 !important; color: #f9fafb !important; border-color: #4b5563 !important; }
+            html[data-theme="escuro"] .ia-btn-send { background-color: #2563eb !important; color: #ffffff !important; border-color: #2563eb !important; }
+
+            /* TEMA FUTURISTA */
+            html[data-theme="futurista"] .btn-integra-agenda { background-color: transparent !important; color: #10b981 !important; border-color: #10b981 !important; box-shadow: 0 0 8px rgba(16,185,129,0.4); }
+            html[data-theme="futurista"] .btn-integra-agenda-off { background-color: transparent !important; color: #38bdf8 !important; border-color: #0ea5e9 !important; box-shadow: 0 0 8px rgba(14,165,233,0.4); }
+            html[data-theme="futurista"] .btn-integra-notebook { background-color: transparent !important; color: #0ea5e9 !important; border-color: #0ea5e9 !important; box-shadow: 0 0 8px rgba(14,165,233,0.4); }
+            html[data-theme="futurista"] .btn-integra-notebook:hover { background-color: #0ea5e9 !important; color: #ffffff !important; }
+
+            html[data-theme="futurista"] #modalNotebookLM .modal-content { border-color: #0ea5e9 !important; background-color: #020617 !important; box-shadow: 0 0 15px rgba(14,165,233,0.3) !important; }
+            html[data-theme="futurista"] #modalNotebookLM .modal-header { background-color: #0f172a !important; color: #38bdf8 !important; border-bottom: 1px solid #0ea5e9 !important; }
+            html[data-theme="futurista"] #modalNotebookLM .modal-body { background-color: #020617 !important; color: #94a3b8 !important; }
+            html[data-theme="futurista"] #chat-box { background-color: #0f172a !important; border-color: #0ea5e9 !important; }
+            html[data-theme="futurista"] .ia-bubble-bot { background-color: #1e293b !important; color: #e0f2fe !important; border: 1px solid #0ea5e9 !important; box-shadow: 0 0 5px rgba(14,165,233,0.2); }
+            html[data-theme="futurista"] .ia-bubble-user { background-color: #0ea5e9 !important; color: #ffffff !important; }
+            html[data-theme="futurista"] .ia-input { background-color: #0f172a !important; color: #e0f2fe !important; border-color: #0ea5e9 !important; }
+            html[data-theme="futurista"] .ia-btn-send { background-color: #0ea5e9 !important; color: #ffffff !important; border-color: #0ea5e9 !important; }
+
+            /* TEMA VINTAGE */
+            html[data-theme="vintage"] .btn-integra-agenda { background-color: #4A5D23 !important; color: #ffffff !important; border-color: #4A5D23 !important; }
+            html[data-theme="vintage"] .btn-integra-agenda-off { background-color: transparent !important; color: #2A4D3E !important; border-color: #2A4D3E !important; }
+            html[data-theme="vintage"] .btn-integra-notebook { background-color: transparent !important; color: #8B4513 !important; border-color: #8B4513 !important; }
+            html[data-theme="vintage"] .btn-integra-notebook:hover { background-color: #8B4513 !important; color: #ffffff !important; }
+
+            html[data-theme="vintage"] #modalNotebookLM .modal-content { border-color: #D5CABD !important; background-color: #FCFAF5 !important; }
+            html[data-theme="vintage"] #modalNotebookLM .modal-header { background-color: #4A3B32 !important; color: #FCFAF5 !important; border-bottom: 1px solid #D5CABD !important; }
+            html[data-theme="vintage"] #modalNotebookLM .modal-body { background-color: #FCFAF5 !important; color: #4A3B32 !important; }
+            html[data-theme="vintage"] #chat-box { background-color: #F4EFE6 !important; border-color: #D5CABD !important; }
+            html[data-theme="vintage"] .ia-bubble-bot { background-color: #EAE3D2 !important; color: #4A3B32 !important; border: 1px solid #D5CABD !important; }
+            html[data-theme="vintage"] .ia-bubble-user { background-color: #8B4513 !important; color: #ffffff !important; }
+            html[data-theme="vintage"] .ia-input { background-color: #F4EFE6 !important; color: #4A3B32 !important; border-color: #D5CABD !important; }
+            html[data-theme="vintage"] .ia-btn-send { background-color: #8B4513 !important; color: #ffffff !important; border-color: #8B4513 !important; }
+
+            /* Placeholder universal para IA Input */
+            .ia-input::placeholder { color: inherit; opacity: 0.6; }
+
+
+    </style>
+
+    <!-- Área de Alertas -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for category, message in messages %}
+          <div class="alert alert-{{ category }} alert-dismissible fade show">
+            {{ message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+          </div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+
+    <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-3">
+    
+    <!-- Título na Esquerda -->
+    <h2 class="text-primary fw-bold mb-0">{{ t('acompanhamento_estudos') }}</h2>
+    
+    <!-- Botões na Direita -->
+    <div class="d-flex flex-wrap gap-2 align-items-center">
+        
+        <!-- Botão Google Agenda Inteligente -->
+        {% if session.get('google_token') %}
+            <a href="{{ url_for('agendar_estudo') }}" class="btn btn-integra-agenda fw-bold shadow-sm" target="_blank">
+                {{ t('btn_agendar_estudo') }}
+            </a>
+        {% else %}
+            <a href="{{ url_for('conectar_agenda') }}" class="btn btn-integra-agenda-off fw-bold shadow-sm">
+                {{ t('btn_conectar_agenda') }}
+            </a>
+        {% endif %}
+        
+        <!-- Botão Gemini Notebook -->
+        <button type="button" class="btn btn-integra-notebook fw-bold shadow-sm" data-bs-toggle="modal" data-bs-target="#modalNotebookLM">
+            {{ t('btn_conectar_gemini') }}
+        </button>
+
+        <!-- Botão Vincular Aluno (Apenas Mentores) -->
+        {% if current_user.tipo_usuario != 'Aluno' %}
+        <button class="btn btn-primary fw-bold" data-bs-toggle="modal" data-bs-target="#modalMatricula">
+            {{ t('vincular_aluno_curso') }}
+        </button>
+        {% endif %}
+        
+    </div>
+</div>
+
+<!-- LISTA DE ACOMPANHAMENTOS -->
+<div class="row mb-5">
+{% for item in registros %}
+    <div class="col-md-12 mb-4">
+        <div class="card shadow-sm border-0">
+            <div class="card-header bg-white d-flex justify-content-between align-items-center py-3">
+                <div>
+                    <h5 class="mb-0 fw-bold text-primary">{{ item.curso.nome_curso }}</h5>
+                    <small class="text-muted">{{ t('aluno') }}: <strong>{{ item.aluno.nome }}</strong> | {{ t('plataforma') }}: <span class="badge bg-info text-dark">{{ item.curso.plataforma or 'Externa' }}</span> ({{ t('carga_horaria') }}: {{ item.curso.carga_horaria }}h)</small>
+                </div>
+                <div>
+                    {% if item.reg.status == 'Iniciado' %}
+                        <span class="badge bg-primary">{{ t('status_iniciado') }}</span>
+                    {% elif item.reg.status == 'Parado' %}
+                        <span class="badge bg-danger">{{ t('status_parado') }}</span>
+                    {% elif item.reg.status == 'Desativado' %}
+                        <span class="badge bg-secondary">{{ t('status_desativado') }}</span>
+                    {% else %}
+                        <span class="badge bg-success">{{ t('status_finalizado') }}</span>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <div class="card-body">
+                <!-- SEÇÃO DO PERFIL E ENTREVISTA DO ALUNO -->
+                <div class="p-3 mb-3 bg-light border rounded">
+                    <h6 class="text-success fw-bold mb-2">{{ t('perfil_entrevista') }}</h6>
+                    <div class="row">
+                        <div class="col-md-4">
+                            <small class="text-muted d-block"><strong>{{ t('rotulo_perfil') }}:</strong> {{ item.aluno.perfil_aluno or t('nao_informado') }}</small>
+                        </div>
+                        <div class="col-md-4">
+                            <small class="text-muted d-block"><strong>{{ t('rotulo_objetivo') }}:</strong> {{ item.aluno.objetivo_principal or t('nao_informado') }}</small>
+                        </div>
+                        <div class="col-md-4">
+                            <small class="text-muted d-block"><strong>{{ t('rotulo_expectativa') }}:</strong> {{ item.aluno.expectativa_mentoria or t('nao_informada') }}</small>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row align-items-center">
+                    <div class="col-md-3">
+                        <label class="form-label text-muted small fw-bold">{{ t('progresso_pct') }} ({{ item.reg.percentual_conclusao }}%)</label>
+                        <div class="progress mb-2" style="height: 15px;">
+                            <div class="progress-bar bg-success" style="width: {{ item.reg.percentual_conclusao }}%;"></div>
+                        </div>
+                        <small class="text-muted d-block">
+                            {{t('inicio') }}: <strong>{{ item.reg.data_inicio.strftime('%d/%m/%Y') if item.reg.data_inicio else t('nao_definida') }}</strong>
+                        </small>
+                        <small class="text-muted d-block">
+                            {{t('termino_meta') }}: <strong>{{ item.reg.data_termino.strftime('%d/%m/%Y') if item.reg.data_termino else t('nao_definida') }}</strong>
+                        </small>
+                    </div>
+                    
+                    <div class="col-md-5">
+                        <div class="d-flex justify-content-between align-items-center mb-1">
+                            <p class="mb-0 text-muted small fw-bold">{{ t('anotacoes_duvidas') }}</p>
+                            <button type="button" class="btn btn-sm btn-outline-secondary py-0 px-2" style="font-size: 0.75rem;" data-bs-toggle="modal" data-bs-target="#modalExpandirNotas{{ item.reg.id }}">
+                                🔍 {{ t('btn_expandir_tela_cheia') }}
+                            </button>
+                        </div>
+                        <div class="p-2 bg-light border rounded text-dark small mb-2" style="min-height: 45px; max-height: 100px; overflow-y: auto; white-space: pre-wrap;">
+                            {{ item.reg.observacao_aluno if item.reg.observacao_aluno and item.reg.observacao_aluno != 'None' else t('nenhuma_anotacao') }}
+                        </div>
+                        
+                        <div class="d-flex justify-content-between align-items-center mb-1 mt-3">
+                            <p class="mb-0 text-primary small fw-bold">{{ t('parecer_mentor') }}</p>
+                            <button type="button" class="btn btn-sm btn-outline-primary py-0 px-2" style="font-size: 0.75rem;" data-bs-toggle="modal" data-bs-target="#modalExpandirParecer{{ item.reg.id }}">
+                                🔍 {{ t('btn_expandir_parecer') }}
+                            </button>
+                        </div>
+                        <div class="p-2 bg-white border border-primary rounded text-dark small mb-2" style="min-height: 45px; max-height: 100px; overflow-y: auto; white-space: pre-wrap;">
+                            {% if item.reg.data_parecer_mentor %}
+                                <div class="text-end mb-1 border-bottom border-light pb-1">
+                                    <span class="badge bg-light text-primary border border-primary-subtle" style="font-size: 0.65rem;">
+                                        {{ t('badge_atualizado_em') }} {{ item.reg.data_parecer_mentor.strftime('%d/%m/%Y - %H:%M') }}
+                                    </span>
+                                </div>
+                            {% endif %}
+                            {{ item.reg.observacao if item.reg.observacao and item.reg.observacao != 'None' else t('nenhum_parecer') }}
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-4 d-flex flex-column align-items-end gap-2">
+                        {% if item.curso.url%}
+                            <a href="{{ item.curso.url }}" target="_blank" class="btn btn-sm btn-acessar-curso w-100 text-center fw-bold mb-1">{{t('acessar_curso') }}</a>
+                        {% endif %}
+
+                        <!-- === BOTÃO INTELIGENTE DE MATERIAL DE APOIO === -->
+                        {% if item.reg.material_apoio %}
+                            {% set materiais = item.reg.material_apoio.split('|') %}
+                            {% if materiais | length == 1 %}
+                                {% set mat_parts = materiais[0].split('::') %}
+                                {% set nome_real = mat_parts[1] if mat_parts|length > 1 else mat_parts[0] %}
+                                <a href="{{ url_for('acessar_upload', nome_arquivo=nome_real) }}" target="_blank" class="btn btn-sm btn-material-apoio w-100 text-center fw-bold mb-1">
+                                    📄 {{ t('btn_material_unico') }}
+                                </a>
+                            {% else %}
+                                <button type="button" class="btn btn-sm btn-material-apoio w-100 text-center fw-bold mb-1" data-bs-toggle="modal" data-bs-target="#modalListaMateriais{{ item.reg.id }}">
+                                    📄 {{ t('btn_materiais_multiplos') }} ({{ materiais|length }})
+                                </button>
+                            {% endif %}
+                        {% endif %}
+
+                        {% if item.reg.certificado %}
+                            <a href="{{ url_for('acessar_upload', nome_arquivo=item.reg.certificado) }}" target="_blank" class="btn btn-sm btn-outline-success w-100 text-center fw-bold mb-1">Ver Certificado</a>
+                        {% endif %}
+
+                        {% if item.reg.status!= 'Desativado' %}
+                            <button class="btn btn-sm btn-primary w-100 fw-bold" data-bs-toggle="modal" data-bs-target="#modalEditar{{ item.reg.id }}">{{ t('atualizar_progresso_anotacoes') }}</button>
+                        {% else %}
+                            <button class="btn btn-sm btn-secondary w-100" disabled>Curso Desativado (Apenas Leitura)</button>
+                        {% endif %}
+                    </div>
+                </div>
+
+    <!-- ======================================================= -->
+    <!-- POP-UP (MODAL) LISTA DE MATERIAIS DE APOIO MÚLTIPLOS    -->
+    <!-- ======================================================= -->
+    {% if item.reg.material_apoio and item.reg.material_apoio.split('|')|length > 1 %}
+    <div class="modal fade text-start" id="modalListaMateriais{{ item.reg.id }}" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content shadow">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title">{{ t('modal_materiais_titulo') }}</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body bg-light">
+                    <p class="text-muted small mb-3">{{ t('modal_materiais_subtitulo') }}</p>
+                    <div class="d-flex flex-column gap-2">
+                        {% set materiais = item.reg.material_apoio.split('|') %}
+                        {% for mat in materiais %}
+                            {% set mat_parts = mat.split('::') %}
+                            {% set autor = mat_parts[0] if mat_parts|length > 1 else 'Sistema' %}
+                            {% set nome_arquivo_real = mat_parts[1] if mat_parts|length > 1 else mat_parts[0] %}
+                            
+                            <a href="{{ url_for('acessar_upload', nome_arquivo=nome_arquivo_real) }}" target="_blank" class="btn btn-outline-primary text-start fw-bold d-flex justify-content-between align-items-center bg-white">
+                                <span class="text-truncate" style="max-width: 80%;">
+                                    {% if autor == 'Aluno' %}
+                                        <span class="badge bg-secondary me-2">{{ t('tag_aluno') }}</span>
+                                    {% elif autor == 'Mentor' %}
+                                        <span class="badge bg-primary me-2">{{ t('tag_mentor') }}</span>
+                                    {% else %}
+                                        <span class="badge bg-info text-dark me-2">{{ t('tag_antigo') }}</span>
+                                    {% endif %}
+                                    <span class="text-muted small fw-normal">{{ nome_arquivo_real }}</span>
+                                </span>
+                                <span class="badge bg-primary rounded-pill">{{ t('btn_abrir') }}</span>
+                            </a>
+                        {% endfor %}
+                    </div>
+                </div>
+                <div class="modal-footer bg-white">
+                    <button type="button" class="btn btn-secondary fw-bold" data-bs-dismiss="modal">{{ t('cancelar') }}</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- ======================================================= -->
+<!-- POP-UP (MODAL) DE TELA EXPANDIDA PARA ANOTAÇÕES DO ALUNO -->
+<!-- ======================================================= -->
+<div class="modal fade text-start" id="modalExpandirNotas{{ item.reg.id }}" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content shadow-lg">
+            <div class="modal-header bg-secondary text-white">
+                <h5 class="modal-title"> 📝 {{ t('modal_notas_titulo') }} ({{ item.curso.nome_curso }})</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="POST">
+                <div class="modal-body">
+                    <input type="hidden" name="acao" value="atualizar_anotacao_livre">
+                    <input type="hidden" name="acompanhamento_id" value="{{ item.reg.id }}">
+                    
+                    <p class="text-muted small">{{ t('modal_notas_instrucao') }}</p>
+                    
+                    <div class="mb-3">
+                        <textarea name="observacao_aluno" class="form-control" rows="8" placeholder="{{ t('modal_notas_placeholder') }}">{{ item.reg.observacao_aluno if item.reg.observacao_aluno and item.reg.observacao_aluno != 'None' else '' }}</textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">{{ t('cancelar') }}</button>
+                    <button type="submit" class="btn btn-primary fw-bold">{{ t('modal_notas_btn_salvar') }}</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+    <!-- ======================================================= -->
+    <!-- POP-UP (MODAL) DE TELA EXPANDIDA PARA ANOTAÇÕES DO ALUNO -->
+    <!-- ======================================================= -->
+    <div class="modal fade text-start" id="modalExpandirNotas{{ item.reg.id }}" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content shadow-lg">
+                <div class="modal-header bg-secondary text-white">
+                    <h5 class="modal-title"> Editor Expandido Anotações e Dúvidas ({{ item.curso.nome_curso }})</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <form method="POST">
+                    <div class="modal-body">
+                        <input type="hidden" name="acao" value="atualizar_anotacao_livre">
+                        <input type="hidden" name="acompanhamento_id" value="{{ item.reg.id }}">
+                        <p class="text-muted small">Escreva suas anotações, códigos, links ou dúvidas sobre este estudo com total liberdade e espaço:</p>
+                        <div class="mb-3">
+                            <textarea name="observacao_aluno" class="form-control" rows="8" placeholder="Escreva suas anotações livremente aqui...">{{ item.reg.observacao_aluno if item.reg.observacao_aluno and item.reg.observacao_aluno != 'None' else '' }}</textarea>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">{{ t('cancelar') }}</button>
+                        <button type="submit" class="btn btn-primary fw-bold"> Salvar Anotações</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- POP-UP (MODAL) DE TELA EXPANDIDA PARA PARECER DO MENTOR -->
+    <div class="modal fade text-start" id="modalExpandirParecer{{ item.reg.id }}" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content shadow-lg">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title">{{ t('modal_parecer_titulo') }} ({{ item.curso.nome_curso }})</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <form method="POST">
+                    <div class="modal-body">
+                        <!-- Avisa ao Python qual ação executar e de qual curso -->
+                        <input type="hidden" name="acao" value="atualizar_parecer_livre">
+                        <input type="hidden" name="acompanhamento_id" value="{{ item.reg.id }}">
+                        
+                        <!-- Verifica se quem está logado é Mentor ou Aluno -->
+                        {% if current_user.tipo_usuario != 'Aluno' %}
+                            <p class="text-muted small">{{ t('modal_parecer_instrucao_mentor') }}</p>
+                            <div class="mb-3">
+                                <textarea name="observacao" class="form-control" rows="8" placeholder="{{ t('modal_parecer_placeholder') }}">{{ item.reg.observacao if item.reg.observacao and item.reg.observacao != 'None' else '' }}</textarea>
+                            </div>
+                        {% else %}
+                            <p class="text-muted small">{{ t('modal_parecer_instrucao_aluno') }}</p>
+                            <div class="p-3 bg-light border rounded text-dark" style="min-height: 150px; white-space: pre-wrap;">
+                                {{ item.reg.observacao if item.reg.observacao and item.reg.observacao != 'None' else t('nenhum_parecer') }}
+                            </div>
+                        {% endif %}
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">{{ t('cancelar') }}</button>
+                        <!-- Só mostra o botão de salvar se não for Aluno -->
+                        {% if current_user.tipo_usuario != 'Aluno' %}
+                        <button type="submit" class="btn btn-primary fw-bold">{{ t('modal_parecer_btn_salvar') }}</button>
+                        {% endif %}
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- ========================================== -->
+    <!-- MODAL DE EDIÇÃO DO ACOMPANHAMENTO          -->
+    <!-- ========================================== -->
+        <div class="modal fade text-start" id="modalEditar{{ item.reg.id }}" tabindex="-1">
+          <div class="modal-dialog modal-lg modal-dialog-scrollable" id="dialogEditar{{ item.reg.id }}">
+            <div class="modal-content shadow" style="background-color: white; color: black;">
+                <form method="POST" enctype="multipart/form-data" style="display: contents;">
+                    <div class="modal-header bg-primary text-white d-flex justify-content-between align-items-center">
+                        <h5 class="modal-title">{{ t('atualizar_acompanhamento_modal') }}: {{ item.curso.nome_curso }} ({{ item.aluno.nome }})</h5>
+                    <div>
+                        <button type="button" class="btn btn-sm text-white me-2 d-inline-flex align-items-center justify-content-center" 
+                                onclick="document.getElementById('dialogEditar{{ item.reg.id }}').classList.toggle('modal-fullscreen');" 
+                                title="Tela Cheia / Restaurar" style="background: rgba(255,255,255,0.2); border: none; width: 30px; height: 30px;">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
+                                <path fill-rule="evenodd" d="M5.828 10.172a.5.5 0 00-.707 0l-4.096 4.096V11.5a.5.5 0 0 0-1 0v3.975a.5.5 0 0 0 .5.5H4.5a.5.5 0 0 0 0-1H1.732l4.096-4.096a.5.5 0 0 0 0-.707m4.344 0a.5.5 0 0 1 .707 0l4.096 4.096V11.5a.5.5 0 1 1 1 0v3.975a.5.5 0 0 1-.5.5H11.5a.5.5 0 0 1 0-1h2.768l-4.096-4.096a.5.5 0 0 1 0-.707m0-4.344a.5.5 0 0 0 .707 0l4.096-4.096V4.5a.5.5 0 1 0 1 0V.525a.5.5 0 0 0-.5-.5H11.5a.5.5 0 0 0 0 1h2.768l-4.096 4.096a.5.5 0 0 0 0 .707m-4.344 0a.5.5 0 0 1-.707 0L1.025 1.732V4.5a.5.5 0 0 1-1 0V.525a.5.5 0 0 1 .5-.5H4.5a.5.5 0 0 1 0 1H1.732l4.096 4.096a.5.5 0 0 1 0 .707"/>
+                            </svg>
+                        </button>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                    </div>
+                    </div>
+                    
+                    <div class="modal-body" style="max-height: 60vh; overflow-y: auto;">
+                        <input type="hidden" name="acompanhamento_id" value="{{ item.reg.id }}">
+                        
+                        {% if current_user.tipo_usuario != 'Aluno' %}
+                        <div class="card p-3 mb-3 bg-light border">
+                            <h6 class="text-success fw-bold mb-2">{{ t('edicao_perfil_entrevista') }}</h6>
+                            <div class="mb-2">
+                                <label class="form-label small text-muted">{{ t('rotulo_perfil') }}</label>
+                                <input type="text" name="perfil_aluno" class="form-control form-control-sm" value="{{ item.aluno.perfil_aluno or '' }}">
+                            </div>
+                            <div class="row">
+                                <div class="col-md-6 mb-2">
+                                    <label class="form-label small text-muted">{{ t('rotulo_objetivo') }}</label>
+                                    <textarea name="objetivo_principal" class="form-control form-control-sm" rows="2">{{ item.aluno.objetivo_principal or '' }}</textarea>
+                                </div>
+                                <div class="col-md-6 mb-2">
+                                    <label class="form-label small text-muted">{{ t('rotulo_expectativa') }}</label>
+                                    <textarea name="expectativa_mentoria" class="form-control form-control-sm" rows="2">{{ item.aluno.expectativa_mentoria or '' }}</textarea>
+                                </div>
+                            </div>
+                        </div>
+                        {% endif %}
+                        
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">{{ t('data_inicio') }}</label>
+                                <input type="date" name="data_inicio" class="form-control" value="{{ item.reg.data_inicio.strftime('%Y-%m-%d') if item.reg.data_inicio else '' }}">
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">{{ t('data_termino_meta') }}</label>
+                                <input type="date" name="data_termino" class="form-control" value="{{ item.reg.data_termino.strftime('%Y-%m-%d') if item.reg.data_termino else '' }}">
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">{{ t('status_curso') }}</label>
+                                <select name="status" class="form-select" required>
+                                    <option value="Iniciado" {% if item.reg.status == 'Iniciado' %} selected {% endif %}>{{ t('status_iniciado') }}</option>
+                                    <option value="Parado" {% if item.reg.status == 'Parado' %}selected {% endif %}>{{ t('status_parado') }}</option>
+                                    <option value="Finalizado" {% if item.reg.status == 'Finalizado' %} selected{% endif %}>{{ t('status_finalizado') }}</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">{{ t('progresso_porcentagem') }}</label>
+                                <input type="number" name="percentual_conclusao" class="form-control" min="0" max="100" value="{{ item.reg.percentual_conclusao }}" required>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">{{ t('anotacoes_duvidas') }}</label>
+                            <textarea name="observacao_aluno" class="form-control" rows="3" placeholder="Escreva suas anotações...">{{ item.reg.observacao_aluno if item.reg.observacao_aluno and item.reg.observacao_aluno != 'None' else '' }}</textarea>
+                        </div>
+                        
+                        <div class="mb-3 border p-3 rounded bg-light">
+                            <label class="form-label fw-bold text-primary"> {{ t('qa_interacoes') }}</label>
+                            <div class="faq-history mb-3" style="max-height: 200px; overflow-y: auto;">
+                                {% if item.reg.duvidas_qa %}
+                                    {% for qa in item.reg.duvidas_qa|reverse %}
+                                        <div class="p-2 mb-2 bg-white border rounded shadow-sm">
+                                            <small class="text-muted d-block">
+                                                <strong>{{ qa.autor.nome }}</strong> {{ t('em_data') }} {{ qa.data_criacao.strftime('%d/%m/%Y %H:%M') }}
+                                            </small>
+                                            <p class="mb-1 text-dark">{{ qa.mensagem }}</p>
+                                            {% if qa.resposta %}
+                                                <div class="ps-3 border-start border-success border-3 mt-2 text-success small">
+                                                    <strong>{{ t('resposta_mentor') }}</strong> {{ qa.resposta }}
+                                                    {% if qa.data_resposta %}
+                                                        <br>
+                                                        <span class="text-muted" style="font-size: 0.85em;">
+                                                            {{ t('respondido_em') }} {{ qa.data_resposta.strftime('%d/%m/%Y %H:%M') }}
+                                                        </span>
+                                                    {% endif %}
+                                                </div>
+                                            {% elif current_user.tipo_usuario != 'Aluno' %}
+                                                <div class="mt-2">
+                                                    <input type="text" name="resposta_qa_{{ qa.id }}" class="form-control form-control-sm" placeholder="{{ t('placeholder_resposta_aluno') }}">
+                                                </div>
+                                            {% endif %}
+                                        </div>
+                                    {% endfor %}
+                                {% else %}
+                                    <p class="text-muted small fst-italic">{{ t('msg_nenhuma_duvida') }}</p>
+                                {% endif %}
+                            </div>
+
+                            {% if current_user.tipo_usuario == 'Aluno' %}
+                                <div class="mt-2">
+                                    <label class="form-label small text-muted">{{ t('label_nova_pergunta') }}</label>
+                                    <textarea name="nova_duvida_qa" class="form-control form-control-sm" rows="2" placeholder="{{ t('placeholder_nova_duvida') }}"></textarea>
+                                </div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label fw-bold text-primary"> {{ t('parecer_mentor') }}</label>
+                            {% if current_user.tipo_usuario != 'Aluno' %}
+                                <textarea name="observacao" class="form-control" rows="3" placeholder="{{ t('placeholder_obs_mentor') }}">{{ item.reg.observacao if item.reg.observacao and item.reg.observacao != 'None' else '' }}</textarea>
+                            {% else %}
+                                <div class="p-2 bg-white border border-primary rounded text-dark small" style="min-height: 45px; white-space: pre-wrap;">
+                                    {{ item.reg.observacao if item.reg.observacao and item.reg.observacao != 'None' else t('nenhum_parecer') }}
+                                </div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">{{ t('enviar_material_apoio') }}</label>
+                            <div class="input-group">
+                                <label class="btn btn-light border mb-0" for="uploadMaterial{{ item.reg.id }}">
+                                    {{ t('escolher_arquivo') }}
+                                </label>
+                                <input type="file" class="d-none" id="uploadMaterial{{ item.reg.id }}" name="material_apoio" onchange="document.getElementById('textMaterial{{ item.reg.id }}').value = this.files[0] ? this.files[0].name: '{{ t('nenhum_arquivo') }}'">
+                                <input type="text" class="form-control bg-white text-muted" id="textMaterial{{ item.reg.id }}" placeholder="{{ t('nenhum_arquivo') }}" readonly>
+                            </div>
+                        </div>
+                        
+                        {% if item.curso.exige_certificado == 'Sim' %}
+                        <div class="mb-3 p-3 bg-warning-subtle border border-warning rounded">
+                            <label class="form-label fw-bold text-danger">Este curso exige Certificado para 100%</label>
+                            <div class="input-group">
+                                <label class="btn btn-light border mb-0" for="uploadCertificado{{ item.reg.id }}">
+                                    {{ t('escolher_arquivo') }}
+                                </label>
+                                <input type="file" class="d-none" id="uploadCertificado{{ item.reg.id }}" name="certificado" onchange="document.getElementById('textCertificado{{ item.reg.id }}').value = this.files[0] ? this.files[0].name: '{{ t('nenhum_arquivo') }}'">
+                                <input type="text" class="form-control bg-white text-muted" id="textCertificado{{ item.reg.id }}" placeholder="{{ t('nenhum_arquivo') }}" readonly>
+                            </div>
+                        </div>
+                        {% endif %}
+                        
+                    </div>
+                    <div class="modal-footer" style="background-color: #f8f9fa;">
+                        <button type="button" class="btn btn-secondary fw-bold" data-bs-dismiss="modal">{{ t('cancelar') }}</button>
+                        <button type="submit" class="btn btn-primary fw-bold" style="background-color: #0d6efd !important; color: white !important; border-color: #0d6efd !important;">{{ t('salvar_alteracoes') }}</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+{% else %}
+    <div class="col-md-12 text-center text-muted py-5">
+        <h4>{{ t('nenhum_curso') }}</h4>
+    </div>
+{% endfor %}
+</div>
+
+    <!-- MODAL DE MATRÍCULA -->
+    {% if current_user.tipo_usuario != 'Aluno' %}
+    <div class="modal fade" id="modalMatricula" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title">{{ t('vincular_aluno_curso_titulo') }}</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <form method="POST">
+                    <input type="hidden" name="acao" value="vincular">
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label class="form-label">{{ t('selecionar_aluno') }}</label>
+                            <select name="aluno_id" class="form-select" required>
+                                <option value="">{{ t('escolha_um_aluno') }}</option>
+                                {% for a in alunos %}
+                                    <option value="{{ a.id }}">{{ a.nome }} ({{ a.email }})</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">{{ t('selecionar_curso') }}</label>
+                            <select name="curso_id" class="form-select" required>
+                                <option value="">{{ t('escolha_um_curso') }}</option>
+                                {% for c in cursos %}
+                                    <option value="{{ c.id }}">{{ c.nome_curso }} ({{ c.plataforma or 'Externo' }})</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="submit" class="btn btn-primary w-100 fw-bold">{{ t('realizar_matricula') }}</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <script>
+        document.addEventListener("DOMContentLoaded", function() {
+            const params = new URLSearchParams(window.location.search);
+            const idModal = params.get('abrir_modal');
+            
+            if (idModal) {
+                const modalElement = document.getElementById('modalEditar' + idModal);
+                if (modalElement) {
+                    const modalInstancia = new bootstrap.Modal(modalElement);
+                    modalInstancia.show();
+                }
+            }
+        });
+    </script>
+
+<!-- ======================================================= -->
+<!-- MODAL DO ASSISTENTE IA (ESTILO Gemini NOTEBOOK)         -->
+<!-- ======================================================= -->
+<div class="modal fade" id="modalNotebookLM" tabindex="-1">
+    <div class="modal-dialog modal-lg modal-dialog-centered" id="geminiDialog">
+        <div class="modal-content shadow-lg">
+            <div class="modal-header">
+                <h5 class="modal-title fw-bold">{{ t('modal_gemini_title') }}</h5>
+                <div>
+                    <!-- Botão de Maximizar/Tela Cheia com Ícone SVG nativo -->
+                    <button type="button" class="btn btn-sm text-white me-2 d-inline-flex align-items-center justify-content-center" id="btn-expand-gemini" title="Tela Cheia / Restaurar" style="background: rgba(255,255,255,0.2); border: none; width: 30px; height: 30px;">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
+                          <path fill-rule="evenodd" d="M5.828 10.172a.5.5 0 0 0-.707 0l-4.096 4.096V11.5a.5.5 0 0 0-1 0v3.975a.5.5 0 0 0 .5.5H4.5a.5.5 0 0 0 0-1H1.732l4.096-4.096a.5.5 0 0 0 0-.707m4.344 0a.5.5 0 0 1 .707 0l4.096 4.096V11.5a.5.5 0 1 1 1 0v3.975a.5.5 0 0 1-.5.5H11.5a.5.5 0 0 1 0-1h2.768l-4.096-4.096a.5.5 0 0 1 0-.707m0-4.344a.5.5 0 0 0 .707 0l4.096-4.096V4.5a.5.5 0 1 0 1 0V.525a.5.5 0 0 0-.5-.5H11.5a.5.5 0 0 0 0 1h2.768l-4.096 4.096a.5.5 0 0 0 0 .707m-4.344 0a.5.5 0 0 1-.707 0L1.025 1.732V4.5a.5.5 0 0 1-1 0V.525a.5.5 0 0 1 .5-.5H4.5a.5.5 0 0 1 0 1H1.732l4.096 4.096a.5.5 0 0 1 0 .707"/>
+                        </svg>
+                    </button>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+            </div>
+            <div class="modal-body d-flex flex-column">
+                <p class="small mb-3" style="opacity: 0.8;">{{ t('modal_gemini_subtitle') }}</p>
+                
+                <div id="chat-box" class="border rounded p-3 mb-3 d-flex flex-column gap-2" style="height: 350px; overflow-y: auto; transition: height 0.3s ease;">
+                    <div class="text-start">
+                        <span class="badge ia-bubble-bot text-wrap text-start p-2" style="font-size: 0.9em; max-width: 85%;">
+                            {{ t('modal_gemini_welcome') }}
+                        </span>
+                    </div>
+                </div>
+                
+                <div class="input-group mt-auto">
+                    <input type="text" id="chat-input" class="form-control ia-input" placeholder="{{ t('modal_gemini_placeholder') }}">
+                    <button class="btn ia-btn-send fw-bold" id="btn-enviar-chat">{{ t('btn_enviar') }}</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.getElementById('btn-enviar-chat').addEventListener('click', function() {
+        const input = document.getElementById('chat-input');
+        const mensagem = input.value.trim();
+        if (!mensagem) return;
+        
+        const chatBox = document.getElementById('chat-box');
+        
+        chatBox.innerHTML += `
+            <div class="text-end">
+                <span class="badge ia-bubble-user text-wrap text-start p-2" style="font-size: 0.9em; max-width: 85%;">
+                    ${mensagem}
+                </span>
+            </div>`;
+        
+        input.value = '';
+        chatBox.scrollTop = chatBox.scrollHeight;
+        
+        const idCarregando = 'loading-' + Date.now();
+        chatBox.innerHTML += `
+            <div id="${idCarregando}" class="text-start">
+                <span class="badge ia-bubble-bot text-wrap text-start p-2" style="font-size: 0.9em; opacity: 0.7;">
+                    {{ t('modal_gemini_loading') }}
+                </span>
+            </div>`;
+        chatBox.scrollTop = chatBox.scrollHeight;
+        
+        fetch('/chat-ia', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ mensagem: mensagem })
+        })
+        .then(response => response.json())
+        .then(data => {
+            document.getElementById(idCarregando).remove();
+            
+            chatBox.innerHTML += `
+                <div class="text-start">
+                    <span class="badge ia-bubble-bot text-wrap text-start p-2" style="font-size: 0.9em; max-width: 85%;">
+                        ${data.resposta.replace(/\n/g, '<br>')}
+                    </span>
+                </div>`;
+            chatBox.scrollTop = chatBox.scrollHeight;
+        })
+        .catch(error => {
+            document.getElementById(idCarregando).remove();
+            chatBox.innerHTML += `<div class="text-start"><span class="badge bg-danger text-wrap text-start p-2">{{ t('modal_gemini_error') }}</span></div>`;
+        });
+    });
+
+    document.getElementById('chat-input').addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            document.getElementById('btn-enviar-chat').click();
+        }
+    });
+
+    
+</script>
+
+<script>
+// --- CÓDIGO DA TELA CHEIA DO GEMINI ---
+document.getElementById('btn-expand-gemini').addEventListener('click', function() {
+    const dialog = document.getElementById('geminiDialog');
+    const chatBox = document.getElementById('chat-box');
+    
+    // Ativa/Desativa o Fullscreen nativo do Bootstrap
+    dialog.classList.toggle('modal-fullscreen');
+    
+    if (dialog.classList.contains('modal-fullscreen')) {
+        // Se estiver em tela cheia, remove o "centered" e aumenta a caixa
+        dialog.classList.remove('modal-dialog-centered');
+        chatBox.style.height = 'calc(100vh - 180px)';
+    } else {
+        // Se voltar ao normal, restaura o tamanho e a centralização
+        dialog.classList.add('modal-dialog-centered');
+        chatBox.style.height = '350px';
+    }
+});
+</script>
+
+<script>
+// Roteiro específico do Tour para a tela de Acompanhamento
+function iniciarTourDaPagina() {
+    let passos = [ { intro: "{{ t('tour_aco_intro') | safe }}" } ];
+
+    let botoes = Array.from(document.querySelectorAll('a, button'));
+    
+    // Busca pelas palavras nos 3 idiomas (Agenda, Calendar, Calendario)
+    let btnAgenda = botoes.find(el => el.textContent.includes('Agenda') || el.textContent.includes('Calendar') || el.textContent.includes('Calendario'));
+    if (btnAgenda) passos.push({ element: btnAgenda, intro: "{{ t('tour_aco_agenda') | safe }}" });
+
+    let btnIA = botoes.find(el => el.textContent.includes('Gemini') || el.textContent.includes('Notebook'));
+    if (btnIA) passos.push({ element: btnIA, intro: "{{ t('tour_aco_ia') | safe }}" });
+
+    // Busca pelas palavras nos 3 idiomas (Vincular, Link)
+    let btnVincular = botoes.find(el => el.textContent.includes('Vincular') || el.textContent.includes('Link'));
+    if (btnVincular) passos.push({ element: btnVincular, intro: "{{ t('tour_aco_vincular') | safe }}" });
+
+    let cardCurso = document.querySelector('.table, .card');
+    if (cardCurso) passos.push({ element: cardCurso, intro: "{{ t('tour_aco_card') | safe }}" });
+
+    let tipoPerfil = "{{ current_user.tipo_usuario }}";
+    let ehAdmin = (tipoPerfil === 'Administrador' || tipoPerfil === 'Mentor Administrador');
+    
+    introJs().setOptions({
+        steps: passos, 
+        nextLabel: "{{ t('tour_btn_proximo') }}", 
+        prevLabel: "{{ t('tour_btn_anterior') }}", 
+        doneLabel: ehAdmin ? "{{ t('tour_btn_cadastros') }}" : "{{ t('tour_btn_voltar') }}", 
+        showProgress: true, 
+        showBullets: false
+    }).oncomplete(function() {
+        if(window.location.search.includes('tour_continuo=1')) {
+            window.location.href = ehAdmin ? "{{ url_for('gerenciar_usuarios') }}?tour_continuo=1" : "{{ url_for('dashboard') }}";
+        }
+    }).start();
+}
+document.addEventListener("DOMContentLoaded", function() {
+    if(window.location.search.includes('tour_continuo=1')) setTimeout(iniciarTourDaPagina, 500);
+});
+</script>
+
+{% endblock %}

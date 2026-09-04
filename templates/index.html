@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mentoria de Sucesso</title>
+    <!-- Importando o Bootstrap (Ferramenta que deixa o design bonito automaticamente) -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        /* Estilos personalizados para a nossa tela dividida */
+        body, html { height: 100%; margin: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        
+        .bg-image {
+            /* Imagem inspiradora de sucesso e reunião de alto nível */
+            background-image: url('https://images.unsplash.com/photo-1522071820081-009f0129c71c?auto=format&fit=crop&w=1920&q=80');
+            background-size: cover;
+            background-position: center;
+            height: 100vh;
+        }
+        
+        .overlay {
+            /* Uma camada escura sobre a imagem para o texto branco aparecer melhor */
+            background-color: rgba(0, 0, 0, 0.6);
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            padding: 10%;
+            color: white;
+        }
+
+        .login-section {
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background-color: #f4f6f9;
+        }
+
+        .login-card {
+            width: 100%;
+            max-width: 420px;
+            padding: 2.5rem;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        }
+    </style>
+</head>
+<body>
+
+<div class="container-fluid">
+    <div class="row">
+        <!-- Lado Esquerdo: Imagem Inspiradora e Mensagem -->
+        <div class="col-md-7 bg-image p-0 d-none d-md-block">
+            <div class="overlay">
+                <h1 class="display-4 fw-bold">Transforme seu futuro.</h1>
+                <p class="lead mt-3">O acompanhamento certo é a ponte entre o seu potencial e as suas maiores conquistas. Entre e continue sua jornada.</p>
+            </div>
+        </div>
+
+        <!-- Lado Direito: Formulário de Login -->
+        <div class="col-md-5 login-section">
+            <div class="login-card">
+                <h3 class="text-center mb-4 text-primary fw-bold">Acesso à Mentoria</h3>
+                <!-- Bloco para exibir as mensagens de erro (Senha incorreta, bloqueio, etc) -->
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                  {% if messages %}
+                    {% for category, message in messages %}
+                      <div class="alert alert-{{ category }} alert-dismissible fade show small py-2">
+                        {{ message }}
+                        <button type="button" class="btn-close" style="padding: 0.8rem;" data-bs-dismiss="alert"></button>
+                      </div>
+                    {% endfor %}
+                  {% endif %}
+                {% endwith %}
+                
+                <form action="#" method="POST">
+                    <!-- Campo de E-mail -->
+                    <div class="mb-3">
+                        <label class="form-label text-muted">E-mail</label>
+                        <input type="email" name="email" class="form-control form-control-lg" placeholder="seu@email.com" required>
+                    </div>
+
+                    <!-- Campo de Senha -->
+                    <div class="mb-3">
+                        <label class="form-label text-muted">Senha</label>
+                        <input type="password" name="senha" class="form-control form-control-lg" placeholder="••••••••••" required>
+                    </div>
+                    
+                    <!-- Esqueci minha senha -->
+                    <div class="d-flex justify-content-end mb-4">
+                        <a href="#" class="text-decoration-none small" data-bs-toggle="modal" data-bs-target="#modalRecuperarSenha">Esqueci minha senha</a>
+                    </div>
+                    
+                    <!-- Botão de Entrar -->
+                    <button type="submit" class="btn btn-primary btn-lg w-100 mb-4">Entrar</button>
+                </form>
+                
+                <!-- Área de Solicitação de Mentoria -->
+<hr class="mt-4 mb-3">
+<div class="text-center">
+    <p class="text-muted small mb-2">Ainda não faz parte? Deseja acelerar sua carreira?</p>
+    <button type="button" class="btn btn-outline-success w-100" data-bs-toggle="modal" data-bs-target="#modalSolicitarMentoria">
+        Solicitar Mentoria
+    </button>
+</div>
+
+                <!-- MODAL: Solicitar Mentoria -->
+<div class="modal fade" id="modalSolicitarMentoria" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content shadow">
+            
+            <!-- A tag FORM precisa englobar os campos E os botões para funcionar -->
+            <form action="{{ url_for('solicitar_mentoria') }}" method="POST">
+                
+                <div class="modal-header bg-success text-white">
+                    <h5 class="modal-title fw-bold">Interesse em Mentoria</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                
+                <div class="modal-body p-4">
+                    <p class="small text-muted mb-4">Sua solicitação será enviada diretamente para o grupo de Mentor Administrador.</p>
+                    
+                    <div class="mb-3">
+                        <input type="text" name="nome" class="form-control" placeholder="Seu Nome Completo" required>
+                    </div>
+                    <div class="mb-3">
+                        <input type="email" name="email" class="form-control" placeholder="Seu E-mail" required>
+                    </div>
+                    <div class="mb-3">
+                        <textarea name="motivo" class="form-control" rows="4" placeholder="Por que você deseja ser mentorado?" required></textarea>
+                    </div>
+                </div>
+                
+                <div class="modal-footer bg-light">
+                    <button type="button" class="btn btn-secondary fw-bold" data-bs-dismiss="modal">Cancelar</button>
+                    <!-- O botão type="submit" agora enviará os dados para a rota do Python -->
+                    <button type="submit" class="btn btn-success fw-bold">Enviar Solicitação</button>
+                </div>
+                
+            </form>
+            
+        </div>
+    </div>
+</div>
+
+<!-- ============================================================================== -->
+<!-- MODAL DE RECUPERAÇÃO DE SENHA (Abre ao clicar em "Esqueci minha senha")        -->
+<!-- ============================================================================== -->
+<div class="modal fade" id="modalRecuperarSenha" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content shadow">
+            
+            <!-- O formulário envia o e-mail digitado para o app.py fazer a checagem -->
+            <form action="{{ url_for('recuperar_senha') }}" method="POST">
+                
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title fw-bold">Recuperar Senha</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                
+                <div class="modal-body p-4">
+                    <p class="small text-muted mb-3">
+                        Para proteger sua conta, digite o e-mail cadastrado. 
+                        Você precisará responder às suas perguntas de segurança na próxima tela.
+                    </p>
+                    
+                    <!-- Campo obrigatório com o atributo name="email_recuperacao" exigido pelo Python -->
+                    <div class="mb-3">
+                        <label class="form-label text-muted fw-bold">Seu E-mail</label>
+                        <input type="email" name="email_recuperacao" class="form-control" placeholder="Ex: seu@email.com" required>
+                    </div>
+                </div>
+                
+                <div class="modal-footer bg-light">
+                    <button type="button" class="btn btn-secondary fw-bold" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary fw-bold">Continuar</button>
+                </div>
+                
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- ========================================== -->
+<!-- MODAL: Solicitar Mentoria -->
+<!-- ========================================== -->
+<div class="modal fade" id="modalSolicitarMentoria" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header bg-success text-white">
+        <h5 class="modal-title">Interesse em Mentoria</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <p class="small">Sua solicitação será enviada diretamente para o grupo de Mentor Administrador.</p>
+        <div class="mb-2"><input type="text" class="form-control" placeholder="Seu Nome Completo"></div>
+        <div class="mb-2"><input type="email" class="form-control" placeholder="Seu E-mail"></div>
+        <div class="mb-2"><textarea class="form-control" rows="3" placeholder="Por que você deseja ser mentorado?"></textarea></div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button type="button" class="btn btn-success">Enviar Solicitação</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Scripts do Bootstrap para os modais funcionarem -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

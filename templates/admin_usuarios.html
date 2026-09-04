@@ -1,0 +1,413 @@
+{% extends "base.html" %}
+
+{% block title %}{{ t('gerenciamento_cadastros') }} - Mentoria{% endblock %}
+
+{% block content %}
+    <style>
+    .cursor-pointer { cursor: pointer; }
+    </style>
+
+    <!-- Área de Alertas -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for category, message in messages %}
+          <div class="alert alert-{{ category }} alert-dismissible fade show">
+            {{ message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+          </div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+
+    <h2 class="mb-4 text-primary fw-bold">{{ t('gerenciamento_cadastros') }}</h2>
+    
+    <!-- Formulário de Criação -->
+    <div class="card shadow-sm mb-5 border-0">
+        <div class="card-header bg-white fw-bold text-success">
+            {{ t('cadastrar_novo_usuario') }}
+        </div>
+        <div class="card-body">
+            <form method="POST" action="{{ url_for('gerenciar_usuarios') }}">
+                <div class="row align-items-end">
+                    <div class="col-md-3 mb-3">
+                        <label class="form-label text-muted">{{ t('nome') }}</label>
+                        <input type="text" name="nome" class="form-control" value="{{ fill_nome }}" required>
+                    </div>
+                    <div class="col-md-3 mb-3">
+                        <label class="form-label text-muted">{{ t('email') }}</label>
+                        <input type="email" name="email" class="form-control" placeholder="exemplo@dominio.com" value="{{ fill_email }}" required>
+                    </div>
+                    <div class="col-md-2 mb-3">
+                        <label class="form-label text-muted">{{ t('nivel') }}</label>
+                        <select name="tipo_usuario" id="tipo_usuario_novo" class="form-select" required>
+                            <option value="Aluno" {% if request.form.get('tipo_usuario') == 'Aluno' %}selected{% endif %}>{{ t('nivel_aluno') }}</option>
+                            <option value="Mentor" {% if request.form.get('tipo_usuario') == 'Mentor' %}selected{% endif %}>{{ t('nivel_mentor') }}</option>
+                            <option value="Mentor Administrador" {% if request.form.get('tipo_usuario') == 'Mentor Administrador' %}selected{% endif %}>{{ t('nivel_mentor_admin') }}</option>
+                            <option value="Administrador" {% if request.form.get('tipo_usuario') == 'Administrador' %}selected{% endif %}>{{ t('nivel_administrador') }}</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2 mb-3">
+                        <label class="form-label text-muted">{{ t('status') }}</label>
+                        <select name="status" class="form-select" required>
+                            <option value="Ativo" {% if request.form.get('status') == 'Ativo' or not request.form.get('status') %}selected{% endif %}>{{ t('ativo') }}</option>
+                            <option value="Ausente" {% if request.form.get('status') == 'Ausente' %}selected{% endif %}>{{ t('status_ausente') }}</option>
+                            <option value="Desativado" {% if request.form.get('status') == 'Desativado' %}selected{% endif %}>{{ t('status_desativado') }}</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2 mb-3">
+                        <label class="form-label text-muted">{{ t('senha') }}</label>
+                        <input type="password" name="senha" class="form-control" required>
+                    </div>
+                    
+                    <!-- CAMPO PARA SELECIONAR MENTORES (CHECKBOXES MODERNAS) -->
+                    <div class="col-12 mb-3" id="bloco_mentores_novo" style="display: none;">
+                        <div class="p-3 bg-light border rounded">
+                            <label class="form-label text-primary fw-bold mb-3">🎓 {{ t('atribuir_mentores_cadastro') }}</label>
+                            
+                            <div class="row">
+                                {% for mentor in mentores %}
+                                    <div class="col-md-4 mb-2">
+                                        <input class="form-check-input m-0 me-2" type="checkbox" name="mentores" value="{{ mentor.id }}" id="mentor_novo_{{ mentor.id }}">
+                                            <label class="form-check-label w-100 cursor-pointer" for="mentor_novo_{{ mentor.id }}">
+                                                <strong>{{ mentor.nome }}</strong>
+                                                <span class="badge bg-secondary ms-1" style="font-size: 0.65rem;">{{ mentor.tipo_usuario }}</span>
+                                            </label>
+                                        </div>
+                                {% else %}
+                                    <div class="col-12 text-muted small">Nenhum mentor disponível no sistema.</div>
+                                {% endfor %}
+                            </div>
+
+                            <div class="form-text text-muted mt-2">
+                                <small>💡 {{ t('dica_selecao_multipla') }}</small>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Checkbox de Forçar Troca no Cadastro -->
+                    <div class="col-12 mb-3">
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" name="forcar_troca_senha" value="True" id="forcar_troca_novo" checked>
+                        <label class="form-check-label text-muted fw-bold" for="forcar_troca_novo">
+                            {{ t('exigir_troca_senha') }}
+                        </label>
+                    </div>
+                </div>
+                </div>
+                <button type="submit" class="btn btn-success px-4 w-100">{{ t('salvar_cadastro') }}</button>
+            </form>
+        </div>
+    </div>
+
+
+<!-- Tabela de Usuários Cadastrados -->
+<div class="card shadow-sm border-0 mb-5">
+
+    
+    <!-- Tabela de Usuários Cadastrados -->
+    <div class="card shadow-sm border-0 mb-5">
+        <div class="card-header bg-white fw-bold text-secondary d-flex justify-content-between align-items-center">
+            <span>{{ t('usuarios_sistema') }}</span>
+            <input type="text" id="filtroUsuarios" class="form-control form-control-sm w-25" placeholder="Buscar aluno, e-mail ou mentor...">
+        </div>
+        <div class="card-body p-0">
+            <table class="table table-hover align-middle mb-0 text-center">
+                <thead class="table-light">
+                    <tr>
+                        <th>{{ t('col_id') }}</th>
+                        <th>{{ t('nome') }}</th>
+                        <th>{{ t('email') }}</th>
+                        <th>{{ t('nivel') }}</th>
+                        <th>Mentores</th>
+                        <th>{{ t('status') }}</th>
+                        <th>{{ t('data_criacao') }}</th>
+                        <th>{{ t('criado_por') }}</th>
+                        <th>{{ t('seguranca_senha') }}</th>
+                        <th>{{ t('acoes') }}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for u in usuarios %}
+                    <tr class="linha-usuario">
+                        <td>{{ u.id }}</td>
+                        <td class="fw-bold">{{ u.nome }}</td>
+                        <td>{{ u.email }}</td>
+                        <td>
+                            <span class="badge bg-secondary">
+                                {% if u.tipo_usuario == 'Aluno' %}
+                                    {{ t('nivel_aluno') }}
+                                {% elif u.tipo_usuario == 'Mentor' %}
+                                    {{ t('nivel_mentor') }}
+                                {% elif u.tipo_usuario == 'Mentor Administrador' %}
+                                    {{ t('nivel_mentor_admin') }}
+                                {% else %}
+                                    {{ t('nivel_administrador') }}
+                                {% endif %}
+                            </span>
+                            </td>
+                            <!-- NOVA COLUNA DE MENTORES -->
+                        <td class="text-muted small">
+                            {% if u.tipo_usuario == 'Aluno' %}
+                                {% set mentores_lista = u.mentores.all() %}
+                                {% if mentores_lista %}
+                                    {% for m in mentores_lista %}
+                                        <span class="badge bg-light text-dark border">{{ m.nome }}</span><br>
+                                    {% endfor %}
+                                {% else %}
+                                    <span class="text-danger">Sem mentor</span>
+                                {% endif %}
+                            {% else %}
+                                -
+                            {% endif %}
+                        </td>
+                        <!-- FIM DA NOVA COLUNA -->
+                        <td>
+                            {% if u.status == 'Ativo' %}
+                                <span class="badge bg-success">{{ t('ativo') }}</span>
+                            {% elif u.status == 'Ausente' %}
+                                <span class="badge bg-warning text-dark">{{ t('status_ausente') }}</span>
+                            {% elif u.status == 'Bloqueado' %}
+                                <span class="badge bg-danger border border-dark">Bloqueado (Senha 5x)</span>
+                            {% else %}
+                                <span class="badge bg-secondary">{{ t('status_desativado') }}</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-muted small">
+                            {{ u.data_criacao.strftime('%d/%m/%Y às %H:%M') if u.data_criacao else 'Não registrada' }}
+                        </td>
+                        <td class="text-muted small fw-bold">
+                            {{ u.criado_por or 'Sistema' }}
+                        </td>
+                        <td class="text-muted small">
+                            Última troca: {{ u.data_ultima_troca_senha.strftime('%d/%m/%Y') if u.data_ultima_troca_senha else 'N/A' }}
+                        </td>
+                        <td>
+                            <button class="btn btn-sm btn-outline-primary fw-bold" data-bs-toggle="modal" data-bs-target="#modalEditar{{ u.id }}">
+                                {{ t('editar') }}
+                            </button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- ========================================================= -->
+    <!-- ZONA DE MODAIS (ISOLADA COM BARRA DE ROLAGEM FORÇADA)     -->
+    <!-- ========================================================= -->
+    {% for u in usuarios %}
+    <div class="modal fade text-start" id="modalEditar{{ u.id }}" tabindex="-1">
+        <!-- Adicionamos o ID dinâmico dialogEditarUsuario para o botão saber qual tela expandir -->
+            <div class="modal-dialog modal-lg modal-dialog-scrollable" id="dialogEditarUsuario{{ u.id }}">
+            <div class="modal-content shadow">
+                <form method="POST" action="{{ url_for('editar_usuario', id=u.id) }}" style="display: contents;">
+
+                <!-- Ajustamos o flexbox do cabeçalho para separar o título dos botões -->
+                <div class="modal-header bg-primary text-white d-flex justify-content-between align-items-center">
+                <h5 class="modal-title">{{ t('editar_usuario_titulo') }} {{ u.nome }}</h5>
+
+            <div>
+                <!-- NOVO: Botão de Maximizar/Restaurar Tela -->
+                <button type="button" class="btn btn-sm text-white me-2 d-inline-flex align-items-center justify-content-center" 
+                        onclick="document.getElementById('dialogEditarUsuario{{ u.id }}').classList.toggle('modal-fullscreen');" 
+                        title="Tela Cheia / Restaurar" style="background: rgba(255,255,255,0.2); border: none; width: 30px; height: 30px;">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
+                        <path fill-rule="evenodd" d="M5.828 10.172a.5.5 0 00-.707 0l-4.096 4.096V11.5a.5.5 0 0 0-1 0v3.975a.5.5 0 0 0 .5.5H4.5a.5.5 0 0 0 0-1H1.732l4.096-4.096a.5.5 0 0 0 0-.707m4.344 0a.5.5 0 0 1 .707 0l4.096 4.096V11.5a.5.5 0 1 1 1 0v3.975a.5.5 0 0 1-.5.5H11.5a.5.5 0 0 1 0-1h2.768l-4.096-4.096a.5.5 0 0 1 0-.707m0-4.344a.5.5 0 0 0 .707 0l4.096-4.096V4.5a.5.5 0 1 0 1 0V.525a.5.5 0 0 0-.5-.5H11.5a.5.5 0 0 0 0 1h2.768l-4.096 4.096a.5.5 0 0 0 0 .707m-4.344 0a.5.5 0 0 1-.707 0L1.025 1.732V4.5a.5.5 0 0 1-1 0V.525a.5.5 0 0 1 .5-.5H4.5a.5.5 0 0 1 0 1H1.732l4.096 4.096a.5.5 0 0 1 0 .707"/>
+                    </svg>
+                </button>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            </div>
+                    
+                    <div class="modal-body" style="max-height: 60vh; overflow-y: auto;">
+                        
+                        <h6 class="text-primary fw-bold border-bottom pb-2 mb-3">{{ t('dados_acesso') }}</h6>
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">{{ t('nome_completo') }}</label>
+                                <input type="text" name="nome" class="form-control" placeholder="{{ t('nome_completo') }}" value="{{ u.nome }}" required>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">{{ t('email') }}</label>
+                                <input type="email" name="email" class="form-control" value="{{ u.email }}" required>
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">{{ t('nivel_acesso') }}</label>
+                                <select name="tipo_usuario" class="form-select">
+                                    <option value="Aluno" {% if u.tipo_usuario == 'Aluno' %}selected{% endif %}>{{ t('nivel_aluno') }}</option>
+                                    <option value="Mentor" {% if u.tipo_usuario == 'Mentor' %}selected{% endif %}>{{ t('nivel_mentor') }}</option>
+                                    <option value="Mentor Administrador" {% if u.tipo_usuario == 'Mentor Administrador' %}selected{% endif %}>{{ t('nivel_mentor_admin') }}</option>
+                                    <option value="Administrador" {% if u.tipo_usuario == 'Administrador' %}selected{% endif %}>{{ t('nivel_administrador') }}</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">{{ t('status') }}</label>
+                                <select name="status" class="form-select">
+                                    <option value="Ativo" {% if u.status == 'Ativo' %}selected{% endif %}>{{ t('ativo') }}</option>
+                                    <option value="Ausente" {% if u.status == 'Ausente' %}selected{% endif %}>{{ t('status_ausente') }}</option>
+                                    <option value="Desativado" {% if u.status == 'Desativado' %}selected{% endif %}>{{ t('status_desativado') }}</option>
+                                    <option value="Bloqueado" {% if u.status == 'Bloqueado' %} selected{% endif %}>Bloqueado (Senha 5x)</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="mb-4">
+                            <label class="form-label text-danger">{{ t('nova_senha_opcional') }}</label>
+                            <input type="password" name="senha" class="form-control" placeholder="{{ t('placeholder_senha') }}">
+                            <div class="form-text">{{ t('aviso_senha') }}</div>
+                            
+                            <div class="form-check mt-3">
+                                <input class="form-check-input" type="checkbox" name="forcar_troca_senha" value="True" id="forcar_troca_{{ u.id }}" {% if u.forcar_troca_senha %}checked{% endif %}>
+                                <label class="form-check-label text-muted fw-bold" for="forcar_troca_{{ u.id }}">
+                                    {{ t('exigir_troca_senha') }}
+                                </label>
+                                </div>
+
+                                <!-- NOVO: Checkbox para resetar perguntas de segurança -->
+                                <div class="form-check mt-2">
+                                <input class="form-check-input border-danger" type="checkbox" name="resetar_perguntas" value="True" id="resetar_perguntas_{{ u.id }}">
+                                <label class="form-check-label text-danger fw-bold" for="resetar_perguntas_{{ u.id }}">
+                                    Reiniciar Perguntas de Segurança (O aluno recadastrará no próximo login)
+                                </label>
+                                </div>
+                        </div>
+
+                        {% if u.tipo_usuario == 'Aluno' %}
+                            <hr class="my-4">
+                            <h6 class="text-success fw-bold mb-3">{{ t('prontuario_entrevista') }}</h6>
+                            
+                            <!-- CAMPO DE EDIÇÃO DE MENTORES (CHECKBOXES MODERNAS) -->
+                            <div class="mb-4 p-3 bg-light border rounded">
+                                <label class="form-label fw-bold text-primary mb-3">🎓 {{ t('mentores_atribuidos') }}</label>
+                                
+                                <div class="row">
+                                    {% set mentores_atuais = u.mentores.all() %}
+                                    {% for mentor in mentores %}
+                                        <div class="col-md-6 mb-2">
+                                                <input class="form-check-input m-0 me-2" type="checkbox" name="mentores" value="{{ mentor.id }}" id="mentor_{{ u.id }}_{{ mentor.id }}" {% if mentor in mentores_atuais %}checked{% endif %}>
+                                                <label class="form-check-label w-100 cursor-pointer" for="mentor_{{ u.id }}_{{ mentor.id }}">
+                                                    <strong>{{ mentor.nome }}</strong>
+                                                    <span class="badge bg-secondary ms-1" style="font-size: 0.65rem;">{{ mentor.tipo_usuario }}</span>
+                                                </label>
+                                        </div>
+                                    {% else %}
+                                        <div class="col-12 text-muted small">Nenhum mentor disponível no sistema.</div>
+                                    {% endfor %}
+                                </div>
+
+                                <div class="form-text text-muted mt-2">
+                                    <small>💡 {{ t('dica_selecao_multipla_edicao') }}</small>
+                                </div>
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label text-muted">{{ t('perfil_aluno') }}</label>
+                                <input type="text" name="perfil_aluno" class="form-control" value="{{ u.perfil_aluno or '' }}" placeholder="{{ t('placeholder_perfil_aluno') }}">
+                            </div>
+
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label text-muted">{{ t('rotulo_objetivo') }}</label>
+                                    <textarea name="objetivo_principal" class="form-control" rows="2" placeholder="{{ t('placeholder_objetivo') }}">{{ u.objetivo_principal or '' }}</textarea>
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label text-muted">{{ t('rotulo_expectativa') }}</label>
+                                    <textarea name="expectativa_mentoria" class="form-control" rows="2" placeholder="{{ t('placeholder_expectativa') }}">{{ u.expectativa_mentoria or '' }}</textarea>
+                                </div>
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label fw-bold text-primary">{{ t('observacoes_mentor_privativo') }}</label>
+                                <textarea name="observacoes_mentor" class="form-control" rows="3" placeholder="{{ t('placeholder_observacoes_mentor') }}">{{ u.observacoes_mentor or '' }}</textarea>
+                            </div>
+                        {% endif %}
+
+                    </div>
+                    
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary fw-bold" data-bs-dismiss="modal">{{ t('cancelar') }}</button>
+                        <button type="submit" class="btn btn-primary fw-bold">{{ t('salvar_alteracoes') }}</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+    
+    <script>
+        document.addEventListener("DOMContentLoaded", function() {
+            var selectTipo = document.getElementById('tipo_usuario_novo');
+            var blocoMentores = document.getElementById('bloco_mentores_novo');
+            
+            function alternarMentores() {
+                if (selectTipo && selectTipo.value === 'Aluno') {
+                    blocoMentores.style.display = 'block';
+                } else if (blocoMentores) {
+                    blocoMentores.style.display = 'none';
+                }
+            }
+
+            if (selectTipo) {
+                selectTipo.addEventListener('change', alternarMentores);
+                alternarMentores(); 
+            }
+        });
+        // Filtro Inteligente de Usuários
+        const filtro = document.getElementById('filtroUsuarios');
+        if (filtro) {
+            filtro.addEventListener('input', function() {
+                const termo = this.value.toLowerCase();
+                document.querySelectorAll('.linha-usuario').forEach(function(linha) {
+                    const textoDaLinha = linha.textContent.toLowerCase();
+                    linha.style.display = textoDaLinha.includes(termo) ? '' : 'none';
+                });
+            });
+        }
+
+    </script>
+
+<script>
+function iniciarTourDaPagina() {
+    let passos = [ { intro: "{{ t('tour_cad_intro') | safe }}" } ];
+
+    let formCad = document.querySelector('form[action*="gerenciar_usuarios"]') || document.querySelector('form');
+    if (formCad) passos.push({ element: formCad, intro: "{{ t('tour_cad_form') | safe }}" });
+
+    let tabela = document.querySelector('.table') || document.querySelector('table');
+    if (tabela) passos.push({ element: tabela, intro: "{{ t('tour_cad_tabela') | safe }}" });
+
+    // Identifica o perfil para saber para onde o Tour deve ir depois
+    let tipoPerfil = "{{ current_user.tipo_usuario }}";
+    let ehMentorAdmin = (tipoPerfil === 'Mentor Administrador');
+
+    introJs().setOptions({
+        steps: passos,
+        nextLabel: "{{ t('tour_btn_proximo') }}",
+        prevLabel: "{{ t('tour_btn_anterior') }}",
+        // Se for Mentor Admin, vai para Solicitações. Se for Admin, pula para Manutenção.
+        doneLabel: ehMentorAdmin ? "{{ t('tour_btn_solicitacoes') }}" : "{{ t('tour_btn_manutencao') }}",
+        showProgress: true,
+        showBullets: false
+    }).oncomplete(function() {
+        if(window.location.search.includes('tour_continuo=1')) {
+            if (ehMentorAdmin) {
+                window.location.href = "{{ url_for('gerenciar_solicitacoes') }}?tour_continuo=1";
+            } else {
+                window.location.href = "{{ url_for('manutencao_banco') }}?tour_continuo=1";
+            }
+        }
+    }).start();
+}
+
+document.addEventListener("DOMContentLoaded", function() {
+    if(window.location.search.includes('tour_continuo=1')) {
+        setTimeout(iniciarTourDaPagina, 500);
+    }
+});
+</script>
+
+{% endblock %}

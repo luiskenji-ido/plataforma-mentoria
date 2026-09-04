@@ -1,0 +1,18 @@
+# Ambientes Virtuais e Cache
+.venv/
+.venv-1/
+__pycache__/
+
+# Banco de Dados e Logs
+instance/
+mentoria.db
+*.db
+Log_auditoria_backup/
+relatorio_backups.log
+
+# Arquivos Sensíveis e Anexos
+client_secret.json
+uploads/
+Backup_repository/
+
+.env

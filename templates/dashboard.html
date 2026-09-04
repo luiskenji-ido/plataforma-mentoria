@@ -1,0 +1,476 @@
+{% extends "base.html" %}
+{% block title %}{{ t('titulo_dashboard') }} Mentoria{% endblock %}
+{% block content %}
+<!-- ALERTA DE SENHA -->
+{% if dias_restantes_senha <= 15 %}
+<div class="alert alert-warning alert-dismissible fade show border-start border-warning border-4 shadow-sm mb-4" role="alert">
+<strong> Alerta de Segurança:</strong> Sua senha expira em <strong>{{ dias_restantes_senha }} dias</strong>!
+<button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+</div>
+{% endif %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+<div>
+<!-- TÍTULO TRADUZIDO -->
+<h2 class="text-primary fw-bold">{{ t('titulo_dashboard') }}</h2>
+<!-- Bloco de Nível de Acesso e Mentor (TRADUÇÃO AUTOMÁTICA 3 IDIOMAS) -->
+<p class="text-muted mb-3">
+{{ t('nivel_acesso') }}: <strong>
+{% if current_user.tipo_usuario == 'Aluno' %}
+{{ t('aluno') }}
+{% else %}
+{{ current_user.tipo_usuario }}
+{% endif %}
+</strong>
+<!-- A regrinha abaixo diz: Só mostre o mentor SE for um Aluno logado -->
+{% if current_user.tipo_usuario == 'Aluno' %}
+<span class="ms-3">
+{% if t('sem_certificado') == 'Uncertified' %}
+Responsible Mentor:
+{% elif t('sem_certificado') == 'Sin Certificado' %}
+Mentor Responsable:
+{% else %}
+Mentor Responsável:
+{% endif %}
+<strong class="text-primary">
+{% if nome_mentor == 'Não atribuído' %}
+{% if t('sem_certificado') == 'Uncertified' %}
+Not assigned
+{% elif t('sem_certificado') == 'Sin Certificado' %}
+No asignado
+{% else %}
+Não atribuído
+{% endif %}
+{% else %}
+{{ nome_mentor }}
+{% endif %}
+</strong>
+</span>
+{% endif %}
+</p>
+</div>
+<div>
+{% if current_user.tipo_usuario in ['Administrador', 'Mentor Administrador'] %}
+<a href="{{ url_for('gerenciar_usuarios') }}" class="btn btn-outline-primary fw-bold shadow-sm">{{ t('btn_cadastros') }}</a>
+{% endif %}
+{% if current_user.tipo_usuario != 'Aluno' %}
+<a href="{{ url_for('gerenciar_cursos') }}" class="btn btn-outline-success fw-bold shadow-sm ms-2">{{ t('btn_cursos') }}</a>
+{% endif %}
+<a href="{{ url_for('acompanhamento') }}" class="btn btn-info text-white fw-bold shadow-sm ms-2">{{ t('btn_acompanhamento') }}</a>
+<a href="{{ url_for('sessoes') }}" class="btn btn-warning fw-bold shadow-sm ms-2">{{ t('btn_sessoes') }}</a>
+</div>
+</div>
+<!-- CARDS DE RESUMO E CERTIFICAÇÃO (TEXTOS TRADUZIDOS) -->
+<div class="row g-2 mb-4">
+{% if current_user.tipo_usuario != 'Aluno' %}
+<div class="col">
+<div class="card shadow-sm border-0 p-2 text-center h-100">
+<small class="text-muted d-block fw-bold" style="font-size: 0.8rem;">{{ t('total_alunos') }}</small>
+<h3 class="fw-bold text-primary mb-0" style="font-size: 1.5rem;">{{ total_alunos }}</h3>
+</div>
+</div>
+{% endif %}
+<div class="col">
+<div class="card shadow-sm border-0 p-2 text-center h-100">
+<small class="text-muted d-block fw-bold" style="font-size: 0.8rem;">{{ t('finalizados') }}</small>
+<h3 class="fw-bold text-success mb-0" style="font-size: 1.5rem;">{{ total_finalizados }}</h3>
+</div>
+</div>
+<div class="col">
+<div class="card shadow-sm border-0 p-2 text-center h-100">
+<small class="text-muted d-block fw-bold" style="font-size: 0.8rem;">{{ t('com_certificado') }}</small>
+<h3 class="fw-bold text-info mb-0" style="font-size: 1.5rem;">{{ finalizados_com_certificado }}</h3>
+</div>
+</div>
+<div class="col">
+<div class="card shadow-sm border-0 p-2 text-center h-100">
+<small class="text-muted d-block fw-bold" style="font-size: 0.8rem;">{{ t('sem_certificado') }}</small>
+<h3 class="fw-bold text-secondary mb-0" style="font-size: 1.5rem;">{{ finalizados_sem_certificado }}</h3>
+</div>
+</div>
+<div class="col">
+<div class="card shadow-sm border-0 p-2 text-center h-100">
+<small class="text-muted d-block fw-bold" style="font-size: 0.8rem;">{{ t('cursos_risco') }}</small>
+<h3 class="fw-bold text-danger mb-0" style="font-size: 1.5rem;">{{ contador_risco }}</h3>
+</div>
+</div>
+</div>
+<!-- ==========================================================
+ÁREA DOS GRÁFICOS VISUAIS (EVOLUÇÃO E SKILLS)
+=========================================================== -->
+<div class="row mt-4 mb-4">
+<!-- Gráfico de Evolução no Tempo -->
+<div class="col-md-7 mb-3">
+<div class="card shadow-sm border-0 h-100">
+<div class="card-header bg-white border-bottom-0 pt-3 pb-0">
+<h6 class="mb-0 text-primary fw-bold"> {{ t('titulo_grafico_evolucao') }}</h6>
+</div>
+<div class="card-body">
+<canvas id="graficoEvolucao" style="max-height: 250px; "></canvas>
+</div>
+</div>
+</div>
+<!-- Gráfico Radar: Hard vs Soft Skills -->
+<div class="col-md-5 mb-3">
+<div class="card shadow-sm border-0 h-100">
+<div class="card-header bg-white border-bottom-0 pt-3 pb-0">
+<h6 class="mb-0 text-primary fw-bold"> {{ t('titulo_grafico_skills') }}</h6>
+</div>
+<div class="card-body d-flex justify-content-center">
+<canvas id="graficoSkills" style="max-height: 250px; "></canvas>
+</div>
+</div>
+</div>
+</div>
+<!-- SEÇÃO DE SAÚDE E MATRIZ DE RISCO DOS CURSOS -->
+<div class="card shadow-sm border-0 mb-5">
+<div class="p-3 mb-0 card border-0 rounded d-flex justify-content-between align-items-center flex-row">
+<h5 class="mb-0 fw-bold text-primary">
+{{ t('painel_mentoria') }}
+</h5>
+<div>
+<span class="badge bg-success me-1">{{ t('badge_saudaveis') }}: {{ contador_saudavel }}</span>
+<span class="badge bg-warning text-dark me-1">{{ t('badge_atencao') }}: {{ contador_atencao }}</span>
+<span class="badge bg-danger">{{ t('badge_risco') }}: {{ contador_risco }}</span>
+</div>
+</div>
+<!-- ==========================================
+CONTROLES DE FILTRO E ORDENAÇÃO
+=========================================== -->
+<div class="bg-light p-3 border-top border-bottom d-flex gap-3 align-items-center flex-wrap">
+<div class="flex-grow-1">
+<input type="text" id="filtroBusca" class="form-control shadow-sm" placeholder="{{ t('placeholder_filtro') }}">
+</div>
+<div>
+<select id="ordenacaoTabela" class="form-select shadow-sm">
+<option value="padrao">{{ t('ordenar_padrao') }}</option>
+<option value="curso_az">{{ t('ordem_curso_az') }}</option>
+<option value="curso_za">{{ t('ordem_curso_za') }}</option>
+<option value="carga_maior">{{ t('ordem_carga_maior') }}</option>
+<option value="carga_menor">{{ t('ordem_carga_menor') }}</option>
+<option value="progresso_maior">{{ t('ordem_progresso_maior') }}</option>
+<option value="progresso_menor">{{ t('ordem_progresso_menor') }}</option>
+</select>
+</div>
+</div>
+<div class="card-body p-0">
+<table class="table table-hover align-middle mb-0 text-center" id="tabelaMatriz">
+<thead>
+<tr>
+<th class="text-start">{{ t('aluno') }}</th>
+<th class="text-start">{{ t('curso_materia') }}</th>
+<th>{{ t('carga_horaria') }}</th>
+<th>{{ t('progresso') }}</th>
+<th>{{ t('prazo_meta') }}</th>
+<th>{{ t('status_saude') }}</th>
+</tr>
+</thead>
+<tbody id="corpoTabelaMatriz">
+{% for item in matrizes_analise %}
+<!-- Injetamos 'data-attributes' ocultos para o filtro inteligente ler os dados -->
+<tr class="linha-matriz"
+data-aluno="{{ item.aluno | lower }}"
+data-curso="{{ item.curso | lower }}"
+data-carga="{{ item.carga_horaria }}"
+data-progresso="{{ item.percentual }}">
+<td class="text-start fw-bold">{{ item.aluno }}</td>
+
+<td class="text-start">
+{% if item.url %}
+<a href="{{ item.url }}" target="_blank" class="text-decoration-none fw-bold text-primary" title="Acessar o curso">
+{{ item.curso }} 🔗
+</a>
+{% else %}
+<span class="fw-bold">{{ item.curso }}</span>
+{% endif %}
+</td>
+
+<td><span class="badge bg-secondary">{{ item.carga_horaria }} horas</span></td>
+<td style="width: 20%;">
+<div class="d-flex align-items-center">
+<span class="me-2 small fw-bold">{{ item.percentual }}%</span>
+<div class="progress w-100" style="height: 8px;">
+<div class="progress-bar bg-success" style="width: {{ item.percentual }}%;"></div>
+</div>
+</div>
+</td>
+<td class="text-muted small">
+{% if item.prazo == 'Sem prazo definido' %}
+{{ t('sem_prazo') }}
+{% else %}
+{{ item.prazo }}
+{% endif %}
+</td>
+<td>
+{% if item.status == 'Desativado' or item.risco == 'Desativado' %}
+<span class="badge bg-secondary"> {{ t('status_desativado') }}</span>
+{% elif item.risco == 'Saudável' or item.risco == 'Concluído' %}
+<span class="badge bg-success"> {{ t('status_saudavel') }}</span>
+{% elif item.risco == 'Em Atenção' %}
+<span class="badge bg-warning text-dark"> {{ t('status_atencao') }}</span>
+{% else %}
+<span class="badge bg-danger"> {{ t('status_risco') }}</span>
+{% endif %}
+</td>
+</tr>
+{% else %}
+<tr id="linhaVazia">
+<td colspan="6" class="text-muted py-4">Nenhum curso em andamento para análise de risco.</td>
+</tr>
+{% endfor %}
+</tbody>
+</table>
+</div>
+</div>
+<!-- ==========================================================
+SCRIPTS DE RENDERIZAÇÃO DOS GRÁFICOS (CHART.JS)
+=========================================================== -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+// ==========================================================
+// 1. GRÁFICO MISTO (ESFORÇO VS RESULTADO) Dados Reais
+// ==========================================================
+const canvasEvolucao = document.getElementById('graficoEvolucao');
+if (canvasEvolucao) {
+const ctxEvolucao = canvasEvolucao.getContext('2d');
+new Chart(ctxEvolucao, {
+type: 'bar',
+data: {
+labels: {{ evolucao_labels | tojson}},
+datasets: [
+{
+type: 'bar',
+label: "{{ t('label_volume_horas') }}",
+data: {{ evolucao_horas | tojson }},
+backgroundColor: 'rgba(13, 110, 253, 0.7)',
+borderColor: 'rgba(13, 110, 253, 1)',
+borderWidth: 1,
+borderRadius: 4,
+yAxisID: 'y'
+},
+{
+type: 'line',
+label: "{{ t('label_cursos_concluidos') }}",
+data: {{ evolucao_cursos | tojson }},
+borderColor: 'rgba(25, 135, 84, 1)',
+backgroundColor: 'rgba(25, 135, 84, 1)',
+borderWidth: 3,
+tension: 0.3,
+fill: false,
+pointRadius: 5,
+pointBackgroundColor: '#fff',
+yAxisID: 'y1'
+}
+]
+},
+options: {
+beginAtZero: true,
+responsive: true,
+maintainAspectRatio: false,
+interaction: { mode: 'index', intersect: false },
+scales: {
+y: {
+type: 'linear', display: true, position: 'left',
+title: { display: true, text: "{{ t('eixo_horas_estudadas') }}", color: 'rgba(13, 110, 253, 1)', font: { weight: 'bold' } }
+},
+y1: {
+type: 'linear', display: true, position: 'right',
+beginAtZero: true,
+title: { display: true, text: "{{ t('eixo_cursos_concluidos') }}", color: 'rgba(25, 135, 84, 1)', font: { weight: 'bold' } },
+grid: { drawOnChartArea: false },
+ticks: { stepSize: 1 }
+}
+}
+}
+});
+}
+// ==========================================================
+// 2. GRÁFICO RADAR (CURSOS ALOCADOS) Dados Reais
+// ==========================================================
+const canvasSkills = document.getElementById('graficoSkills');
+if (canvasSkills) {
+const ctxSkills = canvasSkills.getContext('2d');
+new Chart(ctxSkills, {
+type: 'radar',
+data: {
+labels: {{ radar_labels | tojson}},
+datasets: [
+{
+label: "{{ t('label_progresso_curso') }}",
+data: {{ radar_valores | tojson }},
+backgroundColor: 'rgba(111, 66, 193, 0.4)',
+borderColor: 'rgba(111, 66, 193, 1)',
+borderWidth: 2,
+pointBackgroundColor: 'rgba(111, 66, 193, 1)'
+}
+]
+},
+options: {
+responsive: true,
+maintainAspectRatio: false,
+scales: {
+r: { beginAtZero: true, max: 100}
+}
+}
+});
+}
+});
+</script>
+<!-- ==========================================================
+SCRIPT DO FILTRO E ORDENAÇÃO DA TABELA
+=========================================================== -->
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+const inputBusca = document.getElementById('filtroBusca');
+const selectOrdenacao = document.getElementById('ordenacaoTabela');
+const corpoTabela = document.getElementById('corpoTabelaMatriz');
+// Só continua se a tabela existir na tela
+if (!corpoTabela) return;
+// Pega todas as linhas da tabela e transforma numa lista gerenciável
+const linhas = Array.from(corpoTabela.getElementsByClassName('linha-matriz'));
+function atualizarTabela() {
+const termo = inputBusca.value.toLowerCase();
+const ordem = selectOrdenacao.value;
+// 1. Aplica o filtro de texto (Busca Instantânea)
+let linhasVisiveis = linhas.filter(linha => {
+const aluno = linha.getAttribute('data-aluno');
+const curso = linha.getAttribute('data-curso');
+// Verifica se o texto digitado existe no nome do aluno ou do curso
+if (aluno.includes(termo) || curso.includes(termo)) {
+linha.style.display = ''; // Mostra
+return true;
+} else {
+linha.style.display = 'none'; // Esconde
+return false;
+}
+});
+// 2. Aplica a reordenação nas linhas que ficaram visíveis
+if (ordem !== 'padrao') {
+linhasVisiveis.sort((a, b) => {
+if (ordem === 'curso_az') {
+return a.getAttribute('data-curso').localeCompare(b.getAttribute('data-curso'));
+} else if (ordem === 'curso_za') {
+return b.getAttribute('data-curso').localeCompare(a.getAttribute('data-curso'));
+} else if (ordem === 'carga_menor') {
+return parseInt(a.getAttribute('data-carga')) - parseInt(b.getAttribute('data-carga'));
+} else if (ordem === 'carga_maior') {
+return parseInt(b.getAttribute('data-carga')) - parseInt(a.getAttribute('data-carga'));
+} else if (ordem === 'progresso_maior') {
+return parseInt(b.getAttribute('data-progresso')) - parseInt(a.getAttribute('data-progresso'));
+} else if (ordem === 'progresso_menor') {
+return parseInt(a.getAttribute('data-progresso')) - parseInt(b.getAttribute('data-progresso'));
+}
+return 0;
+});
+}
+// 3. Devolve as linhas para a tabela na ordem correta
+linhasVisiveis.forEach(linha => corpoTabela.appendChild(linha));
+}
+// Fica "escutando" qualquer digitação ou mudança de opção para ativar a função
+if (inputBusca) inputBusca.addEventListener('input', atualizarTabela);
+if (selectOrdenacao) selectOrdenacao.addEventListener('change', atualizarTabela);
+});
+</script>
+
+<!-- ============================================================== -->
+<!-- SISTEMA DE TOUR DE ONBOARDING (APENAS PRIMEIRO ACESSO)         -->
+<!-- ============================================================== -->
+{% if current_user.exibir_tour %}
+<!-- Modal de Convite -->
+<div class="modal fade" id="modalTourInicial" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content shadow-lg border-0">
+            <div class="modal-header bg-primary text-white border-0">
+                <h5 class="modal-title fw-bold">Olá, {{ current_user.nome.split()[0] }}!</h5>
+            </div>
+            <div class="modal-body text-center p-4">
+                <p class="mb-0">Notamos que este é o seu primeiro acesso. Que tal um tour rápido para conhecer as principais ferramentas do seu perfil de <strong>{{ current_user.tipo_usuario }}</strong>?</p>
+            </div>
+            <div class="modal-footer flex-column bg-light border-0">
+                <button type="button" class="btn btn-primary w-100 fw-bold shadow-sm" onclick="fecharModalEIniciarTour()">🚀 Fazer o Tour Agora</button>
+                <button type="button" class="btn btn-outline-secondary w-100 fw-bold" data-bs-dismiss="modal">⏳ Lembrar Depois</button>
+                <button type="button" class="btn btn-link text-danger w-100 small text-decoration-none" onclick="desativarTourBackend(true)">❌ Não mostrar novamente</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %} 
+<!-- FIM DA CONDIÇÃO DO PRIMEIRO ACESSO -->
+
+<!-- O SCRIPT AGORA FICA DE FORA, SEMPRE DISPONÍVEL PARA O BOTÃO MANUAL -->
+<script>
+window.iniciarTourDaPagina = function() {
+    let passos = [
+        { intro: "{{ t('tour_dash_intro') | safe }}" }
+    ];
+
+    let topo = document.querySelector('.d-flex.justify-content-between.align-items-center.mb-4');
+    if (topo) passos.push({ element: topo, intro: "{{ t('tour_dash_topo') }}" });
+
+    let cartoes = document.querySelector('.row.g-2');
+    if (cartoes) passos.push({ element: cartoes, intro: "{{ t('tour_dash_cartoes') }}" });
+
+    let grafEvolucao = document.getElementById('graficoEvolucao');
+    if (grafEvolucao) passos.push({ element: grafEvolucao, intro: "{{ t('tour_dash_evolucao') | safe }}" });
+
+    let grafSkills = document.getElementById('graficoSkills');
+    if (grafSkills) passos.push({ element: grafSkills, intro: "{{ t('tour_dash_skills') | safe }}" });
+
+    let areaFiltros = document.getElementById('filtroBusca');
+    if (areaFiltros) passos.push({ element: areaFiltros.parentElement.parentElement, intro: "{{ t('tour_dash_filtros') | safe }}" });
+
+    let tabela = document.getElementById('tabelaMatriz') || document.querySelector('.table');
+    if (tabela) passos.push({ element: tabela, intro: "{{ t('tour_dash_tabela') | safe }}" });
+
+    let tipoPerfil = "{{ current_user.tipo_usuario }}";
+    
+    // CORREÇÃO: Administrador, Mentor Administrador e Mentor acessam Cursos. Só o 'Aluno' pula para Sessões.
+    let acessaCursos = (tipoPerfil !== 'Aluno');
+
+    introJs().setOptions({
+        steps: passos,
+        nextLabel: "{{ t('tour_btn_proximo') }}",
+        prevLabel: "{{ t('tour_btn_anterior') }}",
+        doneLabel: acessaCursos ? "{{ t('tour_btn_cursos') }}" : "{{ t('tour_btn_concluir_sessoes') }}",
+        showProgress: true,
+        showBullets: false
+    }).oncomplete(function() {
+        desativarTourBackend(true);
+        if (acessaCursos) {
+            window.location.href = "{{ url_for('gerenciar_cursos') }}?tour_continuo=1";
+        } else {
+            window.location.href = "{{ url_for('sessoes') }}?tour_continuo=1";
+        }
+    }).onexit(function() {
+        desativarTourBackend(true);
+    }).start();
+};
+
+document.addEventListener("DOMContentLoaded", function() {
+    {% if current_user.exibir_tour %}
+    const modalEl = document.getElementById('modalTourInicial');
+    if (modalEl) {
+        const modalTour = new bootstrap.Modal(modalEl);
+        modalTour.show();
+    }
+    {% endif %}
+});
+
+window.fecharModalEIniciarTour = function() {
+    desativarTourBackend(true);
+    window.iniciarTourDaPagina();
+};
+
+window.desativarTourBackend = function(fecharModal = false) {
+    if (fecharModal) {
+        const modalEl = document.getElementById('modalTourInicial');
+        if (modalEl) {
+            const modalObj = bootstrap.Modal.getInstance(modalEl);
+            if (modalObj) modalObj.hide();
+        }
+    }
+    fetch('/desativar-tour', { method: 'POST', headers: { 'Content-Type': 'application/json' } });
+};
+</script>
+
+{% endblock %}
