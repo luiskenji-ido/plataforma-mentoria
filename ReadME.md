@@ -26,7 +26,7 @@ Markdown
 ---
 
 ## 🧩 Estrutura do Projeto
-
+```text
 mentoria/
 	│
 	├── app.py							# Cérebro da aplicação, rotas, integrações (IA/Agenda) e controle do sino de notificações                     		
