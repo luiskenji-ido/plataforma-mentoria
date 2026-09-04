@@ -10,6 +10,7 @@ from flask import Flask, render_template, request, redirect, url_for, flash, sen
 # Importações do Google Calendar
 from google_auth_oauthlib.flow import Flow
 import os
+import httplib2
 
 import google.oauth2.credentials
 from googleapiclient.discovery import build
@@ -25,7 +26,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
+genai.configure(api_key=SUA_VARIAVEL_DE_CHAVE, transport='rest')
 
 # Isso permite testarmos o login do Google no nosso computador (localhost) sem HTTPS
 os.environ['OAUTHLIB_INSECURE_TRANSPORT'] = '1'
@@ -1579,8 +1580,10 @@ def agendar_estudo():
             client_secret=dados_cliente['client_secret'],
             scopes=SCOPES
         )
+        proxy = httplib2.ProxyInfo(httplib2.socks.PROXY_TYPE_HTTP, 'proxy.server', 3128)
+        http_autorizado = httplib2.Http(proxy_info=proxy)
         
-        service = build('calendar', 'v3', credentials=creds, cache_discovery=False)
+        service = build('calendar', 'v3', credentials=creds, http=http_autorizado, cache_discovery=False)
         
         # O cálculo corrigido do horário! 
         agora = dt.utcnow()
