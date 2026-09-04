@@ -12,6 +12,7 @@ from google_auth_oauthlib.flow import Flow
 import os
 import httplib2
 import socks
+import google_auth_httplib2
 
 import google.oauth2.credentials
 from googleapiclient.discovery import build
@@ -1581,10 +1582,16 @@ def agendar_estudo():
             client_secret=dados_cliente['client_secret'],
             scopes=SCOPES
         )
-        proxy = httplib2.ProxyInfo(httplib2.socks.PROXY_TYPE_HTTP, 'proxy.server', 3128)
-        http_autorizado = httplib2.Http(proxy_info=proxy)
 
-        service = build('calendar', 'v3', credentials=creds, http=http_autorizado, cache_discovery=False)
+        # Cria a rota de proxy
+        proxy = httplib2.ProxyInfo(httplib2.socks.PROXY_TYPE_HTTP, 'proxy.server', 3128)
+        http_base = httplib2.Http(proxy_info=proxy)
+
+        # Injete as credenciais diretamente no túnel
+        http_autorizado = google_auth_httplib2.AuthorizedHttp(creds, http=http_base)
+
+        # Entregue ao Google apenas o túnel já autenticado (repare que retiramos o credentials=creds)
+        service = build('calendar', 'v3', http=http_autorizado, cache_discovery=False)
         
                 
         # O cálculo corrigido do horário! 
