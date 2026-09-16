@@ -74,6 +74,7 @@ class Acompanhamento(db.Model):
     curso_id = db.Column(db.Integer, db.ForeignKey('curso.id'), nullable=False)
     status = db.Column(db.String(50), default='Iniciado') 
     percentual_conclusao = db.Column(db.Integer, default=0)
+    percentual_mentor = db.Column(db.Integer, default=0)
     certificado_anexado = db.Column(db.Boolean, default=False) 
     observacao = db.Column(db.Text, nullable=True)
     data_parecer_mentor = db.Column(db.DateTime, nullable=True)

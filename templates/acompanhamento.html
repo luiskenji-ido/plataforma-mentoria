@@ -34,9 +34,12 @@
         }
 
         .display-caderno {
-            min-height: 120px;
+            max-height: 72px; /* Altura cravada para mostrar no máximo 2 linhas */
             white-space: pre-wrap;
             margin-bottom: 0;
+            text-align: left !important;
+            overflow-y: auto;
+            padding-top: 2px !important; /* Sobe o texto para colar na primeira linha */
         }
 
 
@@ -322,11 +325,21 @@
 
                 <div class="row align-items-center">
                     <div class="col-md-3">
+                        <!-- PROGRESSO DO ALUNO (Visível para todos) -->
                         <label class="form-label text-muted small fw-bold">{{ t('progresso_pct') }} ({{ item.reg.percentual_conclusao }}%)</label>
                         <div class="progress mb-2" style="height: 15px;">
                             <div class="progress-bar bg-success" style="width: {{ item.reg.percentual_conclusao }}%;"></div>
                         </div>
-                        <small class="text-muted d-block">
+                        
+                        <!-- PROGRESSO DO MENTOR (Invisível para Alunos) -->
+                        {% if current_user.tipo_usuario != 'Aluno' %}
+                        <label class="form-label text-primary small fw-bold mt-2">Validação do Mentor ({{ item.reg.percentual_mentor or 0 }}%)</label>
+                        <div class="progress mb-2" style="height: 15px;">
+                            <div class="progress-bar bg-primary progress-bar-striped" style="width: {{ item.reg.percentual_mentor or 0 }}%;"></div>
+                        </div>
+                        {% endif %}
+
+                        <small class="text-muted d-block mt-3">
                             {{t('inicio') }}: <strong>{{ item.reg.data_inicio.strftime('%d/%m/%Y') if item.reg.data_inicio else t('nao_definida') }}</strong>
                         </small>
                         <small class="text-muted d-block">
@@ -341,9 +354,7 @@
                                 🔍 {{ t('btn_expandir_tela_cheia') }}
                             </button>
                         </div>
-                        <div class="fundo-caderno display-caderno mb-2" style="max-height: 120px; overflow-y: auto;">
-                            {{ item.reg.observacao_aluno if item.reg.observacao_aluno and item.reg.observacao_aluno != 'None' else t('nenhuma_anotacao') }}
-                        </div>
+                        <div class="fundo-caderno display-caderno mb-2 text-start">{{ item.reg.observacao_aluno if item.reg.observacao_aluno and item.reg.observacao_aluno != 'None' else t('nenhuma_anotacao') }}</div>
                         
                         <div class="d-flex justify-content-between align-items-center mb-1 mt-3">
                             <p class="mb-0 text-primary small fw-bold">{{ t('parecer_mentor') }}</p>
@@ -351,16 +362,8 @@
                                 🔍 {{ t('btn_expandir_parecer') }}
                             </button>
                         </div>
-                        <div class="fundo-caderno display-caderno mb-2" style="max-height: 120px; overflow-y: auto;">
-                            {% if item.reg.data_parecer_mentor %}
-                                <div class="text-end mb-1 border-bottom border-light pb-1">
-                                    <span class="badge bg-light text-primary border border-primary-subtle" style="font-size: 0.65rem;">
-                                        {{ t('badge_atualizado_em') }} {{ item.reg.data_parecer_mentor.strftime('%d/%m/%Y - %H:%M') }}
-                                    </span>
-                                </div>
-                            {% endif %}
-                            {{ item.reg.observacao if item.reg.observacao and item.reg.observacao != 'None' else t('nenhum_parecer') }}
-                        </div>
+                        <div class="fundo-caderno display-caderno mb-2 text-start">{% if item.reg.data_parecer_mentor %}<span class="badge bg-light text-primary border border-primary-subtle float-end ms-2" style="font-size: 0.65rem;">Atualizado: {{ item.reg.data_parecer_mentor.strftime('%d/%m/%Y %H:%M') }}</span>{% endif %}{{ item.reg.observacao if item.reg.observacao and item.reg.observacao != 'None' else t('nenhum_parecer') }}</div>
+                    
                     </div>
                     
                     <div class="col-md-4 d-flex flex-column align-items-end gap-2">
@@ -594,7 +597,7 @@
                         </div>
                         
                         <div class="row">
-                            <div class="col-md-6 mb-3">
+                            <div class="col-md-4 mb-3">
                                 <label class="form-label">{{ t('status_curso') }}</label>
                                 <select name="status" class="form-select" required>
                                     <option value="Iniciado" {% if item.reg.status == 'Iniciado' %} selected {% endif %}>{{ t('status_iniciado') }}</option>
@@ -602,10 +605,20 @@
                                     <option value="Finalizado" {% if item.reg.status == 'Finalizado' %} selected{% endif %}>{{ t('status_finalizado') }}</option>
                                 </select>
                             </div>
-                            <div class="col-md-6 mb-3">
-                                <label class="form-label">{{ t('progresso_porcentagem') }}</label>
+                            
+                            <!-- Edição Progresso do Aluno -->
+                            <div class="col-md-4 mb-3">
+                                <label class="form-label">{{ t('progresso_porcentagem') }} (Aluno)</label>
                                 <input type="number" name="percentual_conclusao" class="form-control" min="0" max="100" value="{{ item.reg.percentual_conclusao }}" required>
                             </div>
+
+                            <!-- Edição Progresso do Mentor (Somente Mentores e Admins) -->
+                            {% if current_user.tipo_usuario != 'Aluno' %}
+                            <div class="col-md-4 mb-3">
+                                <label class="form-label text-primary fw-bold">Validação (Mentor)</label>
+                                <input type="number" name="percentual_mentor" class="form-control border-primary text-primary fw-bold" min="0" max="100" value="{{ item.reg.percentual_mentor or 0 }}">
+                            </div>
+                            {% endif %}
                         </div>
                         
                         <div class="mb-3">

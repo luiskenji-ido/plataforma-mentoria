@@ -769,7 +769,7 @@ def editar_curso(id):
     return redirect(url_for('gerenciar_cursos'))
 
 
-app.config['UPLOAD_FOLDER'] = 'uploads'
+app.config['UPLOAD_FOLDER'] = os.path.join(app.root_path, 'uploads')
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 
 
@@ -892,6 +892,12 @@ def acompanhamento():
 
                 regstro.status = status
                 regstro.observacao_aluno = observacao_aluno
+                
+                # --- NOVA LÓGICA: CAPTURAR PROGRESSO DO MENTOR ---
+                novo_percentual_mentor = request.form.get('percentual_mentor')
+                if novo_percentual_mentor is not None:
+                    regstro.percentual_mentor = int(novo_percentual_mentor)
+                # -------------------------------------------------
                 
                 if regstro.percentual_conclusao != percentual:
                     regstro.percentual_conclusao = percentual
@@ -1278,7 +1284,7 @@ def sessoes():
 @app.route('/uploads/<nome_arquivo>')
 @login_required
 def acessar_upload(nome_arquivo):
-    return send_from_directory('uploads', nome_arquivo)
+    return send_from_directory(app.config['UPLOAD_FOLDER'], nome_arquivo)
 
 # ---------------------------------------------------------
 # Rota de Logout (Sair do Sistema)
