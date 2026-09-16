@@ -1,0 +1,381 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2 class="text-primary mb-4">Gestão de Projetos</h2>
+
+    <!-- ========================================================================== -->
+    <!-- SEÇÃO 1: FORMULÁRIO DE CADASTRO DE NOVO PROJETO (Layout Compacto)          -->
+    <!-- ========================================================================== -->
+    <div class="card shadow-sm mb-4">
+        <div class="card-header bg-primary text-white py-2">
+            <h6 class="mb-0">Cadastrar Novo Projeto</h6>
+        </div>
+        <div class="card-body pb-2">
+            <form action="{{ url_for('projetos') }}" method="POST">
+                <div class="row align-items-end">
+                    
+                    <!-- Bloco Superior: Nome e Seleção de Grupo -->
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label fw-bold mb-1 text-muted small">Nome do Projeto</label>
+                        <input type="text" name="nome" class="form-control" required placeholder="Ex: Laboratório Azure Cloud">
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label fw-bold text-primary mb-1 small">Grupo Responsável (Alunos e Mentores)</label>
+                        <select name="grupo_id" class="form-select border-primary" required>
+                            <option value="">Selecione um grupo para este projeto...</option>
+                            {% for g in grupos %}
+                                <option value="{{ g.id }}">{{ g.nome }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <!-- Bloco Inferior: Descrição e Botão de Submissão -->
+                    <div class="col-md-10 mb-3">
+                        <label class="form-label fw-bold mb-1 text-muted small">Descrição / Objetivo</label>
+                        <input type="text" name="descricao" class="form-control" placeholder="Descreva brevemente o objetivo deste projeto...">
+                    </div>
+                    <div class="col-md-2 mb-3">
+                        <button type="submit" class="btn btn-success w-100 fw-bold">+ Criar</button>
+                    </div>
+                    
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ========================================================================== -->
+    <!-- SEÇÃO 2: LISTAGEM DE PROJETOS EM ANDAMENTO E SUAS TAREFAS                  -->
+    <!-- ========================================================================== -->
+    <h4 class="text-secondary mb-3 mt-5">Projetos em Andamento</h4>
+    
+    {% for p in projetos %}
+    <div class="card shadow-sm mb-4 border-primary">
+        
+        <!-- ================= CABEÇALHO DO PROJETO E EXCLUSÃO ================= -->
+        <div class="card-header bg-light d-flex justify-content-between align-items-center">
+            <div>
+                <h5 class="mb-0 text-primary fw-bold">Projeto: {{ p.nome }}</h5>
+                <small class="text-muted">Grupo: {{ p.grupo.nome }} | Criado em: {{ p.data_criacao.strftime('%d/%m/%Y') }}</small>
+            </div>
+            
+            <div class="d-flex align-items-center gap-3">
+                <!-- Porcentagem Total do Projeto -->
+                <span class="badge bg-success fs-6">Concluído: {{ p.percentual_conclusao }}%</span>
+                
+                <!-- Botão de Excluir Projeto (Visível apenas p/ Mentores e Admins) -->
+                {% if current_user.tipo_usuario in ['Mentor', 'Mentor Administrador', 'Administrador'] %}
+                <form action="{{ url_for('deletar_projeto', id=p.id) }}" method="POST" class="m-0" onsubmit="return confirm('ATENÇÃO EXTREMA: Tem certeza que deseja excluir o projeto inteiro? Todas as tarefas, subtarefas e anexos serão apagados para sempre. Essa ação não pode ser desfeita.');">
+                    <button type="submit" class="btn btn-sm btn-danger fw-bold" title="Excluir Projeto Inteiro">
+                        Excluir Projeto
+                    </button>
+                </form>
+                {% endif %}
+            </div>
+        </div>
+        
+        <div class="card-body p-0">
+            <!-- Botão Superior: Criar Nova Tarefa Vinculada ao Projeto -->
+            <div class="p-2 bg-white text-end border-bottom">
+                <button class="btn btn-sm btn-primary fw-bold" data-bs-toggle="modal" data-bs-target="#modalTarefa{{ p.id }}">
+                    <i class="bi bi-plus-lg"></i> + Criar Nova Tarefa
+                </button>
+            </div>
+
+            <!-- ================= TABELA DE TAREFAS E SUBTAREFAS ================= -->
+            <div class="table-responsive">
+                <table class="table table-bordered table-hover mb-0 text-center align-middle" style="font-size: 0.9rem;">
+                    <!-- Títulos das Colunas -->
+                    <thead class="table-light">
+                        <tr>
+                            <th class="text-start" style="width: 25%;">Descrição / Atividade</th>
+                            <th>Data Início</th>
+                            <th>Data Fim</th>
+                            <th>Responsáveis</th>
+                            <th>Status</th>
+                            <th style="width: 12%;">% Conclusão</th>
+                            <th>Anexos</th>
+                            <th style="width: 10%;">Ações</th> 
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for t in p.tarefas %}
+                            <!-- ================= TAREFAS PRINCIPAIS (PAI) ================= -->
+                            <!-- Filtro: Renderiza primeiro apenas as tarefas que não possuem pai -->
+                            {% if not t.tarefa_pai_id %}
+                            <tr class="bg-light">
+                                <td class="text-start fw-bold text-dark">{{ t.descricao }}</td>
+                                <td>{{ t.data_inicio.strftime('%d/%m/%Y') if t.data_inicio else '-' }}</td>
+                                <td>{{ t.data_fim.strftime('%d/%m/%Y') if t.data_fim else '-' }}</td>
+                                <td>
+                                    <span class="d-block fw-bold text-primary">{{ t.responsavel }}</span>
+                                    {% if t.equipe_apoio %}
+                                    <small class="text-muted">Apoio: {{ t.equipe_apoio }}</small>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <span class="badge {% if t.status == 'Concluído' %}bg-success{% elif t.status == 'Em Andamento' %}bg-info text-dark{% else %}bg-secondary{% endif %}">
+                                        {{ t.status }}
+                                    </span>
+                                </td>
+                                <td>
+                                    <div class="progress" style="height: 15px;">
+                                        <div class="progress-bar bg-success" style="width: {{ t.percentual_conclusao }}%;">{{ t.percentual_conclusao }}%</div>
+                                    </div>
+                                </td>
+                                <td>
+                                    {% if t.arquivo_anexo %}
+                                        <a href="{{ url_for('acessar_upload', nome_arquivo=t.arquivo_anexo) }}" target="_blank" class="btn btn-sm btn-outline-secondary py-0" title="Ver Anexo">
+                                            <i class="bi bi-paperclip"></i> <small>{{ t.tag_autor_anexo }}</small>
+                                        </a>
+                                    {% else %}
+                                        <span class="text-muted small">-</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <!-- Ações da Tarefa Principal (Botões Sólidos) -->
+                                    <div class="d-flex justify-content-center gap-2">
+                                        <button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#modalAtualizarTarefa{{ t.id }}">Editar</button>
+                                        <form action="{{ url_for('deletar_tarefa', id=t.id) }}" method="POST" class="d-inline" onsubmit="return confirm('Deseja excluir esta tarefa principal e TODAS as suas subtarefas?');">
+                                            <button type="submit" class="btn btn-sm btn-danger">Excluir</button>
+                                        </form>
+                                    </div>
+                                </td>
+                            </tr>
+
+                            <!-- ================= SUBTAREFAS (FILHAS) ================= -->
+                            <!-- Laço: Puxa as subtarefas logo abaixo da tarefa pai correspondente -->
+                            {% for sub in t.subtarefas %}
+                            <tr>
+                                <td class="text-start ps-4">
+                                    <i class="bi bi-arrow-return-right text-muted me-2"></i> {{ sub.descricao }}
+                                </td>
+                                <td class="text-muted">{{ sub.data_inicio.strftime('%d/%m/%Y') if sub.data_inicio else '-' }}</td>
+                                <td class="text-muted">{{ sub.data_fim.strftime('%d/%m/%Y') if sub.data_fim else '-' }}</td>
+                                <td>
+                                    <span class="d-block fw-bold text-secondary">{{ sub.responsavel }}</span>
+                                    {% if sub.equipe_apoio %}
+                                    <small class="text-muted">Apoio: {{ sub.equipe_apoio }}</small>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <span class="badge {% if sub.status == 'Concluído' %}bg-success{% elif sub.status == 'Em Andamento' %}bg-info text-dark{% else %}bg-secondary{% endif %}">
+                                        {{ sub.status }}
+                                    </span>
+                                </td>
+                                <td>
+                                    <div class="progress" style="height: 15px;">
+                                        <div class="progress-bar bg-success opacity-75" style="width: {{ sub.percentual_conclusao }}%;">{{ sub.percentual_conclusao }}%</div>
+                                    </div>
+                                </td>
+                                <td>
+                                    {% if sub.arquivo_anexo %}
+                                        <a href="{{ url_for('acessar_upload', nome_arquivo=sub.arquivo_anexo) }}" target="_blank" class="btn btn-sm btn-outline-secondary py-0" title="Ver Anexo">
+                                            <i class="bi bi-paperclip"></i>
+                                        </a>
+                                    {% else %}
+                                        <span class="text-muted small">-</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <!-- Ações da Subtarefa (Botões Outline / Vazados) -->
+                                    <div class="d-flex justify-content-center gap-2">
+                                        <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#modalAtualizarTarefa{{ sub.id }}">Editar</button>
+                                        <form action="{{ url_for('deletar_tarefa', id=sub.id) }}" method="POST" class="d-inline" onsubmit="return confirm('Deseja excluir esta subtarefa?');">
+                                            <button type="submit" class="btn btn-sm btn-outline-danger">Excluir</button>
+                                        </form>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %} <!-- Fim do Laço de Subtarefas -->
+                            
+                            {% endif %}
+                        {% else %}
+                        <!-- Linha vazia caso o projeto ainda não tenha tarefas -->
+                        <tr>
+                            <td colspan="8" class="text-muted py-3">Nenhuma tarefa cadastrada para este projeto.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========================================================================== -->
+    <!-- MODAL 1: CRIAR NOVA TAREFA (Específico de cada Projeto)                    -->
+    <!-- ========================================================================== -->
+    <div class="modal fade text-start" id="modalTarefa{{ p.id }}" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <form action="{{ url_for('nova_tarefa') }}" method="POST">
+                    <div class="modal-header bg-primary text-white">
+                        <h5 class="modal-title">Nova Tarefa - {{ p.nome }}</h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <!-- Identificador oculto do projeto para o backend -->
+                        <input type="hidden" name="projeto_id" value="{{ p.id }}">
+                        
+                        <div class="row">
+                            <div class="col-md-7 mb-3">
+                                <label class="form-label fw-bold">Descrição da Atividade</label>
+                                <input type="text" name="descricao" class="form-control" required placeholder="Ex: Pesquisar materiais e requisitos">
+                            </div>
+                            <!-- Dropdown: Define se é uma Tarefa Principal ou Subtarefa de outra -->
+                            <div class="col-md-5 mb-3">
+                                <label class="form-label fw-bold text-secondary">É uma subtarefa de?</label>
+                                <select name="tarefa_pai_id" class="form-select border-secondary">
+                                    <option value="">Não (É Tarefa Principal)</option>
+                                    {% for tp in p.tarefas %}
+                                        <!-- Lista apenas tarefas principais no dropdown -->
+                                        {% if not tp.tarefa_pai_id %}
+                                        <option value="{{ tp.id }}">{{ tp.descricao }}</option>
+                                        {% endif %}
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-4 mb-3">
+                                <label class="form-label fw-bold text-success">Líder (Responsável)</label>
+                                <select name="responsavel" class="form-select border-success" required>
+                                    <option value="">Selecione...</option>
+                                    {% for membro in p.grupo.membros %}
+                                        <option value="{{ membro.nome }}">{{ membro.nome }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <!-- Seleção Múltipla para Equipe de Apoio -->
+                            <div class="col-md-8 mb-3">
+                                <label class="form-label fw-bold text-info">Equipe de Apoio (Opcional)</label>
+                                <select name="equipe_apoio" class="form-select border-info" multiple size="3">
+                                    {% for membro in p.grupo.membros %}
+                                        <option value="{{ membro.nome }}">{{ membro.nome }} ({{ membro.tipo_usuario }})</option>
+                                    {% endfor %}
+                                </select>
+                                <small class="text-muted">Segure CTRL (ou CMD no Mac) para selecionar vários colegas.</small>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-4 mb-3">
+                                <label class="form-label fw-bold">Data Início</label>
+                                <input type="date" name="data_inicio" class="form-control">
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label class="form-label fw-bold">Data Conclusão</label>
+                                <input type="date" name="data_fim" class="form-control">
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label class="form-label fw-bold">Status Inicial</label>
+                                <select name="status" class="form-select">
+                                    <option value="Pendente">Pendente</option>
+                                    <option value="Em Andamento">Em Andamento</option>
+                                    <option value="Concluído">Concluído</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                        <button type="submit" class="btn btn-success">Salvar Tarefa</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========================================================================== -->
+    <!-- MODAL 2: ATUALIZAR TAREFAS EXISTENTES (Um modal oculto para cada tarefa)   -->
+    <!-- ========================================================================== -->
+    {% for t in p.tarefas %}
+    <div class="modal fade text-start" id="modalAtualizarTarefa{{ t.id }}" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <!-- IMPORTANTE: enctype="multipart/form-data" para upload de arquivos -->
+                <form action="{{ url_for('atualizar_tarefa') }}" method="POST" enctype="multipart/form-data">
+                    <div class="modal-header bg-info">
+                        <h5 class="modal-title fw-bold text-dark">Atualizar: {{ t.descricao }}</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <!-- Identificador oculto da Tarefa para o backend -->
+                        <input type="hidden" name="tarefa_id" value="{{ t.id }}">
+
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Descrição da Atividade</label>
+                            <input type="text" name="descricao" class="form-control" value="{{ t.descricao }}" required>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-4 mb-3">
+                                <label class="form-label fw-bold text-success">Líder (Responsável)</label>
+                                <select name="responsavel" class="form-select border-success" required>
+                                    {% for membro in p.grupo.membros %}
+                                        <option value="{{ membro.nome }}" {% if t.responsavel == membro.nome %}selected{% endif %}>{{ membro.nome }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-md-8 mb-3">
+                                <label class="form-label fw-bold text-info">Equipe de Apoio (Opcional)</label>
+                                <select name="equipe_apoio" class="form-select border-info" multiple size="3">
+                                    {% for membro in p.grupo.membros %}
+                                        <!-- O Jinja checa se o nome do membro está no texto salvo no banco p/ marcá-lo como selected -->
+                                        <option value="{{ membro.nome }}" {% if membro.nome in (t.equipe_apoio or '') %}selected{% endif %}>{{ membro.nome }}</option>
+                                    {% endfor %}
+                                </select>
+                                <small class="text-muted">Segure CTRL para selecionar múltiplos ou remover seleções.</small>
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-4 mb-3">
+                                <label class="form-label fw-bold">Data de Início</label>
+                                <input type="date" name="data_inicio" class="form-control" value="{{ t.data_inicio.strftime('%Y-%m-%d') if t.data_inicio else '' }}">
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label class="form-label fw-bold">Data de Conclusão</label>
+                                <input type="date" name="data_fim" class="form-control" value="{{ t.data_fim.strftime('%Y-%m-%d') if t.data_fim else '' }}">
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label class="form-label fw-bold">Status da Tarefa</label>
+                                <select name="status" class="form-select">
+                                    <option value="Pendente" {% if t.status == 'Pendente' %}selected{% endif %}>Pendente</option>
+                                    <option value="Em Andamento" {% if t.status == 'Em Andamento' %}selected{% endif %}>Em Andamento</option>
+                                    <option value="Concluído" {% if t.status == 'Concluído' %}selected{% endif %}>Concluído</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <!-- Progressão (%): É travada (readonly) se a tarefa for Pai e possuir filhas -->
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label fw-bold">% de Conclusão (0 a 100)</label>
+                                <input type="number" name="percentual_conclusao" class="form-control" min="0" max="100" value="{{ t.percentual_conclusao }}" 
+                                {% if t.subtarefas %}readonly title="Calculado automaticamente pela média das subtarefas"{% else %}required{% endif %}>
+                                {% if t.subtarefas %}<small class="text-muted">Desabilitado. Calculado automaticamente pelas subtarefas.</small>{% endif %}
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label fw-bold">Anexar Material de Apoio</label>
+                                <input type="file" name="arquivo_anexo" class="form-control">
+                                <div class="form-text">Substituirá o arquivo anterior se existir.</div>
+                            </div>
+                        </div>
+
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                        <button type="submit" class="btn btn-info fw-bold text-dark">Salvar Alterações</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    {% endfor %} <!-- Fim dos Modais de Atualização -->
+
+    {% endfor %} <!-- Fim do Laço Principal de Projetos -->
+
+</div>
+{% endblock %}

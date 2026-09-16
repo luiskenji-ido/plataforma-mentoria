@@ -46,7 +46,7 @@ from flask_login import LoginManager, login_user, logout_user, login_required, c
 from flask_bcrypt import Bcrypt
 
 # Importações do Banco de Dados
-from models import db, Usuario, Curso, Acompanhamento, SessaoMentoria, FeedbackSessao, QADuvida, HistoricoProgresso, aluno_mentor, HistoricoSenha, SegurancaUsuario, SolicitacaoMentoria, RegistroBackup
+from models import db, Usuario, Curso, Acompanhamento, SessaoMentoria, FeedbackSessao, QADuvida, HistoricoProgresso, aluno_mentor, HistoricoSenha, SegurancaUsuario, SolicitacaoMentoria, RegistroBackup, Projeto, Tarefa, Grupo, grupo_usuario
 import os
 import time
 
@@ -465,8 +465,20 @@ def dashboard():
         media = round(dados['soma_progresso'] / dados['qtd'], 1) if dados['qtd'] > 0 else 0
         radar_valores.append(media)
 
+    # ==============================================================================
+    # INDICADORES DE PROJETOS PARA O DASHBOARD
+    # ==============================================================================
+    if current_user.tipo_usuario in ['Aluno', 'Mentor']:
+        meus_projetos = Projeto.query.join(Grupo).filter(Grupo.membros.any(id=current_user.id)).all()
+    else:
+        meus_projetos = Projeto.query.all()
+
+    total_projetos = len(meus_projetos)
+    projetos_andamento = sum(1 for p in meus_projetos if p.status == 'Em Andamento')
+    projetos_concluidos = sum(1 for p in meus_projetos if p.status == 'Concluído')
+
     return render_template('dashboard.html', 
-                           nome_mentor=nome_do_mentor, 
+                           nome_mentor=nome_do_mentor,
                            dias_restantes_senha=dias_restantes_senha,
                            total_alunos=total_alunos,
                            total_matriculas=total_matriculas,
@@ -483,9 +495,51 @@ def dashboard():
                            evolucao_horas=evolucao_horas,
                            evolucao_cursos=evolucao_cursos,
                            radar_labels=radar_labels,
-                           radar_valores=radar_valores)
+                           radar_valores=radar_valores,
+                           total_projetos=total_projetos,
+                           projetos_andamento=projetos_andamento,
+                           projetos_concluidos=projetos_concluidos)
 
-import re
+
+# ==============================================================================
+# ROTA: Gerenciamento de Grupos (Criação e Listagem)
+# ==============================================================================
+@app.route('/admin/grupos', methods=['GET', 'POST'])
+@login_required
+def gerenciar_grupos():
+    # 1. Trava de Segurança: Apenas Administradores podem criar grupos
+    if current_user.tipo_usuario not in ['Administrador', 'Mentor Administrador']:
+        flash("Acesso Negado.", "danger")
+        return redirect(url_for('dashboard'))
+
+    # 2. Quando o usuário clica no botão "Salvar Grupo" (POST)
+    if request.method == 'POST':
+        nome = request.form.get('nome')
+        descricao = request.form.get('descricao')
+        # Recebe uma lista com os IDs de todos os usuários que você marcou na caixinha
+        membros_ids = request.form.getlist('membros')
+
+        novo_grupo = Grupo(nome=nome, descricao=descricao)
+
+        # Laço de repetição: Para cada ID marcado, busca o usuário no banco e liga ao grupo
+        if membros_ids:
+            for membro_id in membros_ids:
+                usuario = db.session.get(Usuario, int(membro_id))
+                if usuario:
+                    novo_grupo.membros.append(usuario)
+        
+        db.session.add(novo_grupo)
+        db.session.commit()
+        flash("Novo grupo cadastrado com sucesso!", "success")
+        return redirect(url_for('gerenciar_grupos'))
+
+    # 3. Quando a página apenas carrega (GET)
+    lista_grupos = Grupo.query.all()
+    # Busca usuários ativos para montar a lista de seleção
+    usuarios_disponiveis = Usuario.query.filter_by(status='Ativo').all()
+
+    return render_template('admin_grupos.html', grupos=lista_grupos, usuarios=usuarios_disponiveis)
+
 
 # ---------------------------------------------------------
 # Rota de Cadastro de Usuários (AGORA COM MÚLTIPLOS MENTORES)
@@ -936,6 +990,185 @@ def acompanhamento():
     lista_cursos = Curso.query.filter_by(status='Ativo').all()
     
     return render_template('acompanhamento.html', registros=detalhes, alunos=lista_alunos, cursos=lista_cursos)
+
+
+# ==============================================================================
+# ROTA: Gestão de Projetos (Tela principal e Cadastro)
+# ==============================================================================
+@app.route('/projetos', methods=['GET', 'POST'])
+@login_required
+def projetos():
+    # 1. Se o usuário preencheu o formulário e clicou em "Salvar" (POST)
+    if request.method == 'POST':
+        nome = request.form.get('nome')
+        descricao = request.form.get('descricao')
+        grupo_id = request.form.get('grupo_id') # Recebe o ID do Grupo
+        
+        novo_projeto = Projeto(
+            nome=nome,
+            descricao=descricao,
+            grupo_id=grupo_id
+        )
+        
+        db.session.add(novo_projeto)
+        db.session.commit()
+        
+        flash('Projeto criado com sucesso!', 'success')
+        return redirect(url_for('projetos'))
+
+    # 2. Quando a página apenas carrega (GET)
+    lista_projetos = Projeto.query.all()
+    grupos_disponiveis = Grupo.query.all()
+    
+    return render_template('projetos.html', projetos=lista_projetos, grupos=grupos_disponiveis)
+
+
+# ==============================================================================
+# FUNÇÃO MATEMÁTICA: Efeito Cascata de Progresso (Subtarefa -> Tarefa -> Projeto)
+# ==============================================================================
+def recalcular_progresso_projeto(projeto_id):
+    projeto = db.session.get(Projeto, projeto_id)
+    if not projeto: return
+
+    # Filtra apenas as tarefas "Pai" (que não têm tarefa acima delas)
+    tarefas_principais = [t for t in projeto.tarefas if t.tarefa_pai_id is None]
+    
+    if tarefas_principais:
+        soma_projeto = 0
+        for tp in tarefas_principais:
+            # Se a tarefa principal tem filhas, o % dela é a média das filhas!
+            if tp.subtarefas:
+                soma_sub = sum(sub.percentual_conclusao for sub in tp.subtarefas)
+                tp.percentual_conclusao = int(soma_sub / len(tp.subtarefas))
+                # Ajusta o status automaticamente
+                tp.status = 'Concluído' if tp.percentual_conclusao == 100 else 'Em Andamento' if tp.percentual_conclusao > 0 else 'Pendente'
+
+            soma_projeto += tp.percentual_conclusao
+            
+        # Calcula a média do projeto baseada apenas nas Tarefas Principais
+        media_proj = int(soma_projeto / len(tarefas_principais))
+        projeto.percentual_conclusao = media_proj
+        projeto.status = 'Concluído' if media_proj == 100 else 'Em Andamento' if media_proj > 0 else 'Em Andamento'
+    else:
+        projeto.percentual_conclusao = 0
+        
+    db.session.commit()
+
+# ==============================================================================
+# ROTA: Criar Tarefa ou Subtarefa
+# ==============================================================================
+@app.route('/projetos/nova_tarefa', methods=['POST'])
+@login_required
+def nova_tarefa():
+    projeto_id = request.form.get('projeto_id')
+    tarefa_pai_id = request.form.get('tarefa_pai_id') or None # Identifica se é subtarefa
+    
+    # Recebe a lista de apoio (Múltipla escolha) e transforma em texto separado por vírgula
+    equipe_apoio_list = request.form.getlist('equipe_apoio')
+    equipe_apoio_str = ", ".join(equipe_apoio_list) if equipe_apoio_list else ""
+
+    from datetime import datetime
+    data_inicio_str, data_fim_str = request.form.get('data_inicio'), request.form.get('data_fim')
+    
+    nova = Tarefa(
+        projeto_id=projeto_id,
+        tarefa_pai_id=tarefa_pai_id,
+        descricao=request.form.get('descricao'),
+        data_inicio=datetime.strptime(data_inicio_str, '%Y-%m-%d') if data_inicio_str else None,
+        data_fim=datetime.strptime(data_fim_str, '%Y-%m-%d') if data_fim_str else None,
+        responsavel=request.form.get('responsavel'),
+        equipe_apoio=equipe_apoio_str,
+        status=request.form.get('status', 'Pendente')
+    )
+    
+    db.session.add(nova)
+    db.session.commit()
+    recalcular_progresso_projeto(projeto_id)
+    
+    flash('Adicionado com sucesso!', 'success')
+    return redirect(url_for('projetos'))
+
+# ==============================================================================
+# ROTA: Atualizar Tarefa e Recalcular
+# ==============================================================================
+@app.route('/projetos/atualizar_tarefa', methods=['POST'])
+@login_required
+def atualizar_tarefa():
+    tarefa = db.session.get(Tarefa, int(request.form.get('tarefa_id')))
+    if tarefa:
+        tarefa.descricao = request.form.get('descricao')
+        tarefa.responsavel = request.form.get('responsavel')
+        
+        equipe_apoio_list = request.form.getlist('equipe_apoio')
+        tarefa.equipe_apoio = ", ".join(equipe_apoio_list) if equipe_apoio_list else ""
+        
+        from datetime import datetime
+        d_ini, d_fim = request.form.get('data_inicio'), request.form.get('data_fim')
+        tarefa.data_inicio = datetime.strptime(d_ini, '%Y-%m-%d') if d_ini else None
+        tarefa.data_fim = datetime.strptime(d_fim, '%Y-%m-%d') if d_fim else None
+
+        tarefa.status = request.form.get('status')
+        # Só permite alterar a % se NÃO tiver subtarefas
+        if not tarefa.subtarefas:
+            tarefa.percentual_conclusao = int(request.form.get('percentual_conclusao', 0))
+        
+        arquivo = request.files.get('arquivo_anexo')
+        if arquivo and arquivo.filename:
+            import os
+            from werkzeug.utils import secure_filename
+            filename = secure_filename(arquivo.filename)
+            arquivo.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
+            tarefa.arquivo_anexo = filename
+            tarefa.tag_autor_anexo = current_user.tipo_usuario
+        
+        db.session.commit()
+        recalcular_progresso_projeto(tarefa.projeto_id)
+        flash('Atualizado com sucesso!', 'success')
+        
+    return redirect(url_for('projetos'))
+
+# ==============================================================================
+# ROTA: Excluir Tarefa
+# ==============================================================================
+@app.route('/projetos/deletar_tarefa/<int:id>', methods=['POST'])
+@login_required
+def deletar_tarefa(id):
+    tarefa = db.session.get(Tarefa, id)
+    if tarefa:
+        p_id = tarefa.projeto_id
+        db.session.delete(tarefa)
+        db.session.commit()
+        recalcular_progresso_projeto(p_id)
+        flash('Excluído com sucesso!', 'success')
+    return redirect(url_for('projetos'))
+
+
+# ==============================================================================
+# ROTA: Excluir Projeto Inteiro
+# ==============================================================================
+@app.route('/projetos/deletar_projeto/<int:id>', methods=['POST'])
+@login_required
+def deletar_projeto(id):
+    # 1. Trava de Segurança: Apenas os perfis autorizados podem deletar
+    perfis_autorizados = ['Mentor', 'Mentor Administrador', 'Administrador']
+    
+    if current_user.tipo_usuario not in perfis_autorizados:
+        flash('Acesso negado: Apenas mentores e administradores podem excluir projetos.', 'danger')
+        return redirect(url_for('projetos'))
+
+    projeto = db.session.get(Projeto, id)
+    if projeto:
+        # 2. Segurança do Banco: Apaga todas as tarefas e subtarefas do projeto primeiro
+        tarefas = Tarefa.query.filter_by(projeto_id=projeto.id).all()
+        for t in tarefas:
+            db.session.delete(t)
+            
+        # 3. Apaga o projeto em si
+        db.session.delete(projeto)
+        db.session.commit()
+        flash('Projeto e todas as suas tarefas foram excluídos permanentemente!', 'success')
+        
+    return redirect(url_for('projetos'))
 
 
 # -------------------------------------------------------------------------

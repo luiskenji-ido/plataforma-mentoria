@@ -1,0 +1,166 @@
+<!-- ============================================================================== -->
+<!-- HERANÇA DE TEMPLATE: Mantém o padrão visual da plataforma                      -->
+<!-- ============================================================================== -->
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 class="text-primary m-0">Gerenciamento de Grupos</h2>
+        <!-- Botão para voltar rápido para a tela de usuários -->
+        <a href="{{ url_for('gerenciar_usuarios') }}" class="btn btn-secondary">Voltar para Usuários</a>
+    </div>
+
+    <!-- ========================================================================== -->
+    <!-- FORMULÁRIO: Criar Novo Grupo e Associar Membros                            -->
+    <!-- ========================================================================== -->
+    <div class="card shadow-sm mb-5">
+        <div class="card-header bg-primary text-white">
+            <h5 class="mb-0">+ Cadastrar Novo Grupo</h5>
+        </div>
+        <div class="card-body">
+            <form action="{{ url_for('gerenciar_grupos') }}" method="POST">
+                <div class="row">
+                    <div class="col-md-12 mb-3">
+                        <label class="form-label fw-bold">Nome do Grupo</label>
+                        <input type="text" name="nome" class="form-control" required placeholder="Ex: Turma Azure 2026 - Noturno">
+                    </div>
+                    
+                    <div class="col-md-12 mb-3">
+                        <label class="form-label fw-bold">Descrição</label>
+                        <textarea name="descricao" class="form-control" rows="2" placeholder="Qual o objetivo desta turma?"></textarea>
+                    </div>
+                    
+                    <!-- Caixa de Seleção Múltipla com Barra de Rolagem -->
+                    <!-- ========================================================================== -->
+                    <!-- ÁREA DE SELEÇÃO DE MEMBROS (Dividida com Filtro de Busca)                  -->
+                    <!-- ========================================================================== -->
+                    <div class="col-md-12 mb-4">
+                        <label class="form-label fw-bold">Atribuir Membros ao Grupo</label>
+                        
+                        <!-- Campo de Busca Dinâmica -->
+                        <input type="text" id="filtroMembros" class="form-control mb-3" placeholder="🔍 Buscar por nome do aluno ou mentor...">
+
+                        <div class="row">
+                            <!-- Coluna 1: Lista de Alunos -->
+                            <div class="col-md-6 mb-3">
+                                <div class="p-2 bg-primary text-white rounded-top fw-bold">🎓 Alunos</div>
+                                <div class="border p-2 rounded-bottom bg-light" style="max-height: 250px; overflow-y: auto;">
+                                    {% for u in usuarios %}
+                                        {% if u.tipo_usuario == 'Aluno' %}
+                                        <div class="form-check border-bottom py-1 item-membro">
+                                            <input class="form-check-input" type="checkbox" name="membros" value="{{ u.id }}" id="user_{{ u.id }}">
+                                            <label class="form-check-label d-flex justify-content-between w-100" for="user_{{ u.id }}">
+                                                <span class="nome-membro">{{ u.nome }}</span>
+                                            </label>
+                                        </div>
+                                        {% endif %}
+                                    {% endfor %}
+                                </div>
+                            </div>
+
+                            <!-- Coluna 2: Lista de Mentores e Administradores -->
+                            <div class="col-md-6 mb-3">
+                                <div class="p-2 bg-secondary text-white rounded-top fw-bold">🧠 Mentores e Equipe</div>
+                                <div class="border p-2 rounded-bottom bg-light" style="max-height: 250px; overflow-y: auto;">
+                                    {% for u in usuarios %}
+                                        {% if u.tipo_usuario != 'Aluno' %}
+                                        <div class="form-check border-bottom py-1 item-membro">
+                                            <input class="form-check-input" type="checkbox" name="membros" value="{{ u.id }}" id="user_{{ u.id }}">
+                                            <label class="form-check-label d-flex justify-content-between w-100" for="user_{{ u.id }}">
+                                                <span class="nome-membro">{{ u.nome }}</span>
+                                                <span class="badge bg-dark" style="font-size: 0.65rem;">{{ u.tipo_usuario }}</span>
+                                            </label>
+                                        </div>
+                                        {% endif %}
+                                    {% endfor %}
+                                </div>
+                            </div>
+                        </div>
+                        <small class="text-muted d-block">
+                            <i class="bi bi-info-circle"></i> Regra do Sistema: O "Mentor Administrador" já possui visibilidade global.
+                        </small>
+                    </div>
+                </div>
+                
+                <div class="text-end">
+                    <button type="submit" class="btn btn-success">Salvar Grupo</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ========================================================================== -->
+    <!-- TABELA: Listagem dos Grupos Cadastrados                                    -->
+    <!-- ========================================================================== -->
+    <h4 class="text-secondary mb-3">Grupos Existentes</h4>
+    <div class="card shadow-sm">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Nome do Grupo</th>
+                            <th>Membros Associados</th>
+                            <th>Data de Criação</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for g in grupos %}
+                        <tr>
+                            <td class="align-middle"><strong>{{ g.nome }}</strong></td>
+                            
+                            <!-- Lista as tags azuis com o nome de todos que estão no grupo -->
+                            <td class="align-middle">
+                                {% for membro in g.membros %}
+                                    <span class="badge bg-info text-dark mb-1">{{ membro.nome }}</span>
+                                {% else %}
+                                    <span class="text-muted">Nenhum membro cadastrado.</span>
+                                {% endfor %}
+                            </td>
+                            
+                            <td class="align-middle">{{ g.data_criacao.strftime('%d/%m/%Y') }}</td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="3" class="text-center py-4 text-muted">Nenhum grupo cadastrado ainda.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ========================================================================== -->
+<!-- SCRIPT: Filtro Dinâmico de Membros (Busca em tempo real)                   -->
+<!-- ========================================================================== -->
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+    const inputFiltro = document.getElementById('filtroMembros');
+    
+    if (inputFiltro) {
+        // Escuta cada tecla que o usuário digita no campo de busca
+        inputFiltro.addEventListener('keyup', function() {
+            const termoBusca = this.value.toLowerCase();
+            const itensMembros = document.querySelectorAll('.item-membro');
+            
+            // Verifica cada usuário da lista
+            itensMembros.forEach(function(item) {
+                const nomeUsuario = item.querySelector('.nome-membro').textContent.toLowerCase();
+                
+                // Se o nome contiver o que foi digitado, mostra. Se não, esconde.
+                if (nomeUsuario.includes(termoBusca)) {
+                    item.style.display = 'block'; 
+                } else {
+                    item.style.display = 'none';  
+                }
+            });
+        });
+    }
+});
+</script>
+
+
+{% endblock %}

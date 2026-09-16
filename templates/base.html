@@ -601,6 +601,16 @@
             {{ t('acompanhamento') }}
           </a>
         </li>
+
+        <!-- ============================================================================== -->
+        <!-- NOVO BOTÃO NO MENU: Gestão de Projetos                                         -->
+        <!-- Mantém o padrão visual de destaque (linha azul) quando a aba estiver ativa     -->
+        <!-- ============================================================================== -->
+        <li class="nav-item">
+            <a class="nav-link fw-bold {% if request.endpoint == 'projetos' %}text-primary border-bottom border-2 border-primary{% endif %}" href="{{ url_for('projetos') }}">
+            Projetos
+            </a>
+        </li>
         
         <!-- Gerenciar Cadastros (Apenas Admin) -->
         {% if current_user.is_authenticated and current_user.tipo_usuario in ['Administrador', 'Mentor Administrador'] %}

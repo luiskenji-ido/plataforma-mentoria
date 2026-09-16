@@ -23,9 +23,24 @@
     
     <!-- Formulário de Criação -->
     <div class="card shadow-sm mb-5 border-0">
-        <div class="card-header bg-white fw-bold text-success">
-            {{ t('cadastrar_novo_usuario') }}
-        </div>
+        <!-- Formulário de Criação -->
+        <div class="card shadow-sm mb-5 border-0">
+            
+            <!-- ============================================================================== -->
+            <!-- CABEÇALHO MODIFICADO: Usa flexbox para alinhar o título e o novo botão lado a lado -->
+            <!-- ============================================================================== -->
+            <div class="card-header bg-white fw-bold text-success d-flex justify-content-between align-items-center">
+                <!-- Título original de cadastro de usuários -->
+                <span>{{ t('cadastrar_novo_usuario') }}</span>
+                
+                <!-- ============================================================================== -->
+                <!-- NOVO BOTÃO: Atalho direto para a página de criação de Grupos/Turmas        -->
+                <!-- ============================================================================== -->
+                <a href="{{ url_for('gerenciar_grupos') }}" class="btn btn-sm btn-outline-primary fw-bold">
+                    <i class="bi bi-people"></i> + Cadastrar Novo Grupo
+                </a>
+            </div>
+
         <div class="card-body">
             <form method="POST" action="{{ url_for('gerenciar_usuarios') }}">
                 <div class="row align-items-end">

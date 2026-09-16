@@ -88,15 +88,31 @@ Não atribuído
 </div>
 </div>
 <div class="col">
-<div class="card shadow-sm border-0 p-2 text-center h-100">
-<small class="text-muted d-block fw-bold" style="font-size: 0.8rem;">{{ t('cursos_risco') }}</small>
-<h3 class="fw-bold text-danger mb-0" style="font-size: 1.5rem;">{{ contador_risco }}</h3>
+    <div class="card shadow-sm border-0 p-2 text-center h-100">
+        <small class="text-muted d-block fw-bold" style="font-size: 0.8rem;">{{ t('cursos_risco') }}</small>
+        <h3 class="fw-bold text-danger mb-0" style="font-size: 1.5rem;">{{ contador_risco }}</h3>
+    </div>
 </div>
+
+<!-- ========================================================================== -->
+<!-- NOVO CARD: Resumo de Projetos / TCC (Adaptado ao seu grid atual)           -->
+<!-- ========================================================================== -->
+<div class="col">
+    <div class="card shadow-sm border-0 p-2 text-center h-100 border-start border-4 border-info">
+        <small class="text-muted d-block fw-bold" style="font-size: 0.8rem;">PROJETOS (TCC)</small>
+        <h3 class="fw-bold text-dark mb-0" style="font-size: 1.5rem;">{{ total_projetos }}</h3>
+        <div class="mt-1" style="font-size: 0.75rem; line-height: 1.2;">
+            <span class="text-info fw-bold">{{ projetos_andamento }}</span> Andamento<br>
+            <span class="text-success fw-bold">{{ projetos_concluidos }}</span> Concluídos
+        </div>
+    </div>
 </div>
-</div>
-<!-- ==========================================================
-ÁREA DOS GRÁFICOS VISUAIS (EVOLUÇÃO E SKILLS)
-=========================================================== -->
+
+</div> <!-- ESSA É A DIV QUE FECHA A ROW (LINHA) DOS CARDS -->
+
+<!-- ========================================================================== -->
+<!-- ÁREA DOS GRÁFICOS VISUAIS (EVOLUÇÃO E SKILLS)                              -->
+<!-- ========================================================================== -->
 <div class="row mt-4 mb-4">
 <!-- Gráfico de Evolução no Tempo -->
 <div class="col-md-7 mb-3">
