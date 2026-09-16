@@ -5,6 +5,41 @@
 {% block content %}
     <!-- CORREÇÕES VISUAIS E HARMONIA DE CORES -->
     <style>
+
+        /* ==========================================
+           EFEITO VISUAL DE CADERNO DE ESTUDOS
+           ========================================== */
+        .fundo-caderno {
+            background-color: #fcfcfc;
+            background-image: repeating-linear-gradient(transparent, transparent 29px, #cfe2ff 29px, #cfe2ff 30px);
+            line-height: 30px;
+            padding: 5px 15px 15px 15px;
+            border: 1px solid #ced4da;
+            border-radius: 6px;
+            color: #212529;
+            font-size: 0.95rem;
+            width: 100%;
+        }
+        
+        textarea.fundo-caderno {
+            background-attachment: local;
+            resize: vertical;
+            box-shadow: inset 0 1px 2px rgba(0,0,0,0.075);
+        }
+        
+        textarea.fundo-caderno:focus {
+            outline: none;
+            border-color: #86b7fe;
+            box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25), inset 0 1px 2px rgba(0,0,0,0.075);
+        }
+
+        .display-caderno {
+            min-height: 120px;
+            white-space: pre-wrap;
+            margin-bottom: 0;
+        }
+
+
         /* ==========================================
            CORREÇÃO DO BOTÃO PRINCIPAL (TEMA CLARO)
            ========================================== */
@@ -306,7 +341,7 @@
                                 🔍 {{ t('btn_expandir_tela_cheia') }}
                             </button>
                         </div>
-                        <div class="p-2 bg-light border rounded text-dark small mb-2" style="min-height: 45px; max-height: 100px; overflow-y: auto; white-space: pre-wrap;">
+                        <div class="fundo-caderno display-caderno mb-2" style="max-height: 120px; overflow-y: auto;">
                             {{ item.reg.observacao_aluno if item.reg.observacao_aluno and item.reg.observacao_aluno != 'None' else t('nenhuma_anotacao') }}
                         </div>
                         
@@ -316,7 +351,7 @@
                                 🔍 {{ t('btn_expandir_parecer') }}
                             </button>
                         </div>
-                        <div class="p-2 bg-white border border-primary rounded text-dark small mb-2" style="min-height: 45px; max-height: 100px; overflow-y: auto; white-space: pre-wrap;">
+                        <div class="fundo-caderno display-caderno mb-2" style="max-height: 120px; overflow-y: auto;">
                             {% if item.reg.data_parecer_mentor %}
                                 <div class="text-end mb-1 border-bottom border-light pb-1">
                                     <span class="badge bg-light text-primary border border-primary-subtle" style="font-size: 0.65rem;">
@@ -405,7 +440,7 @@
     </div>
     {% endif %}
 
-    <!-- ======================================================= -->
+<!-- ======================================================= -->
 <!-- POP-UP (MODAL) DE TELA EXPANDIDA PARA ANOTAÇÕES DO ALUNO -->
 <!-- ======================================================= -->
 <div class="modal fade text-start" id="modalExpandirNotas{{ item.reg.id }}" tabindex="-1">
@@ -423,7 +458,7 @@
                     <p class="text-muted small">{{ t('modal_notas_instrucao') }}</p>
                     
                     <div class="mb-3">
-                        <textarea name="observacao_aluno" class="form-control" rows="8" placeholder="{{ t('modal_notas_placeholder') }}">{{ item.reg.observacao_aluno if item.reg.observacao_aluno and item.reg.observacao_aluno != 'None' else '' }}</textarea>
+                        <textarea name="observacao_aluno" class="fundo-caderno" rows="12" placeholder="{{ t('modal_notas_placeholder') }}">{{ item.reg.observacao_aluno if item.reg.observacao_aluno and item.reg.observacao_aluno != 'None' else '' }}</textarea>
                     </div>
                 </div>
                 <div class="modal-footer">
@@ -481,7 +516,7 @@
                         {% if current_user.tipo_usuario != 'Aluno' %}
                             <p class="text-muted small">{{ t('modal_parecer_instrucao_mentor') }}</p>
                             <div class="mb-3">
-                                <textarea name="observacao" class="form-control" rows="8" placeholder="{{ t('modal_parecer_placeholder') }}">{{ item.reg.observacao if item.reg.observacao and item.reg.observacao != 'None' else '' }}</textarea>
+                                <textarea name="observacao" class="fundo-caderno" rows="12" placeholder="{{ t('modal_parecer_placeholder') }}">{{ item.reg.observacao if item.reg.observacao and item.reg.observacao != 'None' else '' }}</textarea>
                             </div>
                         {% else %}
                             <p class="text-muted small">{{ t('modal_parecer_instrucao_aluno') }}</p>
