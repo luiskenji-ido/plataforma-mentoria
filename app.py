@@ -963,23 +963,27 @@ def acompanhamento():
                             if hasattr(duvida_obj, 'data_resposta'):
                                 duvida_obj.data_resposta = datetime.now(fuso_br)
 
-                # GATILHO DA AGENDA: Lê a grade dinâmica gerada pela tela e cria slots individuais
+                # GATILHO DA AGENDA: Lê a grade dinâmica gerada pelo ecrã e cria slots individuais
                 slot_datas = request.form.getlist('slot_data')
                 slot_inicios = request.form.getlist('slot_inicio')
                 slot_fims = request.form.getlist('slot_fim')
                 
                 if slot_datas:
                     curso_obj = db.session.get(Curso, regstro.curso_id)
-                    planejamento_salvo = [] # Cria uma lista vazia para armazenar os horários
+                    planejamento_salvo = [] 
                     
                     for i in range(len(slot_datas)):
+                        # Só guarda se o utilizador preencheu as horas (ignorando os campos --:--)
                         if slot_inicios[i] and slot_fims[i]: 
+                            # 1. Salva o cartão visual de forma segura (sem depender do módulo datetime)
+                            ano, mes, dia = slot_datas[i].split('-')
+                            data_br = f"{dia}/{mes}/{ano}"
+                            planejamento_salvo.append(f"{data_br}::{slot_inicios[i]}::{slot_fims[i]}")
+                            
+                            # 2. Tenta enviar para a Google Agenda num processo isolado
                             try:
-                                data_slot = datetime.strptime(slot_datas[i], '%Y-%m-%d')
-                                
-                                # Monta o texto para salvar no banco (Ex: 21/09/2026::09:00::10:00)
-                                data_br = data_slot.strftime('%d/%m/%Y')
-                                planejamento_salvo.append(f"{data_br}::{slot_inicios[i]}::{slot_fims[i]}")
+                                from datetime import datetime as dt_seguro
+                                data_slot = dt_seguro.strptime(slot_datas[i], '%Y-%m-%d')
                                 
                                 sincronizar_evento_google(
                                     titulo=f"Estudo: {curso_obj.nome_curso}",
@@ -988,10 +992,10 @@ def acompanhamento():
                                     horario_str=slot_inicios[i],
                                     horario_fim_str=slot_fims[i]
                                 )
-                            except Exception as e:
+                            except Exception:
                                 pass
                                 
-                    # Salva todos os horários agrupados na nova coluna do banco de dados
+                    # Grava todos os horários agrupados na coluna da base de dados
                     regstro.planejamento_estudos = "|".join(planejamento_salvo) if planejamento_salvo else None
 
                 db.session.commit()
