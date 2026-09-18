@@ -101,7 +101,6 @@
                     <tbody>
                         {% for t in p.tarefas %}
                             <!-- ================= TAREFAS PRINCIPAIS (PAI) ================= -->
-                            <!-- Filtro: Renderiza primeiro apenas as tarefas que não possuem pai -->
                             {% if not t.tarefa_pai_id %}
                             <tr class="bg-light">
                                 <td class="text-start fw-bold text-dark">{{ t.descricao }}</td>
@@ -125,15 +124,15 @@
                                 </td>
                                 <td>
                                     {% if t.arquivo_anexo %}
-                                        <a href="{{ url_for('acessar_upload', nome_arquivo=t.arquivo_anexo) }}" target="_blank" class="btn btn-sm btn-outline-secondary py-0" title="Ver Anexo">
-                                            <i class="bi bi-paperclip"></i> <small>{{ t.tag_autor_anexo }}</small>
-                                        </a>
+                                        <button class="btn btn-sm btn-outline-secondary py-0" data-bs-toggle="modal" data-bs-target="#modalAtualizarTarefa{{ t.id }}" title="Gerenciar Anexos">
+                                            <i class="bi bi-paperclip"></i> Anexos <span class="badge bg-secondary rounded-pill ms-1">{{ t.arquivo_anexo.split('|')|length }}</span>
+                                        </button>
                                     {% else %}
                                         <span class="text-muted small">-</span>
                                     {% endif %}
                                 </td>
                                 <td>
-                                    <!-- Ações da Tarefa Principal (Botões Sólidos) -->
+                                    <!-- Ações da Tarefa Principal -->
                                     <div class="d-flex justify-content-center gap-2">
                                         <button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#modalAtualizarTarefa{{ t.id }}">Editar</button>
                                         <form action="{{ url_for('deletar_tarefa', id=t.id) }}" method="POST" class="d-inline" onsubmit="return confirm('Deseja excluir esta tarefa principal e TODAS as suas subtarefas?');">
@@ -144,7 +143,6 @@
                             </tr>
 
                             <!-- ================= SUBTAREFAS (FILHAS) ================= -->
-                            <!-- Laço: Puxa as subtarefas logo abaixo da tarefa pai correspondente -->
                             {% for sub in t.subtarefas %}
                             <tr>
                                 <td class="text-start ps-4">
@@ -170,15 +168,15 @@
                                 </td>
                                 <td>
                                     {% if sub.arquivo_anexo %}
-                                        <a href="{{ url_for('acessar_upload', nome_arquivo=sub.arquivo_anexo) }}" target="_blank" class="btn btn-sm btn-outline-secondary py-0" title="Ver Anexo">
-                                            <i class="bi bi-paperclip"></i>
-                                        </a>
+                                        <button class="btn btn-sm btn-outline-secondary py-0" data-bs-toggle="modal" data-bs-target="#modalAtualizarTarefa{{ sub.id }}" title="Gerenciar Anexos">
+                                            <i class="bi bi-paperclip"></i> Anexos <span class="badge bg-secondary rounded-pill ms-1">{{ sub.arquivo_anexo.split('|')|length }}</span>
+                                        </button>
                                     {% else %}
                                         <span class="text-muted small">-</span>
                                     {% endif %}
                                 </td>
                                 <td>
-                                    <!-- Ações da Subtarefa (Botões Outline / Vazados) -->
+                                    <!-- Ações da Subtarefa -->
                                     <div class="d-flex justify-content-center gap-2">
                                         <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#modalAtualizarTarefa{{ sub.id }}">Editar</button>
                                         <form action="{{ url_for('deletar_tarefa', id=sub.id) }}" method="POST" class="d-inline" onsubmit="return confirm('Deseja excluir esta subtarefa?');">
@@ -187,11 +185,10 @@
                                     </div>
                                 </td>
                             </tr>
-                            {% endfor %} <!-- Fim do Laço de Subtarefas -->
+                            {% endfor %}
                             
                             {% endif %}
                         {% else %}
-                        <!-- Linha vazia caso o projeto ainda não tenha tarefas -->
                         <tr>
                             <td colspan="8" class="text-muted py-3">Nenhuma tarefa cadastrada para este projeto.</td>
                         </tr>
@@ -247,15 +244,20 @@
                                     {% endfor %}
                                 </select>
                             </div>
-                            <!-- Seleção Múltipla para Equipe de Apoio -->
+                            <!-- Seleção Múltipla para Equipe de Apoio (Com Checkboxes) -->
                             <div class="col-md-8 mb-3">
                                 <label class="form-label fw-bold text-info">Equipe de Apoio (Opcional)</label>
-                                <select name="equipe_apoio" class="form-select border-info" multiple size="3">
+                                <div class="border border-info-subtle rounded p-2 bg-white shadow-sm" style="max-height: 100px; overflow-y: auto;">
                                     {% for membro in p.grupo.membros %}
-                                        <option value="{{ membro.nome }}">{{ membro.nome }} ({{ membro.tipo_usuario }})</option>
+                                    <div class="form-check m-0">
+                                        <input class="form-check-input border-info" type="checkbox" name="equipe_apoio" value="{{ membro.nome }}" id="novo_apoio_{{ p.id }}_{{ loop.index }}" style="cursor: pointer;">
+                                        <label class="form-check-label small" for="novo_apoio_{{ p.id }}_{{ loop.index }}" style="cursor: pointer;">
+                                            {{ membro.nome }} <span class="text-muted" style="font-size: 0.75rem;">({{ membro.tipo_usuario }})</span>
+                                        </label>
+                                    </div>
                                     {% endfor %}
-                                </select>
-                                <small class="text-muted">Segure CTRL (ou CMD no Mac) para selecionar vários colegas.</small>
+                                </div>
+                                <small class="text-muted" style="font-size: 0.75rem;">Marque as caixas para adicionar colegas ao apoio.</small>
                             </div>
                         </div>
 
@@ -294,14 +296,12 @@
     <div class="modal fade text-start" id="modalAtualizarTarefa{{ t.id }}" tabindex="-1">
         <div class="modal-dialog modal-lg">
             <div class="modal-content">
-                <!-- IMPORTANTE: enctype="multipart/form-data" para upload de arquivos -->
                 <form action="{{ url_for('atualizar_tarefa') }}" method="POST" enctype="multipart/form-data">
                     <div class="modal-header bg-info">
                         <h5 class="modal-title fw-bold text-dark">Atualizar: {{ t.descricao }}</h5>
                         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                     </div>
                     <div class="modal-body">
-                        <!-- Identificador oculto da Tarefa para o backend -->
                         <input type="hidden" name="tarefa_id" value="{{ t.id }}">
 
                         <div class="mb-3">
@@ -322,7 +322,6 @@
                                 <label class="form-label fw-bold text-info">Equipe de Apoio (Opcional)</label>
                                 <select name="equipe_apoio" class="form-select border-info" multiple size="3">
                                     {% for membro in p.grupo.membros %}
-                                        <!-- O Jinja checa se o nome do membro está no texto salvo no banco p/ marcá-lo como selected -->
                                         <option value="{{ membro.nome }}" {% if membro.nome in (t.equipe_apoio or '') %}selected{% endif %}>{{ membro.nome }}</option>
                                     {% endfor %}
                                 </select>
@@ -331,15 +330,16 @@
                         </div>
                         
                         <div class="row">
-                            <div class="col-md-4 mb-3">
+                            <div class="row mb-3">
+                            <div class="col-md-3 mb-2">
                                 <label class="form-label fw-bold">Data de Início</label>
                                 <input type="date" name="data_inicio" class="form-control" value="{{ t.data_inicio.strftime('%Y-%m-%d') if t.data_inicio else '' }}">
                             </div>
-                            <div class="col-md-4 mb-3">
-                                <label class="form-label fw-bold">Data de Conclusão</label>
+                            <div class="col-md-3 mb-2">
+                                <label class="form-label fw-bold">Data Conclusão</label>
                                 <input type="date" name="data_fim" class="form-control" value="{{ t.data_fim.strftime('%Y-%m-%d') if t.data_fim else '' }}">
                             </div>
-                            <div class="col-md-4 mb-3">
+                            <div class="col-md-3 mb-2">
                                 <label class="form-label fw-bold">Status da Tarefa</label>
                                 <select name="status" class="form-select">
                                     <option value="Pendente" {% if t.status == 'Pendente' %}selected{% endif %}>Pendente</option>
@@ -347,21 +347,76 @@
                                     <option value="Concluído" {% if t.status == 'Concluído' %}selected{% endif %}>Concluído</option>
                                 </select>
                             </div>
-                        </div>
-
-                        <div class="row">
-                            <!-- Progressão (%): É travada (readonly) se a tarefa for Pai e possuir filhas -->
-                            <div class="col-md-6 mb-3">
-                                <label class="form-label fw-bold">% de Conclusão (0 a 100)</label>
+                            <div class="col-md-3 mb-2">
+                                <label class="form-label fw-bold">% Conclusão</label>
                                 <input type="number" name="percentual_conclusao" class="form-control" min="0" max="100" value="{{ t.percentual_conclusao }}" 
                                 {% if t.subtarefas %}readonly title="Calculado automaticamente pela média das subtarefas"{% else %}required{% endif %}>
-                                {% if t.subtarefas %}<small class="text-muted">Desabilitado. Calculado automaticamente pelas subtarefas.</small>{% endif %}
+                                {% if t.subtarefas %}<small class="text-danger fw-bold" style="font-size: 0.70rem;">Travado (Automático)</small>{% endif %}
                             </div>
-                            <div class="col-md-6 mb-3">
-                                <label class="form-label fw-bold">Anexar Material de Apoio</label>
-                                <input type="file" name="arquivo_anexo" class="form-control">
-                                <div class="form-text">Substituirá o arquivo anterior se existir.</div>
+                        </div>
+
+                        <!-- NOVA CAIXA EXCLUSIVA PARA ANEXOS MÚLTIPLOS -->
+                        <div class="p-3 bg-light border border-secondary-subtle rounded mb-3">
+                            <label class="form-label fw-bold text-primary mb-3"><i class="bi bi-paperclip"></i> Materiais de Apoio (Anexos da Tarefa)</label>
+                            
+                            {% if t.arquivo_anexo %}
+                                <div class="d-flex flex-column gap-2 mb-2">
+                                    {% set materiais = t.arquivo_anexo.split('|') %}
+                                    {% for mat in materiais %}
+                                        {% set mat_parts = mat.split('::') %}
+                                        {% set autor = mat_parts[0] if mat_parts|length > 1 else (t.tag_autor_anexo or 'Sistema') %}
+                                        {% set nome_arquivo_real = mat_parts[1] if mat_parts|length > 1 else mat_parts[0] %}
+                                        
+                                        <div class="d-flex justify-content-between align-items-center bg-white border border-primary-subtle p-2 rounded shadow-sm">
+                                            <div class="text-truncate pe-3">
+                                                <span class="badge {% if autor == 'Aluno' %}bg-secondary{% else %}bg-primary{% endif %} me-2">{{ autor }}</span>
+                                                <a href="{{ url_for('acessar_upload', nome_arquivo=nome_arquivo_real) }}" target="_blank" class="text-decoration-none fw-bold small" title="{{ nome_arquivo_real }}">{{ nome_arquivo_real }}</a>
+                                            </div>
+                                            
+                                            {% set pode_excluir_anexo = false %}
+                                            {% if current_user.tipo_usuario in ['Administrador', 'Mentor Administrador', 'Mentor'] %}
+                                                {% set pode_excluir_anexo = true %}
+                                            {% elif current_user.tipo_usuario == 'Aluno' and autor == 'Aluno' %}
+                                                {% set pode_excluir_anexo = true %}
+                                            {% endif %}
+
+                                            {% if pode_excluir_anexo %}
+                                                <div class="form-check m-0 d-flex align-items-center gap-2">
+                                                    <input class="form-check-input mt-0 border-danger" type="checkbox" name="materiais_excluir" value="{{ mat }}" id="remover_{{ t.id }}_{{ loop.index }}" style="cursor: pointer; width: 1.2rem; height: 1.2rem;">
+                                                    <label class="form-check-label text-danger fw-bold small mb-0" for="remover_{{ t.id }}_{{ loop.index }}" style="cursor: pointer;">Marcar p/ Excluir</label>
+                                                </div>
+                                            {% else %}
+                                                <span class="badge bg-secondary" title="Apenas mentores podem apagar este arquivo">🔒 Protegido</span>
+                                            {% endif %}
+                                        </div>
+                                    {% endfor %}
+                                </div>
+                                
+                                <!-- SEU RETÂNGULO VERMELHO: Botão de Confirmar Exclusão -->
+                                <div class="text-end mb-3 border-bottom pb-3">
+                                    <button type="submit" name="acao_modal" value="manter_aberto" class="btn btn-sm btn-danger fw-bold px-3 shadow-sm">
+                                        🗑️ Confirmar Exclusão
+                                    </button>
+                                </div>
+                            {% else %}
+                                <div class="alert alert-secondary py-2 small mb-3">Nenhum arquivo anexado a esta tarefa no momento.</div>
+                            {% endif %}
+                            
+                            <!-- Upload Area -->
+                            <label class="form-label small fw-bold text-muted mb-1">Anexar Novos Arquivos (Upload Múltiplo)</label>
+                            <div class="input-group mb-1">
+                                <label class="btn btn-light border mb-0 fw-bold text-primary" for="uploadAnexosMulti{{ t.id }}">
+                                    + Escolher Arquivos
+                                </label>
+                                <input type="file" class="d-none" id="uploadAnexosMulti{{ t.id }}" name="arquivos_anexos" multiple onchange="document.getElementById('textAnexosMulti{{ t.id }}').value = this.files.length > 0 ? this.files.length + ' arquivo(s) selecionado(s)' : 'Nenhum arquivo selecionado'">
+                                <input type="text" class="form-control bg-white text-muted" id="textAnexosMulti{{ t.id }}" placeholder="Nenhum arquivo selecionado" readonly>
+                                
+                                <!-- SEU RETÂNGULO AZUL: Botão de Anexar -->
+                                <button type="submit" name="acao_modal" value="manter_aberto" class="btn btn-primary fw-bold px-4 shadow-sm">
+                                    📤 Anexar
+                                </button>
                             </div>
+                            <div class="form-text" style="font-size: 0.75rem;">Para enviar, selecione os arquivos e clique no botão <strong>"Anexar"</strong> azul ao lado.</div>
                         </div>
 
                     </div>
@@ -378,4 +433,30 @@
     {% endfor %} <!-- Fim do Laço Principal de Projetos -->
 
 </div>
+
+
+<!-- SCRIPT MÁGICO: Lê a URL e reabre o modal automaticamente -->
+    <script>
+        document.addEventListener("DOMContentLoaded", function() {
+            // Pega o número da tarefa lá na barra de endereços (URL)
+            const urlParams = new URLSearchParams(window.location.search);
+            const modalIdParaAbrir = urlParams.get('abrir_modal');
+            
+            if (modalIdParaAbrir) {
+                // Monta o nome exato da janela que precisa abrir
+                var idDoModal = 'modalAtualizarTarefa' + modalIdParaAbrir;
+                var janelaModal = document.getElementById(idDoModal);
+                
+                if (janelaModal) {
+                    // Puxa o Bootstrap para reabrir a janela
+                    var meuModal = new bootstrap.Modal(janelaModal);
+                    meuModal.show();
+                    
+                    // Limpa a barra de endereços para não ficar abrindo sozinho se der F5
+                    window.history.replaceState(null, null, window.location.pathname);
+                }
+            }
+        });
+    </script>
+
 {% endblock %}

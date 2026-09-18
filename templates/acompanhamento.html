@@ -325,13 +325,13 @@
 
                 <div class="row align-items-center">
                     <div class="col-md-3">
-                        <!-- PROGRESSO DO ALUNO (Visível para todos) -->
+                        <!-- PROGRESSO DO ALUNO -->
                         <label class="form-label text-muted small fw-bold">{{ t('progresso_pct') }} ({{ item.reg.percentual_conclusao }}%)</label>
                         <div class="progress mb-2" style="height: 15px;">
                             <div class="progress-bar bg-success" style="width: {{ item.reg.percentual_conclusao }}%;"></div>
                         </div>
                         
-                        <!-- PROGRESSO DO MENTOR (Invisível para Alunos) -->
+                        <!-- PROGRESSO DO MENTOR -->
                         {% if current_user.tipo_usuario != 'Aluno' %}
                         <label class="form-label text-primary small fw-bold mt-2">Validação do Mentor ({{ item.reg.percentual_mentor or 0 }}%)</label>
                         <div class="progress mb-2" style="height: 15px;">
@@ -363,7 +363,6 @@
                             </button>
                         </div>
                         <div class="fundo-caderno display-caderno mb-2 text-start">{% if item.reg.data_parecer_mentor %}<span class="badge bg-light text-primary border border-primary-subtle float-end ms-2" style="font-size: 0.65rem;">Atualizado: {{ item.reg.data_parecer_mentor.strftime('%d/%m/%Y %H:%M') }}</span>{% endif %}{{ item.reg.observacao if item.reg.observacao and item.reg.observacao != 'None' else t('nenhum_parecer') }}</div>
-                    
                     </div>
                     
                     <div class="col-md-4 d-flex flex-column align-items-end gap-2">
@@ -371,20 +370,11 @@
                             <a href="{{ item.curso.url }}" target="_blank" class="btn btn-sm btn-acessar-curso w-100 text-center fw-bold mb-1">{{t('acessar_curso') }}</a>
                         {% endif %}
 
-                        <!-- === BOTÃO INTELIGENTE DE MATERIAL DE APOIO === -->
                         {% if item.reg.material_apoio %}
                             {% set materiais = item.reg.material_apoio.split('|') %}
-                            {% if materiais | length == 1 %}
-                                {% set mat_parts = materiais[0].split('::') %}
-                                {% set nome_real = mat_parts[1] if mat_parts|length > 1 else mat_parts[0] %}
-                                <a href="{{ url_for('acessar_upload', nome_arquivo=nome_real) }}" target="_blank" class="btn btn-sm btn-material-apoio w-100 text-center fw-bold mb-1">
-                                    📄 {{ t('btn_material_unico') }}
-                                </a>
-                            {% else %}
-                                <button type="button" class="btn btn-sm btn-material-apoio w-100 text-center fw-bold mb-1" data-bs-toggle="modal" data-bs-target="#modalListaMateriais{{ item.reg.id }}">
-                                    📄 {{ t('btn_materiais_multiplos') }} ({{ materiais|length }})
-                                </button>
-                            {% endif %}
+                            <button type="button" class="btn btn-sm btn-material-apoio w-100 text-center fw-bold mb-1" data-bs-toggle="modal" data-bs-target="#modalListaMateriais{{ item.reg.id }}">
+                                📄 Acessar Materiais ({{ materiais|length }})
+                            </button>
                         {% endif %}
 
                         {% if item.reg.certificado %}
@@ -398,11 +388,12 @@
                         {% endif %}
                     </div>
                 </div>
+            </div>
+        </div>
+    </div>
 
-    <!-- ======================================================= -->
-    <!-- POP-UP (MODAL) LISTA DE MATERIAIS DE APOIO MÚLTIPLOS    -->
-    <!-- ======================================================= -->
-    {% if item.reg.material_apoio and item.reg.material_apoio.split('|')|length > 1 %}
+    <!-- MODAL DE MATERIAIS DE APOIO E EXCLUSÃO -->
+    {% if item.reg.material_apoio %}
     <div class="modal fade text-start" id="modalListaMateriais{{ item.reg.id }}" tabindex="-1">
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content shadow">
@@ -410,98 +401,88 @@
                     <h5 class="modal-title">{{ t('modal_materiais_titulo') }}</h5>
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                 </div>
-                <div class="modal-body bg-light">
-                    <p class="text-muted small mb-3">{{ t('modal_materiais_subtitulo') }}</p>
-                    <div class="d-flex flex-column gap-2">
-                        {% set materiais = item.reg.material_apoio.split('|') %}
-                        {% for mat in materiais %}
-                            {% set mat_parts = mat.split('::') %}
-                            {% set autor = mat_parts[0] if mat_parts|length > 1 else 'Sistema' %}
-                            {% set nome_arquivo_real = mat_parts[1] if mat_parts|length > 1 else mat_parts[0] %}
-                            
-                            <a href="{{ url_for('acessar_upload', nome_arquivo=nome_arquivo_real) }}" target="_blank" class="btn btn-outline-primary text-start fw-bold d-flex justify-content-between align-items-center bg-white">
-                                <span class="text-truncate" style="max-width: 80%;">
-                                    {% if autor == 'Aluno' %}
-                                        <span class="badge bg-secondary me-2">{{ t('tag_aluno') }}</span>
-                                    {% elif autor == 'Mentor' %}
-                                        <span class="badge bg-primary me-2">{{ t('tag_mentor') }}</span>
+                <form method="POST">
+                    <input type="hidden" name="acao" value="excluir_materiais">
+                    <input type="hidden" name="acompanhamento_id" value="{{ item.reg.id }}">
+                    
+                    <div class="modal-body bg-light">
+                        <p class="text-muted small mb-3">Clique em "Abrir" para visualizar ou selecione as caixas laterais para excluir (conforme sua permissão de perfil).</p>
+                        
+                        <div class="d-flex flex-column gap-2">
+                            {% set materiais = item.reg.material_apoio.split('|') %}
+                            {% for mat in materiais %}
+                                {% set mat_parts = mat.split('::') %}
+                                {% set autor = mat_parts[0] if mat_parts|length > 1 else 'Sistema' %}
+                                {% set nome_arquivo_real = mat_parts[1] if mat_parts|length > 1 else mat_parts[0] %}
+                                
+                                {% set pode_excluir = false %}
+                                {% if current_user.tipo_usuario in ['Administrador', 'Mentor Administrador', 'Mentor'] %}
+                                    {% set pode_excluir = true %}
+                                {% elif current_user.tipo_usuario == 'Aluno' and autor == 'Aluno' %}
+                                    {% set pode_excluir = true %}
+                                {% endif %}
+
+                                <div class="d-flex align-items-center bg-white border rounded p-2 gap-2">
+                                    {% if pode_excluir %}
+                                        <input class="form-check-input m-0" type="checkbox" name="materiais_excluir" value="{{ mat }}" style="width: 1.2rem; height: 1.2rem;">
                                     {% else %}
-                                        <span class="badge bg-info text-dark me-2">{{ t('tag_antigo') }}</span>
+                                        <input class="form-check-input m-0" type="checkbox" disabled title="Sem permissão para excluir material do Mentor" style="width: 1.2rem; height: 1.2rem;">
                                     {% endif %}
-                                    <span class="text-muted small fw-normal">{{ nome_arquivo_real }}</span>
-                                </span>
-                                <span class="badge bg-primary rounded-pill">{{ t('btn_abrir') }}</span>
-                            </a>
-                        {% endfor %}
+                                    
+                                    <div class="flex-grow-1 text-truncate">
+                                        {% if autor == 'Aluno' %}
+                                            <span class="badge bg-secondary me-1">{{ t('tag_aluno') }}</span>
+                                        {% elif autor == 'Mentor' %}
+                                            <span class="badge bg-primary me-1">{{ t('tag_mentor') }}</span>
+                                        {% else %}
+                                            <span class="badge bg-info text-dark me-1">{{ t('tag_antigo') }}</span>
+                                        {% endif %}
+                                        <span class="text-muted small fw-normal">{{ nome_arquivo_real }}</span>
+                                    </div>
+                                    
+                                    <a href="{{ url_for('acessar_upload', nome_arquivo=nome_arquivo_real) }}" target="_blank" class="btn btn-sm btn-outline-primary rounded-pill px-3">{{ t('btn_abrir') }}</a>
+                                </div>
+                            {% endfor %}
+                        </div>
                     </div>
-                </div>
-                <div class="modal-footer bg-white">
-                    <button type="button" class="btn btn-secondary fw-bold" data-bs-dismiss="modal">{{ t('cancelar') }}</button>
-                </div>
+                    
+                    <div class="modal-footer bg-white d-flex justify-content-between">
+                        <button type="submit" class="btn btn-danger fw-bold shadow-sm" onclick="return confirm('Tem certeza que deseja excluir os materiais selecionados?')">🗑️ Excluir Selecionados</button>
+                        <button type="button" class="btn btn-secondary fw-bold shadow-sm" data-bs-dismiss="modal">{{ t('cancelar') }}</button>
+                    </div>
+                </form>
             </div>
         </div>
     </div>
     {% endif %}
 
-<!-- ======================================================= -->
-<!-- POP-UP (MODAL) DE TELA EXPANDIDA PARA ANOTAÇÕES DO ALUNO -->
-<!-- ======================================================= -->
-<div class="modal fade text-start" id="modalExpandirNotas{{ item.reg.id }}" tabindex="-1">
-    <div class="modal-dialog modal-lg">
-        <div class="modal-content shadow-lg">
-            <div class="modal-header bg-secondary text-white">
-                <h5 class="modal-title"> 📝 {{ t('modal_notas_titulo') }} ({{ item.curso.nome_curso }})</h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-            </div>
-            <form method="POST">
-                <div class="modal-body">
-                    <input type="hidden" name="acao" value="atualizar_anotacao_livre">
-                    <input type="hidden" name="acompanhamento_id" value="{{ item.reg.id }}">
-                    
-                    <p class="text-muted small">{{ t('modal_notas_instrucao') }}</p>
-                    
-                    <div class="mb-3">
-                        <textarea name="observacao_aluno" class="fundo-caderno" rows="12" placeholder="{{ t('modal_notas_placeholder') }}">{{ item.reg.observacao_aluno if item.reg.observacao_aluno and item.reg.observacao_aluno != 'None' else '' }}</textarea>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">{{ t('cancelar') }}</button>
-                    <button type="submit" class="btn btn-primary fw-bold">{{ t('modal_notas_btn_salvar') }}</button>
-                </div>
-            </form>
-        </div>
-    </div>
-</div>
-
-    <!-- ======================================================= -->
-    <!-- POP-UP (MODAL) DE TELA EXPANDIDA PARA ANOTAÇÕES DO ALUNO -->
-    <!-- ======================================================= -->
+    <!-- MODAL DE ANOTAÇÕES DO ALUNO -->
     <div class="modal fade text-start" id="modalExpandirNotas{{ item.reg.id }}" tabindex="-1">
         <div class="modal-dialog modal-lg">
             <div class="modal-content shadow-lg">
                 <div class="modal-header bg-secondary text-white">
-                    <h5 class="modal-title"> Editor Expandido Anotações e Dúvidas ({{ item.curso.nome_curso }})</h5>
+                    <h5 class="modal-title">📝 {{ t('modal_notas_titulo') }} ({{ item.curso.nome_curso }})</h5>
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                 </div>
                 <form method="POST">
                     <div class="modal-body">
                         <input type="hidden" name="acao" value="atualizar_anotacao_livre">
                         <input type="hidden" name="acompanhamento_id" value="{{ item.reg.id }}">
-                        <p class="text-muted small">Escreva suas anotações, códigos, links ou dúvidas sobre este estudo com total liberdade e espaço:</p>
+                        <p class="text-muted small">{{ t('modal_notas_instrucao') }}</p>
                         <div class="mb-3">
-                            <textarea name="observacao_aluno" class="form-control" rows="8" placeholder="Escreva suas anotações livremente aqui...">{{ item.reg.observacao_aluno if item.reg.observacao_aluno and item.reg.observacao_aluno != 'None' else '' }}</textarea>
+                            <textarea name="observacao_aluno" class="fundo-caderno" rows="12" placeholder="{{ t('modal_notas_placeholder') }}">{{ item.reg.observacao_aluno if item.reg.observacao_aluno and item.reg.observacao_aluno != 'None' else '' }}</textarea>
                         </div>
                     </div>
                     <div class="modal-footer">
                         <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">{{ t('cancelar') }}</button>
-                        <button type="submit" class="btn btn-primary fw-bold"> Salvar Anotações</button>
+                        <button type="submit" class="btn btn-primary fw-bold">{{ t('modal_notas_btn_salvar') }}</button>
                     </div>
                 </form>
             </div>
         </div>
     </div>
 
-    <!-- POP-UP (MODAL) DE TELA EXPANDIDA PARA PARECER DO MENTOR -->
+    <!-- MODAL DE PARECER DO MENTOR -->
     <div class="modal fade text-start" id="modalExpandirParecer{{ item.reg.id }}" tabindex="-1">
         <div class="modal-dialog modal-lg">
             <div class="modal-content shadow-lg">
@@ -511,11 +492,9 @@
                 </div>
                 <form method="POST">
                     <div class="modal-body">
-                        <!-- Avisa ao Python qual ação executar e de qual curso -->
                         <input type="hidden" name="acao" value="atualizar_parecer_livre">
                         <input type="hidden" name="acompanhamento_id" value="{{ item.reg.id }}">
                         
-                        <!-- Verifica se quem está logado é Mentor ou Aluno -->
                         {% if current_user.tipo_usuario != 'Aluno' %}
                             <p class="text-muted small">{{ t('modal_parecer_instrucao_mentor') }}</p>
                             <div class="mb-3">
@@ -530,7 +509,6 @@
                     </div>
                     <div class="modal-footer">
                         <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">{{ t('cancelar') }}</button>
-                        <!-- Só mostra o botão de salvar se não for Aluno -->
                         {% if current_user.tipo_usuario != 'Aluno' %}
                         <button type="submit" class="btn btn-primary fw-bold">{{ t('modal_parecer_btn_salvar') }}</button>
                         {% endif %}
@@ -540,16 +518,13 @@
         </div>
     </div>
 
-
-    <!-- ========================================== -->
-    <!-- MODAL DE EDIÇÃO DO ACOMPANHAMENTO          -->
-    <!-- ========================================== -->
-        <div class="modal fade text-start" id="modalEditar{{ item.reg.id }}" tabindex="-1">
-          <div class="modal-dialog modal-lg modal-dialog-scrollable" id="dialogEditar{{ item.reg.id }}">
-            <div class="modal-content shadow" style="background-color: white; color: black;">
-                <form method="POST" enctype="multipart/form-data" style="display: contents;">
-                    <div class="modal-header bg-primary text-white d-flex justify-content-between align-items-center">
-                        <h5 class="modal-title">{{ t('atualizar_acompanhamento_modal') }}: {{ item.curso.nome_curso }} ({{ item.aluno.nome }})</h5>
+    <!-- MODAL DE EDIÇÃO DO ACOMPANHAMENTO -->
+    <div class="modal fade text-start" id="modalEditar{{ item.reg.id }}" tabindex="-1">
+      <div class="modal-dialog modal-lg modal-dialog-scrollable" id="dialogEditar{{ item.reg.id }}">
+        <div class="modal-content shadow" style="background-color: white; color: black;">
+            <form method="POST" enctype="multipart/form-data" style="display: contents;">
+                <div class="modal-header bg-primary text-white d-flex justify-content-between align-items-center">
+                    <h5 class="modal-title">{{ t('atualizar_acompanhamento_modal') }}: {{ item.curso.nome_curso }} ({{ item.aluno.nome }})</h5>
                     <div>
                         <button type="button" class="btn btn-sm text-white me-2 d-inline-flex align-items-center justify-content-center" 
                                 onclick="document.getElementById('dialogEditar{{ item.reg.id }}').classList.toggle('modal-fullscreen');" 
@@ -560,155 +535,152 @@
                         </button>
                         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                     </div>
+                </div>
+                
+                <div class="modal-body" style="max-height: 60vh; overflow-y: auto;">
+                    <input type="hidden" name="acompanhamento_id" value="{{ item.reg.id }}">
+                    
+                    {% if current_user.tipo_usuario != 'Aluno' %}
+                    <div class="card p-3 mb-3 bg-light border">
+                        <h6 class="text-success fw-bold mb-2">{{ t('edicao_perfil_entrevista') }}</h6>
+                        <div class="mb-2">
+                            <label class="form-label small text-muted">{{ t('rotulo_perfil') }}</label>
+                            <input type="text" name="perfil_aluno" class="form-control form-control-sm" value="{{ item.aluno.perfil_aluno or '' }}">
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6 mb-2">
+                                <label class="form-label small text-muted">{{ t('rotulo_objetivo') }}</label>
+                                <textarea name="objetivo_principal" class="form-control form-control-sm" rows="2">{{ item.aluno.objetivo_principal or '' }}</textarea>
+                            </div>
+                            <div class="col-md-6 mb-2">
+                                <label class="form-label small text-muted">{{ t('rotulo_expectativa') }}</label>
+                                <textarea name="expectativa_mentoria" class="form-control form-control-sm" rows="2">{{ item.aluno.expectativa_mentoria or '' }}</textarea>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+                    
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">{{ t('data_inicio') }}</label>
+                            <input type="date" name="data_inicio" class="form-control" value="{{ item.reg.data_inicio.strftime('%Y-%m-%d') if item.reg.data_inicio else '' }}">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">{{ t('data_termino_meta') }}</label>
+                            <input type="date" name="data_termino" class="form-control" value="{{ item.reg.data_termino.strftime('%Y-%m-%d') if item.reg.data_termino else '' }}">
+                        </div>
                     </div>
                     
-                    <div class="modal-body" style="max-height: 60vh; overflow-y: auto;">
-                        <input type="hidden" name="acompanhamento_id" value="{{ item.reg.id }}">
+                    <div class="row">
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">{{ t('status_curso') }}</label>
+                            <select name="status" class="form-select" required>
+                                <option value="Iniciado" {% if item.reg.status == 'Iniciado' %} selected {% endif %}>{{ t('status_iniciado') }}</option>
+                                <option value="Parado" {% if item.reg.status == 'Parado' %}selected {% endif %}>{{ t('status_parado') }}</option>
+                                <option value="Finalizado" {% if item.reg.status == 'Finalizado' %} selected{% endif %}>{{ t('status_finalizado') }}</option>
+                            </select>
+                        </div>
                         
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">{{ t('progresso_porcentagem') }} (Aluno)</label>
+                            <input type="number" name="percentual_conclusao" class="form-control" min="0" max="100" value="{{ item.reg.percentual_conclusao }}" required>
+                        </div>
+
                         {% if current_user.tipo_usuario != 'Aluno' %}
-                        <div class="card p-3 mb-3 bg-light border">
-                            <h6 class="text-success fw-bold mb-2">{{ t('edicao_perfil_entrevista') }}</h6>
-                            <div class="mb-2">
-                                <label class="form-label small text-muted">{{ t('rotulo_perfil') }}</label>
-                                <input type="text" name="perfil_aluno" class="form-control form-control-sm" value="{{ item.aluno.perfil_aluno or '' }}">
-                            </div>
-                            <div class="row">
-                                <div class="col-md-6 mb-2">
-                                    <label class="form-label small text-muted">{{ t('rotulo_objetivo') }}</label>
-                                    <textarea name="objetivo_principal" class="form-control form-control-sm" rows="2">{{ item.aluno.objetivo_principal or '' }}</textarea>
-                                </div>
-                                <div class="col-md-6 mb-2">
-                                    <label class="form-label small text-muted">{{ t('rotulo_expectativa') }}</label>
-                                    <textarea name="expectativa_mentoria" class="form-control form-control-sm" rows="2">{{ item.aluno.expectativa_mentoria or '' }}</textarea>
-                                </div>
-                            </div>
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label text-primary fw-bold">Validação (Mentor)</label>
+                            <input type="number" name="percentual_mentor" class="form-control border-primary text-primary fw-bold" min="0" max="100" value="{{ item.reg.percentual_mentor or 0 }}">
                         </div>
                         {% endif %}
-                        
-                        <div class="row">
-                            <div class="col-md-6 mb-3">
-                                <label class="form-label">{{ t('data_inicio') }}</label>
-                                <input type="date" name="data_inicio" class="form-control" value="{{ item.reg.data_inicio.strftime('%Y-%m-%d') if item.reg.data_inicio else '' }}">
-                            </div>
-                            <div class="col-md-6 mb-3">
-                                <label class="form-label">{{ t('data_termino_meta') }}</label>
-                                <input type="date" name="data_termino" class="form-control" value="{{ item.reg.data_termino.strftime('%Y-%m-%d') if item.reg.data_termino else '' }}">
-                            </div>
-                        </div>
-                        
-                        <div class="row">
-                            <div class="col-md-4 mb-3">
-                                <label class="form-label">{{ t('status_curso') }}</label>
-                                <select name="status" class="form-select" required>
-                                    <option value="Iniciado" {% if item.reg.status == 'Iniciado' %} selected {% endif %}>{{ t('status_iniciado') }}</option>
-                                    <option value="Parado" {% if item.reg.status == 'Parado' %}selected {% endif %}>{{ t('status_parado') }}</option>
-                                    <option value="Finalizado" {% if item.reg.status == 'Finalizado' %} selected{% endif %}>{{ t('status_finalizado') }}</option>
-                                </select>
-                            </div>
-                            
-                            <!-- Edição Progresso do Aluno -->
-                            <div class="col-md-4 mb-3">
-                                <label class="form-label">{{ t('progresso_porcentagem') }} (Aluno)</label>
-                                <input type="number" name="percentual_conclusao" class="form-control" min="0" max="100" value="{{ item.reg.percentual_conclusao }}" required>
-                            </div>
-
-                            <!-- Edição Progresso do Mentor (Somente Mentores e Admins) -->
-                            {% if current_user.tipo_usuario != 'Aluno' %}
-                            <div class="col-md-4 mb-3">
-                                <label class="form-label text-primary fw-bold">Validação (Mentor)</label>
-                                <input type="number" name="percentual_mentor" class="form-control border-primary text-primary fw-bold" min="0" max="100" value="{{ item.reg.percentual_mentor or 0 }}">
-                            </div>
-                            {% endif %}
-                        </div>
-                        
-                        <div class="mb-3">
-                            <label class="form-label">{{ t('anotacoes_duvidas') }}</label>
-                            <textarea name="observacao_aluno" class="form-control" rows="3" placeholder="Escreva suas anotações...">{{ item.reg.observacao_aluno if item.reg.observacao_aluno and item.reg.observacao_aluno != 'None' else '' }}</textarea>
-                        </div>
-                        
-                        <div class="mb-3 border p-3 rounded bg-light">
-                            <label class="form-label fw-bold text-primary"> {{ t('qa_interacoes') }}</label>
-                            <div class="faq-history mb-3" style="max-height: 200px; overflow-y: auto;">
-                                {% if item.reg.duvidas_qa %}
-                                    {% for qa in item.reg.duvidas_qa|reverse %}
-                                        <div class="p-2 mb-2 bg-white border rounded shadow-sm">
-                                            <small class="text-muted d-block">
-                                                <strong>{{ qa.autor.nome }}</strong> {{ t('em_data') }} {{ qa.data_criacao.strftime('%d/%m/%Y %H:%M') }}
-                                            </small>
-                                            <p class="mb-1 text-dark">{{ qa.mensagem }}</p>
-                                            {% if qa.resposta %}
-                                                <div class="ps-3 border-start border-success border-3 mt-2 text-success small">
-                                                    <strong>{{ t('resposta_mentor') }}</strong> {{ qa.resposta }}
-                                                    {% if qa.data_resposta %}
-                                                        <br>
-                                                        <span class="text-muted" style="font-size: 0.85em;">
-                                                            {{ t('respondido_em') }} {{ qa.data_resposta.strftime('%d/%m/%Y %H:%M') }}
-                                                        </span>
-                                                    {% endif %}
-                                                </div>
-                                            {% elif current_user.tipo_usuario != 'Aluno' %}
-                                                <div class="mt-2">
-                                                    <input type="text" name="resposta_qa_{{ qa.id }}" class="form-control form-control-sm" placeholder="{{ t('placeholder_resposta_aluno') }}">
-                                                </div>
-                                            {% endif %}
-                                        </div>
-                                    {% endfor %}
-                                {% else %}
-                                    <p class="text-muted small fst-italic">{{ t('msg_nenhuma_duvida') }}</p>
-                                {% endif %}
-                            </div>
-
-                            {% if current_user.tipo_usuario == 'Aluno' %}
-                                <div class="mt-2">
-                                    <label class="form-label small text-muted">{{ t('label_nova_pergunta') }}</label>
-                                    <textarea name="nova_duvida_qa" class="form-control form-control-sm" rows="2" placeholder="{{ t('placeholder_nova_duvida') }}"></textarea>
-                                </div>
-                            {% endif %}
-                        </div>
-                        
-                        <div class="mb-3">
-                            <label class="form-label fw-bold text-primary"> {{ t('parecer_mentor') }}</label>
-                            {% if current_user.tipo_usuario != 'Aluno' %}
-                                <textarea name="observacao" class="form-control" rows="3" placeholder="{{ t('placeholder_obs_mentor') }}">{{ item.reg.observacao if item.reg.observacao and item.reg.observacao != 'None' else '' }}</textarea>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">{{ t('anotacoes_duvidas') }}</label>
+                        <textarea name="observacao_aluno" class="form-control" rows="3" placeholder="Escreva suas anotações...">{{ item.reg.observacao_aluno if item.reg.observacao_aluno and item.reg.observacao_aluno != 'None' else '' }}</textarea>
+                    </div>
+                    
+                    <div class="mb-3 border p-3 rounded bg-light">
+                        <label class="form-label fw-bold text-primary">💬 {{ t('qa_interacoes') }}</label>
+                        <div class="faq-history mb-3" style="max-height: 200px; overflow-y: auto;">
+                            {% if item.reg.duvidas_qa %}
+                                {% for qa in item.reg.duvidas_qa|reverse %}
+                                    <div class="p-2 mb-2 bg-white border rounded shadow-sm">
+                                        <small class="text-muted d-block">
+                                            <strong>{{ qa.autor.nome }}</strong> {{ t('em_data') }} {{ qa.data_criacao.strftime('%d/%m/%Y %H:%M') }}
+                                        </small>
+                                        <p class="mb-1 text-dark">{{ qa.mensagem }}</p>
+                                        {% if qa.resposta %}
+                                            <div class="ps-3 border-start border-success border-3 mt-2 text-success small">
+                                                <strong>{{ t('resposta_mentor') }}</strong> {{ qa.resposta }}
+                                                {% if qa.data_resposta %}
+                                                    <br>
+                                                    <span class="text-muted" style="font-size: 0.85em;">
+                                                        {{ t('respondido_em') }} {{ qa.data_resposta.strftime('%d/%m/%Y %H:%M') }}
+                                                    </span>
+                                                {% endif %}
+                                            </div>
+                                        {% elif current_user.tipo_usuario != 'Aluno' %}
+                                            <div class="mt-2">
+                                                <input type="text" name="resposta_qa_{{ qa.id }}" class="form-control form-control-sm" placeholder="{{ t('placeholder_resposta_aluno') }}">
+                                            </div>
+                                        {% endif %}
+                                    </div>
+                                {% endfor %}
                             {% else %}
-                                <div class="p-2 bg-white border border-primary rounded text-dark small" style="min-height: 45px; white-space: pre-wrap;">
-                                    {{ item.reg.observacao if item.reg.observacao and item.reg.observacao != 'None' else t('nenhum_parecer') }}
-                                </div>
+                                <p class="text-muted small fst-italic">{{ t('msg_nenhuma_duvida') }}</p>
                             {% endif %}
                         </div>
-                        
-                        <div class="mb-3">
-                            <label class="form-label">{{ t('enviar_material_apoio') }}</label>
-                            <div class="input-group">
-                                <label class="btn btn-light border mb-0" for="uploadMaterial{{ item.reg.id }}">
-                                    {{ t('escolher_arquivo') }}
-                                </label>
-                                <input type="file" class="d-none" id="uploadMaterial{{ item.reg.id }}" name="material_apoio" onchange="document.getElementById('textMaterial{{ item.reg.id }}').value = this.files[0] ? this.files[0].name: '{{ t('nenhum_arquivo') }}'">
-                                <input type="text" class="form-control bg-white text-muted" id="textMaterial{{ item.reg.id }}" placeholder="{{ t('nenhum_arquivo') }}" readonly>
+
+                        {% if current_user.tipo_usuario == 'Aluno' %}
+                            <div class="mt-2">
+                                <label class="form-label small text-muted">{{ t('label_nova_pergunta') }}</label>
+                                <textarea name="nova_duvida_qa" class="form-control form-control-sm" rows="2" placeholder="{{ t('placeholder_nova_duvida') }}"></textarea>
                             </div>
-                        </div>
-                        
-                        {% if item.curso.exige_certificado == 'Sim' %}
-                        <div class="mb-3 p-3 bg-warning-subtle border border-warning rounded">
-                            <label class="form-label fw-bold text-danger">Este curso exige Certificado para 100%</label>
-                            <div class="input-group">
-                                <label class="btn btn-light border mb-0" for="uploadCertificado{{ item.reg.id }}">
-                                    {{ t('escolher_arquivo') }}
-                                </label>
-                                <input type="file" class="d-none" id="uploadCertificado{{ item.reg.id }}" name="certificado" onchange="document.getElementById('textCertificado{{ item.reg.id }}').value = this.files[0] ? this.files[0].name: '{{ t('nenhum_arquivo') }}'">
-                                <input type="text" class="form-control bg-white text-muted" id="textCertificado{{ item.reg.id }}" placeholder="{{ t('nenhum_arquivo') }}" readonly>
-                            </div>
-                        </div>
                         {% endif %}
-                        
                     </div>
-                    <div class="modal-footer" style="background-color: #f8f9fa;">
-                        <button type="button" class="btn btn-secondary fw-bold" data-bs-dismiss="modal">{{ t('cancelar') }}</button>
-                        <button type="submit" class="btn btn-primary fw-bold" style="background-color: #0d6efd !important; color: white !important; border-color: #0d6efd !important;">{{ t('salvar_alteracoes') }}</button>
+                    
+                    <div class="mb-3">
+                        <label class="form-label fw-bold text-primary">📌 {{ t('parecer_mentor') }}</label>
+                        {% if current_user.tipo_usuario != 'Aluno' %}
+                            <textarea name="observacao" class="form-control" rows="3" placeholder="{{ t('placeholder_obs_mentor') }}">{{ item.reg.observacao if item.reg.observacao and item.reg.observacao != 'None' else '' }}</textarea>
+                        {% else %}
+                            <div class="p-2 bg-white border border-primary rounded text-dark small" style="min-height: 45px; white-space: pre-wrap;">
+                                {{ item.reg.observacao if item.reg.observacao and item.reg.observacao != 'None' else t('nenhum_parecer') }}
+                            </div>
+                        {% endif %}
                     </div>
-                </form>
-            </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">{{ t('enviar_material_apoio') }}</label>
+                        <div class="input-group">
+                            <label class="btn btn-light border mb-0" for="uploadMaterial{{ item.reg.id }}">
+                                {{ t('escolher_arquivo') }}
+                            </label>
+                            <input type="file" class="d-none" id="uploadMaterial{{ item.reg.id }}" name="material_apoio" onchange="document.getElementById('textMaterial{{ item.reg.id }}').value = this.files[0] ? this.files[0].name: '{{ t('nenhum_arquivo') }}'">
+                            <input type="text" class="form-control bg-white text-muted" id="textMaterial{{ item.reg.id }}" placeholder="{{ t('nenhum_arquivo') }}" readonly>
+                        </div>
+                    </div>
+                    
+                    {% if item.curso.exige_certificado == 'Sim' %}
+                    <div class="mb-3 p-3 bg-warning-subtle border border-warning rounded">
+                        <label class="form-label fw-bold text-danger">Este curso exige Certificado para 100%</label>
+                        <div class="input-group">
+                            <label class="btn btn-light border mb-0" for="uploadCertificado{{ item.reg.id }}">
+                                {{ t('escolher_arquivo') }}
+                            </label>
+                            <input type="file" class="d-none" id="uploadCertificado{{ item.reg.id }}" name="certificado" onchange="document.getElementById('textCertificado{{ item.reg.id }}').value = this.files[0] ? this.files[0].name: '{{ t('nenhum_arquivo') }}'">
+                            <input type="text" class="form-control bg-white text-muted" id="textCertificado{{ item.reg.id }}" placeholder="{{ t('nenhum_arquivo') }}" readonly>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+                <div class="modal-footer" style="background-color: #f8f9fa;">
+                    <button type="button" class="btn btn-secondary fw-bold" data-bs-dismiss="modal">{{ t('cancelar') }}</button>
+                    <button type="submit" class="btn btn-primary fw-bold" style="background-color: #0d6efd !important; color: white !important; border-color: #0d6efd !important;">{{ t('salvar_alteracoes') }}</button>
+                </div>
+            </form>
         </div>
+      </div>
     </div>
 
 {% else %}

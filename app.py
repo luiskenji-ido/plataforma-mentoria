@@ -783,8 +783,36 @@ import os
 @app.route('/acompanhamento', methods=['GET', 'POST'])
 @login_required
 def acompanhamento():
-    
     if request.method == 'POST':
+        # --- NOVA FUNÇÃO: EXCLUIR MATERIAIS DE APOIO ---
+        if request.form.get('acao') == 'excluir_materiais':
+            acompanhamento_id = request.form.get('acompanhamento_id')
+            materiais_para_excluir = request.form.getlist('materiais_excluir')
+            
+            registro = Acompanhamento.query.get(acompanhamento_id)
+            if registro and registro.material_apoio:
+                materiais_atuais = registro.material_apoio.split('|')
+                materiais_restantes = []
+                
+                for mat in materiais_atuais:
+                    if mat in materiais_para_excluir:
+                        mat_parts = mat.split('::')
+                        nome_arquivo = mat_parts[1] if len(mat_parts) > 1 else mat_parts[0]
+                        try:
+                            caminho_arquivo = os.path.join(app.config['UPLOAD_FOLDER'], nome_arquivo)
+                            if os.path.exists(caminho_arquivo):
+                                os.remove(caminho_arquivo)
+                        except Exception as e:
+                            pass
+                    else:
+                        materiais_restantes.append(mat)
+                
+                registro.material_apoio = '|'.join(materiais_restantes) if materiais_restantes else None
+                db.session.commit()
+                flash('Os materiais selecionados foram excluídos permanentemente.', 'success')
+            return redirect(url_for('acompanhamento'))
+        # -----------------------------------------------
+
         if request.form.get('acao') == 'atualizar_parecer_livre' and current_user.tipo_usuario != 'Aluno':
             acompanhamento_id = request.form.get('acompanhamento_id')
             registro = Acompanhamento.query.get(acompanhamento_id)
@@ -793,10 +821,9 @@ def acompanhamento():
                 registro.data_parecer_mentor = datetime.now()
                 db.session.commit()
                 flash('Parecer oficial do mentor atualizado com sucesso!', 'success')
-                return redirect(url_for('acompanhamento'))
+            return redirect(url_for('acompanhamento'))
 
         acompanhamento_id = request.form.get('acompanhamento_id')
-
         if acompanhamento_id:
             if current_user.tipo_usuario == 'Aluno':
                 QADuvida.query.filter_by(acompanhamento_id=acompanhamento_id, lida_pelo_aluno=False).update({'lida_pelo_aluno': True})
@@ -807,14 +834,12 @@ def acompanhamento():
         if request.form.get('acao') == 'atualizar_anotacao_livre':
             acompanhamento_id = request.form.get('acompanhamento_id')
             novo_texto = request.form.get('observacao_aluno')
-            
             registro = Acompanhamento.query.get(acompanhamento_id)
             if registro:
                 registro.observacao_aluno = novo_texto
                 db.session.commit()
                 flash('Anotações atualizadas com sucesso!', 'success')
             return redirect(url_for('acompanhamento'))
-
 
         if 'acompanhamento_id' in request.form and request.form.get('acao') != 'vincular':
             acompanhamento_id = request.form.get('acompanhamento_id')
@@ -877,27 +902,22 @@ def acompanhamento():
                     caminho_apoio = os.path.join(app.config['UPLOAD_FOLDER'], filename_apoio)
                     arq_apoio.save(caminho_apoio)
                     
-                    # --- INÍCIO DA NOVA LÓGICA DE CARIMBO ---
-                    # Descobre quem está logado para carimbar o arquivo
                     autor_tag = 'Aluno' if current_user.tipo_usuario == 'Aluno' else 'Mentor'
                     arquivo_carimbado = f"{autor_tag}::{filename_apoio}"
                     
                     if getattr(regstro, 'material_apoio', None):
-                        # Evita duplicidade checando se o arquivo exato já existe
                         if arquivo_carimbado not in regstro.material_apoio.split('|'):
                             regstro.material_apoio += f"|{arquivo_carimbado}"
                     else:
                         regstro.material_apoio = arquivo_carimbado
-                    # --- FIM DA NOVA LÓGICA ---
 
                 regstro.status = status
                 regstro.observacao_aluno = observacao_aluno
                 
-                # --- NOVA LÓGICA: CAPTURAR PROGRESSO DO MENTOR ---
+                # --- CAPTURAR PROGRESSO DO MENTOR ---
                 novo_percentual_mentor = request.form.get('percentual_mentor')
                 if novo_percentual_mentor is not None:
                     regstro.percentual_mentor = int(novo_percentual_mentor)
-                # -------------------------------------------------
                 
                 if regstro.percentual_conclusao != percentual:
                     regstro.percentual_conclusao = percentual
@@ -1020,7 +1040,7 @@ def projetos():
         db.session.commit()
         
         flash('Projeto criado com sucesso!', 'success')
-        return redirect(url_for('projetos'))
+        return redirect(url_for('projetos', abrir_modal=tarefa.id))
 
     # 2. Quando a página apenas carrega (GET)
     lista_projetos = Projeto.query.all()
@@ -1100,7 +1120,9 @@ def nova_tarefa():
 @app.route('/projetos/atualizar_tarefa', methods=['POST'])
 @login_required
 def atualizar_tarefa():
-    tarefa = db.session.get(Tarefa, int(request.form.get('tarefa_id')))
+    tarefa_id = request.form.get('tarefa_id')
+    tarefa = db.session.get(Tarefa, int(tarefa_id)) if tarefa_id else None
+    
     if tarefa:
         tarefa.descricao = request.form.get('descricao')
         tarefa.responsavel = request.form.get('responsavel')
@@ -1114,22 +1136,55 @@ def atualizar_tarefa():
         tarefa.data_fim = datetime.strptime(d_fim, '%Y-%m-%d') if d_fim else None
 
         tarefa.status = request.form.get('status')
-        # Só permite alterar a % se NÃO tiver subtarefas
         if not tarefa.subtarefas:
             tarefa.percentual_conclusao = int(request.form.get('percentual_conclusao', 0))
         
-        arquivo = request.files.get('arquivo_anexo')
-        if arquivo and arquivo.filename:
-            import os
-            from werkzeug.utils import secure_filename
-            filename = secure_filename(arquivo.filename)
-            arquivo.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
-            tarefa.arquivo_anexo = filename
-            tarefa.tag_autor_anexo = current_user.tipo_usuario
+        # --- NOVA LÓGICA MÚLTIPLOS ANEXOS (EXCLUSÃO) ---
+        materiais_para_excluir = request.form.getlist('materiais_excluir')
+        if materiais_para_excluir and tarefa.arquivo_anexo:
+            materiais_atuais = tarefa.arquivo_anexo.split('|')
+            materiais_restantes = []
+            for mat in materiais_atuais:
+                if mat in materiais_para_excluir:
+                    mat_parts = mat.split('::')
+                    nome_arquivo = mat_parts[1] if len(mat_parts) > 1 else mat_parts[0]
+                    try:
+                        caminho_arquivo = os.path.join(app.config['UPLOAD_FOLDER'], nome_arquivo)
+                        if os.path.exists(caminho_arquivo):
+                            os.remove(caminho_arquivo)
+                    except Exception:
+                        pass
+                else:
+                    materiais_restantes.append(mat)
+            tarefa.arquivo_anexo = '|'.join(materiais_restantes) if materiais_restantes else None
+
+        # --- NOVA LÓGICA MÚLTIPLOS ANEXOS (UPLOAD) ---
+        arquivos = request.files.getlist('arquivos_anexos')
+        for arquivo in arquivos:
+            if arquivo and arquivo.filename:
+                import os
+                from werkzeug.utils import secure_filename
+                filename = secure_filename(arquivo.filename)
+                arquivo.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
+                
+                autor_tag = current_user.tipo_usuario
+                arquivo_carimbado = f"{autor_tag}::{filename}"
+                
+                if getattr(tarefa, 'arquivo_anexo', None):
+                    if arquivo_carimbado not in tarefa.arquivo_anexo.split('|'):
+                        tarefa.arquivo_anexo += f"|{arquivo_carimbado}"
+                else:
+                    tarefa.arquivo_anexo = arquivo_carimbado
+        # ----------------------------------------
         
         db.session.commit()
         recalcular_progresso_projeto(tarefa.projeto_id)
         flash('Atualizado com sucesso!', 'success')
+        
+        # O SEGREDO ESTÁ AQUI: Verifica qual botão foi clicado
+        acao_modal = request.form.get('acao_modal')
+        if acao_modal == 'manter_aberto':
+            return redirect(url_for('projetos', abrir_modal=tarefa.id))
         
     return redirect(url_for('projetos'))
 
