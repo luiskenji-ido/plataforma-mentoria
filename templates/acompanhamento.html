@@ -257,14 +257,23 @@
     <!-- Botões na Direita -->
     <div class="d-flex flex-wrap gap-2 align-items-center">
         
-        <!-- Botão Google Agenda Inteligente -->
+        <!-- Botão Google Agenda Inteligente (Automático) -->
         {% if session.get('google_token') %}
-            <a href="{{ url_for('agendar_estudo') }}" class="btn btn-integra-agenda fw-bold shadow-sm" target="_blank">
-                {{ t('btn_agendar_estudo') }}
-            </a>
+            <div class="d-flex gap-2">
+                <!-- Botão inativo que serve apenas como um selo de status -->
+                <button type="button" class="btn btn-success fw-bold shadow-sm" style="cursor: default;" title="Os prazos que você salvar serão enviados automaticamente para o Google Agenda.">
+                    <i class="bi bi-calendar-check"></i> Sincronização Automática Ativa
+                </button>
+                
+                <!-- Novo Botão de Desconectar -->
+                <a href="{{ url_for('desconectar_agenda') }}" class="btn btn-outline-danger fw-bold shadow-sm" title="Desconectar do Google">
+                    <i class="bi bi-x-circle"></i> Desconectar
+                </a>
+            </div>
         {% else %}
+            <!-- Botão original com sistema de tradução -->
             <a href="{{ url_for('conectar_agenda') }}" class="btn btn-integra-agenda-off fw-bold shadow-sm">
-                {{ t('btn_conectar_agenda') }}
+                <i class="bi bi-calendar3"></i> {{ t('btn_conectar_agenda') }}
             </a>
         {% endif %}
         

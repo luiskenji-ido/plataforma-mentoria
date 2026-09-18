@@ -964,6 +964,15 @@ def acompanhamento():
                                 duvida_obj.data_resposta = datetime.now(fuso_br)
 
                 db.session.commit()
+                # GATILHO DA AGENDA: Grava a meta de estudo automaticamente se conectado
+                    if regstro.data_termino:
+                        curso_obj = db.session.get(Curso, regstro.curso_id)
+                        sincronizar_evento_google(
+                            titulo=f"Meta de Estudo: {curso_obj.nome_curso}",
+                            descricao=f"Prazo final estipulado para a conclusão do curso: {curso_obj.nome_curso}.",
+                            data_alvo=regstro.data_termino
+                    )
+
                 flash("Acompanhamento atualizado com sucesso!", "success")
                 
         else:
@@ -1852,17 +1861,25 @@ def oauth2callback():
     # Redireciona de volta para a tela de acompanhamento
     return redirect(url_for('acompanhamento'))
 
-@app.route('/agendar-estudo')
+# ==============================================================================
+# INTEGRAÇÃO COM GOOGLE CALENDAR (MOTOR INTELIGENTE)
+# ==============================================================================
+@app.route('/desconectar-agenda')
 @login_required
-def agendar_estudo():
+def desconectar_agenda():
+    session.pop('google_token', None)
+    session.pop('google_refresh_token', None)
+    flash("Sua conta do Google Agenda foi desconectada do sistema.", "info")
+    return redirect(request.referrer or url_for('acompanhamento'))
+
+def sincronizar_evento_google(titulo, descricao, data_alvo):
+    # Regra 1: Se o usuário não conectou a agenda, aborta silenciosamente (não gera erro)
     if 'google_token' not in session:
-        flash("Você precisa conectar a agenda primeiro.", "warning")
-        return redirect(url_for('acompanhamento'))
+        return False 
         
     try:
         import json
-        # Importação segura de tempo que não entra em conflito com o resto do seu app
-        from datetime import datetime as dt, timedelta
+        from datetime import timedelta
         
         caminho_secreto = os.path.join(app.root_path, 'client_secret.json')
         with open(caminho_secreto, 'r') as f:
@@ -1877,43 +1894,28 @@ def agendar_estudo():
             scopes=SCOPES
         )
 
-        # Cria a rota de proxy
         proxy = httplib2.ProxyInfo(httplib2.socks.PROXY_TYPE_HTTP, 'proxy.server', 3128)
         http_base = httplib2.Http(proxy_info=proxy)
-
-        # Injete as credenciais diretamente no túnel
         http_autorizado = google_auth_httplib2.AuthorizedHttp(creds, http=http_base)
-
-        # Entregue ao Google apenas o túnel já autenticado (repare que retiramos o credentials=creds)
         service = build('calendar', 'v3', http=http_autorizado, cache_discovery=False)
         
-                
-        # O cálculo corrigido do horário! 
-        agora = dt.utcnow()
-        inicio = (agora + timedelta(days=1)).isoformat() + 'Z'
-        fim = (agora + timedelta(days=1, hours=1)).isoformat() + 'Z'
+        # Cria um bloco de estudo/alerta de 1 hora para as 09:00 da manhã da Data de Término (Meta)
+        inicio = data_alvo.replace(hour=9, minute=0, second=0).isoformat() + 'Z'
+        fim = data_alvo.replace(hour=10, minute=0, second=0).isoformat() + 'Z'
         
         evento = {
-            'summary': 'Sessão de Mentoria e Revisão - Certificação AB-900',
-            'description': 'Revisão de materiais, perguntas práticas e conceitos de arquitetura e segurança do Microsoft 365.',
-            'start': {
-                'dateTime': inicio,
-                'timeZone': 'America/Sao_Paulo',
-            },
-            'end': {
-                'dateTime': fim,
-                'timeZone': 'America/Sao_Paulo',
-            },
-            'reminders': {
-                'useDefault': True,
-            },
+            'summary': titulo,
+            'description': descricao,
+            'start': {'dateTime': inicio, 'timeZone': 'America/Sao_Paulo'},
+            'end': {'dateTime': fim, 'timeZone': 'America/Sao_Paulo'},
+            'reminders': {'useDefault': True},
         }
         
-        evento_criado = service.events().insert(calendarId='primary', body=evento).execute()
-        link_do_evento = evento_criado.get('htmlLink')
-        
-        flash("Evento criado com sucesso na sua agenda!", "success")
-        return redirect(link_do_evento)
+        service.events().insert(calendarId='primary', body=evento).execute()
+        return True
+    except Exception as e:
+        print(f"Erro silencioso ao sincronizar agenda: {e}")
+        return False
         
     except Exception as e:
         session.pop('google_token', None)
