@@ -974,7 +974,6 @@ def acompanhamento():
                         # Só processa se o aluno preencheu a hora inicial e final daquele dia específico
                         if slot_inicios[i] and slot_fims[i]: 
                             try:
-                                from datetime import datetime
                                 data_slot = datetime.strptime(slot_datas[i], '%Y-%m-%d')
                                 
                                 sincronizar_evento_google(
