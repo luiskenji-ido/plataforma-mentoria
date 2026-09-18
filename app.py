@@ -970,11 +970,16 @@ def acompanhamento():
                 
                 if slot_datas:
                     curso_obj = db.session.get(Curso, regstro.curso_id)
+                    planejamento_salvo = [] # Cria uma lista vazia para armazenar os horários
+                    
                     for i in range(len(slot_datas)):
-                        # Só processa se o aluno preencheu a hora inicial e final daquele dia específico
                         if slot_inicios[i] and slot_fims[i]: 
                             try:
                                 data_slot = datetime.strptime(slot_datas[i], '%Y-%m-%d')
+                                
+                                # Monta o texto para salvar no banco (Ex: 21/09/2026::09:00::10:00)
+                                data_br = data_slot.strftime('%d/%m/%Y')
+                                planejamento_salvo.append(f"{data_br}::{slot_inicios[i]}::{slot_fims[i]}")
                                 
                                 sincronizar_evento_google(
                                     titulo=f"Estudo: {curso_obj.nome_curso}",
@@ -985,6 +990,9 @@ def acompanhamento():
                                 )
                             except Exception as e:
                                 pass
+                                
+                    # Salva todos os horários agrupados na nova coluna do banco de dados
+                    regstro.planejamento_estudos = "|".join(planejamento_salvo) if planejamento_salvo else None
 
                 db.session.commit()
                 flash("Acompanhamento atualizado com sucesso!", "success")
@@ -2068,10 +2076,15 @@ def iniciar_agendador(app):
     thread.start()
 
 if __name__ == '__main__':
-    # Antes de iniciar o servidor, este bloco cria o arquivo do banco de dados
-    # e todas as tabelas caso eles ainda não existam.
     with app.app_context():
         db.create_all()
+        # Injeção segura da nova coluna no banco existente
+        try:
+            from sqlalchemy import text
+            db.session.execute(text("ALTER TABLE acompanhamento ADD COLUMN planejamento_estudos TEXT"))
+            db.session.commit()
+        except:
+            db.session.rollback() # Ignora silenciosamente se a coluna já existir nas próximas vezes
         
     # --- LIGA O MOTOR DE BACKUP AUTOMÁTICO AQUI ---
     iniciar_agendador(app)

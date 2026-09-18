@@ -83,6 +83,7 @@ class Acompanhamento(db.Model):
     data_limite = db.Column(db.DateTime, nullable=True)
     data_inicio = db.Column(db.DateTime, nullable=True)
     data_termino = db.Column(db.DateTime, nullable=True)
+    planejamento_estudos = db.Column(db.String(2000), nullable=True)
 
 # ---------------------------------------------------------------------------
 # 4. TABELA DE SESSÕES DE MENTORIA
