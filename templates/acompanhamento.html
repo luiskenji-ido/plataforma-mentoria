@@ -570,22 +570,72 @@
                     {% endif %}
                     
                     <div class="row">
-                        <div class="col-md-4 mb-3">
+                        <div class="col-md-6 mb-3">
                             <label class="form-label">{{ t('data_inicio') }}</label>
-                            <input type="date" name="data_inicio" class="form-control" value="{{ item.reg.data_inicio.strftime('%Y-%m-%d') if item.reg.data_inicio else '' }}">
+                            <!-- Adicionado o evento onchange para disparar a grade -->
+                            <input type="date" name="data_inicio" id="dt_ini_{{ item.reg.id }}" class="form-control" value="{{ item.reg.data_inicio.strftime('%Y-%m-%d') if item.reg.data_inicio else '' }}" onchange="gerarGrade_{{ item.reg.id }}()">
                         </div>
-                        
-                        <div class="col-md-4 mb-3">
-                            <label class="form-label fw-bold text-primary">⏰ Hora do Estudo</label>
-                            <!-- Este campo novo envia o horário exato para o Python -->
-                            <input type="time" name="horario_estudo" class="form-control border-primary" value="09:00">
-                        </div>
-
-                        <div class="col-md-4 mb-3">
+                        <div class="col-md-6 mb-3">
                             <label class="form-label">{{ t('data_termino_meta') }}</label>
-                            <input type="date" name="data_termino" class="form-control" value="{{ item.reg.data_termino.strftime('%Y-%m-%d') if item.reg.data_termino else '' }}">
+                            <input type="date" name="data_termino" id="dt_fim_{{ item.reg.id }}" class="form-control" value="{{ item.reg.data_termino.strftime('%Y-%m-%d') if item.reg.data_termino else '' }}" onchange="gerarGrade_{{ item.reg.id }}()">
                         </div>
                     </div>
+                    
+                    <!-- Bloco Dinâmico para os Slots de Tempo -->
+                    <div class="mb-3 p-3 bg-light border border-primary-subtle rounded d-none" id="box_grade_{{ item.reg.id }}">
+                        <label class="form-label fw-bold text-primary mb-2">🗓️ Planejamento de Horários (Google Agenda)</label>
+                        <p class="small text-muted mb-2">O sistema criou um slot para cada dia. Preencha a hora inicial e final <strong>apenas nos dias que você for estudar</strong>. Os dias em branco não irão para a agenda.</p>
+                        <div id="lista_dias_{{ item.reg.id }}" class="d-flex flex-column gap-2" style="max-height: 250px; overflow-y: auto;">
+                            <!-- O JavaScript vai injetar os dias aqui -->
+                        </div>
+                    </div>
+
+                    <script>
+                        function gerarGrade_{{ item.reg.id }}() {
+                            const dtIni = document.getElementById('dt_ini_{{ item.reg.id }}').value;
+                            const dtFim = document.getElementById('dt_fim_{{ item.reg.id }}').value;
+                            const box = document.getElementById('box_grade_{{ item.reg.id }}');
+                            const lista = document.getElementById('lista_dias_{{ item.reg.id }}');
+                            
+                            if (dtIni && dtFim) {
+                                // Força o fuso zerado para evitar pular dias no Javascript
+                                let inicio = new Date(dtIni + 'T00:00:00');
+                                let fim = new Date(dtFim + 'T00:00:00');
+                                
+                                if (inicio <= fim) {
+                                    box.classList.remove('d-none');
+                                    lista.innerHTML = ''; // Limpa a grade anterior
+                                    
+                                    let atual = new Date(inicio);
+                                    let idx = 0;
+                                    
+                                    while (atual <= fim) {
+                                        let dataFormatada = atual.toLocaleDateString('pt-BR');
+                                        let dataISO = atual.toISOString().split('T')[0];
+                                        
+                                        lista.innerHTML += `
+                                            <div class="d-flex align-items-center gap-2 bg-white p-2 border rounded shadow-sm flex-wrap">
+                                                <span class="fw-bold text-secondary" style="width: 90px; font-size: 0.9em;">${dataFormatada}</span>
+                                                <input type="hidden" name="slot_data" value="${dataISO}">
+                                                <input type="time" name="slot_inicio" class="form-control form-control-sm border-primary" style="width: 110px;" title="Hora Inicial">
+                                                <span class="text-muted small">até</span>
+                                                <input type="time" name="slot_fim" class="form-control form-control-sm border-primary" style="width: 110px;" title="Hora Final">
+                                            </div>
+                                        `;
+                                        atual.setDate(atual.getDate() + 1); // Avança 1 dia
+                                        idx++;
+                                        if (idx > 40) break; // Trava de segurança para não explodir a tela
+                                    }
+                                } else {
+                                    box.classList.add('d-none');
+                                }
+                            } else {
+                                box.classList.add('d-none');
+                            }
+                        }
+                        // Dispara a visualização automaticamente caso já existam datas preenchidas ao abrir o modal
+                        setTimeout(() => gerarGrade_{{ item.reg.id }}(), 500);
+                    </script>
                     
                     <div class="row">
                         <div class="col-md-4 mb-3">

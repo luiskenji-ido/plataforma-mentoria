@@ -963,16 +963,29 @@ def acompanhamento():
                             if hasattr(duvida_obj, 'data_resposta'):
                                 duvida_obj.data_resposta = datetime.now(fuso_br)
 
-                # GATILHO DA AGENDA: Grava o horário escolhido na Data de Início
-                horario_estudo = request.form.get('horario_estudo', '09:00')
-                if regstro.data_inicio:
+                # GATILHO DA AGENDA: Lê a grade dinâmica gerada pela tela e cria slots individuais
+                slot_datas = request.form.getlist('slot_data')
+                slot_inicios = request.form.getlist('slot_inicio')
+                slot_fims = request.form.getlist('slot_fim')
+                
+                if slot_datas:
                     curso_obj = db.session.get(Curso, regstro.curso_id)
-                    sincronizar_evento_google(
-                        titulo=f"Estudo: {curso_obj.nome_curso}",
-                        descricao=f"Sessão de estudos focada no curso: {curso_obj.nome_curso}.",
-                        data_alvo=regstro.data_inicio,
-                        horario_str=horario_estudo
-                    )
+                    for i in range(len(slot_datas)):
+                        # Só processa se o aluno preencheu a hora inicial e final daquele dia específico
+                        if slot_inicios[i] and slot_fims[i]: 
+                            try:
+                                from datetime import datetime
+                                data_slot = datetime.strptime(slot_datas[i], '%Y-%m-%d')
+                                
+                                sincronizar_evento_google(
+                                    titulo=f"Estudo: {curso_obj.nome_curso}",
+                                    descricao=f"Sessão focada no curso: {curso_obj.nome_curso}.",
+                                    data_inicio=data_slot,
+                                    horario_str=slot_inicios[i],
+                                    horario_fim_str=slot_fims[i]
+                                )
+                            except Exception as e:
+                                pass
 
                 db.session.commit()
                 flash("Acompanhamento atualizado com sucesso!", "success")
@@ -1874,7 +1887,7 @@ def desconectar_agenda():
     flash("Sua conta do Google Agenda foi desconectada do sistema.", "info")
     return redirect(request.referrer or url_for('acompanhamento'))
 
-def sincronizar_evento_google(titulo, descricao, data_alvo, horario_str="09:00"):
+def sincronizar_evento_google(titulo, descricao, data_inicio, horario_str="09:00", horario_fim_str="10:00"):
     # Regra 1: Se o usuário não conectou a agenda, aborta silenciosamente
     if 'google_token' not in session:
         return False 
@@ -1901,14 +1914,19 @@ def sincronizar_evento_google(titulo, descricao, data_alvo, horario_str="09:00")
         http_autorizado = google_auth_httplib2.AuthorizedHttp(creds, http=http_base)
         service = build('calendar', 'v3', http=http_autorizado, cache_discovery=False)
         
-        # Extrai a hora e o minuto informados na tela (Ex: "14:30" vira 14 e 30)
-        hora, minuto = map(int, horario_str.split(':'))
+        # Monta a data/hora exata de INÍCIO do Slot
+        hora_i, min_i = map(int, horario_str.split(':'))
+        inicio_dt = data_inicio.replace(hour=hora_i, minute=min_i, second=0)
         
-        # Ajusta a data alvo com a hora informada
-        inicio_dt = data_alvo.replace(hour=hora, minute=minuto, second=0)
-        fim_dt = inicio_dt + timedelta(hours=1) # O evento de estudo durará 1 hora
+        # Monta a data/hora exata de FIM do Slot
+        hora_f, min_f = map(int, horario_fim_str.split(':'))
+        fim_dt = data_inicio.replace(hour=hora_f, minute=min_f, second=0)
         
-        # O SEGREDO DO BRASIL: Força o carimbo -03:00 (GMT-3) do fuso de Brasília!
+        # Trava de segurança: Se a hora de fim for antes da de início, corrige para +1h
+        if fim_dt <= inicio_dt:
+            fim_dt = inicio_dt + timedelta(hours=1)
+        
+        # Força o fuso horário de Brasília (GMT-3)
         inicio = inicio_dt.isoformat() + '-03:00'
         fim = fim_dt.isoformat() + '-03:00'
         
@@ -1925,12 +1943,6 @@ def sincronizar_evento_google(titulo, descricao, data_alvo, horario_str="09:00")
     except Exception as e:
         print(f"Erro silencioso ao sincronizar agenda: {e}")
         return False
-        
-    except Exception as e:
-        session.pop('google_token', None)
-        session.pop('google_refresh_token', None)
-        flash(f"A permissão falhou. O botão foi resetado. Conecte novamente. Erro: {e}", "danger")
-        return redirect(url_for('acompanhamento'))
 
 from flask import jsonify
 
