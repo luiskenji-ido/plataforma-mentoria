@@ -581,12 +581,38 @@
                         </div>
                     </div>
                     
+                    <!-- EXIBIÇÃO VISUAL DOS HORÁRIOS GUARDADOS -->
+                    {% if item.reg.planejamento_estudos %}
+                    <div class="mb-3 p-3 bg-white border border-success rounded shadow-sm">
+                        <label class="form-label fw-bold text-success small mb-3">📅 Horários Guardados:</label>
+                        <div class="d-flex flex-wrap gap-2">
+                            {% set slots = item.reg.planejamento_estudos.split('|') %}
+                            {% for slot in slots %}
+                                {% set partes = slot.split('::') %}
+                                {% if partes|length == 3 %}
+                                <div class="badge bg-light border border-success-subtle text-dark p-2 text-start shadow-sm" style="font-size: 0.85em;">
+                                    <span class="text-success fw-bold"><i class="bi bi-calendar-event"></i> {{ partes[0] }}</span><br>
+                                    <i class="bi bi-clock text-muted"></i> {{ partes[1] }} às {{ partes[2] }}
+                                </div>
+                                {% endif %}
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% endif %}
+
                     <!-- Bloco Dinâmico para os Slots de Tempo -->
                     <div class="mb-3 p-3 bg-light border border-primary-subtle rounded d-none" id="box_grade_{{ item.reg.id }}">
-                        <label class="form-label fw-bold text-primary mb-2">🗓️ Planejamento de Horários (Google Agenda)</label>
-                        <p class="small text-muted mb-2">O sistema criou um slot para cada dia. Preencha a hora inicial e final <strong>apenas nos dias que você for estudar</strong>. Os dias em branco não irão para a agenda.</p>
-                        <div id="lista_dias_{{ item.reg.id }}" class="d-flex flex-column gap-2" style="max-height: 250px; overflow-y: auto;">
+                        <label class="form-label fw-bold text-primary mb-2">🗓️ Planeamento de Horários (Google Agenda)</label>
+                        <p class="small text-muted mb-2">O sistema criou um slot para cada dia. Preencha a hora inicial e final <strong>apenas nos dias que for estudar</strong>.</p>
+                        <div id="lista_dias_{{ item.reg.id }}" class="d-flex flex-column gap-2 mb-3" style="max-height: 250px; overflow-y: auto;">
                             <!-- O JavaScript vai injetar os dias aqui -->
+                        </div>
+                        
+                        <!-- O NOVO BOTÃO DEDICADO A GUARDAR O PLANEAMENTO -->
+                        <div class="text-end border-top pt-2">
+                            <button type="submit" name="acao_modal" value="manter_aberto" class="btn btn-sm btn-outline-primary fw-bold shadow-sm">
+                                Gravar Planeamento
+                            </button>
                         </div>
                     </div>
 

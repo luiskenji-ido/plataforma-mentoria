@@ -1000,6 +1000,10 @@ def acompanhamento():
 
                 db.session.commit()
                 flash("Acompanhamento atualizado com sucesso!", "success")
+
+                # Mantém o modal aberto se o botão de planeamento for clicado
+                if request.form.get('acao_modal') == 'manter_aberto':
+                    return redirect(url_for('acompanhamento', abrir_modal=regstro.id))
                 
         else:
             aluno_id = request.form.get('aluno_id')
