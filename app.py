@@ -965,12 +965,12 @@ def acompanhamento():
 
                 db.session.commit()
                 # GATILHO DA AGENDA: Grava a meta de estudo automaticamente se conectado
-                    if regstro.data_termino:
-                        curso_obj = db.session.get(Curso, regstro.curso_id)
-                        sincronizar_evento_google(
-                            titulo=f"Meta de Estudo: {curso_obj.nome_curso}",
-                            descricao=f"Prazo final estipulado para a conclusão do curso: {curso_obj.nome_curso}.",
-                            data_alvo=regstro.data_termino
+                if regstro.data_termino:
+                    curso_obj = db.session.get(Curso, regstro.curso_id)
+                    sincronizar_evento_google(
+                        titulo=f"Meta de Estudo: {curso_obj.nome_curso}",
+                        descricao=f"Prazo final estipulado para a conclusão do curso: {curso_obj.nome_curso}.",
+                        data_alvo=regstro.data_termino
                     )
 
                 flash("Acompanhamento atualizado com sucesso!", "success")
