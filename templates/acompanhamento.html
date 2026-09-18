@@ -570,11 +570,18 @@
                     {% endif %}
                     
                     <div class="row">
-                        <div class="col-md-6 mb-3">
+                        <div class="col-md-4 mb-3">
                             <label class="form-label">{{ t('data_inicio') }}</label>
                             <input type="date" name="data_inicio" class="form-control" value="{{ item.reg.data_inicio.strftime('%Y-%m-%d') if item.reg.data_inicio else '' }}">
                         </div>
-                        <div class="col-md-6 mb-3">
+                        
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label fw-bold text-primary">⏰ Hora do Estudo</label>
+                            <!-- Este campo novo envia o horário exato para o Python -->
+                            <input type="time" name="horario_estudo" class="form-control border-primary" value="09:00">
+                        </div>
+
+                        <div class="col-md-4 mb-3">
                             <label class="form-label">{{ t('data_termino_meta') }}</label>
                             <input type="date" name="data_termino" class="form-control" value="{{ item.reg.data_termino.strftime('%Y-%m-%d') if item.reg.data_termino else '' }}">
                         </div>

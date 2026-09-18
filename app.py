@@ -963,16 +963,18 @@ def acompanhamento():
                             if hasattr(duvida_obj, 'data_resposta'):
                                 duvida_obj.data_resposta = datetime.now(fuso_br)
 
-                db.session.commit()
-                # GATILHO DA AGENDA: Grava a meta de estudo automaticamente se conectado
-                if regstro.data_termino:
+                # GATILHO DA AGENDA: Grava o horário escolhido na Data de Início
+                horario_estudo = request.form.get('horario_estudo', '09:00')
+                if regstro.data_inicio:
                     curso_obj = db.session.get(Curso, regstro.curso_id)
                     sincronizar_evento_google(
-                        titulo=f"Meta de Estudo: {curso_obj.nome_curso}",
-                        descricao=f"Prazo final estipulado para a conclusão do curso: {curso_obj.nome_curso}.",
-                        data_alvo=regstro.data_termino
+                        titulo=f"Estudo: {curso_obj.nome_curso}",
+                        descricao=f"Sessão de estudos focada no curso: {curso_obj.nome_curso}.",
+                        data_alvo=regstro.data_inicio,
+                        horario_str=horario_estudo
                     )
 
+                db.session.commit()
                 flash("Acompanhamento atualizado com sucesso!", "success")
                 
         else:
@@ -1872,8 +1874,8 @@ def desconectar_agenda():
     flash("Sua conta do Google Agenda foi desconectada do sistema.", "info")
     return redirect(request.referrer or url_for('acompanhamento'))
 
-def sincronizar_evento_google(titulo, descricao, data_alvo):
-    # Regra 1: Se o usuário não conectou a agenda, aborta silenciosamente (não gera erro)
+def sincronizar_evento_google(titulo, descricao, data_alvo, horario_str="09:00"):
+    # Regra 1: Se o usuário não conectou a agenda, aborta silenciosamente
     if 'google_token' not in session:
         return False 
         
@@ -1899,9 +1901,16 @@ def sincronizar_evento_google(titulo, descricao, data_alvo):
         http_autorizado = google_auth_httplib2.AuthorizedHttp(creds, http=http_base)
         service = build('calendar', 'v3', http=http_autorizado, cache_discovery=False)
         
-        # Cria um bloco de estudo/alerta de 1 hora para as 09:00 da manhã da Data de Término (Meta)
-        inicio = data_alvo.replace(hour=9, minute=0, second=0).isoformat() + 'Z'
-        fim = data_alvo.replace(hour=10, minute=0, second=0).isoformat() + 'Z'
+        # Extrai a hora e o minuto informados na tela (Ex: "14:30" vira 14 e 30)
+        hora, minuto = map(int, horario_str.split(':'))
+        
+        # Ajusta a data alvo com a hora informada
+        inicio_dt = data_alvo.replace(hour=hora, minute=minuto, second=0)
+        fim_dt = inicio_dt + timedelta(hours=1) # O evento de estudo durará 1 hora
+        
+        # O SEGREDO DO BRASIL: Força o carimbo -03:00 (GMT-3) do fuso de Brasília!
+        inicio = inicio_dt.isoformat() + '-03:00'
+        fim = fim_dt.isoformat() + '-03:00'
         
         evento = {
             'summary': titulo,
