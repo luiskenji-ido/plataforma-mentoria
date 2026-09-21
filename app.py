@@ -1307,10 +1307,14 @@ def sessoes():
                 return redirect(url_for('sessoes'))
                 
             aluno_id = request.form.get('aluno_id')
-            data_sessao_str = request.form.get('data_sessao')
+            data_str = request.form.get('data_sessao')
+            hora_inicio_str = request.form.get('hora_inicio')
+            hora_fim_str = request.form.get('hora_fim')
             observacoes = request.form.get('observacoes')
             
-            data_sessao = datetime.strptime(data_sessao_str, '%Y-%m-%dT%H:%M')
+            # Junta a data com a hora de início para salvar no banco de dados da plataforma
+            data_hora_completa = f"{data_str} {hora_inicio_str}"
+            data_sessao = datetime.strptime(data_hora_completa, '%Y-%m-%d %H:%M')
             
             nova_sessao = SessaoMentoria(
                 mentor_id=current_user.id,
@@ -1320,7 +1324,29 @@ def sessoes():
             )
             db.session.add(nova_sessao)
             db.session.commit()
-            flash("Sessão agendada com sucesso!", "success")
+            
+            # --- GATILHO DO GOOGLE AGENDA ---
+            try:
+                # Busca o nome do aluno para o título do evento
+                aluno_obj = db.session.get(Usuario, aluno_id)
+                nome_aluno = aluno_obj.nome if aluno_obj else "Aluno"
+                
+                titulo_evento = f"Mentoria: {nome_aluno}"
+                descricao_evento = f"Pauta da Sessão: {observacoes}" if observacoes else "Sessão de mentoria."
+                
+                # Usa os horários exatos definidos por você na tela
+                sincronizar_evento_google(
+                    titulo=titulo_evento,
+                    descricao=descricao_evento,
+                    data_inicio=data_sessao,
+                    horario_str=hora_inicio_str,
+                    horario_fim_str=hora_fim_str
+                )
+            except Exception:
+                pass # Se o Google falhar ou estiver desconectado, o sistema apenas ignora silenciosamente
+            # --------------------------------
+            
+            flash("Sessão agendada com sucesso e sincronizada na agenda!", "success")
             
         elif acao == 'enviar_feedback':
             sessao_id = request.form.get('sessao_id')
@@ -1398,6 +1424,10 @@ def acessar_upload(nome_arquivo):
 @app.route('/logout')
 @login_required
 def logout():
+    # Limpa as credenciais do Google da memória do navegador
+    session.pop('google_token', None)
+    session.pop('google_refresh_token', None)
+    
     logout_user()
     flash("Você saiu do sistema em segurança.", "info")
     return redirect(url_for('login'))
