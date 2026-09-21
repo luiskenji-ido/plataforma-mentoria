@@ -1069,10 +1069,14 @@ def projetos():
         descricao = request.form.get('descricao')
         grupo_id = request.form.get('grupo_id') # Recebe o ID do Grupo
         
+        # Garante o preenchimento de todos os dados vitais para o projeto aparecer
         novo_projeto = Projeto(
             nome=nome,
             descricao=descricao,
-            grupo_id=grupo_id
+            grupo_id=grupo_id,
+            status='Em Andamento',
+            percentual_conclusao=0,
+            data_criacao=datetime.now()
         )
         
         db.session.add(novo_projeto)
@@ -1082,10 +1086,18 @@ def projetos():
         return redirect(url_for('projetos'))
 
     # 2. Quando a página apenas carrega (GET)
-    lista_projetos = Projeto.query.all()
+    grupo_filtro = request.args.get('grupo_filtro')
+    
+    query = Projeto.query
+    if grupo_filtro:
+        # Se um grupo foi escolhido, filtra apenas os projetos dele
+        query = query.filter_by(grupo_id=grupo_filtro)
+        
+    # Ordena para manter os mais recentes no topo
+    lista_projetos = query.order_by(Projeto.id.desc()).all()
     grupos_disponiveis = Grupo.query.all()
     
-    return render_template('projetos.html', projetos=lista_projetos, grupos=grupos_disponiveis)
+    return render_template('projetos.html', projetos=lista_projetos, grupos=grupos_disponiveis, grupo_filtro=grupo_filtro)
 
 
 # ==============================================================================
