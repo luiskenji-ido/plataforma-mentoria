@@ -1893,12 +1893,14 @@ def conectar_agenda():
         redirect_uri=url_for('oauth2callback', _external=True)
     )
     
+    # Adicionamos o comando "prompt='select_account'" para forçar o Google a perguntar quem está logando
     authorization_url, state = flow.authorization_url(
         access_type='offline',
-        include_granted_scopes='true'
+        include_granted_scopes='true',
+        prompt='select_account'
     )
     
-    # 1. SALVAMOS O STATE E O "CÓDIGO VERIFICADOR" (Obrigatório nas novas regras do Google)
+    # SALVAMOS O STATE E O "CÓDIGO VERIFICADOR"
     session['state'] = state
     session['code_verifier'] = flow.code_verifier 
     
