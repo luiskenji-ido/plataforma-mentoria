@@ -1079,7 +1079,7 @@ def projetos():
         db.session.commit()
         
         flash('Projeto criado com sucesso!', 'success')
-        return redirect(url_for('projetos', abrir_modal=tarefa.id))
+        return redirect(url_for('projetos'))
 
     # 2. Quando a página apenas carrega (GET)
     lista_projetos = Projeto.query.all()
