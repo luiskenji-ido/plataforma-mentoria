@@ -1324,6 +1324,22 @@ def sessoes():
             )
             db.session.add(nova_sessao)
             db.session.commit()
+
+
+            # --- GATILHO DO SINO: Notifica o aluno imediatamente ---
+            aviso_agendamento = FeedbackSessao(
+                sessao_id=nova_sessao.id,
+                autor_id=current_user.id,
+                papel_autor='Mentor',
+                comentario=f"Sessão agendada! Pauta oficial: {observacoes}",
+                visibilidade='Publico',
+                lida_pelo_aluno=False, # O False acende o sino vermelho no topo da tela do aluno!
+                lida_pelo_mentor=True
+            )
+            db.session.add(aviso_agendamento)
+            db.session.commit()
+            # -------------------------------------------------------
+
             
             # --- GATILHO DO GOOGLE AGENDA ---
             try:
@@ -1408,6 +1424,45 @@ def sessoes():
         lista_alunos = Usuario.query.filter_by(tipo_usuario='Aluno').all()
 
     return render_template('sessoes.html', sessoes=sessoes_detalhadas, alunos=lista_alunos)
+
+# ==============================================================================
+# ROTA: ALUNO SALVAR SESSÃO NA PRÓPRIA AGENDA
+# ==============================================================================
+@app.route('/sessoes/sincronizar_aluno/<int:id>', methods=['POST'])
+@login_required
+def sincronizar_sessao_aluno(id):
+    if current_user.tipo_usuario != 'Aluno':
+        return redirect(url_for('sessoes'))
+        
+    # Exige que o aluno conecte o Google antes de tentar salvar
+    if 'google_token' not in session:
+        flash("Você precisa conectar sua conta do Google Agenda primeiro!", "warning")
+        return redirect(url_for('conectar_agenda'))
+        
+    sessao = db.session.get(SessaoMentoria, id)
+    if sessao and sessao.aluno_id == current_user.id:
+        mentor = db.session.get(Usuario, sessao.mentor_id)
+        nome_mentor = mentor.nome if mentor else "Mentor"
+        
+        # Assume 1 hora de duração a partir do horário de início
+        from datetime import timedelta
+        data_fim = sessao.data_sessao + timedelta(hours=1)
+        
+        sucesso = sincronizar_evento_google(
+            titulo=f"Mentoria com {nome_mentor}",
+            descricao=f"Pauta: {sessao.observacoes}",
+            data_inicio=sessao.data_sessao,
+            horario_str=sessao.data_sessao.strftime('%H:%M'),
+            horario_fim_str=data_fim.strftime('%H:%M')
+        )
+        
+        if sucesso:
+            flash("Sessão salva com sucesso na sua Google Agenda!", "success")
+        else:
+            flash("Erro ao salvar. Tente desconectar e conectar o Google novamente.", "danger")
+            
+    return redirect(url_for('sessoes'))
+
 
 
 # ===========================================================================
