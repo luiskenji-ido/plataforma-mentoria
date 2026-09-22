@@ -49,13 +49,13 @@
                             <div class="d-flex align-items-center gap-2 justify-content-center">
                 
                                 <!-- Botão Original de Feedbacks -->
-                                <button class="btn btn-sm btn-outline-success" data-bs-toggle="modal" data-bs-target="#modalFeedback{{ s.sessao.id }}">
-                                    💬 Feedbacks <span class="badge bg-success rounded-pill ms-1">{{ s.feedbacks|length }}</span>
+                                <button class="btn btn-sm btn-outline-success" data-bs-toggle="modal" data-bs-target="#modalFeedback{{ item.sessao.id }}">
+                                    💬 Feedbacks <span class="badge bg-success rounded-pill ms-1">{{ item.feedbacks|length }}</span>
                                 </button>
                                 
                                 <!-- Botão Novo: Salvar na Agenda (Apenas para Alunos) -->
                                 {% if current_user.tipo_usuario == 'Aluno' %}
-                                <form action="{{ url_for('sincronizar_sessao_aluno', id=s.sessao.id) }}" method="POST" class="m-0">
+                                <form action="{{ url_for('sincronizar_sessao_aluno', id=item.sessao.id) }}" method="POST" class="m-0">
                                     <button type="submit" class="btn btn-sm btn-outline-primary fw-bold" title="Salvar no meu Google Agenda">
                                         📅 Salvar na Agenda
                                     </button>
