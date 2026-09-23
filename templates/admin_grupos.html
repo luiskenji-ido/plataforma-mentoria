@@ -7,7 +7,6 @@
 <div class="container mt-4">
     <div class="d-flex justify-content-between align-items-center mb-4">
         <h2 class="text-primary m-0">Gerenciamento de Grupos</h2>
-        <!-- Botão para voltar rápido para a tela de usuários -->
         <a href="{{ url_for('gerenciar_usuarios') }}" class="btn btn-secondary">Voltar para Usuários</a>
     </div>
 
@@ -31,25 +30,18 @@
                         <textarea name="descricao" class="form-control" rows="2" placeholder="Qual o objetivo desta turma?"></textarea>
                     </div>
                     
-                    <!-- Caixa de Seleção Múltipla com Barra de Rolagem -->
-                    <!-- ========================================================================== -->
-                    <!-- ÁREA DE SELEÇÃO DE MEMBROS (Dividida com Filtro de Busca)                  -->
-                    <!-- ========================================================================== -->
                     <div class="col-md-12 mb-4">
                         <label class="form-label fw-bold">Atribuir Membros ao Grupo</label>
-                        
-                        <!-- Campo de Busca Dinâmica -->
                         <input type="text" id="filtroMembros" class="form-control mb-3" placeholder="🔍 Buscar por nome do aluno ou mentor...">
 
                         <div class="row">
-                            <!-- Coluna 1: Lista de Alunos -->
                             <div class="col-md-6 mb-3">
                                 <div class="p-2 bg-primary text-white rounded-top fw-bold">🎓 Alunos</div>
                                 <div class="border p-2 rounded-bottom bg-light" style="max-height: 250px; overflow-y: auto;">
                                     {% for u in usuarios %}
                                         {% if u.tipo_usuario == 'Aluno' %}
                                         <div class="form-check border-bottom py-1 item-membro">
-                                            <input class="form-check-input" type="checkbox" name="membros" value="{{ u.id }}" id="user_{{ u.id }}">
+                                            <input class="form-check-input border-primary" type="checkbox" name="membros" value="{{ u.id }}" id="user_{{ u.id }}">
                                             <label class="form-check-label d-flex justify-content-between w-100" for="user_{{ u.id }}">
                                                 <span class="nome-membro">{{ u.nome }}</span>
                                             </label>
@@ -59,14 +51,13 @@
                                 </div>
                             </div>
 
-                            <!-- Coluna 2: Lista de Mentores e Administradores -->
                             <div class="col-md-6 mb-3">
                                 <div class="p-2 bg-secondary text-white rounded-top fw-bold">🧠 Mentores e Equipe</div>
                                 <div class="border p-2 rounded-bottom bg-light" style="max-height: 250px; overflow-y: auto;">
                                     {% for u in usuarios %}
                                         {% if u.tipo_usuario != 'Aluno' %}
                                         <div class="form-check border-bottom py-1 item-membro">
-                                            <input class="form-check-input" type="checkbox" name="membros" value="{{ u.id }}" id="user_{{ u.id }}">
+                                            <input class="form-check-input border-secondary" type="checkbox" name="membros" value="{{ u.id }}" id="user_{{ u.id }}">
                                             <label class="form-check-label d-flex justify-content-between w-100" for="user_{{ u.id }}">
                                                 <span class="nome-membro">{{ u.nome }}</span>
                                                 <span class="badge bg-dark" style="font-size: 0.65rem;">{{ u.tipo_usuario }}</span>
@@ -77,9 +68,6 @@
                                 </div>
                             </div>
                         </div>
-                        <small class="text-muted d-block">
-                            <i class="bi bi-info-circle"></i> Regra do Sistema: O "Mentor Administrador" já possui visibilidade global.
-                        </small>
                     </div>
                 </div>
                 
@@ -110,8 +98,6 @@
                         {% for g in grupos %}
                         <tr>
                             <td class="ps-4 text-primary fw-bold">{{ g.nome }}</td>
-                            
-                            <!-- Lista as tags azuis com o nome de todos que estão no grupo -->
                             <td>
                                 {% for membro in g.membros %}
                                     <span class="badge bg-info text-dark mb-1">{{ membro.nome }}</span>
@@ -119,7 +105,6 @@
                                     <span class="text-muted small">Nenhum membro cadastrado.</span>
                                 {% endfor %}
                             </td>
-                            
                             <td>{{ g.data_criacao.strftime('%d/%m/%Y') }}</td>
                             
                             <!-- Botões de Ação para Editar e Excluir -->
@@ -152,16 +137,46 @@
                                                     <label class="form-label fw-bold">Descrição</label>
                                                     <textarea name="descricao" class="form-control" rows="2">{{ g.descricao }}</textarea>
                                                 </div>
+                                                
                                                 <div class="col-md-12 mb-3">
                                                     <label class="form-label fw-bold text-primary">Gerenciar Membros</label>
-                                                    <select name="membros" class="form-select border-primary" multiple size="8">
-                                                        {% for u in usuarios %}
-                                                            <option value="{{ u.id }}" {% if u in g.membros %}selected{% endif %}>
-                                                                {{ u.nome }} ({{ u.tipo_usuario }})
-                                                            </option>
-                                                        {% endfor %}
-                                                    </select>
-                                                    <small class="text-muted">Segure a tecla CTRL para selecionar ou remover vários membros da lista.</small>
+                                                    
+                                                    <div class="row mt-2">
+                                                        <!-- Coluna 1: Alunos (Edição) -->
+                                                        <div class="col-md-6 mb-3">
+                                                            <div class="p-2 bg-primary text-white rounded-top fw-bold small">🎓 Alunos</div>
+                                                            <div class="border p-2 rounded-bottom bg-light" style="max-height: 200px; overflow-y: auto;">
+                                                                {% for u in usuarios %}
+                                                                    {% if u.tipo_usuario == 'Aluno' %}
+                                                                    <div class="form-check border-bottom py-1">
+                                                                        <input class="form-check-input border-primary" type="checkbox" name="membros" value="{{ u.id }}" id="edit_user_{{ g.id }}_{{ u.id }}" {% if u in g.membros %}checked{% endif %}>
+                                                                        <label class="form-check-label w-100 small" for="edit_user_{{ g.id }}_{{ u.id }}">
+                                                                            {{ u.nome }}
+                                                                        </label>
+                                                                    </div>
+                                                                    {% endif %}
+                                                                {% endfor %}
+                                                            </div>
+                                                        </div>
+
+                                                        <!-- Coluna 2: Mentores (Edição) -->
+                                                        <div class="col-md-6 mb-3">
+                                                            <div class="p-2 bg-secondary text-white rounded-top fw-bold small">🧠 Mentores</div>
+                                                            <div class="border p-2 rounded-bottom bg-light" style="max-height: 200px; overflow-y: auto;">
+                                                                {% for u in usuarios %}
+                                                                    {% if u.tipo_usuario != 'Aluno' %}
+                                                                    <div class="form-check border-bottom py-1">
+                                                                        <input class="form-check-input border-secondary" type="checkbox" name="membros" value="{{ u.id }}" id="edit_user_{{ g.id }}_{{ u.id }}" {% if u in g.membros %}checked{% endif %}>
+                                                                        <label class="form-check-label d-flex justify-content-between w-100 small" for="edit_user_{{ g.id }}_{{ u.id }}">
+                                                                            <span>{{ u.nome }}</span>
+                                                                        </label>
+                                                                    </div>
+                                                                    {% endif %}
+                                                                {% endfor %}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                    <small class="text-muted">Marque ou desmarque as caixas para adicionar/remover utilizadores deste grupo.</small>
                                                 </div>
                                             </div>
                                         </div>
