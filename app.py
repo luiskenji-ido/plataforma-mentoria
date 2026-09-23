@@ -2233,18 +2233,31 @@ def iniciar_agendador(app):
 if __name__ == '__main__':
     with app.app_context():
         db.create_all()
-        # Injeção segura da nova coluna no banco existente
+        from sqlalchemy import text
+        
+        # 1. Injeta coluna de estudos (ignora se já existir)
         try:
-            from sqlalchemy import text
             db.session.execute(text("ALTER TABLE acompanhamento ADD COLUMN planejamento_estudos TEXT"))
+            db.session.commit()
+        except:
+            db.session.rollback()
+            
+        # 2. Injeta a primeira coluna de tarefas (ignora se já existir)
+        try:
             db.session.execute(text("ALTER TABLE tarefa ADD COLUMN planejamento_tarefa TEXT"))
+            db.session.commit()
+        except:
+            db.session.rollback()
+            
+        # 3. Injeta a segunda coluna de tarefas (ignora se já existir)
+        try:
             db.session.execute(text("ALTER TABLE tarefa ADD COLUMN tempo_total_minutos INTEGER DEFAULT 0"))
             db.session.commit()
         except:
-            db.session.rollback() # Ignora silenciosamente se a coluna já existir nas próximas vezes
+            db.session.rollback()
         
     # --- LIGA O MOTOR DE BACKUP AUTOMÁTICO AQUI ---
     iniciar_agendador(app)
     
-    # Roda o servidor web no modo 'debug' (facilita ver erros enquanto estamos programando)
+    # Roda o servidor web no modo 'debug'
     app.run(debug=True)

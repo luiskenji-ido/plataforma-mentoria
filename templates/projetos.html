@@ -107,6 +107,7 @@
                             <th>Responsáveis</th>
                             <th>Status</th>
                             <th style="width: 12%;">% Conclusão</th>
+                            <th>Tempo</th>
                             <th>Anexos</th>
                             <th style="width: 10%;">Ações</th> 
                         </tr>
@@ -342,8 +343,8 @@
                             <input type="text" name="descricao" class="form-control" value="{{ t.descricao }}" required>
                         </div>
 
-                        <div class="row">
-                            <div class="col-md-4 mb-3">
+                        <div class="row mb-3">
+                            <div class="col-md-4 mb-3 mb-md-0">
                                 <label class="form-label fw-bold text-success">Líder (Responsável)</label>
                                 <select name="responsavel" class="form-select border-success" required>
                                     {% for membro in p.grupo.membros %}
@@ -351,7 +352,7 @@
                                     {% endfor %}
                                 </select>
                             </div>
-                            <div class="col-md-8 mb-3">
+                            <div class="col-md-8">
                                 <label class="form-label fw-bold text-info">Equipe de Apoio (Opcional)</label>
                                 <select name="equipe_apoio" class="form-select border-info" multiple size="3">
                                     {% for membro in p.grupo.membros %}
@@ -362,8 +363,7 @@
                             </div>
                         </div>
                         
-                        <div class="row">
-                            <div class="row mb-3">
+                        <div class="row mb-3">
                             <div class="col-md-3 mb-2">
                                 <label class="form-label fw-bold">Data de Início</label>
                                 <input type="date" name="data_inicio" id="dt_ini_tar_{{ t.id }}" class="form-control" value="{{ t.data_inicio.strftime('%Y-%m-%d') if t.data_inicio else '' }}" onchange="gerarGradeTar_{{ t.id }}()">
@@ -433,7 +433,6 @@
                                         let idx = 0;
                                         
                                         while (atual <= fim) {
-                                            // Correção de fuso horário para garantir a data visual correta no Brasil
                                             let dataFuso = new Date(atual.valueOf() + atual.getTimezoneOffset() * 60000);
                                             let dataFormatada = dataFuso.toLocaleDateString('pt-BR');
                                             let dataISO = atual.toISOString().split('T')[0];
@@ -494,7 +493,6 @@
                                     {% endfor %}
                                 </div>
                                 
-                                <!-- SEU RETÂNGULO VERMELHO: Botão de Confirmar Exclusão -->
                                 <div class="text-end mb-3 border-bottom pb-3">
                                     <button type="submit" name="acao_modal" value="manter_aberto" class="btn btn-sm btn-danger fw-bold px-3 shadow-sm">
                                         🗑️ Confirmar Exclusão
@@ -513,7 +511,6 @@
                                 <input type="file" class="d-none" id="uploadAnexosMulti{{ t.id }}" name="arquivos_anexos" multiple onchange="document.getElementById('textAnexosMulti{{ t.id }}').value = this.files.length > 0 ? this.files.length + ' arquivo(s) selecionado(s)' : 'Nenhum arquivo selecionado'">
                                 <input type="text" class="form-control bg-white text-muted" id="textAnexosMulti{{ t.id }}" placeholder="Nenhum arquivo selecionado" readonly>
                                 
-                                <!-- SEU RETÂNGULO AZUL: Botão de Anexar -->
                                 <button type="submit" name="acao_modal" value="manter_aberto" class="btn btn-primary fw-bold px-4 shadow-sm">
                                     📤 Anexar
                                 </button>
