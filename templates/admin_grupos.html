@@ -84,46 +84,98 @@
                 </div>
                 
                 <div class="text-end">
-                    <button type="submit" class="btn btn-success">Salvar Grupo</button>
+                    <button type="submit" class="btn btn-success fw-bold px-4">Salvar Grupo</button>
                 </div>
             </form>
         </div>
     </div>
 
     <!-- ========================================================================== -->
-    <!-- TABELA: Listagem dos Grupos Cadastrados                                    -->
+    <!-- TABELA: Listagem dos Grupos Cadastrados e Ações                            -->
     <!-- ========================================================================== -->
     <h4 class="text-secondary mb-3">Grupos Existentes</h4>
-    <div class="card shadow-sm">
+    <div class="card shadow-sm border-dark">
         <div class="card-body p-0">
             <div class="table-responsive">
-                <table class="table table-hover mb-0">
+                <table class="table table-hover mb-0 align-middle">
                     <thead class="table-light">
                         <tr>
-                            <th>Nome do Grupo</th>
+                            <th class="ps-4">Nome do Grupo</th>
                             <th>Membros Associados</th>
                             <th>Data de Criação</th>
+                            <th class="text-center">Ações</th>
                         </tr>
                     </thead>
                     <tbody>
                         {% for g in grupos %}
                         <tr>
-                            <td class="align-middle"><strong>{{ g.nome }}</strong></td>
+                            <td class="ps-4 text-primary fw-bold">{{ g.nome }}</td>
                             
                             <!-- Lista as tags azuis com o nome de todos que estão no grupo -->
-                            <td class="align-middle">
+                            <td>
                                 {% for membro in g.membros %}
                                     <span class="badge bg-info text-dark mb-1">{{ membro.nome }}</span>
                                 {% else %}
-                                    <span class="text-muted">Nenhum membro cadastrado.</span>
+                                    <span class="text-muted small">Nenhum membro cadastrado.</span>
                                 {% endfor %}
                             </td>
                             
-                            <td class="align-middle">{{ g.data_criacao.strftime('%d/%m/%Y') }}</td>
+                            <td>{{ g.data_criacao.strftime('%d/%m/%Y') }}</td>
+                            
+                            <!-- Botões de Ação para Editar e Excluir -->
+                            <td class="text-center">
+                                <button class="btn btn-sm btn-primary fw-bold px-3" data-bs-toggle="modal" data-bs-target="#modalEditarGrupo{{ g.id }}">Editar</button>
+                                <form action="{{ url_for('deletar_grupo', id=g.id) }}" method="POST" class="d-inline" onsubmit="return confirm('Tem certeza que deseja excluir o grupo {{ g.nome }}?');">
+                                    <button type="submit" class="btn btn-sm btn-danger fw-bold px-3">Excluir</button>
+                                </form>
+                            </td>
                         </tr>
+
+                        <!-- ========================================================================== -->
+                        <!-- MODAL: Janela de Edição do Grupo                                           -->
+                        <!-- ========================================================================== -->
+                        <div class="modal fade text-start" id="modalEditarGrupo{{ g.id }}" tabindex="-1">
+                            <div class="modal-dialog modal-lg">
+                                <div class="modal-content">
+                                    <form action="{{ url_for('editar_grupo', id=g.id) }}" method="POST">
+                                        <div class="modal-header bg-info">
+                                            <h5 class="modal-title fw-bold text-dark">Editar Grupo: {{ g.nome }}</h5>
+                                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                        </div>
+                                        <div class="modal-body">
+                                            <div class="row">
+                                                <div class="col-md-12 mb-3">
+                                                    <label class="form-label fw-bold">Nome do Grupo</label>
+                                                    <input type="text" name="nome" class="form-control" value="{{ g.nome }}" required>
+                                                </div>
+                                                <div class="col-md-12 mb-3">
+                                                    <label class="form-label fw-bold">Descrição</label>
+                                                    <textarea name="descricao" class="form-control" rows="2">{{ g.descricao }}</textarea>
+                                                </div>
+                                                <div class="col-md-12 mb-3">
+                                                    <label class="form-label fw-bold text-primary">Gerenciar Membros</label>
+                                                    <select name="membros" class="form-select border-primary" multiple size="8">
+                                                        {% for u in usuarios %}
+                                                            <option value="{{ u.id }}" {% if u in g.membros %}selected{% endif %}>
+                                                                {{ u.nome }} ({{ u.tipo_usuario }})
+                                                            </option>
+                                                        {% endfor %}
+                                                    </select>
+                                                    <small class="text-muted">Segure a tecla CTRL para selecionar ou remover vários membros da lista.</small>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="modal-footer">
+                                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                                            <button type="submit" class="btn btn-info fw-bold text-dark">Salvar Alterações</button>
+                                        </div>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
                         {% else %}
                         <tr>
-                            <td colspan="3" class="text-center py-4 text-muted">Nenhum grupo cadastrado ainda.</td>
+                            <td colspan="4" class="text-center py-4 text-muted">Nenhum grupo cadastrado ainda.</td>
                         </tr>
                         {% endfor %}
                     </tbody>
@@ -141,16 +193,12 @@ document.addEventListener("DOMContentLoaded", function() {
     const inputFiltro = document.getElementById('filtroMembros');
     
     if (inputFiltro) {
-        // Escuta cada tecla que o usuário digita no campo de busca
         inputFiltro.addEventListener('keyup', function() {
             const termoBusca = this.value.toLowerCase();
             const itensMembros = document.querySelectorAll('.item-membro');
             
-            // Verifica cada usuário da lista
             itensMembros.forEach(function(item) {
                 const nomeUsuario = item.querySelector('.nome-membro').textContent.toLowerCase();
-                
-                // Se o nome contiver o que foi digitado, mostra. Se não, esconde.
                 if (nomeUsuario.includes(termoBusca)) {
                     item.style.display = 'block'; 
                 } else {
@@ -161,6 +209,5 @@ document.addEventListener("DOMContentLoaded", function() {
     }
 });
 </script>
-
 
 {% endblock %}

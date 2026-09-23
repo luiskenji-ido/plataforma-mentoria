@@ -540,6 +540,55 @@ def gerenciar_grupos():
 
     return render_template('admin_grupos.html', grupos=lista_grupos, usuarios=usuarios_disponiveis)
 
+# ==============================================================================
+# ROTA: Editar Grupo
+# ==============================================================================
+@app.route('/admin/grupos/editar/<int:id>', methods=['POST'])
+@login_required
+def editar_grupo(id):
+    if current_user.tipo_usuario not in ['Administrador', 'Mentor Administrador']:
+        return redirect(url_for('dashboard'))
+
+    grupo = db.session.get(Grupo, id)
+    if grupo:
+        grupo.nome = request.form.get('nome')
+        grupo.descricao = request.form.get('descricao')
+
+        membros_ids = request.form.getlist('membros')
+        grupo.membros = [] # Limpa os membros atuais para regravar as novas seleções
+        
+        if membros_ids:
+            for membro_id in membros_ids:
+                usuario = db.session.get(Usuario, int(membro_id))
+                if usuario:
+                    grupo.membros.append(usuario)
+
+        db.session.commit()
+        flash('Grupo atualizado com sucesso!', 'success')
+        
+    return redirect(url_for('gerenciar_grupos'))
+
+# ==============================================================================
+# ROTA: Excluir Grupo
+# ==============================================================================
+@app.route('/admin/grupos/deletar/<int:id>', methods=['POST'])
+@login_required
+def deletar_grupo(id):
+    if current_user.tipo_usuario not in ['Administrador', 'Mentor Administrador']:
+        return redirect(url_for('dashboard'))
+
+    grupo = db.session.get(Grupo, id)
+    if grupo:
+        # Trava de Segurança: Impede apagar o grupo se ele já tiver projetos rodando
+        if grupo.projetos:
+            flash('Erro: Não é possível excluir este grupo pois existem projetos vinculados a ele.', 'danger')
+        else:
+            db.session.delete(grupo)
+            db.session.commit()
+            flash('Grupo excluído com sucesso!', 'success')
+            
+    return redirect(url_for('gerenciar_grupos'))
+
 
 # ---------------------------------------------------------
 # Rota de Cadastro de Usuários (AGORA COM MÚLTIPLOS MENTORES)
