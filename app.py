@@ -1228,6 +1228,54 @@ def atualizar_tarefa():
                     tarefa.arquivo_anexo = arquivo_carimbado
         # ----------------------------------------
         
+        # --- LÓGICA DO PLANEAMENTO E AGENDA DO RESPONSÁVEL ---
+        slot_datas = request.form.getlist('slot_data')
+        slot_inicios = request.form.getlist('slot_inicio')
+        slot_fims = request.form.getlist('slot_fim')
+        
+        if slot_datas:
+            planejamento_salvo = []
+            total_minutos = 0
+            houve_novo_input = False
+            
+            for i in range(len(slot_datas)):
+                if slot_inicios[i] and slot_fims[i]: 
+                    houve_novo_input = True
+                    try:
+                        from datetime import datetime as dt_calc
+                        t_inicio = dt_calc.strptime(slot_inicios[i], '%H:%M')
+                        t_fim = dt_calc.strptime(slot_fims[i], '%H:%M')
+                        diff_minutos = (t_fim - t_inicio).seconds // 60
+                        total_minutos += diff_minutos
+                    except Exception:
+                        pass
+                        
+                    ano, mes, dia = slot_datas[i].split('-')
+                    data_br = f"{dia}/{mes}/{ano}"
+                    planejamento_salvo.append(f"{data_br}::{slot_inicios[i]}::{slot_fims[i]}")
+                    
+                    if current_user.nome == tarefa.responsavel:
+                        try:
+                            from datetime import datetime as dt_seguro
+                            data_slot = dt_seguro.strptime(slot_datas[i], '%Y-%m-%d')
+                            projeto_pai = db.session.get(Projeto, tarefa.projeto_id)
+                            nome_proj = projeto_pai.nome if projeto_pai else "Projeto"
+                            
+                            sincronizar_evento_google(
+                                titulo=f"Tarefa: {tarefa.descricao[:25]}",
+                                descricao=f"Projeto: {nome_proj}\nAtividade: {tarefa.descricao}",
+                                data_inicio=data_slot,
+                                horario_str=slot_inicios[i],
+                                horario_fim_str=slot_fims[i]
+                            )
+                        except Exception:
+                            pass
+                            
+            if houve_novo_input:
+                tarefa.planejamento_tarefa = "|".join(planejamento_salvo)
+                tarefa.tempo_total_minutos = total_minutos
+        # ----------------------------------------------------
+        
         db.session.commit()
         recalcular_progresso_projeto(tarefa.projeto_id)
         flash('Atualizado com sucesso!', 'success')
@@ -2189,6 +2237,8 @@ if __name__ == '__main__':
         try:
             from sqlalchemy import text
             db.session.execute(text("ALTER TABLE acompanhamento ADD COLUMN planejamento_estudos TEXT"))
+            db.session.execute(text("ALTER TABLE tarefa ADD COLUMN planejamento_tarefa TEXT"))
+            db.session.execute(text("ALTER TABLE tarefa ADD COLUMN tempo_total_minutos INTEGER DEFAULT 0"))
             db.session.commit()
         except:
             db.session.rollback() # Ignora silenciosamente se a coluna já existir nas próximas vezes

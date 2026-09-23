@@ -244,6 +244,10 @@ class Tarefa(db.Model):
     arquivo_anexo = db.Column(db.String(255), nullable=True)
     tag_autor_anexo = db.Column(db.String(50), nullable=True)
 
+    planejamento_tarefa = db.Column(db.String(2000), nullable=True)
+    tempo_total_minutos = db.Column(db.Integer, default=0)
+
+
     # Relação para o Python puxar as subtarefas facilmente
     subtarefas = db.relationship('Tarefa', backref=db.backref('tarefa_pai', remote_side=[id]), cascade="all, delete-orphan")
 

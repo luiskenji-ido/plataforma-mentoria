@@ -136,6 +136,16 @@
                                     </div>
                                 </td>
                                 <td>
+                                    {% if t.tempo_total_minutos %}
+                                        {% set horas = t.tempo_total_minutos // 60 %}
+                                        {% set minutos = t.tempo_total_minutos % 60 %}
+                                        <span class="badge bg-dark">⏱️ {{ horas }}h{% if minutos > 0 %} {{ minutos }}m{% endif %}</span>
+                                    {% else %}
+                                        <span class="text-muted small">-</span>
+                                    {% endif %}
+                                </td>
+
+                                <td>
                                     {% if t.arquivo_anexo %}
                                         <button class="btn btn-sm btn-outline-secondary py-0" data-bs-toggle="modal" data-bs-target="#modalAtualizarTarefa{{ t.id }}" title="Gerenciar Anexos">
                                             <i class="bi bi-paperclip"></i> Anexos <span class="badge bg-secondary rounded-pill ms-1">{{ t.arquivo_anexo.split('|')|length }}</span>
@@ -179,6 +189,16 @@
                                         <div class="progress-bar bg-success opacity-75" style="width: {{ sub.percentual_conclusao }}%;">{{ sub.percentual_conclusao }}%</div>
                                     </div>
                                 </td>
+                                <td>
+                                    {% if sub.tempo_total_minutos %}
+                                        {% set horas = sub.tempo_total_minutos // 60 %}
+                                        {% set minutos = sub.tempo_total_minutos % 60 %}
+                                        <span class="badge bg-dark">⏱️ {{ horas }}h{% if minutos > 0 %} {{ minutos }}m{% endif %}</span>
+                                    {% else %}
+                                        <span class="text-muted small">-</span>
+                                    {% endif %}
+                                </td>
+
                                 <td>
                                     {% if sub.arquivo_anexo %}
                                         <button class="btn btn-sm btn-outline-secondary py-0" data-bs-toggle="modal" data-bs-target="#modalAtualizarTarefa{{ sub.id }}" title="Gerenciar Anexos">
@@ -346,11 +366,11 @@
                             <div class="row mb-3">
                             <div class="col-md-3 mb-2">
                                 <label class="form-label fw-bold">Data de Início</label>
-                                <input type="date" name="data_inicio" class="form-control" value="{{ t.data_inicio.strftime('%Y-%m-%d') if t.data_inicio else '' }}">
+                                <input type="date" name="data_inicio" id="dt_ini_tar_{{ t.id }}" class="form-control" value="{{ t.data_inicio.strftime('%Y-%m-%d') if t.data_inicio else '' }}" onchange="gerarGradeTar_{{ t.id }}()">
                             </div>
                             <div class="col-md-3 mb-2">
                                 <label class="form-label fw-bold">Data Conclusão</label>
-                                <input type="date" name="data_fim" class="form-control" value="{{ t.data_fim.strftime('%Y-%m-%d') if t.data_fim else '' }}">
+                                <input type="date" name="data_fim" id="dt_fim_tar_{{ t.id }}" class="form-control" value="{{ t.data_fim.strftime('%Y-%m-%d') if t.data_fim else '' }}" onchange="gerarGradeTar_{{ t.id }}()">
                             </div>
                             <div class="col-md-3 mb-2">
                                 <label class="form-label fw-bold">Status da Tarefa</label>
@@ -367,6 +387,75 @@
                                 {% if t.subtarefas %}<small class="text-danger fw-bold" style="font-size: 0.70rem;">Travado (Automático)</small>{% endif %}
                             </div>
                         </div>
+
+                        <!-- EXIBIÇÃO VISUAL DOS HORÁRIOS GUARDADOS -->
+                        {% if t.planejamento_tarefa %}
+                        <div class="mb-3 p-3 bg-white border border-success rounded shadow-sm">
+                            <label class="form-label fw-bold text-success small mb-2">📅 Horários Guardados para o Líder:</label>
+                            <div class="d-flex flex-wrap gap-2">
+                                {% set slots = t.planejamento_tarefa.split('|') %}
+                                {% for slot in slots %}
+                                    {% set partes = slot.split('::') %}
+                                    {% if partes|length == 3 %}
+                                    <div class="badge bg-light border border-success-subtle text-dark p-2 text-start shadow-sm" style="font-size: 0.85em;">
+                                        <span class="text-success fw-bold"><i class="bi bi-calendar-event"></i> {{ partes[0] }}</span><br>
+                                        <i class="bi bi-clock text-muted"></i> {{ partes[1] }} às {{ partes[2] }}
+                                    </div>
+                                    {% endif %}
+                                {% endfor %}
+                            </div>
+                        </div>
+                        {% endif %}
+
+                        <!-- Bloco Dinâmico para Novos Slots de Tempo -->
+                        <div class="mb-3 p-3 bg-light border border-primary-subtle rounded d-none" id="box_grade_tar_{{ t.id }}">
+                            <label class="form-label fw-bold text-primary mb-2">🗓️ Definir Horários de Trabalho</label>
+                            <p class="small text-muted mb-2">Preencha <strong>apenas</strong> os dias que for trabalhar. Apenas a agenda do Líder Responsável será sincronizada.</p>
+                            <div id="lista_dias_tar_{{ t.id }}" class="d-flex flex-column gap-2 mb-3" style="max-height: 200px; overflow-y: auto;"></div>
+                        </div>
+
+                        <script>
+                            function gerarGradeTar_{{ t.id }}() {
+                                const dtIni = document.getElementById('dt_ini_tar_{{ t.id }}').value;
+                                const dtFim = document.getElementById('dt_fim_tar_{{ t.id }}').value;
+                                const box = document.getElementById('box_grade_tar_{{ t.id }}');
+                                const lista = document.getElementById('lista_dias_tar_{{ t.id }}');
+                                
+                                if (dtIni && dtFim) {
+                                    let inicio = new Date(dtIni + 'T00:00:00');
+                                    let fim = new Date(dtFim + 'T00:00:00');
+                                    
+                                    if (inicio <= fim) {
+                                        box.classList.remove('d-none');
+                                        lista.innerHTML = ''; 
+                                        
+                                        let atual = new Date(inicio);
+                                        let idx = 0;
+                                        
+                                        while (atual <= fim) {
+                                            // Correção de fuso horário para garantir a data visual correta no Brasil
+                                            let dataFuso = new Date(atual.valueOf() + atual.getTimezoneOffset() * 60000);
+                                            let dataFormatada = dataFuso.toLocaleDateString('pt-BR');
+                                            let dataISO = atual.toISOString().split('T')[0];
+                                            
+                                            lista.innerHTML += `
+                                                <div class="d-flex align-items-center gap-2 bg-white p-2 border rounded shadow-sm flex-wrap">
+                                                    <span class="fw-bold text-secondary" style="width: 90px; font-size: 0.9em;">${dataFormatada}</span>
+                                                    <input type="hidden" name="slot_data" value="${dataISO}">
+                                                    <input type="time" name="slot_inicio" class="form-control form-control-sm border-primary" style="width: 110px;">
+                                                    <span class="text-muted small">até</span>
+                                                    <input type="time" name="slot_fim" class="form-control form-control-sm border-primary" style="width: 110px;">
+                                                </div>
+                                            `;
+                                            atual.setDate(atual.getDate() + 1);
+                                            idx++;
+                                            if (idx > 60) break;
+                                        }
+                                    } else { box.classList.add('d-none'); }
+                                } else { box.classList.add('d-none'); }
+                            }
+                            setTimeout(() => gerarGradeTar_{{ t.id }}(), 500);
+                        </script>
 
                         <!-- NOVA CAIXA EXCLUSIVA PARA ANEXOS MÚLTIPLOS -->
                         <div class="p-3 bg-light border border-secondary-subtle rounded mb-3">
