@@ -32,7 +32,7 @@
                     
                     <div class="col-md-12 mb-4">
                         <label class="form-label fw-bold">Atribuir Membros ao Grupo</label>
-                        <input type="text" id="filtroMembros" class="form-control mb-3" placeholder="🔍 Buscar por nome do aluno ou mentor...">
+                        <input type="text" id="filtroMembros" class="form-control mb-3 border-primary" placeholder="🔍 Buscar por nome do aluno ou mentor...">
 
                         <div class="row">
                             <div class="col-md-6 mb-3">
@@ -107,7 +107,6 @@
                             </td>
                             <td>{{ g.data_criacao.strftime('%d/%m/%Y') }}</td>
                             
-                            <!-- Botões de Ação para Editar e Excluir -->
                             <td class="text-center">
                                 <button class="btn btn-sm btn-primary fw-bold px-3" data-bs-toggle="modal" data-bs-target="#modalEditarGrupo{{ g.id }}">Editar</button>
                                 <form action="{{ url_for('deletar_grupo', id=g.id) }}" method="POST" class="d-inline" onsubmit="return confirm('Tem certeza que deseja excluir o grupo {{ g.nome }}?');">
@@ -141,16 +140,18 @@
                                                 <div class="col-md-12 mb-3">
                                                     <label class="form-label fw-bold text-primary">Gerenciar Membros</label>
                                                     
-                                                    <div class="row mt-2">
-                                                        <!-- Coluna 1: Alunos (Edição) -->
+                                                    <!-- NOVO: Barra de pesquisa exclusiva para o modal de edição -->
+                                                    <input type="text" class="form-control mb-3 filtro-modal border-info" data-target="lista-modal-{{ g.id }}" placeholder="🔍 Buscar por nome do aluno ou mentor...">
+
+                                                    <div class="row mt-2" id="lista-modal-{{ g.id }}">
                                                         <div class="col-md-6 mb-3">
                                                             <div class="p-2 bg-primary text-white rounded-top fw-bold small">🎓 Alunos</div>
                                                             <div class="border p-2 rounded-bottom bg-light" style="max-height: 200px; overflow-y: auto;">
                                                                 {% for u in usuarios %}
                                                                     {% if u.tipo_usuario == 'Aluno' %}
-                                                                    <div class="form-check border-bottom py-1">
+                                                                    <div class="form-check border-bottom py-1 item-modal">
                                                                         <input class="form-check-input border-primary" type="checkbox" name="membros" value="{{ u.id }}" id="edit_user_{{ g.id }}_{{ u.id }}" {% if u in g.membros %}checked{% endif %}>
-                                                                        <label class="form-check-label w-100 small" for="edit_user_{{ g.id }}_{{ u.id }}">
+                                                                        <label class="form-check-label w-100 small nome-modal" for="edit_user_{{ g.id }}_{{ u.id }}">
                                                                             {{ u.nome }}
                                                                         </label>
                                                                     </div>
@@ -159,15 +160,14 @@
                                                             </div>
                                                         </div>
 
-                                                        <!-- Coluna 2: Mentores (Edição) -->
                                                         <div class="col-md-6 mb-3">
                                                             <div class="p-2 bg-secondary text-white rounded-top fw-bold small">🧠 Mentores</div>
                                                             <div class="border p-2 rounded-bottom bg-light" style="max-height: 200px; overflow-y: auto;">
                                                                 {% for u in usuarios %}
                                                                     {% if u.tipo_usuario != 'Aluno' %}
-                                                                    <div class="form-check border-bottom py-1">
+                                                                    <div class="form-check border-bottom py-1 item-modal">
                                                                         <input class="form-check-input border-secondary" type="checkbox" name="membros" value="{{ u.id }}" id="edit_user_{{ g.id }}_{{ u.id }}" {% if u in g.membros %}checked{% endif %}>
-                                                                        <label class="form-check-label d-flex justify-content-between w-100 small" for="edit_user_{{ g.id }}_{{ u.id }}">
+                                                                        <label class="form-check-label d-flex justify-content-between w-100 small nome-modal" for="edit_user_{{ g.id }}_{{ u.id }}">
                                                                             <span>{{ u.nome }}</span>
                                                                         </label>
                                                                     </div>
@@ -201,12 +201,13 @@
 </div>
 
 <!-- ========================================================================== -->
-<!-- SCRIPT: Filtro Dinâmico de Membros (Busca em tempo real)                   -->
+<!-- SCRIPT: Filtros Dinâmicos de Membros (Busca em tempo real)                 -->
 <!-- ========================================================================== -->
 <script>
 document.addEventListener("DOMContentLoaded", function() {
-    const inputFiltro = document.getElementById('filtroMembros');
     
+    // 1. Script original para a barra de pesquisa principal (Criação)
+    const inputFiltro = document.getElementById('filtroMembros');
     if (inputFiltro) {
         inputFiltro.addEventListener('keyup', function() {
             const termoBusca = this.value.toLowerCase();
@@ -222,6 +223,27 @@ document.addEventListener("DOMContentLoaded", function() {
             });
         });
     }
+
+    // 2. Novo script para as barras de pesquisa dentro dos Modais de Edição
+    const filtrosModal = document.querySelectorAll('.filtro-modal');
+    filtrosModal.forEach(function(input) {
+        input.addEventListener('keyup', function() {
+            const termoBusca = this.value.toLowerCase();
+            const targetId = this.getAttribute('data-target');
+            const container = document.getElementById(targetId);
+            const itensMembros = container.querySelectorAll('.item-modal');
+            
+            itensMembros.forEach(function(item) {
+                const nomeUsuario = item.querySelector('.nome-modal').textContent.toLowerCase();
+                if (nomeUsuario.includes(termoBusca)) {
+                    item.style.display = 'block'; 
+                } else {
+                    item.style.display = 'none';  
+                }
+            });
+        });
+    });
+
 });
 </script>
 
