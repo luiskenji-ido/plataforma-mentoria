@@ -2159,6 +2159,61 @@ def chat_ia():
     except Exception as e:
         return jsonify({'resposta': f"Desculpe, encontrei um erro: {str(e)}"}), 500
 
+# ==============================================================================
+# ROTA: SINCRONIZAR HORÁRIOS SALVOS DA TAREFA COM A AGENDA
+# ==============================================================================
+@app.route('/projetos/sincronizar_agenda/<int:tarefa_id>', methods=['POST'])
+@login_required
+def sincronizar_agenda_tarefa(tarefa_id):
+    tarefa = db.session.get(Tarefa, tarefa_id)
+    
+    # Trava de segurança: Apenas o líder da tarefa pode enviar para a agenda
+    if not tarefa or current_user.nome != tarefa.responsavel:
+        flash("Apenas o líder responsável pela tarefa pode sincronizar estes horários.", "warning")
+        return redirect(url_for('projetos', abrir_modal=tarefa.id if tarefa else None))
+
+    # Exige que a conta do Google esteja conectada
+    if 'google_token' not in session:
+        flash("Você precisa conectar sua conta do Google Agenda primeiro!", "warning")
+        return redirect(url_for('conectar_agenda'))
+
+    if tarefa.planejamento_tarefa:
+        projeto_pai = db.session.get(Projeto, tarefa.projeto_id)
+        nome_proj = projeto_pai.nome if projeto_pai else "Projeto"
+        
+        # Quebra a string salva em blocos
+        slots = tarefa.planejamento_tarefa.split('|')
+        sucesso_count = 0
+        
+        from datetime import datetime
+        for slot in slots:
+            partes = slot.split('::')
+            if len(partes) == 3:
+                data_br, hora_ini, hora_fim = partes
+                try:
+                    # Converte a data brasileira de volta para o formato que o Google entende
+                    data_obj = datetime.strptime(data_br, '%d/%m/%Y')
+                    
+                    sucesso = sincronizar_evento_google(
+                        titulo=f"Tarefa: {tarefa.descricao[:25]}",
+                        descricao=f"Projeto: {nome_proj}\nAtividade: {tarefa.descricao}",
+                        data_inicio=data_obj,
+                        horario_str=hora_ini,
+                        horario_fim_str=hora_fim
+                    )
+                    if sucesso:
+                        sucesso_count += 1
+                except Exception:
+                    pass
+        
+        if sucesso_count > 0:
+            flash(f"{sucesso_count} horário(s) sincronizado(s) com sucesso na sua Google Agenda!", "success")
+        else:
+            flash("Erro de comunicação com o Google. Tente desconectar e conectar novamente.", "danger")
+
+    return redirect(url_for('projetos', abrir_modal=tarefa.id))
+
+
 # =========================================================================
 # MOTOR DE BACKUP EM SEGUNDO PLANO (WATCHER)
 # =========================================================================
