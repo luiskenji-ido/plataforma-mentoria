@@ -825,5 +825,91 @@
     }
 </script>
 
+
+<!-- ========================================================================== -->
+    <!-- MODAL GLOBAL DE FREQUÊNCIA (Com Lógica de 2 Chances)                       -->
+    <!-- ========================================================================== -->
+    {% if precisa_registrar_frequencia %}
+    <div class="modal fade" id="modalFrequenciaDiaria" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-0 shadow-lg">
+                <div class="modal-header bg-primary text-white transition-all" id="headerFrequencia" style="transition: background-color 0.3s ease;">
+                    <h5 class="modal-title fw-bold"><i class="bi bi-clock-history"></i> Registro de Presença Diária</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body text-center p-4">
+                    
+                    <!-- Alerta oculto que aparece no primeiro deslize -->
+                    <div id="alertaFrequencia" class="alert alert-danger d-none mb-4 text-start shadow-sm">
+                        <i class="bi bi-exclamation-triangle-fill fs-5 me-2"></i>
+                        <strong>Atenção:</strong> O registro de presença é obrigatório. Se fechar esta janela novamente ou clicar fora, o sistema gravará uma <strong>Falta Automática</strong>.
+                    </div>
+                    
+                    <h5 class="mb-4 text-secondary">Como você está participando hoje?</h5>
+                    
+                    <form id="formFrequencia" method="POST" action="{{ url_for('registrar_frequencia') }}">
+                        <input type="hidden" name="tipo_presenca" id="tipoPresencaInput" value="">
+                        
+                        <div class="d-grid gap-3">
+                            <button type="button" class="btn btn-outline-primary btn-lg fw-bold py-3" onclick="registrarPresenca('Online')">
+                                💻 Modalidade Online / Remoto
+                            </button>
+                            <button type="button" class="btn btn-outline-success btn-lg fw-bold py-3" onclick="registrarPresenca('Presencial')">
+                                🏢 Modalidade Presencial
+                            </button>
+                        </div>
+                        
+                        <div class="mt-4">
+                            <label class="form-label text-muted small text-start w-100 fw-bold">Observações (opcional)</label>
+                            <input type="text" name="observacoes" class="form-control" placeholder="Atrasos, saída mais cedo, etc...">
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    document.addEventListener("DOMContentLoaded", function() {
+        const modalEl = document.getElementById('modalFrequenciaDiaria');
+        if (modalEl) {
+            // Inicializa o modal permitindo cliques fora e a tecla ESC
+            const modalFrequencia = new bootstrap.Modal(modalEl, {
+                backdrop: true, 
+                keyboard: true  
+            });
+            
+            modalFrequencia.show();
+            
+            let chance = 1;
+            
+            // O interceptador Mágico: Escuta a tentativa de fechamento do Bootstrap
+            modalEl.addEventListener('hide.bs.modal', function (event) {
+                if (chance === 1) {
+                    event.preventDefault(); // Cancela o fechamento (Trava a janela aberta)
+                    chance = 2; // Gasta a primeira chance
+                    
+                    // O "Puxão de Orelha" visual
+                    document.getElementById('headerFrequencia').classList.replace('bg-primary', 'bg-danger');
+                    document.getElementById('alertaFrequencia').classList.remove('d-none');
+                    
+                } else if (chance === 2) {
+                    // Na segunda tentativa de fuga, nós deixamos fechar, mas injetamos a Falta
+                    document.getElementById('tipoPresencaInput').value = 'Falta';
+                    document.getElementById('formFrequencia').submit();
+                }
+            });
+        }
+    });
+
+    // Função para os cliques nos botões válidos (Ignora a trava de 2 chances)
+    function registrarPresenca(tipo) {
+        document.getElementById('tipoPresencaInput').value = tipo;
+        document.getElementById('formFrequencia').submit();
+    }
+    </script>
+    {% endif %}
+
+
 </body>
 </html>

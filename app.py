@@ -46,7 +46,7 @@ from flask_login import LoginManager, login_user, logout_user, login_required, c
 from flask_bcrypt import Bcrypt
 
 # Importações do Banco de Dados
-from models import db, Usuario, Curso, Acompanhamento, SessaoMentoria, FeedbackSessao, QADuvida, HistoricoProgresso, aluno_mentor, HistoricoSenha, SegurancaUsuario, SolicitacaoMentoria, RegistroBackup, Projeto, Tarefa, Grupo, grupo_usuario
+from models import db, Usuario, Curso, Acompanhamento, SessaoMentoria, FeedbackSessao, QADuvida, HistoricoProgresso, aluno_mentor, HistoricoSenha, SegurancaUsuario, SolicitacaoMentoria, RegistroBackup, Projeto, Tarefa, Grupo, grupo_usuario, RegistroBackup, Projeto, Tarefa, Grupo, grupo_usuario, Frequencia
 import os
 import time
 
@@ -2359,7 +2359,71 @@ if __name__ == '__main__':
             db.session.commit()
         except:
             db.session.rollback()
+
+        # 4. Cria a nova tabela de Frequência (se não existir)
+        try:
+            db.create_all() # Este comando já identifica e cria tabelas novas automaticamente
+        except:
+            pass
+
+
+# ==============================================================================
+# PROCESSADOR DE CONTEXTO GLOBAL: TRAVA DE FREQUÊNCIA DIÁRIA
+# ==============================================================================
+@app.context_processor
+def verificar_frequencia_diaria():
+    precisa_registrar = False
+    if current_user.is_authenticated:
+        from datetime import datetime
+        hoje = datetime.utcnow().date()
         
+        # Verifica se o usuário já bateu o ponto hoje
+        ja_registrou = Frequencia.query.filter(
+            Frequencia.usuario_id == current_user.id,
+            db.func.date(Frequencia.data_registro) == hoje
+        ).first()
+        
+        if not ja_registrou:
+            precisa_registrar = True
+            
+    return dict(precisa_registrar_frequencia=precisa_registrar)
+
+# ==============================================================================
+# ROTA: GRAVAR A FREQUÊNCIA (Online, Presencial ou Falta Automática)
+# ==============================================================================
+@app.route('/registrar_frequencia', methods=['POST'])
+@login_required
+def registrar_frequencia():
+    from datetime import datetime
+    
+    tipo = request.form.get('tipo_presenca')
+    observacoes = request.form.get('observacoes', '')
+    
+    hoje = datetime.utcnow().date()
+    ja_registrou = Frequencia.query.filter(
+        Frequencia.usuario_id == current_user.id,
+        db.func.date(Frequencia.data_registro) == hoje
+    ).first()
+    
+    if not ja_registrou:
+        nova_freq = Frequencia(
+            usuario_id=current_user.id,
+            tipo_presenca=tipo,
+            observacoes=observacoes
+        )
+        db.session.add(nova_freq)
+        db.session.commit()
+        
+        if tipo == 'Falta':
+            flash('Ausência registrada automaticamente. Caso seja um erro, contate a administração.', 'danger')
+        else:
+            flash('Presença registrada com sucesso! Bom trabalho.', 'success')
+            
+    # Devolve o usuário para a página em que ele estava
+    return redirect(request.referrer or url_for('dashboard'))
+
+
+
     # --- LIGA O MOTOR DE BACKUP AUTOMÁTICO AQUI ---
     iniciar_agendador(app)
     

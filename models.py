@@ -272,3 +272,27 @@ class Grupo(db.Model):
     # Relação N para N: A mágica que conecta o Grupo à tabela de Usuários usando a ponte acima
     membros = db.relationship('Usuario', secondary=grupo_usuario, lazy='subquery',
                               backref=db.backref('grupos', lazy=True))
+
+# ==============================================================================
+# 15. TABELA: Frequência (Controle de Presença Diária)
+# ==============================================================================
+class Frequencia(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    usuario_id = db.Column(db.Integer, db.ForeignKey('usuario.id'), nullable=False)
+    
+    # Guarda o momento exato em que a pessoa clicou no botão
+    data_registro = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    # Opções: 'Online', 'Presencial' ou 'Falta'
+    tipo_presenca = db.Column(db.String(20), nullable=False)
+    
+    observacoes = db.Column(db.Text, nullable=True)
+    
+    # Campos exclusivos para a equipe de gestão validar depois
+    validado_admin = db.Column(db.Boolean, default=False)
+    admin_id = db.Column(db.Integer, db.ForeignKey('usuario.id'), nullable=True)
+    observacoes_admin = db.Column(db.Text, nullable=True)
+    
+    # Facilita buscar os dados do usuário e do admin que validou
+    usuario = db.relationship('Usuario', foreign_keys=[usuario_id], backref=db.backref('frequencias', lazy=True))
+    admin_validador = db.relationship('Usuario', foreign_keys=[admin_id])
