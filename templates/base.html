@@ -579,11 +579,11 @@
           </a>
         </li>
         
-        <!-- Cursos -->
+        <!-- Hub Educacional (Parceiros & Turmas) -->
         {% if current_user.is_authenticated and current_user.tipo_usuario != 'Aluno' %}
         <li class="nav-item">
-          <a class="nav-link fw-bold {% if request.endpoint == 'gerenciar_cursos' %}text-primary border-bottom border-2 border-primary{% endif %}" href="{{ url_for('gerenciar_cursos') }}">
-            {{ t('cursos') }}
+          <a class="nav-link fw-bold {% if request.endpoint == 'gerenciar_turmas' %}text-primary border-bottom border-2 border-primary{% endif %}" href="{{ url_for('gerenciar_turmas') }}">
+            <i class="bi bi-diagram-3-fill"></i> Hub Educacional
           </a>
         </li>
         {% endif %}
@@ -612,6 +612,24 @@
             </a>
         </li>
         
+        <!-- Apenas Mentores e Admins veem o menu de Frequência -->
+        {% if current_user.tipo_usuario != 'Aluno' %}
+        <li class="nav-item">
+            <a class="nav-link fw-bold text-primary" href="{{ url_for('gerenciar_frequencia') }}">
+                <i class="bi bi-clipboard-check"></i> Frequência
+            </a>
+        </li>
+        {% endif %}
+
+        <!-- Gestão de Notas -->
+        {% if current_user.is_authenticated and current_user.tipo_usuario != 'Aluno' %}
+        <li class="nav-item">
+          <a class="nav-link fw-bold {% if request.endpoint == 'gerenciar_notas' %}text-primary border-bottom border-2 border-primary{% endif %}" href="{{ url_for('gerenciar_notas') }}">
+            <i class="bi bi-journal-check"></i> Gestão de Notas
+          </a>
+        </li>
+        {% endif %}
+
         <!-- Gerenciar Cadastros (Apenas Admin) -->
         {% if current_user.is_authenticated and current_user.tipo_usuario in ['Administrador', 'Mentor Administrador'] %}
         <li class="nav-item">

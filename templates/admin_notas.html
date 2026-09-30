@@ -1,0 +1,109 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container-fluid mt-4 px-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 class="text-primary fw-bold mb-0"><i class="bi bi-journal-check"></i> Diário de Classe (Notas)</h2>
+    </div>
+
+    <!-- Seletor de Turma -->
+    <div class="card shadow-sm border-0 mb-4">
+        <div class="card-body bg-light">
+            <form action="{{ url_for('gerenciar_notas') }}" method="GET" class="d-flex align-items-end gap-3">
+                <div class="flex-grow-1">
+                    <label class="form-label fw-bold small text-muted">Selecione a Turma Ativa para Lançar Notas:</label>
+                    <select name="turma_id" class="form-select border-secondary" required onchange="this.form.submit()">
+                        <option value="">-- Escolha uma Turma --</option>
+                        {% for t in turmas %}
+                        <option value="{{ t.id }}" {% if turma_selecionada and turma_selecionada.id == t.id %}selected{% endif %}>
+                            {{ t.nome }} {% if t.empresa %}({{ t.empresa.nome }}){% endif %}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    {% if turma_selecionada %}
+    <!-- Grelha de Lançamento -->
+    <div class="card shadow-sm border-0">
+        <div class="card-header bg-dark text-white py-2 fw-bold d-flex justify-content-between align-items-center">
+            <span>Alunos matriculados em: {{ turma_selecionada.nome }}</span>
+            <span class="badge bg-primary">{{ dados|length }} Alunos</span>
+        </div>
+        <div class="card-body p-0">
+            <form action="{{ url_for('gerenciar_notas') }}" method="POST">
+                <input type="hidden" name="turma_id" value="{{ turma_selecionada.id }}">
+                
+                <div class="table-responsive">
+                    <table class="table table-hover table-bordered align-middle mb-0 text-center small">
+                        <thead class="table-light">
+                            <tr>
+                                <th class="text-start ps-3" style="width: 25%;">Nome do Aluno</th>
+                                <th class="text-start" style="width: 35%;">Disciplina / Curso</th>
+                                <th style="width: 15%;">Nota Técnica (0-10)</th>
+                                <th style="width: 15%;">Nota Postura (0-10)</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for linha in dados %}
+                                {% set num_cursos = linha.acompanhamentos|length %}
+                                {% for acomp in linha.acompanhamentos %}
+                                <tr>
+                                    <!-- Agrupa o nome do aluno se ele tiver várias disciplinas -->
+                                    {% if loop.first %}
+                                    <td rowspan="{{ num_cursos }}" class="text-start ps-3 fw-bold align-middle bg-white">
+                                        {{ linha.aluno.nome }}
+                                    </td>
+                                    {% endif %}
+                                    
+                                    <td class="text-start text-primary fw-bold">{{ acomp.curso.nome_curso }}</td>
+                                    
+                                    <td>
+                                        <input type="number" step="0.1" min="0" max="10" 
+                                               name="nota_tecnica_{{ acomp.id }}" 
+                                               class="form-control form-control-sm text-center border-secondary fw-bold" 
+                                               value="{{ acomp.nota_tecnica if acomp.nota_tecnica != None else '' }}">
+                                    </td>
+                                    <td>
+                                        <input type="number" step="0.1" min="0" max="10" 
+                                               name="nota_postura_{{ acomp.id }}" 
+                                               class="form-control form-control-sm text-center border-secondary fw-bold" 
+                                               value="{{ acomp.nota_postura if acomp.nota_postura != None else '' }}">
+                                    </td>
+                                </tr>
+                                {% else %}
+                                <tr>
+                                    <td class="text-start ps-3 fw-bold bg-light text-muted">{{ linha.aluno.nome }}</td>
+                                    <td colspan="3" class="fst-italic text-muted">Ainda não possui matrículas geradas nas disciplinas.</td>
+                                </tr>
+                                {% endfor %}
+                            {% else %}
+                            <tr>
+                                <td colspan="4" class="py-4 text-muted"><i class="bi bi-inbox fs-4 d-block mb-1"></i> Nenhum aluno vinculado a esta turma ainda.</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                
+                {% if dados %}
+                <div class="p-3 bg-light border-top text-end">
+                    <button type="submit" class="btn btn-success fw-bold px-4 shadow-sm">
+                        <i class="bi bi-save"></i> Salvar Notas da Turma
+                    </button>
+                </div>
+                {% endif %}
+            </form>
+        </div>
+    </div>
+    {% else %}
+    <!-- Estado Vazio -->
+    <div class="text-center py-5">
+        <i class="bi bi-arrow-up-circle fs-1 text-muted mb-3 d-block"></i>
+        <h5 class="text-muted">Selecione uma turma no menu acima para começar a gerir as notas.</h5>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

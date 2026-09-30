@@ -1,0 +1,236 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<style>
+    /* ==========================================
+       ESTILOS DE IMPRESSÃO (Magia do Relatório)
+       ========================================== */
+    @media print {
+        body { background-color: white !important; }
+        /* Oculta menus, botões e filtros na hora de imprimir */
+        .navbar, .btn, .d-print-none, form { display: none !important; }
+        .card { border: none !important; box-shadow: none !important; }
+        .card-header { background-color: #f8f9fa !important; color: black !important; border-bottom: 2px solid #000 !important; }
+        /* Adapta as tags (badges) para preto e branco */
+        .badge { border: 1px solid #000 !important; color: #000 !important; background: transparent !important; }
+        table { width: 100% !important; border-collapse: collapse !important; }
+        th, td { border: 1px solid #ddd !important; padding: 8px !important; color: black !important; }
+        @page { margin: 1cm; }
+    }
+</style>
+
+<div class="container-fluid mt-4 px-4">
+    <div class="d-flex justify-content-between align-items-center mb-4 d-print-none">
+        <h2 class="text-primary fw-bold mb-0"><i class="bi bi-clock-history"></i> Gestão de Frequência</h2>
+        <button class="btn btn-outline-dark fw-bold" onclick="window.print()">
+            <i class="bi bi-printer"></i> Imprimir Relatório
+        </button>
+    </div>
+
+    <!-- ==========================================
+         RANKING DE ALERTA (FALTAS)
+         ========================================== -->
+    <div class="row mb-4 d-print-none">
+        <div class="col-12">
+            <h6 class="text-danger fw-bold mb-3"><i class="bi bi-exclamation-triangle-fill"></i> Alerta de Risco (Top Faltas Acumuladas)</h6>
+            <div class="d-flex gap-3 overflow-auto pb-2">
+                {% if ranking_faltas %}
+                    {% for aluno, total in ranking_faltas %}
+                    <div class="card border-danger shadow-sm" style="min-width: 250px;">
+                        <div class="card-body py-2 px-3 d-flex justify-content-between align-items-center bg-danger-subtle rounded">
+                            <div>
+                                <strong class="text-danger d-block text-truncate" style="max-width: 160px;" title="{{ aluno }}">{{ aluno }}</strong>
+                                <small class="text-dark">Registo de ausências</small>
+                            </div>
+                            <span class="fs-4 fw-bold text-danger">{{ total }}</span>
+                        </div>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="alert alert-success py-2 mb-0 w-100 border-success shadow-sm">
+                        <i class="bi bi-check-circle-fill"></i> Excelente indicador! Não existem alunos com registo de faltas no sistema.
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- ==========================================
+         BARRA DE FILTROS INTELIGENTES
+         ========================================== -->
+    <div class="card shadow-sm border-0 mb-4 d-print-none bg-light">
+        <div class="card-body py-3">
+            <form action="{{ url_for('gerenciar_frequencia') }}" method="GET" class="row g-2 align-items-end">
+                <div class="col-md-3">
+                    <label class="form-label small fw-bold text-muted mb-1">Filtrar por Aluno</label>
+                    <select name="aluno_id" id="filtroAlunoBusca" class="form-select form-select-sm border-secondary">
+                        <option value="">Todos os Alunos</option>
+                        {% for a in alunos %}
+                            <option value="{{ a.id }}" {% if filtro_aluno == a.id|string %}selected{% endif %}>{{ a.nome }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label small fw-bold text-muted mb-1">Status de Presença</label>
+                    <select name="tipo_presenca" class="form-select form-select-sm border-secondary">
+                        <option value="">Todos</option>
+                        <option value="Presencas" {% if filtro_tipo == 'Presencas' %}selected{% endif %}>🟢 Apenas Presenças</option>
+                        <option value="Faltas" {% if filtro_tipo == 'Faltas' %}selected{% endif %}>🔴 Apenas Faltas</option>
+                        <option value="Online" {% if filtro_tipo == 'Online' %}selected{% endif %}>💻 Online</option>
+                        <option value="Presencial" {% if filtro_tipo == 'Presencial' %}selected{% endif %}>🏢 Presencial</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label small fw-bold text-muted mb-1">Data Inicial</label>
+                    <input type="date" name="data_inicio" class="form-control form-control-sm border-secondary" value="{{ filtro_data_inicio or '' }}">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label small fw-bold text-muted mb-1">Data Final</label>
+                    <input type="date" name="data_fim" class="form-control form-control-sm border-secondary" value="{{ filtro_data_fim or '' }}">
+                </div>
+                <div class="col-md-3 d-flex gap-2">
+                    <button type="submit" class="btn btn-sm btn-primary fw-bold w-100"><i class="bi bi-funnel"></i> Filtrar</button>
+                    <a href="{{ url_for('gerenciar_frequencia') }}" class="btn btn-sm btn-outline-secondary fw-bold w-100"><i class="bi bi-eraser"></i> Limpar</a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ==========================================
+         TABELA DE REGISTOS
+         ========================================== -->
+    <div class="card shadow-sm border-0" id="areaRelatorio">
+        <div class="card-header bg-dark text-white py-3 d-flex justify-content-between align-items-center">
+            <h6 class="mb-0 fw-bold">Relatório de Acessos</h6>
+            <span class="badge bg-light text-dark d-print-none">{{ registros|length }} registo(s) encontrado(s)</span>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th class="ps-4">Data e Hora</th>
+                            <th>Utilizador (Nome e E-mail)</th>
+                            <th>Modalidade</th>
+                            <th class="d-print-none">Anotações do Utilizador</th>
+                            <th class="text-center">Status de Validação</th>
+                            <th class="text-center pe-4 d-print-none">Ação</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for r in registros %}
+                        <tr>
+                            <td class="ps-4">
+                                <span class="fw-bold text-dark">{{ r.data_registro.strftime('%d/%m/%Y') }}</span><br>
+                                <small class="text-muted"><i class="bi bi-clock"></i> {{ r.data_registro.strftime('%H:%M') }}</small>
+                            </td>
+                            <td>
+                                <strong>{{ r.usuario.nome }}</strong><br>
+                                <small class="text-muted">{{ r.usuario.email }}</small>
+                            </td>
+                            <td>
+                                {% if r.tipo_presenca == 'Presencial' %}
+                                    <span class="badge bg-success"><i class="bi bi-building"></i> Presencial</span>
+                                {% elif r.tipo_presenca == 'Online' %}
+                                    <span class="badge bg-primary"><i class="bi bi-laptop"></i> Online</span>
+                                {% else %}
+                                    <span class="badge bg-danger"><i class="bi bi-x-circle"></i> Falta</span>
+                                {% endif %}
+                            </td>
+                            <td class="d-print-none">
+                                {% if r.observacoes %}
+                                    <span class="small text-muted">{{ r.observacoes }}</span>
+                                {% else %}
+                                    <span class="small text-muted fst-italic">-</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-center">
+                                {% if r.validado_admin %}
+                                    <span class="badge bg-success-subtle text-success border border-success"><i class="bi bi-check2-all"></i> Validado</span>
+                                {% else %}
+                                    <span class="badge bg-warning text-dark"><i class="bi bi-hourglass-split"></i> Pendente</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-center pe-4 d-print-none">
+                                {% if not r.validado_admin %}
+                                    <button type="button" class="btn btn-sm btn-outline-primary fw-bold" data-bs-toggle="modal" data-bs-target="#modalValidar{{ r.id }}">
+                                        Validar
+                                    </button>
+
+                                    <!-- Modal de Validação -->
+                                    <div class="modal fade text-start" id="modalValidar{{ r.id }}" tabindex="-1">
+                                        <div class="modal-dialog">
+                                            <div class="modal-content">
+                                                <form action="{{ url_for('gerenciar_frequencia') }}" method="POST">
+                                                    <div class="modal-header bg-primary text-white">
+                                                        <h6 class="modal-title fw-bold">Validar Presença</h6>
+                                                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                                                    </div>
+                                                    <div class="modal-body">
+                                                        <p class="mb-2">Confirmar o registo de <strong>{{ r.usuario.nome }}</strong>?</p>
+                                                        <input type="hidden" name="frequencia_id" value="{{ r.id }}">
+                                                        <div class="mb-3">
+                                                            <label class="form-label small fw-bold text-muted">Anotações da Equipa (Opcional):</label>
+                                                            <textarea name="observacoes_admin" class="form-control" rows="2" placeholder="Ex: Justificativa médica entregue..."></textarea>
+                                                        </div>
+                                                    </div>
+                                                    <div class="modal-footer">
+                                                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                                                        <button type="submit" class="btn btn-success fw-bold">✔️ Confirmar e Validar</button>
+                                                    </div>
+                                                </form>
+                                            </div>
+                                        </div>
+                                    </div>
+                                {% else %}
+                                    <button class="btn btn-sm btn-light text-muted" disabled><i class="bi bi-check-lg"></i></button>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="6" class="text-center text-muted py-5">
+                                <i class="bi bi-inbox fs-2 d-block mb-2"></i>
+                                Nenhum registo encontrado com estes filtros.
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ========================================================================== -->
+<!-- SCRIPTS: TRANSFORMADOR DE SELECT EM CAIXA DE PESQUISA (TOM SELECT)         -->
+<!-- ========================================================================== -->
+<link href="https://cdn.jsdelivr.net/npm/tom-select@2.2.2/dist/css/tom-select.bootstrap5.min.css" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/tom-select@2.2.2/dist/js/tom-select.complete.min.js"></script>
+<script>
+    document.addEventListener("DOMContentLoaded", function() {
+        if (document.getElementById("filtroAlunoBusca")) {
+            new TomSelect("#filtroAlunoBusca",{
+                create: false,
+                placeholder: "Digite o nome para buscar...",
+                sortField: {
+                    field: "text",
+                    direction: "asc" // Coloca a lista por ordem alfabética automaticamente
+                }
+            });
+        }
+    });
+</script>
+
+<style>
+    /* Ajuste para garantir que a caixa de pesquisa do Tom Select fica com o estilo certo no Tema Claro/Escuro */
+    .ts-control {
+        border-color: #6c757d !important;
+        min-height: calc(1.5em + 0.5rem + 2px);
+        padding-top: 0.25rem;
+        padding-bottom: 0.25rem;
+        border-radius: 0.25rem;
+    }
+</style>
+
+{% endblock %}

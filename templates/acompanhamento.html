@@ -766,6 +766,49 @@
                     </div>
                     {% endif %}
                 </div>
+
+                {% if item.curso.exige_certificado == 'Sim' %}
+                    <div class="mb-3 p-3 bg-warning-subtle border border-warning rounded">
+                        <!-- ... (código do certificado) ... -->
+                    </div>
+                    {% endif %}
+                </div>
+                
+                <!-- ========================================================= -->
+                <!-- PAINEL DE AVALIAÇÃO FINAL (EXCLUSIVO PARA A GESTÃO)       -->
+                <!-- ========================================================= -->
+                {% if current_user.tipo_usuario != 'Aluno' %}
+                <div class="card mt-4 border-primary bg-light shadow-sm">
+                    <div class="card-header bg-primary text-white py-2 fw-bold">
+                        <i class="bi bi-award"></i> Avaliação do Mentor (Boletim Final)
+                    </div>
+                    <div class="card-body">
+                        
+                        <!-- Métricas calculadas automaticamente pelo Python -->
+                        <div class="alert alert-secondary border-secondary mb-3 py-2 small d-flex justify-content-between flex-wrap">
+                            <span><i class="bi bi-clock-history text-primary"></i> <strong>Tempo de Estudo (Agenda):</strong> {{ item.tempo_estudo }}</span>
+                            <span><i class="bi bi-person-video3 text-success"></i> <strong>Sessões Realizadas:</strong> {{ item.qtd_sessoes }}</span>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6 mb-2">
+                                <label class="form-label fw-bold text-dark mb-1">Nota Técnica (0 a 10)</label>
+                                <input type="number" step="0.1" min="0" max="10" name="nota_tecnica" class="form-control border-primary" value="{{ item.reg.nota_tecnica or '' }}" placeholder="Ex: 8.5">
+                            </div>
+                            <div class="col-md-6 mb-2">
+                                <label class="form-label fw-bold text-dark mb-1">Nota de Postura (0 a 10)</label>
+                                <input type="number" step="0.1" min="0" max="10" name="nota_postura" class="form-control border-primary" value="{{ item.reg.nota_postura or '' }}" placeholder="Ex: 9.0">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+                
+                <!-- COLETAR O CÓDIGO DO BOLETIM EXATAMENTE AQUI -->
+
+                <div class="modal-footer" style="background-color: #f8f9fa;">
+                    <button type="button" class="btn btn-secondary fw-bold" data-bs-dismiss="modal">{{ t('cancelar') }}</button>
+
                 <div class="modal-footer" style="background-color: #f8f9fa;">
                     <button type="button" class="btn btn-secondary fw-bold" data-bs-dismiss="modal">{{ t('cancelar') }}</button>
                     <button type="submit" class="btn btn-primary fw-bold" style="background-color: #0d6efd !important; color: white !important; border-color: #0d6efd !important;">{{ t('salvar_alteracoes') }}</button>

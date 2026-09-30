@@ -53,7 +53,7 @@ Não atribuído
 <a href="{{ url_for('gerenciar_usuarios') }}" class="btn btn-outline-primary fw-bold shadow-sm">{{ t('btn_cadastros') }}</a>
 {% endif %}
 {% if current_user.tipo_usuario != 'Aluno' %}
-<a href="{{ url_for('gerenciar_cursos') }}" class="btn btn-outline-success fw-bold shadow-sm ms-2">{{ t('btn_cursos') }}</a>
+<a href="{{ url_for('gerenciar_turmas') }}" class="btn btn-outline-success fw-bold shadow-sm ms-2">{{ t('btn_cursos') }}</a>
 {% endif %}
 <a href="{{ url_for('acompanhamento') }}" class="btn btn-info text-white fw-bold shadow-sm ms-2">{{ t('btn_acompanhamento') }}</a>
 <a href="{{ url_for('sessoes') }}" class="btn btn-warning fw-bold shadow-sm ms-2">{{ t('btn_sessoes') }}</a>
@@ -453,7 +453,7 @@ window.iniciarTourDaPagina = function() {
     }).oncomplete(function() {
         desativarTourBackend(true);
         if (acessaCursos) {
-            window.location.href = "{{ url_for('gerenciar_cursos') }}?tour_continuo=1";
+            window.location.href = "{{ url_for('gerenciar_turmas') }}?tour_continuo=1";
         } else {
             window.location.href = "{{ url_for('sessoes') }}?tour_continuo=1";
         }

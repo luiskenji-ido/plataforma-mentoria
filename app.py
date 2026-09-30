@@ -46,7 +46,7 @@ from flask_login import LoginManager, login_user, logout_user, login_required, c
 from flask_bcrypt import Bcrypt
 
 # Importações do Banco de Dados
-from models import db, Usuario, Curso, Acompanhamento, SessaoMentoria, FeedbackSessao, QADuvida, HistoricoProgresso, aluno_mentor, HistoricoSenha, SegurancaUsuario, SolicitacaoMentoria, RegistroBackup, Projeto, Tarefa, Grupo, grupo_usuario, RegistroBackup, Projeto, Tarefa, Grupo, grupo_usuario, Frequencia
+from models import db, Usuario, Curso, Acompanhamento, SessaoMentoria, FeedbackSessao, QADuvida, HistoricoProgresso, aluno_mentor, HistoricoSenha, SegurancaUsuario, SolicitacaoMentoria, RegistroBackup, Projeto, Tarefa, Grupo, grupo_usuario, RegistroBackup, Projeto, Tarefa, Grupo, grupo_usuario, Frequencia, AvaliacaoProjeto, Empresa, Turma, turma_aluno, turma_mentor, turma_curso
 import os
 import time
 
@@ -721,49 +721,7 @@ def editar_usuario(id):
         
     return redirect(url_for('gerenciar_usuarios'))
 
-# ---------------------------------------------------------
-# Rota de Gerenciamento de Cursos (Cadastro e Listagem)
-# ---------------------------------------------------------
-@app.route('/admin/cursos', methods=['GET', 'POST'])
-@login_required
-def gerenciar_cursos():
-    if current_user.tipo_usuario == 'Aluno':
-        return "<h1>Acesso Negado</h1><p>Apenas mentores e administradores podem gerenciar cursos.</p>"
-    
-    if request.method == 'POST':
-        nome_curso = request.form.get('nome')
-        exige_certificado = request.form.get('exige_certificado')
-        url_curso = request.form.get('url')
-        plataforma_curso = request.form.get('plataforma')
-        carga_horaria = request.form.get('carga_horaria', 20)
-        tipo = request.form.get('tipo', 'Hard Skill')
-        status = request.form.get('status', 'Ativo')
-        
-        novo_curso = Curso(
-            nome_curso=nome_curso, 
-            exige_certificado=exige_certificado,
-            url=url_curso,
-            plataforma=plataforma_curso,
-            carga_horaria=int(carga_horaria),
-            tipo=tipo,
-            status=status,
-            data_inclusao=datetime.now(timezone.utc).replace(tzinfo=None),
-            criado_por_id=current_user.id
-        )
-        db.session.add(novo_curso)
-        db.session.commit()
-        flash("Curso adicionado com sucesso!", "success")
-        return redirect(url_for('gerenciar_cursos'))
-        
-    cursos_db = Curso.query.all()
-    
-    lista_cursos = []
-    for c in cursos_db:
-        criador = db.session.get(Usuario, c.criado_por_id) if c.criado_por_id else None
-        nome_criador = criador.nome if criador else 'Sistema / Anônimo'
-        lista_cursos.append({'curso': c, 'criado_por': nome_criador})
 
-    return render_template('admin_cursos.html', cursos=lista_cursos)
 
 # ---------------------------------------------------------
 # Rota para Editar/Atualizar o Curso e Auditar Desativação
@@ -962,6 +920,18 @@ def acompanhamento():
 
                 regstro.status = status
                 regstro.observacao_aluno = observacao_aluno
+
+                # --- AVALIAÇÃO DO MENTOR (NOTAS) ---
+                if current_user.tipo_usuario != 'Aluno':
+                    nota_tecnica = request.form.get('nota_tecnica')
+                    nota_postura = request.form.get('nota_postura')
+                    
+                    if nota_tecnica: 
+                        regstro.nota_tecnica = float(nota_tecnica)
+                    if nota_postura: 
+                        regstro.nota_postura = float(nota_postura)
+
+
                 
                 # --- CAPTURAR PROGRESSO DO MENTOR ---
                 novo_percentual_mentor = request.form.get('percentual_mentor')
@@ -1094,7 +1064,37 @@ def acompanhamento():
     for r in registros:
         aluno = db.session.get(Usuario, r.aluno_id)
         curso = db.session.get(Curso, r.curso_id)
-        detalhes.append({'reg': r, 'aluno': aluno, 'curso': curso})
+        
+        # --- MATEMÁTICA 1: Contagem de Sessões ---
+        qtd_sessoes = SessaoMentoria.query.filter_by(aluno_id=r.aluno_id).count()
+        
+        # --- MATEMÁTICA 2: Soma de Horas de Estudo (Agenda) ---
+        minutos_estudo = 0
+        if r.planejamento_estudos:
+            slots = r.planejamento_estudos.split('|')
+            for slot in slots:
+                partes = slot.split('::')
+                if len(partes) == 3:
+                    try:
+                        from datetime import datetime
+                        h_ini = datetime.strptime(partes[1], '%H:%M')
+                        h_fim = datetime.strptime(partes[2], '%H:%M')
+                        diff = (h_fim - h_ini).seconds // 60
+                        minutos_estudo += diff
+                    except:
+                        pass
+                        
+        horas_estudo = minutos_estudo // 60
+        min_restantes = minutos_estudo % 60
+        tempo_formatado = f"{horas_estudo}h {min_restantes}m" if horas_estudo > 0 else f"{min_restantes}m"
+
+        detalhes.append({
+            'reg': r, 
+            'aluno': aluno, 
+            'curso': curso,
+            'qtd_sessoes': qtd_sessoes,
+            'tempo_estudo': tempo_formatado
+        })
         
     if current_user.tipo_usuario == 'Mentor':
         lista_alunos = Usuario.query.filter(Usuario.tipo_usuario == 'Aluno', Usuario.mentores.any(id=current_user.id)).all()
@@ -1103,6 +1103,7 @@ def acompanhamento():
         
     lista_cursos = Curso.query.filter_by(status='Ativo').all()
     
+    # ESTA É A LINHA QUE FALTAVA PARA A TELA CARREGAR:
     return render_template('acompanhamento.html', registros=detalhes, alunos=lista_alunos, cursos=lista_cursos)
 
 
@@ -1379,6 +1380,53 @@ def deletar_projeto(id):
         
     return redirect(url_for('projetos'))
 
+
+# ==============================================================================
+# ROTA: AVALIAR PROJETO (TCC) - NOTAS COLETIVAS E INDIVIDUAIS
+# ==============================================================================
+@app.route('/projetos/avaliar/<int:id>', methods=['POST'])
+@login_required
+def avaliar_projeto(id):
+    # Trava de Segurança: Alunos não podem dar notas
+    if current_user.tipo_usuario == 'Aluno':
+        return redirect(url_for('projetos'))
+
+    projeto = db.session.get(Projeto, id)
+    if projeto:
+        # 1. Capta as notas do Grupo (O Entregável)
+        nota_conteudo = request.form.get('nota_conteudo')
+        nota_apresentacao = request.form.get('nota_apresentacao')
+        
+        if nota_conteudo: 
+            projeto.nota_conteudo = float(nota_conteudo)
+        if nota_apresentacao: 
+            projeto.nota_apresentacao = float(nota_apresentacao)
+
+        # 2. Capta as notas e observações Individuais (Para cada membro do grupo)
+        if projeto.grupo:
+            for membro in projeto.grupo.membros:
+                # Procura se o aluno já tem um boletim neste projeto. Se não, cria um.
+                av_indiv = AvaliacaoProjeto.query.filter_by(projeto_id=projeto.id, aluno_id=membro.id).first()
+                if not av_indiv:
+                    av_indiv = AvaliacaoProjeto(projeto_id=projeto.id, aluno_id=membro.id)
+                    db.session.add(av_indiv)
+
+                # Busca os inputs gerados dinamicamente com o ID do aluno no HTML
+                nota_postura = request.form.get(f'nota_postura_{membro.id}')
+                nota_dominio = request.form.get(f'nota_dominio_{membro.id}')
+                obs_mentor = request.form.get(f'obs_mentor_{membro.id}')
+
+                if nota_postura: 
+                    av_indiv.nota_postura = float(nota_postura)
+                if nota_dominio: 
+                    av_indiv.nota_dominio = float(nota_dominio)
+                if obs_mentor:
+                    av_indiv.observacoes_mentor = obs_mentor
+
+        db.session.commit()
+        flash('Avaliação do Projeto gravada com sucesso!', 'success')
+
+    return redirect(url_for('projetos'))
 
 # -------------------------------------------------------------------------
 # Rota de Sessões de Mentoria e Feedback
@@ -2334,37 +2382,87 @@ def iniciar_agendador(app):
     thread.daemon = True # Permite que a thread seja encerrada ao fechar o terminal
     thread.start()
 
-if __name__ == '__main__':
-    with app.app_context():
-        db.create_all()
-        from sqlalchemy import text
-        
-        # 1. Injeta coluna de estudos (ignora se já existir)
-        try:
-            db.session.execute(text("ALTER TABLE acompanhamento ADD COLUMN planejamento_estudos TEXT"))
-            db.session.commit()
-        except:
-            db.session.rollback()
-            
-        # 2. Injeta a primeira coluna de tarefas (ignora se já existir)
-        try:
-            db.session.execute(text("ALTER TABLE tarefa ADD COLUMN planejamento_tarefa TEXT"))
-            db.session.commit()
-        except:
-            db.session.rollback()
-            
-        # 3. Injeta a segunda coluna de tarefas (ignora se já existir)
-        try:
-            db.session.execute(text("ALTER TABLE tarefa ADD COLUMN tempo_total_minutos INTEGER DEFAULT 0"))
-            db.session.commit()
-        except:
-            db.session.rollback()
+# ==============================================================================
+# ROTA: PAINEL DE GESTÃO E VALIDAÇÃO DE FREQUÊNCIA (COM FILTROS E RANKING)
+# ==============================================================================
+@app.route('/admin/frequencia', methods=['GET', 'POST'])
+@login_required
+def gerenciar_frequencia():
+    # Trava: Alunos não podem aceder a este painel
+    if current_user.tipo_usuario == 'Aluno':
+        flash('Acesso Negado: Apenas a equipa de gestão pode aceder às frequências.', 'danger')
+        return redirect(url_for('dashboard'))
 
-        # 4. Cria a nova tabela de Frequência (se não existir)
-        try:
-            db.create_all() # Este comando já identifica e cria tabelas novas automaticamente
-        except:
-            pass
+    # Se o formulário de validação for submetido (POST)
+    if request.method == 'POST':
+        freq_id = request.form.get('frequencia_id')
+        obs_admin = request.form.get('observacoes_admin')
+        
+        registro = db.session.get(Frequencia, freq_id)
+        if registro:
+            registro.validado_admin = True
+            registro.admin_id = current_user.id
+            registro.observacoes_admin = obs_admin
+            db.session.commit()
+            flash('Registo de presença validado com sucesso!', 'success')
+            
+        return redirect(url_for('gerenciar_frequencia'))
+
+    # ==========================================
+    # LÓGICA DE FILTROS (MÉTODO GET)
+    # ==========================================
+    filtro_aluno = request.args.get('aluno_id')
+    filtro_tipo = request.args.get('tipo_presenca')
+    filtro_data_inicio = request.args.get('data_inicio')
+    filtro_data_fim = request.args.get('data_fim')
+
+    query = Frequencia.query
+
+    if filtro_aluno:
+        query = query.filter(Frequencia.usuario_id == filtro_aluno)
+    
+    if filtro_tipo:
+        if filtro_tipo == 'Faltas':
+            query = query.filter(Frequencia.tipo_presenca.in_(['Falta', 'Falta Automática']))
+        elif filtro_tipo == 'Presencas':
+            query = query.filter(Frequencia.tipo_presenca.in_(['Online', 'Presencial']))
+        else:
+            query = query.filter(Frequencia.tipo_presenca == filtro_tipo)
+
+    if filtro_data_inicio:
+        query = query.filter(db.func.date(Frequencia.data_registro) >= filtro_data_inicio)
+    
+    if filtro_data_fim:
+        query = query.filter(db.func.date(Frequencia.data_registro) <= filtro_data_fim)
+
+    # Registos finais filtrados
+    registros = query.order_by(Frequencia.data_registro.desc()).all()
+
+    # ==========================================
+    # LÓGICA DO RANKING DE FALTAS (ALERTA DE RISCO)
+    # ==========================================
+    from sqlalchemy import func
+    # Agrupa por aluno, conta as faltas e traz o Top 5
+    ranking_faltas = db.session.query(
+        Usuario.nome,
+        func.count(Frequencia.id).label('total_faltas')
+    ).join(Frequencia, Usuario.id == Frequencia.usuario_id) \
+     .filter(Frequencia.tipo_presenca.in_(['Falta', 'Falta Automática'])) \
+     .group_by(Usuario.id, Usuario.nome) \
+     .order_by(func.count(Frequencia.id).desc()) \
+     .limit(5).all()
+
+    # Trazemos a lista de alunos para preencher o select do filtro
+    alunos = Usuario.query.filter_by(tipo_usuario='Aluno').all()
+
+    return render_template('admin_frequencia.html', 
+                           registros=registros, 
+                           alunos=alunos,
+                           ranking_faltas=ranking_faltas,
+                           filtro_aluno=filtro_aluno,
+                           filtro_tipo=filtro_tipo,
+                           filtro_data_inicio=filtro_data_inicio,
+                           filtro_data_fim=filtro_data_fim)
 
 
 # ==============================================================================
@@ -2373,7 +2471,9 @@ if __name__ == '__main__':
 @app.context_processor
 def verificar_frequencia_diaria():
     precisa_registrar = False
-    if current_user.is_authenticated:
+    
+    # NOVA REGRA: Só dispara se estiver logado E for Aluno ou Mentor comum
+    if current_user.is_authenticated and current_user.tipo_usuario in ['Aluno', 'Mentor']:
         from datetime import datetime
         hoje = datetime.utcnow().date()
         
@@ -2421,6 +2521,271 @@ def registrar_frequencia():
             
     # Devolve o usuário para a página em que ele estava
     return redirect(request.referrer or url_for('dashboard'))
+
+# ==============================================================================
+# ROTA: HUB EDUCACIONAL (CATÁLOGO, PARCEIROS E TURMAS)
+# ==============================================================================
+@app.route('/admin/turmas', methods=['GET', 'POST'])
+@login_required
+def gerenciar_turmas():
+    if current_user.tipo_usuario == 'Aluno':
+        flash('Acesso negado. Apenas a equipa de gestão pode aceder ao Hub Educacional.', 'danger')
+        return redirect(url_for('dashboard'))
+
+    if request.method == 'POST':
+        acao = request.form.get('acao')
+
+        # ---------------------------------------------------------
+        # 1. Módulo: Catálogo de Cursos (Nova aba 01)
+        # ---------------------------------------------------------
+        if acao == 'novo_curso':
+            nome = request.form.get('nome')
+            plataforma = request.form.get('plataforma')
+            tipo = request.form.get('tipo')
+            carga_horaria = request.form.get('carga_horaria')
+            link = request.form.get('link')
+            exige_certificado = request.form.get('exige_certificado') == 'Sim'
+            status = request.form.get('status', 'Ativo')
+
+            novo_curso = Curso(
+                nome=nome,
+                plataforma=plataforma,
+                tipo=tipo,
+                carga_horaria=carga_horaria,
+                link=link,
+                exige_certificado=exige_certificado,
+                status=status,
+                cadastrado_por=current_user.id
+            )
+            db.session.add(novo_curso)
+            db.session.commit()
+            flash(f'Curso "{nome}" adicionado ao catálogo com sucesso!', 'success')
+
+        # ---------------------------------------------------------
+        # 2. Módulo: Parceiros B2B (Empresas)
+        # ---------------------------------------------------------
+        elif acao == 'nova_empresa':
+            nome = request.form.get('nome')
+            contato_nome = request.form.get('contato_nome')
+            contato_email = request.form.get('contato_email')
+            
+            nova_emp = Empresa(nome=nome, contato_nome=contato_nome, contato_email=contato_email)
+            db.session.add(nova_emp)
+            db.session.commit()
+            flash(f'Parceiro "{nome}" cadastrado com sucesso!', 'success')
+
+        # ---------------------------------------------------------
+        # 3. Módulo: Turmas e Trilhas (O Motor de Matrícula)
+        # ---------------------------------------------------------
+        elif acao == 'nova_turma':
+            nome = request.form.get('nome')
+            empresa_id = request.form.get('empresa_id')
+            cursos_selecionados = request.form.getlist('cursos_ids') 
+            data_inicio_str = request.form.get('data_inicio')
+            data_termino_str = request.form.get('data_termino')
+
+            if data_inicio_str and data_termino_str and cursos_selecionados:
+                from datetime import datetime
+                try:
+                    # Faz a leitura segura das datas
+                    try:
+                        dt_ini = datetime.strptime(data_inicio_str, '%Y-%m-%d').date()
+                        dt_fim = datetime.strptime(data_termino_str, '%Y-%m-%d').date()
+                    except ValueError:
+                        dt_ini = datetime.strptime(data_inicio_str, '%d/%m/%Y').date()
+                        dt_fim = datetime.strptime(data_termino_str, '%d/%m/%Y').date()
+                    
+                    nova_turma = Turma(
+                        nome=nome,
+                        empresa_id=empresa_id if empresa_id else None,
+                        data_inicio=dt_ini,
+                        data_termino=dt_fim
+                    )
+                    db.session.add(nova_turma)
+                    
+                    for cid in cursos_selecionados:
+                        curso_obj = db.session.get(Curso, int(cid))
+                        if curso_obj:
+                            nova_turma.cursos.append(curso_obj)
+                            
+                    db.session.commit()
+                    flash(f'Turma "{nome}" criada com sucesso!', 'success')
+                    
+                except Exception as e:
+                    db.session.rollback()
+                    # AQUI MOSTRAREMOS O VERDADEIRO ERRO DO SISTEMA
+                    flash(f'Erro no Banco de Dados: {str(e)}', 'danger')
+            else:
+                flash('Preencha todos os campos e selecione pelo menos um curso.', 'warning')
+
+        # ---------------------------------------------------------
+        # 4. Módulo: Matricular Alunos na Turma (A Mágica)
+        # ---------------------------------------------------------
+        elif acao == 'matricular_alunos':
+            turma_id = request.form.get('turma_id')
+            alunos_ids = request.form.getlist('alunos_ids')
+            
+            turma = db.session.get(Turma, int(turma_id))
+            if turma and alunos_ids:
+                cadastrados = 0
+                for a_id in alunos_ids:
+                    aluno = db.session.get(Usuario, int(a_id))
+                    if aluno and aluno not in turma.alunos:
+                        turma.alunos.append(aluno)
+                        cadastrados += 1
+                        
+                        # Gera o cartão de Acompanhamento para cada disciplina automaticamente
+                        for curso in turma.cursos:
+                            existe = Acompanhamento.query.filter_by(aluno_id=aluno.id, curso_id=curso.id).first()
+                            if not existe:
+                                novo_acomp = Acompanhamento(
+                                    aluno_id=aluno.id,
+                                    curso_id=curso.id,
+                                    status='Iniciado',
+                                    data_inicio=turma.data_inicio,
+                                    data_termino=turma.data_termino
+                                )
+                                db.session.add(novo_acomp)
+                db.session.commit()
+                flash(f'{cadastrados} aluno(s) matriculado(s) com sucesso na turma {turma.nome}!', 'success')
+
+        return redirect(url_for('gerenciar_turmas'))
+
+    # =========================================================
+    # CARREGAMENTO DE DADOS PARA PREENCHER AS 3 ABAS DA TELA
+    # =========================================================
+    empresas = Empresa.query.order_by(Empresa.nome).all()
+    turmas = Turma.query.order_by(Turma.data_inicio.desc()).all()
+    cursos = Curso.query.order_by(Curso.nome_curso).all() 
+    
+    # Nova linha para puxar os alunos
+    alunos = Usuario.query.filter_by(tipo_usuario='Aluno', status='Ativo').all() 
+    
+    return render_template('admin_turmas.html', empresas=empresas, turmas=turmas, cursos=cursos, alunos=alunos)
+
+# ==============================================================================
+# ROTA: DIÁRIO DE CLASSE (LANÇAMENTO DE NOTAS)
+# ==============================================================================
+@app.route('/admin/notas', methods=['GET', 'POST'])
+@login_required
+def gerenciar_notas():
+    if current_user.tipo_usuario == 'Aluno':
+        flash('Acesso negado. Apenas mentores e gestores podem lançar notas.', 'danger')
+        return redirect(url_for('dashboard'))
+
+    turmas = Turma.query.filter_by(status='Ativa').order_by(Turma.nome).all()
+    turma_selecionada_id = request.args.get('turma_id')
+    turma_selecionada = None
+    dados_tabela = []
+
+    if turma_selecionada_id:
+        turma_selecionada = db.session.get(Turma, int(turma_selecionada_id))
+        if turma_selecionada:
+            cursos_ids = [c.id for c in turma_selecionada.cursos]
+            
+            # Puxa os alunos da turma e os seus respetivos acompanhamentos
+            for aluno in turma_selecionada.alunos:
+                if cursos_ids:
+                    acompanhamentos = Acompanhamento.query.filter(
+                        Acompanhamento.aluno_id == aluno.id,
+                        Acompanhamento.curso_id.in_(cursos_ids)
+                    ).all()
+                else:
+                    acompanhamentos = []
+                
+                dados_tabela.append({
+                    'aluno': aluno,
+                    'acompanhamentos': acompanhamentos
+                })
+
+    if request.method == 'POST':
+        # Varre todos os campos enviados pelo formulário e salva as notas
+        for chave, valor in request.form.items():
+            if chave.startswith('nota_tecnica_'):
+                acomp_id = int(chave.split('_')[-1])
+                nota_tec_str = valor.replace(',', '.') if valor else None
+                
+                nota_postura_str = request.form.get(f'nota_postura_{acomp_id}')
+                nota_postura_str = nota_postura_str.replace(',', '.') if nota_postura_str else None
+                
+                acomp = db.session.get(Acompanhamento, acomp_id)
+                if acomp:
+                    acomp.nota_tecnica = float(nota_tec_str) if nota_tec_str else None
+                    acomp.nota_postura = float(nota_postura_str) if nota_postura_str else None
+        
+        db.session.commit()
+        flash('Diário de Classe atualizado com sucesso!', 'success')
+        return redirect(url_for('gerenciar_notas', turma_id=turma_selecionada_id))
+
+    return render_template('admin_notas.html', turmas=turmas, turma_selecionada=turma_selecionada, dados=dados_tabela)
+
+
+# ===========================================================================
+# EXECUÇÃO DO APLICATIVO (DEVE SER SEMPRE O ÚLTIMO BLOCO DO FICHEIRO)
+# ===========================================================================
+if __name__ == '__main__':
+    with app.app_context():
+        db.create_all()
+        from sqlalchemy import text
+        
+        # 1. Injeta coluna de estudos (ignora se já existir)
+        try:
+            db.session.execute(text("ALTER TABLE acompanhamento ADD COLUMN planejamento_estudos TEXT"))
+            db.session.commit()
+        except:
+            db.session.rollback()
+            
+        # 2. Injeta a primeira coluna de tarefas (ignora se já existir)
+        try:
+            db.session.execute(text("ALTER TABLE tarefa ADD COLUMN planejamento_tarefa TEXT"))
+            db.session.commit()
+        except:
+            db.session.rollback()
+            
+        # 3. Injeta a segunda coluna de tarefas (ignora se já existir)
+        try:
+            db.session.execute(text("ALTER TABLE tarefa ADD COLUMN tempo_total_minutos INTEGER DEFAULT 0"))
+            db.session.commit()
+        except:
+            db.session.rollback()
+
+        # 4. Cria a nova tabela de Frequência (se não existir)
+        try:
+            db.create_all() 
+        except:
+            pass
+
+        # 5. Injeta as colunas de Notas no Acompanhamento
+        try:
+            db.session.execute(text("ALTER TABLE acompanhamento ADD COLUMN nota_tecnica FLOAT"))
+            db.session.commit()
+        except:
+            db.session.rollback()
+
+        try:
+            db.session.execute(text("ALTER TABLE acompanhamento ADD COLUMN nota_postura FLOAT"))
+            db.session.commit()
+        except:
+            db.session.rollback()
+
+        # 6. Injeta as colunas de Notas Coletivas no Projeto
+        try:
+            db.session.execute(text("ALTER TABLE projeto ADD COLUMN nota_conteudo FLOAT"))
+            db.session.commit()
+        except:
+            db.session.rollback()
+
+        try:
+            db.session.execute(text("ALTER TABLE projeto ADD COLUMN nota_apresentacao FLOAT"))
+            db.session.commit()
+        except:
+            db.session.rollback()
+            
+        # 7. Garante a criação da tabela de Avaliação Individual
+        try:
+            db.create_all()
+        except:
+            pass
 
 
 

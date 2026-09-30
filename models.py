@@ -64,6 +64,8 @@ class Curso(db.Model):
     desativado_por_id = db.Column(db.Integer, db.ForeignKey('usuario.id'), nullable=True)
     motivo_desativacao = db.Column(db.Text, nullable=True)
     data_desativacao = db.Column(db.DateTime, nullable=True)
+    # Relacionamento para puxar o nome de quem cadastrou o curso
+    criador = db.relationship('Usuario', foreign_keys=[criado_por_id])
 
 # ---------------------------------------------------------------------------
 # 3. TABELA DE ACOMPANHAMENTO (PROGRESSO DO ALUNO)
@@ -84,6 +86,9 @@ class Acompanhamento(db.Model):
     data_inicio = db.Column(db.DateTime, nullable=True)
     data_termino = db.Column(db.DateTime, nullable=True)
     planejamento_estudos = db.Column(db.String(2000), nullable=True)
+    # Notas da Avaliação Final do Curso
+    nota_tecnica = db.Column(db.Float, nullable=True)
+    nota_postura = db.Column(db.Float, nullable=True)
 
 # ---------------------------------------------------------------------------
 # 4. TABELA DE SESSÕES DE MENTORIA
@@ -220,6 +225,9 @@ class Projeto(db.Model):
     # Relações para facilitar as buscas no sistema
     tarefas = db.relationship('Tarefa', backref='projeto', lazy=True, cascade="all, delete-orphan")
     grupo = db.relationship('Grupo', backref='projetos', lazy=True)
+    # Notas da Avaliação Coletiva (Entregável do Grupo)
+    nota_conteudo = db.Column(db.Float, nullable=True)
+    nota_apresentacao = db.Column(db.Float, nullable=True)
 
 # ==============================================================================
 # 13. TABELA: Tarefa (Agora suporta Subtarefas e Equipe de Apoio)
@@ -260,6 +268,24 @@ grupo_usuario = db.Table('grupo_usuario',
     db.Column('usuario_id', db.Integer, db.ForeignKey('usuario.id'), primary_key=True)
 )
 
+# Tabela associativa: Quais alunos pertencem a quais turmas
+turma_aluno = db.Table('turma_aluno',
+    db.Column('turma_id', db.Integer, db.ForeignKey('turma.id'), primary_key=True),
+    db.Column('aluno_id', db.Integer, db.ForeignKey('usuario.id'), primary_key=True)
+)
+
+# Tabela associativa: Quais mentores gerem quais turmas
+turma_mentor = db.Table('turma_mentor',
+    db.Column('turma_id', db.Integer, db.ForeignKey('turma.id'), primary_key=True),
+    db.Column('mentor_id', db.Integer, db.ForeignKey('usuario.id'), primary_key=True)
+)
+
+# Tabela associativa: Quais cursos (trilhas) compõem uma turma
+turma_curso = db.Table('turma_curso',
+    db.Column('turma_id', db.Integer, db.ForeignKey('turma.id'), primary_key=True),
+    db.Column('curso_id', db.Integer, db.ForeignKey('curso.id'), primary_key=True)
+)
+
 # ==============================================================================
 # 14. TABELA: Grupo
 # ==============================================================================
@@ -296,3 +322,54 @@ class Frequencia(db.Model):
     # Facilita buscar os dados do usuário e do admin que validou
     usuario = db.relationship('Usuario', foreign_keys=[usuario_id], backref=db.backref('frequencias', lazy=True))
     admin_validador = db.relationship('Usuario', foreign_keys=[admin_id])
+
+# ==============================================================================
+# 16. TABELA: Avaliação Individual de Projetos (TCC)
+# ==============================================================================
+class AvaliacaoProjeto(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    projeto_id = db.Column(db.Integer, db.ForeignKey('projeto.id'), nullable=False)
+    aluno_id = db.Column(db.Integer, db.ForeignKey('usuario.id'), nullable=False)
+    
+    # Notas do Comportamento Individual na Equipe e na Banca
+    nota_postura = db.Column(db.Float, nullable=True)
+    nota_dominio = db.Column(db.Float, nullable=True)
+    observacoes_mentor = db.Column(db.Text, nullable=True)
+    
+    # Relações para facilitar as buscas no painel
+    projeto = db.relationship('Projeto', backref=db.backref('avaliacoes_individuais', lazy=True, cascade="all, delete-orphan"))
+    aluno = db.relationship('Usuario', backref=db.backref('avaliacoes_projetos', lazy=True))
+
+# ==============================================================================
+# 17. TABELA: Empresa (Parceiros B2B)
+# ==============================================================================
+class Empresa(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    nome = db.Column(db.String(150), nullable=False)
+    contato_nome = db.Column(db.String(100), nullable=True)
+    contato_email = db.Column(db.String(120), nullable=True)
+    status = db.Column(db.String(50), default='Ativa') # Ativa / Inativa
+    
+    # Uma empresa pode ter várias turmas
+    turmas = db.relationship('Turma', backref='empresa', lazy=True)
+
+# ==============================================================================
+# 18. TABELA: Turma (O Motor do KPI e Frequência)
+# ==============================================================================
+class Turma(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    nome = db.Column(db.String(150), nullable=False) # Ex: Semestre 2 - 2026
+    empresa_id = db.Column(db.Integer, db.ForeignKey('empresa.id'), nullable=True)
+    
+    # O Motor do KPI (As datas cravadas)
+    data_inicio = db.Column(db.Date, nullable=False)
+    data_termino = db.Column(db.Date, nullable=False)
+    status = db.Column(db.String(50), default='Ativa') # Ativa / Concluída
+    
+    # Relações: Trilhas, Alunos e Mentores
+    cursos = db.relationship('Curso', secondary=turma_curso, lazy='subquery',
+        backref=db.backref('turmas_vinculadas', lazy=True))
+    alunos = db.relationship('Usuario', secondary=turma_aluno, lazy='subquery',
+        backref=db.backref('turmas_como_aluno', lazy=True))
+    mentores = db.relationship('Usuario', secondary=turma_mentor, lazy='subquery',
+        backref=db.backref('turmas_como_mentor', lazy=True))

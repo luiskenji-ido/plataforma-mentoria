@@ -76,8 +76,17 @@
                 <!-- Porcentagem Total do Projeto -->
                 <span class="badge bg-success fs-6">Concluído: {{ p.percentual_conclusao }}%</span>
                 
+                <!-- BOTÃO PARA AVALIAR PROJETO (Aparece apenas quando chega a 100% / Concluído) -->
+                {% if p.status == 'Concluído' and current_user.tipo_usuario != 'Aluno' %}
+                <button class="btn btn-sm btn-warning fw-bold text-dark me-2" data-bs-toggle="modal" data-bs-target="#modalAvaliarProjeto{{ p.id }}">
+                    <i class="bi bi-star-fill"></i> Avaliar TCC
+                </button>
+                {% endif %}
+
+
                 <!-- Botão de Excluir Projeto (Visível apenas p/ Mentores e Admins) -->
                 {% if current_user.tipo_usuario in ['Mentor', 'Mentor Administrador', 'Administrador'] %}
+                
                 <form action="{{ url_for('deletar_projeto', id=p.id) }}" method="POST" class="m-0" onsubmit="return confirm('ATENÇÃO EXTREMA: Tem certeza que deseja excluir o projeto inteiro? Todas as tarefas, subtarefas e anexos serão apagados para sempre. Essa ação não pode ser desfeita.');">
                     <button type="submit" class="btn btn-sm btn-danger fw-bold" title="Excluir Projeto Inteiro">
                         Excluir Projeto
@@ -529,10 +538,113 @@
     </div>
     {% endfor %} <!-- Fim dos Modais de Atualização -->
 
+    <!-- ========================================================================== -->
+    <!-- MODAL DE AVALIAÇÃO DO PROJETO / TCC (COLETIVO E INDIVIDUAL)                -->
+    <!-- ========================================================================== -->
+    <div class="modal fade text-start" id="modalAvaliarProjeto{{ p.id }}" tabindex="-1">
+        <div class="modal-dialog modal-xl modal-dialog-scrollable">
+            <div class="modal-content shadow-lg">
+                <div class="modal-header bg-warning text-dark">
+                    <h5 class="modal-title fw-bold"><i class="bi bi-award-fill"></i> Avaliação do Projeto: {{ p.nome }}</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <form action="{{ url_for('avaliar_projeto', id=p.id) }}" method="POST">
+                    <div class="modal-body bg-light">
+                        
+                        <!-- CALCULAR TEMPO AUTOMÁTICO COM JINJA -->
+                        {% set tempo = namespace(minutos=0) %}
+                        {% for t in p.tarefas %}
+                            {% set tempo.minutos = tempo.minutos + (t.tempo_total_minutos or 0) %}
+                        {% endfor %}
+                        
+                        <!-- Painel Inteligente de Métricas da Equipa -->
+                        <div class="alert alert-secondary border-secondary mb-4 d-flex justify-content-between align-items-center flex-wrap">
+                            <span><i class="bi bi-clock-history text-primary"></i> <strong>Tempo total investido pela equipa:</strong> {{ tempo.minutos // 60 }}h {{ tempo.minutos % 60 }}m</span>
+                            <span><i class="bi bi-check2-all text-success"></i> <strong>Tarefas concluídas:</strong> {{ p.tarefas|length }}</span>
+                        </div>
+
+                        <div class="row">
+                            <!-- 1. AVALIAÇÃO COLETIVA (O ENTREGÁVEL) -->
+                            <div class="col-md-12 mb-4">
+                                <div class="card border-warning shadow-sm">
+                                    <div class="card-header bg-warning-subtle fw-bold text-dark">
+                                        1. Avaliação Coletiva (Nota do Grupo)
+                                    </div>
+                                    <div class="card-body">
+                                        <div class="row">
+                                            <div class="col-md-6 mb-3">
+                                                <label class="form-label fw-bold small text-dark">Nota de Conteúdo (0 a 10)</label>
+                                                <input type="number" step="0.1" min="0" max="10" name="nota_conteudo" class="form-control" value="{{ p.nota_conteudo or '' }}" placeholder="Qualidade técnica e pesquisa">
+                                            </div>
+                                            <div class="col-md-6 mb-3">
+                                                <label class="form-label fw-bold small text-dark">Nota de Apresentação (0 a 10)</label>
+                                                <input type="number" step="0.1" min="0" max="10" name="nota_apresentacao" class="form-control" value="{{ p.nota_apresentacao or '' }}" placeholder="Organização, clareza e design">
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- 2. AVALIAÇÃO INDIVIDUAL (POR ALUNO) -->
+                            <div class="col-md-12">
+                                <div class="card border-primary shadow-sm">
+                                    <div class="card-header bg-primary-subtle text-primary fw-bold">
+                                        2. Avaliação Individual (Por Aluno)
+                                    </div>
+                                    <div class="card-body p-0">
+                                        <div class="table-responsive">
+                                            <table class="table table-hover align-middle mb-0">
+                                                <thead class="table-light">
+                                                    <tr>
+                                                        <th class="ps-3 text-secondary">Aluno</th>
+                                                        <th width="15%" class="text-secondary">Postura</th>
+                                                        <th width="15%" class="text-secondary">Domínio</th>
+                                                        <th width="35%" class="text-secondary">Observações (Feedback)</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {% if p.grupo %}
+                                                        {% for membro in p.grupo.membros %}
+                                                            <!-- Busca no banco se este aluno já tem nota neste projeto -->
+                                                            {% set av = p.avaliacoes_individuais | selectattr('aluno_id', 'equalto', membro.id) | first %}
+                                                            
+                                                            <tr>
+                                                                <td class="ps-3 fw-bold text-dark">{{ membro.nome }}</td>
+                                                                <td>
+                                                                    <input type="number" step="0.1" min="0" max="10" name="nota_postura_{{ membro.id }}" class="form-control form-control-sm border-primary" value="{{ av.nota_postura if av else '' }}" placeholder="0 a 10">
+                                                                </td>
+                                                                <td>
+                                                                    <input type="number" step="0.1" min="0" max="10" name="nota_dominio_{{ membro.id }}" class="form-control form-control-sm border-primary" value="{{ av.nota_dominio if av else '' }}" placeholder="0 a 10">
+                                                                </td>
+                                                                <td class="pe-3">
+                                                                    <input type="text" name="obs_mentor_{{ membro.id }}" class="form-control form-control-sm border-primary" value="{{ av.observacoes_mentor if av else '' }}" placeholder="Feedback individual...">
+                                                                </td>
+                                                            </tr>
+                                                        {% endfor %}
+                                                    {% else %}
+                                                        <tr><td colspan="4" class="text-center text-muted py-4">Este projeto não tem um grupo vinculado.</td></tr>
+                                                    {% endif %}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+                    <div class="modal-footer bg-white">
+                        <button type="button" class="btn btn-secondary fw-bold" data-bs-dismiss="modal">Cancelar</button>
+                        <button type="submit" class="btn btn-warning fw-bold text-dark">Salvar Avaliação do TCC</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
     {% endfor %} <!-- Fim do Laço Principal de Projetos -->
 
 </div>
-
 
 <!-- SCRIPT MÁGICO: Lê a URL e reabre o modal automaticamente -->
     <script>
