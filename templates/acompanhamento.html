@@ -375,8 +375,36 @@
                     </div>
                     
                     <div class="col-md-4 d-flex flex-column align-items-end gap-2">
-                        {% if item.curso.url%}
-                            <a href="{{ item.curso.url }}" target="_blank" class="btn btn-sm btn-acessar-curso w-100 text-center fw-bold mb-1">{{t('acessar_curso') }}</a>
+                        
+                        <!-- LÓGICA DO CHECK-IN DE AULA (CADEADO VIRTUAL PARA ALUNOS) -->
+                        {% if current_user.tipo_usuario == 'Aluno' %}
+                            {% if item.ja_fez_checkin_hoje %}
+                                <!-- SE JÁ FEZ CHECK-IN HOJE: Libera o acesso ao curso -->
+                                <div class="w-100 mb-1 text-center">
+                                    <span class="badge bg-success-subtle text-success border border-success mb-1 w-100 py-1">
+                                        <i class="bi bi-check-circle-fill"></i> Presença Registrada Hoje!
+                                    </span>
+                                    {% if item.curso.url %}
+                                        <a href="{{ item.curso.url }}" target="_blank" class="btn btn-sm btn-acessar-curso w-100 text-center fw-bold">{{ t('acessar_curso') }}</a>
+                                    {% endif %}
+                                </div>
+                            {% else %}
+                                <!-- SE AINDA NÃO FEZ CHECK-IN: Exige o clique para liberar -->
+                                <div class="w-100 mb-1 p-2 bg-light border border-warning rounded text-center shadow-sm">
+                                    <span class="d-block small text-warning-emphasis fw-bold mb-2">🔒 Aula Trancada</span>
+                                    <form action="{{ url_for('fazer_checkin_aula') }}" method="POST">
+                                        <input type="hidden" name="curso_id" value="{{ item.curso.id }}">
+                                        <button type="submit" class="btn btn-sm btn-warning w-100 text-dark fw-bold shadow-sm">
+                                            <i class="bi bi-fingerprint"></i> Marcar Presença e Iniciar
+                                        </button>
+                                    </form>
+                                </div>
+                            {% endif %}
+                        {% else %}
+                            <!-- PARA MENTORES E ADMINS: Acesso direto normal -->
+                            {% if item.curso.url %}
+                                <a href="{{ item.curso.url }}" target="_blank" class="btn btn-sm btn-acessar-curso w-100 text-center fw-bold mb-1">{{ t('acessar_curso') }}</a>
+                            {% endif %}
                         {% endif %}
 
                         {% if item.reg.material_apoio %}
@@ -390,7 +418,7 @@
                             <a href="{{ url_for('acessar_upload', nome_arquivo=item.reg.certificado) }}" target="_blank" class="btn btn-sm btn-outline-success w-100 text-center fw-bold mb-1">Ver Certificado</a>
                         {% endif %}
 
-                        {% if item.reg.status!= 'Desativado' %}
+                        {% if item.reg.status != 'Desativado' %}
                             <button class="btn btn-sm btn-primary w-100 fw-bold" data-bs-toggle="modal" data-bs-target="#modalEditar{{ item.reg.id }}">{{ t('atualizar_progresso_anotacoes') }}</button>
                         {% else %}
                             <button class="btn btn-sm btn-secondary w-100" disabled>Curso Desativado (Apenas Leitura)</button>

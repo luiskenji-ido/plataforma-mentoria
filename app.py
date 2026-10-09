@@ -46,7 +46,7 @@ from flask_login import LoginManager, login_user, logout_user, login_required, c
 from flask_bcrypt import Bcrypt
 
 # Importações do Banco de Dados
-from models import db, Usuario, Curso, Acompanhamento, SessaoMentoria, FeedbackSessao, QADuvida, HistoricoProgresso, aluno_mentor, HistoricoSenha, SegurancaUsuario, SolicitacaoMentoria, RegistroBackup, Projeto, Tarefa, Grupo, grupo_usuario, RegistroBackup, Projeto, Tarefa, Grupo, grupo_usuario, Frequencia, AvaliacaoProjeto, Empresa, Turma, turma_aluno, turma_mentor, turma_curso
+from models import db, Usuario, Curso, Acompanhamento, SessaoMentoria, FeedbackSessao, QADuvida, HistoricoProgresso, aluno_mentor, HistoricoSenha, SegurancaUsuario, SolicitacaoMentoria, RegistroBackup, Projeto, Tarefa, Grupo, grupo_usuario, RegistroBackup, Projeto, Tarefa, Grupo, grupo_usuario, Frequencia, AvaliacaoProjeto, Empresa, Turma, turma_aluno, turma_mentor, turma_curso, CheckinAula
 import os
 import time
 
@@ -1103,9 +1103,67 @@ def acompanhamento():
         lista_alunos = Usuario.query.filter_by(tipo_usuario='Aluno').all()
         
     lista_cursos = Curso.query.filter_by(status='Ativo').all()
+
+    # Bloco para verificar se cada item já tem check-in hoje
+    from datetime import datetime
+    hoje = datetime.utcnow().date()
+    for item in registros:
+        # Identifica o ID do aluno com segurança
+        id_aluno_atual = item.aluno.id if hasattr(item, 'aluno') else item.reg.aluno_id
+        
+        item.ja_fez_checkin_hoje = CheckinAula.query.filter(
+            CheckinAula.usuario_id == id_aluno_atual,
+            CheckinAula.curso_id == item.curso.id,
+            db.func.date(CheckinAula.data_hora_entrada) == hoje
+        ).first() is not None
     
     # ESTA É A LINHA QUE FALTAVA PARA A TELA CARREGAR:
     return render_template('acompanhamento.html', registros=detalhes, alunos=lista_alunos, cursos=lista_cursos)
+
+
+# ==============================================================================
+# ROTA: REGISTAR CHECK-IN DE AULA DO ALUNO (PONTUALIDADE)
+# ==============================================================================
+@app.route('/acompanhamento/checkin', methods=['POST'])
+@login_required
+def fazer_checkin_aula():
+    from datetime import datetime
+    
+    curso_id = request.form.get('curso_id')
+    if not curso_id:
+        flash('Erro: Curso não especificado.', 'danger')
+        return redirect(url_for('acompanhamento'))
+        
+    hoje = datetime.utcnow().date()
+    
+    # Verifica se já existe check-in para este curso hoje
+    existente = CheckinAula.query.filter(
+        CheckinAula.usuario_id == current_user.id,
+        CheckinAula.curso_id == curso_id,
+        db.func.date(CheckinAula.data_hora_entrada) == hoje
+    ).first()
+    
+    if not existente:
+        # Descobre se o aluno marcou presença Online ou Presencial na portaria hoje
+        freq_diaria = Frequencia.query.filter(
+            Frequencia.usuario_id == current_user.id,
+            db.func.date(Frequencia.data_registro) == hoje
+        ).first()
+        
+        modalidade_atual = freq_diaria.tipo_presenca if freq_diaria else 'Não Informada'
+        
+        novo_checkin = CheckinAula(
+            usuario_id=current_user.id,
+            curso_id=curso_id,
+            modalidade=modalidade_atual
+        )
+        db.session.add(novo_checkin)
+        db.session.commit()
+        flash('Presença na aula registrada com sucesso! Bom estudo.', 'success')
+    else:
+        flash('Você já havia registado presença nesta aula hoje.', 'info')
+        
+    return redirect(url_for('acompanhamento'))
 
 
 # ==============================================================================
