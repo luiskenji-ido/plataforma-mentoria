@@ -2549,7 +2549,7 @@ def gerenciar_turmas():
             status = request.form.get('status', 'Ativo')
 
             novo_curso = Curso(
-                nome=nome,
+                nome_curso=nome,
                 plataforma=plataforma,
                 tipo=tipo,
                 carga_horaria=carga_horaria,
