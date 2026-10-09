@@ -1104,18 +1104,32 @@ def acompanhamento():
         
     lista_cursos = Curso.query.filter_by(status='Ativo').all()
 
-    # Bloco para verificar se cada item já tem check-in hoje
+    # Bloco blindado para verificar o check-in de aula hoje
     from datetime import datetime
     hoje = datetime.utcnow().date()
     for item in registros:
-        # Descobre o ID do aluno com base na estrutura real da tupla/objeto
-        id_aluno_atual = item.aluno.id if hasattr(item, 'aluno') else item[0].aluno_id
-        
-        item.ja_fez_checkin_hoje = CheckinAula.query.filter(
-            CheckinAula.usuario_id == id_aluno_atual,
-            CheckinAula.curso_id == item.curso.id,
-            db.func.date(CheckinAula.data_hora_entrada) == hoje
-        ).first() is not None
+        # Descobre os IDs de forma segura, seja qual for a estrutura do objeto
+        aluno_id = getattr(item, 'aluno_id', None)
+        if not aluno_id and hasattr(item, 'aluno') and item.aluno:
+            aluno_id = item.aluno.id
+        if not aluno_id and hasattr(item, 'reg') and hasattr(item.reg, 'aluno_id'):
+            aluno_id = item.reg.aluno_id
+
+        curso_id = getattr(item, 'curso_id', None)
+        if not curso_id and hasattr(item, 'curso') and item.curso:
+            curso_id = item.curso.id
+        if not curso_id and hasattr(item, 'reg') and hasattr(item.reg, 'curso_id'):
+            curso_id = item.reg.curso_id
+
+        # Faz a consulta ao banco apenas se encontrou os IDs com sucesso
+        if aluno_id and curso_id:
+            item.ja_fez_checkin_hoje = CheckinAula.query.filter(
+                CheckinAula.usuario_id == aluno_id,
+                CheckinAula.curso_id == curso_id,
+                db.func.date(CheckinAula.data_hora_entrada) == hoje
+            ).first() is not None
+        else:
+            item.ja_fez_checkin_hoje = False
     
     # ESTA É A LINHA QUE FALTAVA PARA A TELA CARREGAR:
     return render_template('acompanhamento.html', registros=detalhes, alunos=lista_alunos, cursos=lista_cursos)
