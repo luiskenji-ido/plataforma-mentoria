@@ -1104,33 +1104,41 @@ def acompanhamento():
         
     lista_cursos = Curso.query.filter_by(status='Ativo').all()
 
-    # Verificação robusta do Check-in de Aula para o dia de hoje
+    # Verificação universal e blindada do Check-in de Aula para hoje
     from datetime import datetime, time
     
     hoje_inicio = datetime.combine(datetime.utcnow().date(), time.min)
     hoje_fim = datetime.combine(datetime.utcnow().date(), time.max)
     
     for item in registros:
-        aluno_id = getattr(item, 'aluno_id', None)
-        if not aluno_id and hasattr(item, 'aluno') and item.aluno:
-            aluno_id = item.aluno.id
+        aluno_id = None
+        curso_id = None
+        
+        # Tenta extrair IDs independentemente de 'item' ser objeto ou dicionário
+        try:
+            if isinstance(item, dict):
+                aluno_id = item.get('aluno_id') or getattr(item.get('aluno'), 'id', None) or getattr(item.get('reg'), 'aluno_id', None)
+                curso_id = item.get('curso_id') or getattr(item.get('curso'), 'id', None) or getattr(item.get('reg'), 'curso_id', None)
+            else:
+                aluno_id = getattr(item, 'aluno_id', None) or getattr(getattr(item, 'aluno', None), 'id', None) or getattr(getattr(item, 'reg', None), 'aluno_id', None)
+                curso_id = getattr(item, 'curso_id', None) or getattr(getattr(item, 'curso', None), 'id', None) or getattr(getattr(item, 'reg', None), 'curso_id', None)
+        except Exception:
+            pass
 
-        curso_id = getattr(item, 'curso_id', None)
-        if not curso_id and hasattr(item, 'curso') and item.curso:
-            curso_id = item.curso.id
-
+        ja_tem = False
         if aluno_id and curso_id:
-            # Consulta por intervalo de tempo (muito mais seguro e fiável no SQLite)
             ja_tem = CheckinAula.query.filter(
                 CheckinAula.usuario_id == aluno_id,
                 CheckinAula.curso_id == curso_id,
                 CheckinAula.data_hora_entrada >= hoje_inicio,
                 CheckinAula.data_hora_entrada <= hoje_fim
             ).first() is not None
-            
-            setattr(item, 'ja_fez_checkin_hoje', ja_tem)
+
+        # Atribui o resultado de forma compatível com dicionários e objetos
+        if isinstance(item, dict):
+            item['ja_fez_checkin_hoje'] = ja_tem
         else:
-            setattr(item, 'ja_fez_checkin_hoje', False)
+            setattr(item, 'ja_fez_checkin_hoje', ja_tem)
     
     # ESTA É A LINHA QUE FALTAVA PARA A TELA CARREGAR:
     return render_template('acompanhamento.html', registros=detalhes, alunos=lista_alunos, cursos=lista_cursos)
