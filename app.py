@@ -1108,8 +1108,8 @@ def acompanhamento():
     from datetime import datetime
     hoje = datetime.utcnow().date()
     for item in registros:
-        # Identifica o ID do aluno com segurança
-        id_aluno_atual = item.aluno.id if hasattr(item, 'aluno') else item.reg.aluno_id
+        # Descobre o ID do aluno com base na estrutura real da tupla/objeto
+        id_aluno_atual = item.aluno.id if hasattr(item, 'aluno') else item[0].aluno_id
         
         item.ja_fez_checkin_hoje = CheckinAula.query.filter(
             CheckinAula.usuario_id == id_aluno_atual,
