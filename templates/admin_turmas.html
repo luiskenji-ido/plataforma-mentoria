@@ -148,111 +148,303 @@
             </div>
         </div>
         
+    <!-- ========================================================= -->
+    <!-- ABA 02: PARCEIROS B2B                                     -->
+    <!-- ========================================================= -->
+    <div class="tab-pane fade" id="parceiros" role="tabpanel">
+        <div class="row">
+            
+            <!-- SE O UTILIZADOR NÃO FOR ADMIN B2B, MOSTRA O FORMULÁRIO DE CRIAÇÃO -->
+            {% if current_user.tipo_usuario != 'Admin B2B' %}
+            <div class="col-md-5 mb-4">
+                <div class="card shadow-sm border-0">
+                    <div class="card-header bg-primary text-white fw-bold">
+                        Nova Empresa Parceira
+                    </div>
+                    <div class="card-body">
+                        <form action="{{ url_for('gerenciar_turmas') }}" method="POST">
+                            <input type="hidden" name="acao" value="nova_empresa">
+                            
+                            <div class="mb-3">
+                                <label class="form-label text-muted fw-bold" style="font-size: 0.85em;">Nome da Empresa</label>
+                                <input type="text" name="nome" class="form-control" placeholder="Ex: Tech Corp SA" required>
+                            </div>
+                            
+                            <!-- Contato Principal -->
+                            <div class="row">
+                                <div class="col-md-6 mb-2">
+                                    <label class="form-label text-muted fw-bold" style="font-size: 0.85em;">Contato Principal</label>
+                                    <input type="text" name="contato_nome" class="form-control" placeholder="Ex: João Silva">
+                                </div>
+                                <div class="col-md-6 mb-2">
+                                    <label class="form-label text-muted fw-bold" style="font-size: 0.85em;">E-mail Principal</label>
+                                    <input type="email" name="contato_email" class="form-control" placeholder="contato@empresa.com">
+                                </div>
+                            </div>
+
+                            <!-- Contato Secundário -->
+                            <div class="row mb-3">
+                                <div class="col-md-6 mb-2">
+                                    <label class="form-label text-muted fw-bold" style="font-size: 0.85em;">Contato 2 (Opcional)</label>
+                                    <input type="text" name="contato_sec_nome" class="form-control" placeholder="Ex: Maria Souza">
+                                </div>
+                                <div class="col-md-6 mb-2">
+                                    <label class="form-label text-muted fw-bold" style="font-size: 0.85em;">E-mail do Contato 2</label>
+                                    <input type="email" name="contato_sec_email" class="form-control" placeholder="maria@empresa.com">
+                                </div>
+                            </div>
+
+                            <!-- Gestor Parceiro -->
+                            <div class="col-12 mb-3">
+                                <label class="form-label text-primary fw-bold" style="font-size: 0.85em;">Gestor Parceiro (Admin B2B)</label>
+                                <div class="input-group">
+                                    <select name="gestor_id" class="form-select" style="font-size: 0.9em;">
+                                        <option value="">Selecione um gestor...</option>
+                                        {% for g in gestores %}
+                                        <option value="{{ g.id }}">{{ g.nome }}</option>
+                                        {% endfor %}
+                                    </select>
+                                    <button type="button" class="btn btn-outline-primary fw-bold" style="font-size: 0.9em;" data-bs-toggle="modal" data-bs-target="#modalNovoUsuarioRapido" onclick="document.getElementById('tipo_usuario_rapido').value='Admin B2B'">+ Novo</button>
+                                </div>
+                            </div>
+                            
+                            <!-- Mentores Vinculados -->
+                            <div class="col-12 mb-4">
+                                <label class="form-label text-primary fw-bold" style="font-size: 0.85em;">Mentores da Empresa</label>
+                                <select name="mentores_ids" class="form-select mb-2" style="font-size: 0.9em;" multiple>
+                                    {% for m in mentores %}
+                                    <option value="{{ m.id }}">{{ m.nome }}</option>
+                                    {% endfor %}
+                                </select>
+                                <button type="button" class="btn btn-outline-primary fw-bold w-100" style="font-size: 0.9em;" data-bs-toggle="modal" data-bs-target="#modalNovoUsuarioRapido" onclick="document.getElementById('tipo_usuario_rapido').value='Mentor'">+ Adicionar Mentor</button>
+                            </div>
+
+                            <button type="submit" class="btn btn-primary fw-bold w-100">+ Cadastrar Empresa</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-7">
+            {% else %}
+            <!-- SE FOR ADMIN B2B, A TABELA OCUPA A LARGURA TOTAL (12 COLUNAS) -->
+            <div class="col-12">
+            {% endif %}
+            
+                <!-- Tabela de Empresas Cadastradas (Visível para ambos, mas filtrada no Python) -->
+                <div class="card shadow-sm border-0">
+                    <div class="card-header bg-dark text-white fw-bold">
+                        Empresas Cadastradas
+                    </div>
+                    <div class="card-body p-0">
+                        <table class="table table-hover align-middle mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th class="ps-3">Empresa</th>
+                                    <th>Contato Principal</th>
+                                    <th class="text-center">Turmas Ativas</th>
+                                    <th class="text-end pe-3">Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for emp in empresas %}
+                                <tr>
+                                    <td class="ps-3"><strong>{{ emp.nome }}</strong></td>
+                                    <td style="font-size: 0.9em;">
+                                        {{ emp.contato_nome }}<br>
+                                        <span class="text-muted" style="font-size: 0.85em;">{{ emp.contato_email }}</span>
+                                    </td>
+                                    <td class="text-center">
+                                        <span class="badge bg-secondary rounded-pill">{{ emp.turmas|length }}</span>
+                                    </td>
+                                    <td class="text-end pe-3">
+                                        <button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#modalEditEmp_{{ emp.id }}">
+                                            <i class="bi bi-pencil-square"></i> Editar
+                                        </button>
+                                    </td>
+                                </tr>
+
+                                <!-- Modal de Edição (Mantido intacto para atualizações) -->
+                                <div class="modal fade" id="modalEditEmp_{{ emp.id }}" tabindex="-1" aria-hidden="true">
+                                    <div class="modal-dialog">
+                                        <div class="modal-content">
+                                            <div class="modal-header bg-primary text-white">
+                                                <h5 class="modal-title">Editar Parceiro</h5>
+                                                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                                            </div>
+                                            <form action="{{ url_for('gerenciar_turmas') }}" method="POST">
+                                                <div class="modal-body text-start">
+                                                    <input type="hidden" name="acao" value="editar_empresa">
+                                                    <input type="hidden" name="empresa_id" value="{{ emp.id }}">
+                                                    
+                                                    <div class="mb-3">
+                                                        <label class="form-label text-muted fw-bold" style="font-size: 0.85em;">Nome da Empresa</label>
+                                                        <input type="text" name="nome" class="form-control" value="{{ emp.nome }}" required>
+                                                    </div>
+                                                    
+                                                    <div class="mb-3">
+                                                        <label class="form-label text-muted fw-bold" style="font-size: 0.85em;">Nomes dos Contatos</label>
+                                                        <input type="text" name="contatos" class="form-control" value="{{ emp.contato_nome }}">
+                                                    </div>
+
+                                                    <div class="mb-3">
+                                                        <label class="form-label text-muted fw-bold" style="font-size: 0.85em;">E-mails dos Contatos</label>
+                                                        <input type="text" name="emails" class="form-control" value="{{ emp.contato_email }}">
+                                                    </div>
+                                                    
+                                                    <div class="mb-4">
+                                                        <label class="form-label text-primary fw-bold" style="font-size: 0.85em;">Gestor Parceiro Responsável</label>
+                                                        <select name="gestor_id" class="form-select">
+                                                            <option value="">Nenhum gestor...</option>
+                                                            {% for g in gestores %}
+                                                            <option value="{{ g.id }}" {% if emp.gestor_id == g.id %}selected{% endif %}>{{ g.nome }}</option>
+                                                            {% endfor %}
+                                                        </select>
+                                                    </div>
+
+                                                    <button type="submit" class="btn btn-primary fw-bold w-100">Salvar Alterações</button>
+                                                </div>
+                                            </form>
+                                        </div>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
         <!-- ==========================================
-             ABA 2: TURMAS E TRILHAS DE APRENDIZAGEM
+             ABA 03: TURMAS & TRILHAS
              ========================================== -->
         <div class="tab-pane fade" id="turmas" role="tabpanel">
             <div class="row">
-                <!-- Formulário Nova Turma -->
-                <div class="col-md-5 mb-4">
-                    <div class="card shadow-sm border-warning">
-                        <div class="card-header bg-warning text-dark py-2 fw-bold">
-                            <i class="bi bi-plus-circle"></i> Abrir Nova Turma (Ciclo Letivo)
+                
+                <!-- SE O UTILIZADOR NÃO FOR ADMIN B2B, MOSTRA O FORMULÁRIO -->
+                {% if current_user.tipo_usuario != 'Admin B2B' %}
+                <div class="col-md-4 mb-4">
+                    <div class="card shadow-sm border-0">
+                        <div class="card-header bg-warning text-dark fw-bold">
+                            <i class="bi bi-plus-circle"></i> Nova Turma / Trilha
                         </div>
                         <div class="card-body bg-light">
                             <form action="{{ url_for('gerenciar_turmas') }}" method="POST">
                                 <input type="hidden" name="acao" value="nova_turma">
                                 
                                 <div class="mb-3">
-                                    <label class="form-label fw-bold small text-muted">Nome da Turma</label>
-                                    <input type="text" name="nome" class="form-control form-control-sm border-secondary" required placeholder="Ex: Turma Cloud Azure - Semestre 2">
+                                    <label class="form-label small fw-bold text-muted">Nome da Turma</label>
+                                    <input type="text" name="nome" class="form-control form-control-sm" placeholder="Ex: Turma 2026 - UX Design" required>
                                 </div>
                                 
                                 <div class="mb-3">
-                                    <label class="form-label fw-bold small text-muted">Empresa Parceira (Opcional)</label>
-                                    <select name="empresa_id" class="form-select form-select-sm border-secondary">
-                                        <option value="">Sem vínculo B2B (Turma Interna)</option>
+                                    <label class="form-label small fw-bold text-muted">Empresa Parceira</label>
+                                    <select name="empresa_id" class="form-select form-select-sm">
+                                        <option value="">Nenhuma (Turma Aberta)</option>
                                         {% for emp in empresas %}
                                         <option value="{{ emp.id }}">{{ emp.nome }}</option>
                                         {% endfor %}
                                     </select>
                                 </div>
-                                
-                                <!-- O CAMPO MULTI-SELECT (TRILHA) -->
+
                                 <div class="mb-3">
-                                    <label class="form-label fw-bold small text-primary">Trilha de Aprendizagem (Selecione os Cursos)</label>
-                                    <select name="cursos_ids" id="seletorCursos" multiple placeholder="Selecione as disciplinas desta turma..." required>
+                                    <label class="form-label small fw-bold text-muted">Importar Grupo (Opcional)</label>
+                                    <div class="input-group">
+                                        <select name="grupo_id" class="form-select form-select-sm">
+                                            <option value="">Selecione um grupo...</option>
+                                            {% for g in grupos %}
+                                            <option value="{{ g.id }}">{{ g.nome }}</option>
+                                            {% endfor %}
+                                        </select>
+                                        <button type="button" class="btn btn-outline-danger btn-sm fw-bold" data-bs-toggle="modal" data-bs-target="#modalNovoGrupo">+ Novo</button>
+                                    </div>
+                                </div>
+
+                                <div class="mb-3">
+                                    <label class="form-label small fw-bold text-muted">Cursos / Disciplinas</label>
+                                    <select name="cursos_ids" id="seletorCursos" class="form-select form-select-sm" multiple required>
                                         {% for c in cursos %}
                                         <option value="{{ c.id }}">{{ c.nome_curso }}</option>
                                         {% endfor %}
                                     </select>
                                 </div>
-                                
-                                <div class="row">
-                                    <div class="col-6 mb-3">
-                                        <label class="form-label fw-bold small text-success">Data de Início</label>
-                                        <input type="date" name="data_inicio" class="form-control form-control-sm border-success bg-white" required>
+
+                                <div class="mb-3">
+                                    <label class="form-label small fw-bold text-muted">Mentores da Turma</label>
+                                    <select name="mentores_ids" class="form-select form-select-sm" multiple>
+                                        {% for m in mentores %}
+                                        <option value="{{ m.id }}">{{ m.nome }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+
+                                <div class="row mb-3">
+                                    <div class="col-6">
+                                        <label class="form-label small fw-bold text-muted">Início</label>
+                                        <input type="date" name="data_inicio" class="form-control form-control-sm" required>
                                     </div>
-                                    <div class="col-6 mb-3">
-                                        <label class="form-label fw-bold small text-danger">Data de Término</label>
-                                        <input type="date" name="data_termino" class="form-control form-control-sm border-danger bg-white" required>
+                                    <div class="col-6">
+                                        <label class="form-label small fw-bold text-muted">Término</label>
+                                        <input type="date" name="data_termino" class="form-control form-control-sm" required>
                                     </div>
                                 </div>
-                                
-                                <button type="submit" class="btn btn-sm btn-warning w-100 fw-bold text-dark shadow-sm">Fixar Datas e Criar Turma</button>
+
+                                <button type="submit" class="btn btn-warning w-100 fw-bold shadow-sm">Criar Turma</button>
                             </form>
                         </div>
                     </div>
                 </div>
-
-                <!-- Lista de Turmas Ativas -->
-                <div class="col-md-7 mb-4">
+                <div class="col-md-8">
+                {% else %}
+                <!-- SE FOR ADMIN B2B, A TABELA OCUPA A LARGURA TOTAL -->
+                <div class="col-12">
+                {% endif %}
+                
                     <div class="card shadow-sm border-0">
-                        <div class="card-header bg-dark text-white py-2 fw-bold">Turmas e Trilhas Ativas</div>
+                        <div class="card-header bg-dark text-white fw-bold py-2">
+                            Turmas Cadastradas
+                        </div>
                         <div class="card-body p-0">
                             <div class="table-responsive">
                                 <table class="table table-hover align-middle mb-0 text-center small">
                                     <thead class="table-light">
                                         <tr>
-                                            <th class="text-start ps-3">Turma e Parceiro</th>
-                                            <th class="text-start">Trilha (Disciplinas)</th>
-                                            <th>Período Letivo (KPI)</th>
+                                            <th class="text-start ps-3">Nome da Turma</th>
+                                            <th>Parceiro (B2B)</th>
+                                            <th>Período</th>
+                                            <th>Alunos</th>
+                                            <th class="text-end pe-3">Ações</th>
                                         </tr>
                                     </thead>
                                     <tbody>
                                         {% for t in turmas %}
                                         <tr>
-                                            <td class="text-start ps-3">
-                                                <strong class="text-dark d-block">{{ t.nome }}</strong>
-                                                {% if t.empresa %}
-                                                <span class="badge bg-info text-dark border border-info mt-1">{{ t.empresa.nome }}</span>
+                                            <td class="text-start ps-3 fw-bold">{{ t.nome }}</td>
+                                            <td>
+                                                {% if t.empresa_id %}
+                                                    <span class="badge bg-primary">{{ t.empresa.nome }}</span>
                                                 {% else %}
-                                                <span class="badge bg-secondary mt-1">Interna</span>
+                                                    <span class="text-muted">-</span>
                                                 {% endif %}
                                             </td>
-                                            <td class="text-start">
-                                                <ul class="list-unstyled mb-0" style="font-size: 0.85em;">
-                                                    {% for c in t.cursos %}
-                                                    <li class="text-primary"><i class="bi bi-book"></i> {{ c.nome }}</li>
-                                                    {% else %}
-                                                    <li class="text-muted fst-italic">Nenhum curso vinculado.</li>
-                                                    {% endfor %}
-                                                </ul>
+                                            <td class="text-muted">
+                                                {{ t.data_inicio.strftime('%d/%m/%Y') }} a <br>{{ t.data_termino.strftime('%d/%m/%Y') }}
                                             </td>
                                             <td>
-                                                <div class="d-flex flex-column align-items-center">
-                                                    <span class="text-success fw-bold"><i class="bi bi-play-circle"></i> {{ t.data_inicio.strftime('%d/%m/%Y') }}</span>
-                                                    <span class="text-danger fw-bold"><i class="bi bi-stop-circle"></i> {{ t.data_termino.strftime('%d/%m/%Y') }}</span>
-                                                </div>
-                                                <!-- Botão que abre o Modal de Matrícula -->
-                                                <button class="btn btn-sm btn-outline-success mt-2 fw-bold w-100" data-bs-toggle="modal" data-bs-target="#modalMatricula{{ t.id }}">
-                                                <i class="bi bi-person-plus"></i> Matricular
-                                            </button>
-
+                                                <span class="badge bg-secondary rounded-pill">{{ t.alunos|length }}</span>
+                                            </td>
+                                            <td class="text-end pe-3">
+                                                <button type="button" class="btn btn-sm btn-outline-success fw-bold" data-bs-toggle="modal" data-bs-target="#modalMatricula{{ t.id }}">
+                                                    <i class="bi bi-person-plus"></i> Matricular
+                                                </button>
                                             </td>
                                         </tr>
                                         {% else %}
-                                        <tr><td colspan="3" class="text-muted py-4"><i class="bi bi-inbox fs-4 d-block mb-1"></i> Nenhuma turma aberta.</td></tr>
+                                        <tr>
+                                            <td colspan="5" class="text-muted py-4">Nenhuma turma encontrada.</td>
+                                        </tr>
                                         {% endfor %}
                                     </tbody>
                                 </table>
@@ -262,74 +454,6 @@
                 </div>
             </div>
         </div>
-
-        <!-- ==========================================
-             ABA 3: PARCEIROS B2B (EMPRESAS)
-             ========================================== -->
-        <div class="tab-pane fade" id="parceiros" role="tabpanel">
-            <div class="row justify-content-center">
-                <div class="col-md-5 mb-4">
-                    <div class="card shadow-sm border-primary">
-                        <div class="card-header bg-primary text-white py-2 fw-bold">
-                            <i class="bi bi-briefcase"></i> Nova Empresa Parceira
-                        </div>
-                        <div class="card-body bg-light">
-                            <form action="{{ url_for('gerenciar_turmas') }}" method="POST">
-                                <input type="hidden" name="acao" value="nova_empresa">
-                                <div class="mb-3">
-                                    <label class="form-label fw-bold small text-muted">Nome da Empresa</label>
-                                    <input type="text" name="nome" class="form-control form-control-sm border-secondary" required placeholder="Ex: Tech Corp SA">
-                                </div>
-                                <div class="row">
-                                    <div class="col-6 mb-3">
-                                        <label class="form-label fw-bold small text-muted">Pessoa de Contato</label>
-                                        <input type="text" name="contato_nome" class="form-control form-control-sm border-secondary" placeholder="Ex: João Silva">
-                                    </div>
-                                    <div class="col-6 mb-3">
-                                        <label class="form-label fw-bold small text-muted">E-mail do Contato</label>
-                                        <input type="email" name="contato_email" class="form-control form-control-sm border-secondary" placeholder="contato@empresa.com">
-                                    </div>
-                                </div>
-                                <button type="submit" class="btn btn-sm btn-primary w-100 fw-bold shadow-sm">+ Cadastrar Empresa</button>
-                            </form>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="col-md-7 mb-4">
-                    <div class="card shadow-sm border-0">
-                        <div class="card-header bg-dark text-white py-2 fw-bold">Empresas Cadastradas</div>
-                        <div class="card-body p-0">
-                            <table class="table table-hover align-middle mb-0 text-center small">
-                                <thead class="table-light">
-                                    <tr>
-                                        <th class="text-start ps-3">Empresa</th>
-                                        <th>Contato Principal</th>
-                                        <th>Turmas Ativas</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {% for emp in empresas %}
-                                    <tr>
-                                        <td class="text-start ps-3 fw-bold text-primary">{{ emp.nome }}</td>
-                                        <td>
-                                            {{ emp.contato_nome or '-' }}<br>
-                                            <span class="text-muted" style="font-size: 0.8em;">{{ emp.contato_email or '' }}</span>
-                                        </td>
-                                        <td><span class="badge bg-secondary">{{ emp.turmas|length }}</span></td>
-                                    </tr>
-                                    {% else %}
-                                    <tr><td colspan="3" class="text-muted py-4"><i class="bi bi-inbox fs-4 d-block mb-1"></i> Nenhuma empresa parceira cadastrada.</td></tr>
-                                    {% endfor %}
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-    </div>
 </div>
 
 <!-- Scripts Mágicos para o Campo Múltiplo -->
@@ -359,7 +483,7 @@
                 <input type="hidden" name="turma_id" value="{{ t.id }}">
                 
                 <div class="modal-header bg-success text-white">
-                    <h5 class="modal-title fw-bold"><i class="bi bi-person-plus"></i> Matricular Alunos</h5>
+                    <h5 class="modal-title fw-bold"><i class="bi bi-person-plus"></i> Matricular</h5>
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                 </div>
                 
@@ -424,5 +548,90 @@
         }
     });
 </script>
+
+<!-- ==========================================
+     MODAL: CRIAR NOVO GRUPO RÁPIDO
+     ========================================== -->
+<div class="modal fade" id="modalNovoGrupo" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content shadow">
+            <form action="{{ url_for('gerenciar_turmas') }}" method="POST">
+                <input type="hidden" name="acao" value="novo_grupo_rapido">
+                
+                <div class="modal-header bg-danger text-white">
+                    <h5 class="modal-title fw-bold"><i class="bi bi-people-fill"></i> Criar Novo Grupo</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                
+                <div class="modal-body bg-light">
+                    <div class="mb-3">
+                        <label class="form-label fw-bold small">Nome do Grupo</label>
+                        <input type="text" name="nome_grupo" class="form-control" placeholder="Ex: Jovens Talentos 2026" required>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label fw-bold small">Selecionar Alunos (Opcional)</label>
+                        <select name="alunos_ids" class="seletor-alunos" multiple placeholder="Busque e selecione os alunos...">
+                            {% for a in alunos %}
+                                <option value="{{ a.id }}">{{ a.nome }} ({{ a.email }})</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary btn-sm fw-bold" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-danger btn-sm fw-bold">Salvar Grupo</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- ============================================================================== -->
+<!-- MODAL: CRIAÇÃO RÁPIDA DE USUÁRIO (GESTOR OU MENTOR)                            -->
+<!-- ============================================================================== -->
+<div class="modal fade" id="modalNovoUsuarioRapido" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title fw-bold">Cadastro Rápido</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <form action="{{ url_for('gerenciar_turmas') }}" method="POST">
+                <div class="modal-body text-start">
+                    <input type="hidden" name="acao" value="novo_usuario_rapido">
+                    
+                    <div class="mb-3">
+                        <label class="form-label text-muted fw-bold">Nível de Acesso</label>
+                        <select name="tipo_usuario_rapido" id="tipo_usuario_rapido" class="form-select bg-light" required>
+                            <option value="Mentor">Mentor</option>
+                            <option value="Admin B2B">Gestor Parceiro (Admin B2B)</option>
+                        </select>
+                        <small class="text-muted">Isto define o que ele pode ver no sistema.</small>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label text-muted fw-bold">Nome Completo</label>
+                        <input type="text" name="nome_usuario" class="form-control" required>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label text-muted fw-bold">E-mail</label>
+                        <input type="email" name="email_usuario" class="form-control" required>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label text-muted fw-bold">Senha Provisória</label>
+                        <input type="password" name="senha_usuario" class="form-control" required>
+                        <small class="text-danger fw-bold">Nota: O usuário será forçado a criar uma senha segura no primeiro login.</small>
+                    </div>
+
+                    <button type="submit" class="btn btn-success fw-bold w-100">Salvar e Voltar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
 
 {% endblock %}

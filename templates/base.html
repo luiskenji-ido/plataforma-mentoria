@@ -612,49 +612,58 @@
             </a>
         </li>
         
-        <!-- Apenas Mentores e Admins veem o menu de Frequência -->
-        {% if current_user.tipo_usuario != 'Aluno' %}
-        <li class="nav-item">
-            <a class="nav-link fw-bold text-primary" href="{{ url_for('gerenciar_frequencia') }}">
-                <i class="bi bi-clipboard-check"></i> Frequência
-            </a>
-        </li>
-        {% endif %}
-
-        <!-- Gestão de Notas -->
+        <!-- ============================================================================== -->
+        <!-- MENU SUSPENSO: DIÁRIO DE CLASSE (Oculto para Alunos)                           -->
+        <!-- ============================================================================== -->
         {% if current_user.is_authenticated and current_user.tipo_usuario != 'Aluno' %}
-        <li class="nav-item">
-          <a class="nav-link fw-bold {% if request.endpoint == 'gerenciar_notas' %}text-primary border-bottom border-2 border-primary{% endif %}" href="{{ url_for('gerenciar_notas') }}">
-            <i class="bi bi-journal-check"></i> Gestão de Notas
-          </a>
+        <li class="nav-item dropdown">
+            <a class="nav-link dropdown-toggle fw-bold {% if request.endpoint in ['gerenciar_frequencia', 'gerenciar_notas'] %}text-primary border-bottom border-2 border-primary{% endif %}" href="#" id="menuDiario" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                <i class="bi bi-journal-bookmark-fill"></i> Diário de Classe
+            </a>
+            <ul class="dropdown-menu shadow-sm border-0 mt-2" aria-labelledby="menuDiario">
+                <li>
+                    <a class="dropdown-item fw-bold text-dark py-2" href="{{ url_for('gerenciar_frequencia') }}">
+                        <i class="bi bi-clipboard-check text-primary me-2"></i> Frequência
+                    </a>
+                </li>
+                <li>
+                    <a class="dropdown-item fw-bold text-dark py-2" href="{{ url_for('gerenciar_notas') }}">
+                        <i class="bi bi-journal-check text-success me-2"></i> Gestão de Notas
+                    </a>
+                </li>
+            </ul>
         </li>
         {% endif %}
 
-        <!-- Gerenciar Cadastros (Apenas Admin) -->
+        <!-- ============================================================================== -->
+        <!-- ÁREA RESTRITA: Gerenciamento Administrativo (Bloqueado para Admin B2B e Alunos) -->
+        <!-- ============================================================================== -->
         {% if current_user.is_authenticated and current_user.tipo_usuario in ['Administrador', 'Mentor Administrador'] %}
-        <li class="nav-item">
-            <a class="nav-link fw-bold {% if request.endpoint == 'gerenciar_usuarios' %}text-primary border-bottom border-2 border-primary{% endif %}" href="{{ url_for('gerenciar_usuarios') }}">
-            {{ t('nav_cadastros') }}
-            </a>
-        </li>
-
-        <!-- RESTRIÇÃO APLICADA: Apenas Mentor Administrador vê este botão -->
-        {% if current_user.tipo_usuario == 'Mentor Administrador' %}
-        <li class="nav-item">
-            <a class="nav-link fw-bold {% if request.endpoint == 'gerenciar_solicitacoes' %}text-primary border-bottom border-2 border-primary{% endif %}" href="{{ url_for('gerenciar_solicitacoes') }}">
-                {{ t('solicitacoes') }}
-            </a>
-        </li>
-        {% endif %}
-
-        <!-- NOVO LINK: Manutenção do Banco -->
-        <li class="nav-item">
-            <a class="nav-link fw-bold text-danger {% if request.endpoint == 'manutencao_banco' %}border-bottom border-2 border-danger{% endif %}" href="{{ url_for('manutencao_banco') }}">
-                {{ t('manutencao_db') }}
-            </a>
-        </li>
         
-    {% endif %}
+            <!-- 1. Gestão de Utilizadores -->
+            <li class="nav-item">
+                <a class="nav-link fw-bold {% if request.endpoint == 'gerenciar_usuarios' %}text-primary border-bottom border-2 border-primary{% endif %}" href="{{ url_for('gerenciar_usuarios') }}">
+                {{ t('nav_cadastros') }}
+                </a>
+            </li>
+
+            <!-- 2. Solicitações de Mentoria (Exclusivo Mentor Administrador) -->
+            {% if current_user.tipo_usuario == 'Mentor Administrador' %}
+            <li class="nav-item">
+                <a class="nav-link fw-bold {% if request.endpoint == 'gerenciar_solicitacoes' %}text-primary border-bottom border-2 border-primary{% endif %}" href="{{ url_for('gerenciar_solicitacoes') }}">
+                    {{ t('solicitacoes') }}
+                </a>
+            </li>
+            {% endif %}
+
+            <!-- 3. Manutenção do Banco (Acesso Restrito) -->
+            <li class="nav-item">
+                <a class="nav-link fw-bold text-danger {% if request.endpoint == 'manutencao_banco' %}border-bottom border-2 border-danger{% endif %}" href="{{ url_for('manutencao_banco') }}">
+                    {{ t('manutencao_db') }}
+                </a>
+            </li>
+            
+        {% endif %}
         
       </ul>
       

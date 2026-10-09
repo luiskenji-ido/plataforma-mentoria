@@ -59,6 +59,8 @@
                             <option value="Mentor" {% if request.form.get('tipo_usuario') == 'Mentor' %}selected{% endif %}>{{ t('nivel_mentor') }}</option>
                             <option value="Mentor Administrador" {% if request.form.get('tipo_usuario') == 'Mentor Administrador' %}selected{% endif %}>{{ t('nivel_mentor_admin') }}</option>
                             <option value="Administrador" {% if request.form.get('tipo_usuario') == 'Administrador' %}selected{% endif %}>{{ t('nivel_administrador') }}</option>
+                            <!-- NOVA OPÇÃO AQUI -->
+                            <option value="Admin B2B" {% if request.form.get('tipo_usuario') == 'Admin B2B' %}selected{% endif %}>Gestor Parceiro (Admin B2B)</option>
                         </select>
                     </div>
                     <div class="col-md-2 mb-3">
@@ -257,6 +259,8 @@
                                     <option value="Mentor" {% if u.tipo_usuario == 'Mentor' %}selected{% endif %}>{{ t('nivel_mentor') }}</option>
                                     <option value="Mentor Administrador" {% if u.tipo_usuario == 'Mentor Administrador' %}selected{% endif %}>{{ t('nivel_mentor_admin') }}</option>
                                     <option value="Administrador" {% if u.tipo_usuario == 'Administrador' %}selected{% endif %}>{{ t('nivel_administrador') }}</option>
+                                    <!-- NOVA OPÇÃO AQUI -->
+                                    <option value="Admin B2B" {% if u.tipo_usuario == 'Admin B2B' %}selected{% endif %}>Gestor Parceiro (Admin B2B)</option>
                                 </select>
                             </div>
                             <div class="col-md-6 mb-3">

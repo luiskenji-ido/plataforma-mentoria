@@ -343,12 +343,26 @@ class AvaliacaoProjeto(db.Model):
 # ==============================================================================
 # 17. TABELA: Empresa (Parceiros B2B)
 # ==============================================================================
+# Tabela ponte para a relação muitos-para-muitos entre Empresa e Mentores
+empresa_mentor = db.Table('empresa_mentor',
+    db.Column('empresa_id', db.Integer, db.ForeignKey('empresa.id'), primary_key=True),
+    db.Column('mentor_id', db.Integer, db.ForeignKey('usuario.id'), primary_key=True)
+)
+
 class Empresa(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     nome = db.Column(db.String(150), nullable=False)
     contato_nome = db.Column(db.String(100), nullable=True)
     contato_email = db.Column(db.String(120), nullable=True)
     status = db.Column(db.String(50), default='Ativa') # Ativa / Inativa
+    
+    # NOVA LIGAÇÃO 1: O Gestor Parceiro (Admin B2B)
+    gestor_id = db.Column(db.Integer, db.ForeignKey('usuario.id'), nullable=True)
+    gestor = db.relationship('Usuario', foreign_keys=[gestor_id], backref='empresas_gerenciadas')
+    
+    # NOVA LIGAÇÃO 2: Os Mentores vinculados a esta empresa
+    mentores = db.relationship('Usuario', secondary=empresa_mentor, lazy='subquery',
+        backref=db.backref('empresas_vinculadas', lazy=True))
     
     # Uma empresa pode ter várias turmas
     turmas = db.relationship('Turma', backref='empresa', lazy=True)
