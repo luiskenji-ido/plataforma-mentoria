@@ -367,7 +367,7 @@ def dashboard():
     if current_user.tipo_usuario == 'Aluno':
         acompanhamentos = Acompanhamento.query.filter_by(aluno_id=current_user.id).all()
         total_sessoes = SessaoMentoria.query.filter_by(aluno_id=current_user.id).count()
-    elif current_user.tipo_usuario == 'Mentor':
+    elif current_user.tipo_usuario == ['Mentor','Professor']:
         # Filtra os acompanhamentos e totalizadores apenas para os alunos deste mentor
         acompanhamentos = Acompanhamento.query.join(Usuario, Acompanhamento.aluno_id == Usuario.id).filter(Usuario.mentores.any(id=current_user.id)).all()
         total_alunos = Usuario.query.filter(Usuario.tipo_usuario == 'Aluno', Usuario.mentores.any(id=current_user.id)).count()
@@ -650,11 +650,11 @@ def gerenciar_usuarios():
         return redirect(url_for('gerenciar_usuarios'))
     
     lista_usuarios = Usuario.query.all()
-    lista_mentores = Usuario.query.filter(Usuario.tipo_usuario.in_(['Mentor', 'Mentor Administrador'])).all()
+    lista_mentores = Usuario.query.filter(Usuario.tipo_usuario.in_(['Mentor', 'Mentor Administrador', 'Professor'])).all()
 
     # Busca todos os dados para montar a tela de Cadastros
     usuarios = Usuario.query.all()
-    mentores = Usuario.query.filter(Usuario.tipo_usuario.in_(['Mentor', 'Mentor Administrador'])).all()
+    mentores = Usuario.query.filter(Usuario.tipo_usuario.in_(['Mentor', 'Mentor Administrador', 'Professor'])).all()
     solicitacoes = SolicitacaoMentoria.query.order_by(SolicitacaoMentoria.data_solicitacao.desc()).all()
 
     # Puxa os dados da URL caso o admin tenha clicado em "Aprovar"
@@ -1056,7 +1056,7 @@ def acompanhamento():
 
     if current_user.tipo_usuario == 'Aluno':
         registros = Acompanhamento.query.filter_by(aluno_id=current_user.id).all()
-    elif current_user.tipo_usuario == 'Mentor':
+    elif current_user.tipo_usuario == ['Mentor', 'Professor']:
         registros = Acompanhamento.query.join(Usuario, Acompanhamento.aluno_id == Usuario.id).filter(Usuario.mentores.any(id=current_user.id)).all()
     else:
         registros = Acompanhamento.query.all()
@@ -1097,7 +1097,7 @@ def acompanhamento():
             'tempo_estudo': tempo_formatado
         })
         
-    if current_user.tipo_usuario == 'Mentor':
+    if current_user.tipo_usuario == ['Mentor', 'Professor']:
         lista_alunos = Usuario.query.filter(Usuario.tipo_usuario == 'Aluno', Usuario.mentores.any(id=current_user.id)).all()
     else:
         lista_alunos = Usuario.query.filter_by(tipo_usuario='Aluno').all()
@@ -1361,7 +1361,7 @@ def deletar_tarefa(id):
 @login_required
 def deletar_projeto(id):
     # 1. Trava de Segurança: Apenas os perfis autorizados podem deletar
-    perfis_autorizados = ['Mentor', 'Mentor Administrador', 'Administrador']
+    perfis_autorizados = ['Mentor', 'Mentor Administrador', 'Professor', 'Administrador']
     
     if current_user.tipo_usuario not in perfis_autorizados:
         flash('Acesso negado: Apenas mentores e administradores podem excluir projetos.', 'danger')
@@ -1564,7 +1564,7 @@ def sessoes():
             'feedbacks': feedbacks_detalhados
         })
         
-    if current_user.tipo_usuario == 'Mentor':
+    if current_user.tipo_usuario == ['Mentor', 'Professor']:
         lista_alunos = Usuario.query.filter(Usuario.tipo_usuario == 'Aluno', Usuario.mentores.any(id=current_user.id)).all()
     else:
         lista_alunos = Usuario.query.filter_by(tipo_usuario='Aluno').all()
@@ -2398,14 +2398,26 @@ def gerenciar_frequencia():
     if request.method == 'POST':
         freq_id = request.form.get('frequencia_id')
         obs_admin = request.form.get('observacoes_admin')
+        alterar_status = request.form.get('alterar_status') # Novo campo de ação do modal
         
         registro = db.session.get(Frequencia, freq_id)
         if registro:
             registro.validado_admin = True
             registro.admin_id = current_user.id
-            registro.observacoes_admin = obs_admin
+            
+            # Se o mentor preencheu observações, junta com o que já existia ou cria novo
+            if obs_admin:
+                if registro.observacoes_admin:
+                    registro.observacoes_admin += f" | {obs_admin}"
+                else:
+                    registro.observacoes_admin = obs_admin
+            
+            # Se o mentor escolheu alterar o status da falta/presença
+            if alterar_status:
+                registro.tipo_presenca = alterar_status
+                
             db.session.commit()
-            flash('Registo de presença validado com sucesso!', 'success')
+            flash('Registo de presença validado/atualizado com sucesso!', 'success')
             
         return redirect(url_for('gerenciar_frequencia'))
 
@@ -2440,10 +2452,10 @@ def gerenciar_frequencia():
     registros = query.order_by(Frequencia.data_registro.desc()).all()
 
     # ==========================================
-    # LÓGICA DO RANKING DE FALTAS (ALERTA DE RISCO)
+    # LÓGICA DO RANKING DE FALTAS (DETALHAMENTO)
     # ==========================================
     from sqlalchemy import func
-    # Agrupa por aluno, conta as faltas e traz o Top 5
+    # Agrupa por aluno, conta as faltas reais (ignorando justificadas)
     ranking_faltas = db.session.query(
         Usuario.nome,
         func.count(Frequencia.id).label('total_faltas')
@@ -2451,10 +2463,90 @@ def gerenciar_frequencia():
      .filter(Frequencia.tipo_presenca.in_(['Falta', 'Falta Automática'])) \
      .group_by(Usuario.id, Usuario.nome) \
      .order_by(func.count(Frequencia.id).desc()) \
-     .limit(5).all()
+     .limit(10).all()
 
     # Trazemos a lista de alunos para preencher o select do filtro
     alunos = Usuario.query.filter_by(tipo_usuario='Aluno').all()
+
+
+    # ==========================================
+    # CÁLCULOS DOS KPIs DE FREQUÊNCIA (REGRA MEC 75%)
+    # ==========================================
+    # 1. Total de Faltas Justificadas no sistema (Abonadas)
+    kpi_faltas_justificadas = Frequencia.query.filter(Frequencia.tipo_presenca == 'Falta Justificada').count()
+
+    # Preparação para calcular taxas por aluno
+    from datetime import datetime
+    hoje = datetime.utcnow().date()
+    
+    # Busca todas as turmas ativas que tenham alunos
+    turmas_ativas = Turma.query.filter(Turma.data_termino >= hoje).all()
+    
+    kpi_taxa_presenca_geral = 0
+    kpi_alunos_risco = 0
+    kpi_alunos_reprovados = 0
+    total_alunos_avaliados = 0
+    soma_taxas_presenca = 0
+
+    for turma in turmas_ativas:
+        # Calcular os dias letivos teóricos da turma até a data de hoje (para saber o progresso atual)
+        # Por simplificação, se o aluno entrou na turma, conta desde o início da turma
+        # Se a turma ainda não começou, pula
+        if turma.data_inicio > hoje:
+            continue
+            
+        # Calcula dias úteis (simplificado) desde o início da turma até hoje (ou término, o que for menor)
+        data_fim_calculo = hoje if hoje < turma.data_termino else turma.data_termino
+        dias_corridos = (data_fim_calculo - turma.data_inicio).days + 1
+        
+        # Desconta estimativa de finais de semana (5 dias úteis a cada 7)
+        semanas = dias_corridos // 7
+        dias_extras = dias_corridos % 7
+        dias_letivos_estimados = (semanas * 5) + min(dias_extras, 5) # Estimativa de total de aulas dadas
+
+        if dias_letivos_estimados <= 0:
+            continue
+            
+        limite_faltas = int(dias_letivos_estimados * 0.25) # 25% de faltas
+
+        for aluno in turma.alunos:
+            total_alunos_avaliados += 1
+            
+            # Conta presenças (Online + Presencial)
+            qtd_presencas = Frequencia.query.filter(
+                Frequencia.usuario_id == aluno.id,
+                Frequencia.tipo_presenca.in_(['Online', 'Presencial'])
+            ).count()
+            
+            # Conta faltas não justificadas
+            qtd_faltas = Frequencia.query.filter(
+                Frequencia.usuario_id == aluno.id,
+                Frequencia.tipo_presenca.in_(['Falta', 'Falta Automática'])
+            ).count()
+            
+            # Taxa de presença do aluno em relação ao esperado até hoje
+            # Para evitar 100% mágico se o aluno não bateu ponto, calculamos sobre o total letivo esperado
+            taxa_aluno = (qtd_presencas / dias_letivos_estimados) * 100 if dias_letivos_estimados > 0 else 100
+            # Trava para não passar de 100% se o aluno preencheu sábado/domingo
+            if taxa_aluno > 100: taxa_aluno = 100
+            
+            soma_taxas_presenca += taxa_aluno
+            
+            # Análise de Risco (MEC)
+            if qtd_faltas > limite_faltas:
+                # Já estourou os 25%
+                kpi_alunos_reprovados += 1
+            elif qtd_faltas >= (limite_faltas * 0.75):
+                # Usou 75% da sua "cota" de faltas - Está em risco!
+                kpi_alunos_risco += 1
+
+    if total_alunos_avaliados > 0:
+        kpi_taxa_presenca_geral = round(soma_taxas_presenca / total_alunos_avaliados)
+    else:
+        kpi_taxa_presenca_geral = 100 # Sem alunos, assumimos perfeição
+
+    # Formatando para a view
+    str_taxa_presenca = f"{kpi_taxa_presenca_geral}%"
 
     return render_template('admin_frequencia.html', 
                            registros=registros, 
@@ -2463,7 +2555,11 @@ def gerenciar_frequencia():
                            filtro_aluno=filtro_aluno,
                            filtro_tipo=filtro_tipo,
                            filtro_data_inicio=filtro_data_inicio,
-                           filtro_data_fim=filtro_data_fim)
+                           filtro_data_fim=filtro_data_fim,
+                           kpi_taxa_presenca=str_taxa_presenca,
+                           kpi_alunos_risco=kpi_alunos_risco,
+                           kpi_alunos_reprovados=kpi_alunos_reprovados,
+                           kpi_faltas_justificadas=kpi_faltas_justificadas)
 
 
 # ==============================================================================
@@ -2473,12 +2569,12 @@ def gerenciar_frequencia():
 def verificar_frequencia_diaria():
     precisa_registrar = False
     
-    # NOVA REGRA: Só dispara se estiver logado E for Aluno ou Mentor comum
-    if current_user.is_authenticated and current_user.tipo_usuario in ['Aluno', 'Mentor']:
+    # NOVA REGRA: Só dispara se estiver logado E for Aluno, Mentor ou Professor
+    if current_user.is_authenticated and current_user.tipo_usuario in ['Aluno', 'Mentor', 'Professor']:
         from datetime import datetime
         hoje = datetime.utcnow().date()
         
-        # Verifica se o usuário já bateu o ponto hoje
+        # Verifica se o usuário já bateu o ponto hoje (presença ou falta)
         ja_registrou = Frequencia.query.filter(
             Frequencia.usuario_id == current_user.id,
             db.func.date(Frequencia.data_registro) == hoje
@@ -2515,8 +2611,8 @@ def registrar_frequencia():
         db.session.add(nova_freq)
         db.session.commit()
         
-        if tipo == 'Falta':
-            flash('Ausência registrada automaticamente. Caso seja um erro, contate a administração.', 'danger')
+        if tipo == 'Falta' or tipo == 'Falta Automática':
+            flash('Ausência registrada automaticamente. Caso seja um erro, contate o seu mentor.', 'danger')
         else:
             flash('Presença registrada com sucesso! Bom trabalho.', 'success')
             
@@ -2775,7 +2871,7 @@ def gerenciar_turmas():
     alunos = Usuario.query.filter_by(tipo_usuario='Aluno', status='Ativo').all() 
     grupos = Grupo.query.order_by(Grupo.nome).all() 
     
-    lista_mentores = Usuario.query.filter(Usuario.tipo_usuario.in_(['Mentor', 'Mentor Administrador']), Usuario.status=='Ativo').all()
+    lista_mentores = Usuario.query.filter(Usuario.tipo_usuario.in_(['Mentor', 'Mentor Administrador', 'Professor']), Usuario.status=='Ativo').all()
     lista_gestores = Usuario.query.filter(Usuario.tipo_usuario.in_(['Administrador', 'Admin B2B']), Usuario.status=='Ativo').all()
 
     return render_template('admin_turmas.html', empresas=empresas, turmas=turmas, cursos=cursos, alunos=alunos, grupos=grupos, mentores=lista_mentores, gestores=lista_gestores)

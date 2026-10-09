@@ -387,3 +387,26 @@ class Turma(db.Model):
         backref=db.backref('turmas_como_aluno', lazy=True))
     mentores = db.relationship('Usuario', secondary=turma_mentor, lazy='subquery',
         backref=db.backref('turmas_como_mentor', lazy=True))
+
+# ==============================================================================
+# 19. NOVO MODELO: CHECK-IN POR AULA / CURSO (Pontualidade e Tempo de Estudo)
+# ==============================================================================
+class CheckinAula(db.Model):
+    __tablename__ = 'checkin_aula'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    usuario_id = db.Column(db.Integer, db.ForeignKey('usuario.id'), nullable=False)
+    curso_id = db.Column(db.Integer, db.ForeignKey('curso.id'), nullable=False)
+    
+    # Grava o momento exato do clique
+    data_hora_entrada = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    # Herda a modalidade do dia (Online ou Presencial)
+    modalidade = db.Column(db.String(20), nullable=True) 
+    
+    # Relacionamentos para facilitar a busca nos relatórios dos professores
+    usuario = db.relationship('Usuario', backref=db.backref('checkins_aulas', lazy=True))
+    curso = db.relationship('Curso', backref=db.backref('checkins_aulas', lazy=True))
+
+    def __repr__(self):
+        return f"<CheckinAula {self.usuario.nome} - {self.curso.nome_curso}>"

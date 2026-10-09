@@ -54,13 +54,13 @@
                     </div>
                     <div class="col-md-2 mb-3">
                         <label class="form-label text-muted">{{ t('nivel') }}</label>
-                        <select name="tipo_usuario" id="tipo_usuario_novo" class="form-select" required>
-                            <option value="Aluno" {% if request.form.get('tipo_usuario') == 'Aluno' %}selected{% endif %}>{{ t('nivel_aluno') }}</option>
-                            <option value="Mentor" {% if request.form.get('tipo_usuario') == 'Mentor' %}selected{% endif %}>{{ t('nivel_mentor') }}</option>
-                            <option value="Mentor Administrador" {% if request.form.get('tipo_usuario') == 'Mentor Administrador' %}selected{% endif %}>{{ t('nivel_mentor_admin') }}</option>
-                            <option value="Administrador" {% if request.form.get('tipo_usuario') == 'Administrador' %}selected{% endif %}>{{ t('nivel_administrador') }}</option>
-                            <!-- NOVA OPÇÃO AQUI -->
-                            <option value="Admin B2B" {% if request.form.get('tipo_usuario') == 'Admin B2B' %}selected{% endif %}>Gestor Parceiro (Admin B2B)</option>
+                        <select name="tipo_usuario" class="form-select" required>
+                            <option value="Aluno">Aluno</option>
+                            <option value="Professor">Professor</option>  <!-- ADICIONE ESTA LINHA -->
+                            <option value="Mentor">Mentor</option>
+                            <option value="Mentor Administrador">Mentor Administrador</option>
+                            <option value="Administrador">Administrador</option>
+                            <option value="Admin B2B">Gestor Parceiro (Admin B2B)</option>
                         </select>
                     </div>
                     <div class="col-md-2 mb-3">
@@ -256,6 +256,7 @@
                                 <label class="form-label">{{ t('nivel_acesso') }}</label>
                                 <select name="tipo_usuario" class="form-select">
                                     <option value="Aluno" {% if u.tipo_usuario == 'Aluno' %}selected{% endif %}>{{ t('nivel_aluno') }}</option>
+                                    <option value="Professor" {% if u.tipo_usuario == 'Professor' %}selected{% endif %}>Professor</option>
                                     <option value="Mentor" {% if u.tipo_usuario == 'Mentor' %}selected{% endif %}>{{ t('nivel_mentor') }}</option>
                                     <option value="Mentor Administrador" {% if u.tipo_usuario == 'Mentor Administrador' %}selected{% endif %}>{{ t('nivel_mentor_admin') }}</option>
                                     <option value="Administrador" {% if u.tipo_usuario == 'Administrador' %}selected{% endif %}>{{ t('nivel_administrador') }}</option>

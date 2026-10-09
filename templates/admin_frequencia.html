@@ -28,19 +28,68 @@
     </div>
 
     <!-- ==========================================
+         PAINEL DE KPIS (REGRA MEC 75%)
+         ========================================== -->
+    <div class="row mb-4 d-print-none g-3">
+        <!-- KPI 1: Taxa de Presença -->
+        <div class="col-md-3">
+            <div class="card shadow-sm border-0 border-start border-primary border-4 h-100">
+                <div class="card-body py-3">
+                    <div class="text-muted small fw-bold text-uppercase">Média de Presença</div>
+                    <div class="fs-3 fw-bold text-dark">{{ kpi_taxa_presenca | default('0%') }}</div>
+                    <div class="small text-muted"><i class="bi bi-graph-up text-primary"></i> Visão global da turma</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- KPI 2: Alunos em Risco (Abaixo de 75%) -->
+        <div class="col-md-3">
+            <div class="card shadow-sm border-0 border-start border-warning border-4 h-100 bg-warning-subtle">
+                <div class="card-body py-3">
+                    <div class="text-muted small fw-bold text-uppercase">Alerta (Em Risco)</div>
+                    <div class="fs-3 fw-bold text-warning-emphasis">{{ kpi_alunos_risco | default('0') }}</div>
+                    <div class="small text-muted"><i class="bi bi-exclamation-triangle"></i> Próximos de 25% de faltas</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- KPI 3: Reprovações por Infrequência -->
+        <div class="col-md-3">
+            <div class="card shadow-sm border-0 border-start border-danger border-4 h-100 bg-danger-subtle">
+                <div class="card-body py-3">
+                    <div class="text-muted small fw-bold text-uppercase">Infrequência Crítica</div>
+                    <div class="fs-3 fw-bold text-danger-emphasis">{{ kpi_alunos_reprovados | default('0') }}</div>
+                    <div class="small text-muted"><i class="bi bi-x-octagon"></i> Ultrapassaram limite de faltas</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- KPI 4: Faltas Justificadas -->
+        <div class="col-md-3">
+            <div class="card shadow-sm border-0 border-start border-success border-4 h-100">
+                <div class="card-body py-3">
+                    <div class="text-muted small fw-bold text-uppercase">Faltas Abonadas</div>
+                    <div class="fs-3 fw-bold text-success">{{ kpi_faltas_justificadas | default('0') }}</div>
+                    <div class="small text-muted"><i class="bi bi-shield-check text-success"></i> Justificadas pelos Mentores</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==========================================
          RANKING DE ALERTA (FALTAS)
          ========================================== -->
     <div class="row mb-4 d-print-none">
         <div class="col-12">
-            <h6 class="text-danger fw-bold mb-3"><i class="bi bi-exclamation-triangle-fill"></i> Alerta de Risco (Top Faltas Acumuladas)</h6>
+            <h6 class="text-danger fw-bold mb-3"><i class="bi bi-person-lines-fill"></i> Detalhamento de Ausências Pendentes</h6>
             <div class="d-flex gap-3 overflow-auto pb-2">
                 {% if ranking_faltas %}
                     {% for aluno, total in ranking_faltas %}
                     <div class="card border-danger shadow-sm" style="min-width: 250px;">
-                        <div class="card-body py-2 px-3 d-flex justify-content-between align-items-center bg-danger-subtle rounded">
+                        <div class="card-body py-2 px-3 d-flex justify-content-between align-items-center bg-white rounded">
                             <div>
                                 <strong class="text-danger d-block text-truncate" style="max-width: 160px;" title="{{ aluno }}">{{ aluno }}</strong>
-                                <small class="text-dark">Registo de ausências</small>
+                                <small class="text-muted">Registo de faltas diretas</small>
                             </div>
                             <span class="fs-4 fw-bold text-danger">{{ total }}</span>
                         </div>
@@ -76,6 +125,7 @@
                         <option value="">Todos</option>
                         <option value="Presencas" {% if filtro_tipo == 'Presencas' %}selected{% endif %}>🟢 Apenas Presenças</option>
                         <option value="Faltas" {% if filtro_tipo == 'Faltas' %}selected{% endif %}>🔴 Apenas Faltas</option>
+                        <option value="Justificadas" {% if filtro_tipo == 'Justificadas' %}selected{% endif %}>🛡️ Faltas Justificadas</option>
                         <option value="Online" {% if filtro_tipo == 'Online' %}selected{% endif %}>💻 Online</option>
                         <option value="Presencial" {% if filtro_tipo == 'Presencial' %}selected{% endif %}>🏢 Presencial</option>
                     </select>
@@ -101,7 +151,7 @@
          ========================================== -->
     <div class="card shadow-sm border-0" id="areaRelatorio">
         <div class="card-header bg-dark text-white py-3 d-flex justify-content-between align-items-center">
-            <h6 class="mb-0 fw-bold">Relatório de Acessos</h6>
+            <h6 class="mb-0 fw-bold">Relatório de Acessos e Frequência</h6>
             <span class="badge bg-light text-dark d-print-none">{{ registros|length }} registo(s) encontrado(s)</span>
         </div>
         <div class="card-body p-0">
@@ -133,6 +183,8 @@
                                     <span class="badge bg-success"><i class="bi bi-building"></i> Presencial</span>
                                 {% elif r.tipo_presenca == 'Online' %}
                                     <span class="badge bg-primary"><i class="bi bi-laptop"></i> Online</span>
+                                {% elif r.tipo_presenca == 'Falta Justificada' %}
+                                    <span class="badge bg-secondary"><i class="bi bi-shield-check"></i> Falta Justificada</span>
                                 {% else %}
                                     <span class="badge bg-danger"><i class="bi bi-x-circle"></i> Falta</span>
                                 {% endif %}
@@ -154,36 +206,48 @@
                             <td class="text-center pe-4 d-print-none">
                                 {% if not r.validado_admin %}
                                     <button type="button" class="btn btn-sm btn-outline-primary fw-bold" data-bs-toggle="modal" data-bs-target="#modalValidar{{ r.id }}">
-                                        Validar
+                                        Gerir Falta/Presença
                                     </button>
 
-                                    <!-- Modal de Validação -->
+                                    <!-- Modal de Validação / Justificativa -->
                                     <div class="modal fade text-start" id="modalValidar{{ r.id }}" tabindex="-1">
                                         <div class="modal-dialog">
                                             <div class="modal-content">
                                                 <form action="{{ url_for('gerenciar_frequencia') }}" method="POST">
                                                     <div class="modal-header bg-primary text-white">
-                                                        <h6 class="modal-title fw-bold">Validar Presença</h6>
+                                                        <h6 class="modal-title fw-bold">Gestão de Presença</h6>
                                                         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                                                     </div>
                                                     <div class="modal-body">
-                                                        <p class="mb-2">Confirmar o registo de <strong>{{ r.usuario.nome }}</strong>?</p>
+                                                        <p class="mb-3">A analisar o registo de <strong>{{ r.usuario.nome }}</strong> (Data: {{ r.data_registro.strftime('%d/%m/%Y') }}).</p>
                                                         <input type="hidden" name="frequencia_id" value="{{ r.id }}">
+                                                        
                                                         <div class="mb-3">
-                                                            <label class="form-label small fw-bold text-muted">Anotações da Equipa (Opcional):</label>
-                                                            <textarea name="observacoes_admin" class="form-control" rows="2" placeholder="Ex: Justificativa médica entregue..."></textarea>
+                                                            <label class="form-label small fw-bold text-muted">Ação de Correção (Opcional):</label>
+                                                            <select name="alterar_status" class="form-select form-select-sm border-secondary mb-2">
+                                                                <option value="">Manter estado atual ({{ r.tipo_presenca }})</option>
+                                                                <option value="Falta Justificada">Abonar (Converter em Falta Justificada)</option>
+                                                                <option value="Falta">Reprovar (Converter em Falta Injustificada)</option>
+                                                                <option value="Presencial">Converter para Presencial</option>
+                                                                <option value="Online">Converter para Online</option>
+                                                            </select>
+                                                        </div>
+
+                                                        <div class="mb-2">
+                                                            <label class="form-label small fw-bold text-muted">Anotações da Equipa (Visível no Diário):</label>
+                                                            <textarea name="observacoes_admin" class="form-control" rows="2" placeholder="Ex: Atestado médico entregue..."></textarea>
                                                         </div>
                                                     </div>
                                                     <div class="modal-footer">
                                                         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                                                        <button type="submit" class="btn btn-success fw-bold">✔️ Confirmar e Validar</button>
+                                                        <button type="submit" class="btn btn-success fw-bold">✔️ Gravar e Validar</button>
                                                     </div>
                                                 </form>
                                             </div>
                                         </div>
                                     </div>
                                 {% else %}
-                                    <button class="btn btn-sm btn-light text-muted" disabled><i class="bi bi-check-lg"></i></button>
+                                    <button class="btn btn-sm btn-light text-muted" disabled><i class="bi bi-check-lg"></i> Validado</button>
                                 {% endif %}
                             </td>
                         </tr>
@@ -215,7 +279,7 @@
                 placeholder: "Digite o nome para buscar...",
                 sortField: {
                     field: "text",
-                    direction: "asc" // Coloca a lista por ordem alfabética automaticamente
+                    direction: "asc" 
                 }
             });
         }
@@ -223,7 +287,6 @@
 </script>
 
 <style>
-    /* Ajuste para garantir que a caixa de pesquisa do Tom Select fica com o estilo certo no Tema Claro/Escuro */
     .ts-control {
         border-color: #6c757d !important;
         min-height: calc(1.5em + 0.5rem + 2px);
