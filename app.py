@@ -1104,9 +1104,12 @@ def acompanhamento():
         
     lista_cursos = Curso.query.filter_by(status='Ativo').all()
 
-    # Bloco blindado para verificar o check-in de aula hoje
-    from datetime import datetime
-    hoje = datetime.utcnow().date()
+    # Verificação robusta do Check-in de Aula para o dia de hoje
+    from datetime import datetime, time
+    
+    hoje_inicio = datetime.combine(datetime.utcnow().date(), time.min)
+    hoje_fim = datetime.combine(datetime.utcnow().date(), time.max)
+    
     for item in registros:
         aluno_id = getattr(item, 'aluno_id', None)
         if not aluno_id and hasattr(item, 'aluno') and item.aluno:
@@ -1117,13 +1120,14 @@ def acompanhamento():
             curso_id = item.curso.id
 
         if aluno_id and curso_id:
+            # Consulta por intervalo de tempo (muito mais seguro e fiável no SQLite)
             ja_tem = CheckinAula.query.filter(
                 CheckinAula.usuario_id == aluno_id,
                 CheckinAula.curso_id == curso_id,
-                db.func.date(CheckinAula.data_hora_entrada) == hoje
+                CheckinAula.data_hora_entrada >= hoje_inicio,
+                CheckinAula.data_hora_entrada <= hoje_fim
             ).first() is not None
             
-            # Atribui diretamente ao item para o HTML ler
             setattr(item, 'ja_fez_checkin_hoje', ja_tem)
         else:
             setattr(item, 'ja_fez_checkin_hoje', False)
