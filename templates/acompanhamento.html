@@ -377,9 +377,10 @@
                     <div class="col-md-4 d-flex flex-column align-items-end gap-2">
                         
                         <!-- LÓGICA DO CHECK-IN DE AULA (CADEADO VIRTUAL PARA ALUNOS) -->
+                        <!-- LÓGICA CORRIGIDA DO CHECK-IN DE AULA -->
                         {% if current_user.tipo_usuario == 'Aluno' %}
                             {% if item.ja_fez_checkin_hoje %}
-                                <!-- SE JÁ FEZ CHECK-IN HOJE: Libera o acesso ao curso -->
+                                <!-- SE JÁ FEZ CHECK-IN: Libera o acesso -->
                                 <div class="w-100 mb-1 text-center">
                                     <span class="badge bg-success-subtle text-success border border-success mb-1 w-100 py-1">
                                         <i class="bi bi-check-circle-fill"></i> Presença Registrada Hoje!
@@ -389,7 +390,7 @@
                                     {% endif %}
                                 </div>
                             {% else %}
-                                <!-- SE AINDA NÃO FEZ CHECK-IN: Exige o clique para liberar -->
+                                <!-- SE AINDA NÃO FEZ CHECK-IN: Mostra o botão trancado -->
                                 <div class="w-100 mb-1 p-2 bg-light border border-warning rounded text-center shadow-sm">
                                     <span class="d-block small text-warning-emphasis fw-bold mb-2">🔒 Aula Trancada</span>
                                     <form action="{{ url_for('fazer_checkin_aula') }}" method="POST">
@@ -401,7 +402,7 @@
                                 </div>
                             {% endif %}
                         {% else %}
-                            <!-- PARA MENTORES E ADMINS: Acesso direto normal -->
+                            <!-- PARA MENTORES E ADMINS -->
                             {% if item.curso.url %}
                                 <a href="{{ item.curso.url }}" target="_blank" class="btn btn-sm btn-acessar-curso w-100 text-center fw-bold mb-1">{{ t('acessar_curso') }}</a>
                             {% endif %}

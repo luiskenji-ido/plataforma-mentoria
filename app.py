@@ -1108,28 +1108,25 @@ def acompanhamento():
     from datetime import datetime
     hoje = datetime.utcnow().date()
     for item in registros:
-        # Descobre os IDs de forma segura, seja qual for a estrutura do objeto
         aluno_id = getattr(item, 'aluno_id', None)
         if not aluno_id and hasattr(item, 'aluno') and item.aluno:
             aluno_id = item.aluno.id
-        if not aluno_id and hasattr(item, 'reg') and hasattr(item.reg, 'aluno_id'):
-            aluno_id = item.reg.aluno_id
 
         curso_id = getattr(item, 'curso_id', None)
         if not curso_id and hasattr(item, 'curso') and item.curso:
             curso_id = item.curso.id
-        if not curso_id and hasattr(item, 'reg') and hasattr(item.reg, 'curso_id'):
-            curso_id = item.reg.curso_id
 
-        # Faz a consulta ao banco apenas se encontrou os IDs com sucesso
         if aluno_id and curso_id:
-            item.ja_fez_checkin_hoje = CheckinAula.query.filter(
+            ja_tem = CheckinAula.query.filter(
                 CheckinAula.usuario_id == aluno_id,
                 CheckinAula.curso_id == curso_id,
                 db.func.date(CheckinAula.data_hora_entrada) == hoje
             ).first() is not None
+            
+            # Atribui diretamente ao item para o HTML ler
+            setattr(item, 'ja_fez_checkin_hoje', ja_tem)
         else:
-            item.ja_fez_checkin_hoje = False
+            setattr(item, 'ja_fez_checkin_hoje', False)
     
     # ESTA É A LINHA QUE FALTAVA PARA A TELA CARREGAR:
     return render_template('acompanhamento.html', registros=detalhes, alunos=lista_alunos, cursos=lista_cursos)
