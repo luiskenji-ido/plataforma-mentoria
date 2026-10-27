@@ -993,55 +993,61 @@ def acompanhamento():
                 if slot_datas:
                     curso_obj = db.session.get(Curso, regstro.curso_id)
                     
-                    # 1. Recupera o histórico para não apagar os dias anteriores guardados
+                    # 1. Recupera o histórico para não apagar dias anteriores já guardados
                     horarios_salvos = {}
                     if regstro.planejamento_estudos:
                         for slot in regstro.planejamento_estudos.split('|'):
                             partes = slot.split('::')
                             if len(partes) == 3:
-                                horarios_salvos[partes[0]] = slot # A chave é a data (ex: 28/09/2026)
+                                horarios_salvos[partes[0]] = slot # A chave é a data
                                 
-                    from datetime import datetime as dt_seguro
-                    hoje = dt_seguro.now().date()
+                    # 2. Configura a data correta do Brasil (Crucial para servidores na nuvem)
+                    from datetime import datetime as dt_seguro, timedelta, timezone
+                    fuso_br = timezone(timedelta(hours=-3))
+                    hoje = dt_seguro.now(fuso_br).date()
+                    
                     tentou_passado = False
                     
                     for i in range(len(slot_datas)):
+                        if not slot_datas[i]: continue
+                        
                         ano, mes, dia = slot_datas[i].split('-')
                         data_br = f"{dia}/{mes}/{ano}"
+                        data_slot = dt_seguro.strptime(slot_datas[i], '%Y-%m-%d').date()
                         
                         # Se o aluno preencheu os horários
                         if slot_inicios[i] and slot_fims[i]:
-                            data_slot = dt_seguro.strptime(slot_datas[i], '%Y-%m-%d')
                             
-                            # 2. Bloqueio de Viagem no Tempo (Impede gravar no passado)
-                            if data_slot.date() < hoje:
+                            # 3. Bloqueio de Viagem no Tempo (usando fuso BR)
+                            if data_slot < hoje:
                                 tentou_passado = True
-                                continue # Pula este dia e vai para o próximo
+                                continue # Pula e não grava este dia no banco nem na agenda
                                 
-                            # Atualiza a nossa memória com o horário novo/modificado
+                            # Grava na nossa base de dados (se for hoje ou futuro)
                             horarios_salvos[data_br] = f"{data_br}::{slot_inicios[i]}::{slot_fims[i]}"
                             
                             try:
                                 sincronizar_evento_google(
                                     titulo=f"Estudo: {curso_obj.nome_curso}",
                                     descricao=f"Sessão focada no curso: {curso_obj.nome_curso}.",
-                                    data_inicio=data_slot,
+                                    data_inicio=dt_seguro.strptime(slot_datas[i], '%Y-%m-%d'),
                                     horario_str=slot_inicios[i],
                                     horario_fim_str=slot_fims[i]
                                 )
                             except Exception:
                                 pass
                         
-                        # Se a data veio em branco, significa que o utilizador apagou esse dia de propósito
-                        else:
+                        # Se a hora veio em branco (o utilizador apagou no formulário para cancelar o estudo)
+                        elif not slot_inicios[i] and not slot_fims[i]:
                             if data_br in horarios_salvos:
                                 del horarios_salvos[data_br]
                                 
-                    # Grava a junção do passado com o futuro na base de dados
+                    # Atualiza o banco de dados fundindo o passado e o futuro
                     regstro.planejamento_estudos = "|".join(horarios_salvos.values()) if horarios_salvos else None
                     
+                    # 4. Dispara a mensagem de erro ANTES de gravar as outras alterações
                     if tentou_passado:
-                        flash("Atenção: Não é possível agendar horários para datas que já passaram. Apenas os dias futuros foram sincronizados.", "warning")
+                        flash("⚠️ Atenção: Tentativa de agendamento no passado! Apenas as datas futuras foram processadas.", "warning")
 
                 db.session.commit()
                 flash("Acompanhamento atualizado com sucesso!", "success")
