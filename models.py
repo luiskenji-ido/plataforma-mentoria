@@ -354,6 +354,9 @@ class Empresa(db.Model):
     nome = db.Column(db.String(150), nullable=False)
     contato_nome = db.Column(db.String(100), nullable=True)
     contato_email = db.Column(db.String(120), nullable=True)
+    # Adicione estas duas linhas abaixo dos contatos principais:
+    contato_sec_nome = db.Column(db.String(150), nullable=True)
+    contato_sec_email = db.Column(db.String(150), nullable=True)
     status = db.Column(db.String(50), default='Ativa') # Ativa / Inativa
     
     # NOVA LIGAÇÃO 1: O Gestor Parceiro (Admin B2B)

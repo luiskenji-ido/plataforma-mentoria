@@ -326,6 +326,7 @@ import re
 @app.route('/dashboard')
 @login_required
 def dashboard():
+
     nome_do_mentor = "Não atribuído"
     if current_user.tipo_usuario == 'Aluno':
         if hasattr(current_user, 'mentores'):
@@ -741,7 +742,7 @@ def editar_curso(id):
         if novo_status == 'Desativado' and status_anterior != 'Desativado':
             if not motivo or motivo.strip() == '':
                 flash("Operação Cancelada: É obrigatório informar o motivo ao desativar um curso.", "danger")
-                return redirect(url_for('gerenciar_cursos'))
+                return redirect(url_for('gerenciar_turmas'))
                 
             curso.status = 'Desativado'
             curso.motivo_desativacao = motivo
@@ -773,7 +774,7 @@ def editar_curso(id):
         db.session.commit()
         flash(f"Curso '{curso.nome_curso}' atualizado com sucesso!", "success")
         
-    return redirect(url_for('gerenciar_cursos'))
+    return redirect(url_for('gerenciar_turmas'))
 
 
 app.config['UPLOAD_FOLDER'] = os.path.join(app.root_path, 'uploads')
@@ -790,6 +791,7 @@ import os
 @app.route('/acompanhamento', methods=['GET', 'POST'])
 @login_required
 def acompanhamento():
+    from datetime import datetime  # <--- ADICIONE ESTA LINHA AQUI
     if request.method == 'POST':
         # --- NOVA FUNÇÃO: EXCLUIR MATERIAIS DE APOIO ---
         if request.form.get('acao') == 'excluir_materiais':
@@ -1731,7 +1733,7 @@ def deletar_curso(id):
     else:
         flash("Curso não encontrado.", "danger")
         
-    return redirect(url_for('gerenciar_cursos'))
+    return redirect(url_for('gerenciar_turmas'))
 
 
 # ---------------------------------------------------------
@@ -2650,15 +2652,18 @@ def gerenciar_frequencia():
 def verificar_frequencia_diaria():
     precisa_registrar = False
     
-    # NOVA REGRA: Só dispara se estiver logado E for Aluno, Mentor ou Professor
+    # Só dispara se estiver logado E for Aluno, Mentor ou Professor
     if current_user.is_authenticated and current_user.tipo_usuario in ['Aluno', 'Mentor', 'Professor']:
-        from datetime import datetime
-        hoje = datetime.utcnow().date()
+        from datetime import datetime, time
         
-        # Verifica se o usuário já bateu o ponto hoje (presença ou falta)
+        hoje_inicio = datetime.combine(datetime.utcnow().date(), time.min)
+        hoje_fim = datetime.combine(datetime.utcnow().date(), time.max)
+        
+        # Verificação blindada com intervalo exato de tempo
         ja_registrou = Frequencia.query.filter(
             Frequencia.usuario_id == current_user.id,
-            db.func.date(Frequencia.data_registro) == hoje
+            Frequencia.data_registro >= hoje_inicio,
+            Frequencia.data_registro <= hoje_fim
         ).first()
         
         if not ja_registrou:
@@ -2706,6 +2711,7 @@ def registrar_frequencia():
 @app.route('/admin/turmas', methods=['GET', 'POST'])
 @login_required
 def gerenciar_turmas():
+    from datetime import datetime  # <--- ADICIONE ESTA LINHA AQUI
     if current_user.tipo_usuario not in ['Administrador', 'Mentor Administrador', 'Admin B2B']:
         flash('Acesso negado. Apenas a equipa de gestão pode aceder ao Hub Educacional.', 'danger')
         return redirect(url_for('dashboard'))
@@ -2730,10 +2736,9 @@ def gerenciar_turmas():
                 plataforma=plataforma,
                 tipo=tipo,
                 carga_horaria=carga_horaria,
-                link=link,
+                url=link,  # <--- Tem de estar escrito "url=" do lado esquerdo
                 exige_certificado=exige_certificado,
                 status=status,
-                cadastrado_por=current_user.id
             )
             db.session.add(novo_curso)
             db.session.commit()
@@ -2749,16 +2754,15 @@ def gerenciar_turmas():
             c2_nome = request.form.get('contato_sec_nome')
             c2_email = request.form.get('contato_sec_email')
             
-            nome_final = f"{c1_nome} | 2º: {c2_nome}" if c2_nome else c1_nome
-            email_final = f"{c1_email} | 2º: {c2_email}" if c2_email else c1_email
-            
             gestor_id = request.form.get('gestor_id')
             mentores_selecionados = request.form.getlist('mentores_ids')
             
             nova_emp = Empresa(
                 nome=nome, 
-                contato_nome=nome_final, 
-                contato_email=email_final,
+                contato_nome=c1_nome, 
+                contato_email=c1_email,
+                contato_sec_nome=c2_nome,       # NOVO: Salva direto na coluna certa
+                contato_sec_email=c2_email,     # NOVO: Salva direto na coluna certa
                 gestor_id=int(gestor_id) if gestor_id else None
             )
             db.session.add(nova_emp)
@@ -2780,12 +2784,27 @@ def gerenciar_turmas():
             empresa = db.session.get(Empresa, int(emp_id))
             
             if empresa:
-                empresa.nome = request.form.get('nome')
+                # O 'nome' agora é obrigatório e vem preenchido do HTML correto
+                novo_nome = request.form.get('nome')
+                if novo_nome: 
+                    empresa.nome = novo_nome
+                
                 empresa.contato_nome = request.form.get('contatos')
                 empresa.contato_email = request.form.get('emails')
+                empresa.contato_sec_nome = request.form.get('contato_sec_nome')
+                empresa.contato_sec_email = request.form.get('contato_sec_email')
                 
                 gestor_id = request.form.get('gestor_id')
                 empresa.gestor_id = int(gestor_id) if gestor_id else None
+                
+                mentores_selecionados = request.form.getlist('mentores_ids')
+                empresa.mentores = [] 
+                
+                if mentores_selecionados:
+                    for mid in mentores_selecionados:
+                        mentor_obj = db.session.get(Usuario, int(mid))
+                        if mentor_obj:
+                            empresa.mentores.append(mentor_obj)
                 
                 db.session.commit()
                 flash(f'Dados da empresa "{empresa.nome}" atualizados com sucesso!', 'success')
@@ -2798,7 +2817,6 @@ def gerenciar_turmas():
             empresa_id = request.form.get('empresa_id')
             grupo_id = request.form.get('grupo_id') 
             cursos_selecionados = request.form.getlist('cursos_ids')
-            mentores_selecionados = request.form.getlist('mentores_ids')
             data_inicio_str = request.form.get('data_inicio')
             data_termino_str = request.form.get('data_termino')
 
@@ -2825,11 +2843,6 @@ def gerenciar_turmas():
                         if curso_obj:
                             nova_turma.cursos.append(curso_obj)
                             
-                    for mid in mentores_selecionados:
-                        mentor_obj = db.session.get(Usuario, int(mid))
-                        if mentor_obj:
-                            nova_turma.mentores.append(mentor_obj)
-                            
                     if grupo_id:
                         grupo_obj = db.session.get(Grupo, int(grupo_id))
                         if grupo_obj:
@@ -2850,7 +2863,7 @@ def gerenciar_turmas():
                                             db.session.add(novo_acomp)
                                             
                     db.session.commit()
-                    flash(f'Turma "{nome}" criada e alunos matriculados automaticamente!', 'success')
+                    flash(f'Turma "{nome}" criada e alunos matriculados!', 'success')
                     
                 except Exception as e:
                     db.session.rollback()
@@ -2911,6 +2924,8 @@ def gerenciar_turmas():
         # 6. Módulo: Criação Rápida de Usuário (Atalho do Hub)
         # ---------------------------------------------------------
         elif acao == 'novo_usuario_rapido':
+            from datetime import datetime # NOVO: Importando a biblioteca de data/hora
+
             nome = request.form.get('nome_usuario')
             email = request.form.get('email_usuario').strip()
             tipo_usuario = request.form.get('tipo_usuario_rapido')
@@ -2935,8 +2950,92 @@ def gerenciar_turmas():
                 db.session.commit()
                 flash(f"{tipo_usuario} '{nome}' cadastrado com sucesso! Já o pode selecionar na lista.", "success")
 
-        # FIM DO BLOCO POST: Redireciona para evitar reenvio de formulário
-        return redirect(url_for('gerenciar_turmas'))
+        # ---------------------------------------------------------
+        # 7. Módulo: Importação em Massa (Planilha CSV)
+        # ---------------------------------------------------------
+        elif acao == 'importar_csv':
+            import csv
+            import io
+            
+            arquivo = request.files.get('arquivo_csv')
+            
+            if arquivo and arquivo.filename.endswith('.csv'):
+                try:
+                    # Lê o arquivo que o usuário enviou
+                    stream = io.StringIO(arquivo.stream.read().decode("UTF8"), newline=None)
+                    leitor_csv = csv.DictReader(stream)
+                    
+                    sucessos = 0
+                    ignorados = 0
+                    
+                    for linha in leitor_csv:
+                        # Procura pelas colunas 'nome' e 'email' (ignorando maiúsculas/minúsculas)
+                        nome_csv = linha.get('nome') or linha.get('Nome') or linha.get('NOME')
+                        email_csv = linha.get('email') or linha.get('Email') or linha.get('EMAIL')
+                        
+                        if nome_csv and email_csv:
+                            email_limpo = email_csv.strip().lower()
+                            
+                            # Só cria o aluno se o e-mail não existir no sistema
+                            if not Usuario.query.filter_by(email=email_limpo).first():
+                                senha_padrao = bcrypt.generate_password_hash("Mudar@123").decode('utf-8')
+                                novo_aluno = Usuario(
+                                    nome=nome_csv.strip(),
+                                    email=email_limpo,
+                                    tipo_usuario='Aluno',
+                                    status='Ativo',
+                                    senha=senha_padrao,
+                                    forcar_troca_senha=True
+                                )
+                                db.session.add(novo_aluno)
+                                sucessos += 1
+                            else:
+                                ignorados += 1
+                                
+                    db.session.commit()
+                    
+                    mensagem = f'{sucessos} novos alunos importados com sucesso!'
+                    if ignorados > 0:
+                        mensagem += f' ({ignorados} e-mails já existiam e foram ignorados).'
+                    flash(mensagem, 'success')
+                    
+                except Exception as e:
+                    flash(f'Erro ao ler o arquivo. Certifique-se de que é um CSV válido. Detalhe: {str(e)}', 'danger')
+            else:
+                flash('Formato inválido. Por favor, envie um arquivo .csv', 'danger')
+
+        # ---------------------------------------------------------
+        # 8. Módulo: Editar e Excluir Turma
+        # ---------------------------------------------------------
+        elif acao == 'editar_turma':
+            turma_id = request.form.get('turma_id')
+            turma = db.session.get(Turma, int(turma_id))
+            
+            if turma:
+                turma.nome = request.form.get('nome')
+                data_inicio_str = request.form.get('data_inicio')
+                data_termino_str = request.form.get('data_termino')
+                
+                if data_inicio_str and data_termino_str:
+                    from datetime import datetime
+                    turma.data_inicio = datetime.strptime(data_inicio_str, '%Y-%m-%d').date()
+                    turma.data_termino = datetime.strptime(data_termino_str, '%Y-%m-%d').date()
+                            
+                db.session.commit()
+                flash(f'Turma "{turma.nome}" atualizada com sucesso!', 'success')
+
+        # ---------------------------------------------------------
+        # 9. Módulo: Excluir Turma
+        # ---------------------------------------------------------
+        elif acao == 'excluir_turma':
+            turma_id = request.form.get('turma_id')
+            turma = db.session.get(Turma, int(turma_id))
+            
+            if turma:
+                nome_turma = turma.nome
+                db.session.delete(turma)
+                db.session.commit()
+                flash(f'Turma "{nome_turma}" excluída com sucesso!', 'success')
 
     # =========================================================
     # CARREGAMENTO DE DADOS PARA PREENCHER AS 3 ABAS DA TELA (MÉTODO GET)
@@ -2954,6 +3053,41 @@ def gerenciar_turmas():
     
     lista_mentores = Usuario.query.filter(Usuario.tipo_usuario.in_(['Mentor', 'Mentor Administrador', 'Professor']), Usuario.status=='Ativo').all()
     lista_gestores = Usuario.query.filter(Usuario.tipo_usuario.in_(['Administrador', 'Admin B2B']), Usuario.status=='Ativo').all()
+
+    # ... (código existente da função gerenciar_turmas) ...
+    
+    # 1. Puxar as informações do banco
+    cursos = Curso.query.order_by(Curso.nome_curso).all()
+    empresas = Empresa.query.order_by(Empresa.nome).all()
+    grupos = Grupo.query.order_by(Grupo.nome).all()
+    turmas = Turma.query.order_by(Turma.data_inicio.desc()).all()
+    
+    # Traz apenas quem é puramente Mentor (ignora os gestores Admin B2B para não dar erro)
+    mentores = Usuario.query.filter(Usuario.tipo_usuario.in_(['Mentor', 'Mentor Administrador', 'Professor']), Usuario.status=='Ativo').all()
+    gestores = Usuario.query.filter(Usuario.tipo_usuario.in_(['Administrador', 'Admin B2B']), Usuario.status=='Ativo').all()
+    alunos = Usuario.query.filter_by(tipo_usuario='Aluno', status='Ativo').all()
+
+    # --- LÓGICA BLINDADA: MENTORES DISPONÍVEIS (POR ID) ---
+    mentores_em_uso_ids = []
+    for emp in empresas:
+        for m in emp.mentores:
+            mentores_em_uso_ids.append(m.id)
+            
+    # Filtra mantendo APENAS os mentores cujo ID NÃO está na lista de uso
+    mentores_disponiveis = [m for m in mentores if m.id not in mentores_em_uso_ids]
+    # ------------------------------------------------------
+
+    # 2. Enviar tudo para o HTML
+    return render_template('admin_turmas.html', 
+                           cursos=cursos, 
+                           empresas=empresas,
+                           grupos=grupos,
+                           turmas=turmas,
+                           mentores=mentores,
+                           gestores=gestores,
+                           alunos=alunos,
+                           mentores_disponiveis=mentores_disponiveis)
+
 
     return render_template('admin_turmas.html', empresas=empresas, turmas=turmas, cursos=cursos, alunos=alunos, grupos=grupos, mentores=lista_mentores, gestores=lista_gestores)
     
@@ -3013,6 +3147,24 @@ def gerenciar_notas():
 
     return render_template('admin_notas.html', turmas=turmas, turma_selecionada=turma_selecionada, dados=dados_tabela)
 
+# =========================================================
+# ROTA INVISÍVEL PARA BUSCAR MENTORES DA EMPRESA (VIA AJAX)
+# =========================================================
+@app.route('/api/mentores_empresa/<int:empresa_id>')
+@login_required
+def api_mentores_empresa(empresa_id):
+    from flask import jsonify
+    from models import Empresa
+    
+    empresa = db.session.get(Empresa, empresa_id)
+    
+    if empresa:
+        # Pega apenas os mentores desta empresa específica.
+        # CRÍTICO: Transforma o ID num texto (str) para evitar bugs no TomSelect
+        mentores_data = [{"id": str(m.id), "nome": m.nome} for m in empresa.mentores]
+        return jsonify(mentores_data)
+    
+    return jsonify([]) # Se não tiver empresa, devolve vazio
 
 # ===========================================================================
 # EXECUÇÃO DO APLICATIVO (DEVE SER SEMPRE O ÚLTIMO BLOCO DO FICHEIRO)
@@ -3081,6 +3233,18 @@ if __name__ == '__main__':
         except:
             pass
 
+        # 8. Injeta as novas colunas de Contato Secundário na Empresa
+        try:
+            db.session.execute(text("ALTER TABLE empresa ADD COLUMN contato_sec_nome VARCHAR(150)"))
+            db.session.commit()
+        except:
+            db.session.rollback()
+
+        try:
+            db.session.execute(text("ALTER TABLE empresa ADD COLUMN contato_sec_email VARCHAR(150)"))
+            db.session.commit()
+        except:
+            db.session.rollback()
 
 
     # --- LIGA O MOTOR DE BACKUP AUTOMÁTICO AQUI ---

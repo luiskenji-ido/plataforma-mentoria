@@ -19,27 +19,18 @@
       {% endif %}
     {% endwith %}
 
-    <h2 class="mb-4 text-primary fw-bold">{{ t('gerenciamento_cadastros') }}</h2>
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 class="text-primary fw-bold mb-0">{{ t('gerenciamento_cadastros') }}</h2>
+    </div>
     
     <!-- Formulário de Criação -->
-    <div class="card shadow-sm mb-5 border-0">
-        <!-- Formulário de Criação -->
-        <div class="card shadow-sm mb-5 border-0">
-            
-            <!-- ============================================================================== -->
-            <!-- CABEÇALHO MODIFICADO: Usa flexbox para alinhar o título e o novo botão lado a lado -->
-            <!-- ============================================================================== -->
-            <div class="card-header bg-white fw-bold text-success d-flex justify-content-between align-items-center">
-                <!-- Título original de cadastro de usuários -->
-                <span>{{ t('cadastrar_novo_usuario') }}</span>
-                
-                <!-- ============================================================================== -->
-                <!-- NOVO BOTÃO: Atalho direto para a página de criação de Grupos/Turmas        -->
-                <!-- ============================================================================== -->
-                <a href="{{ url_for('gerenciar_grupos') }}" class="btn btn-sm btn-outline-primary fw-bold">
-                    <i class="bi bi-people"></i> + Cadastrar Novo Grupo
-                </a>
-            </div>
+    <div class="card shadow-sm mb-4 border-0">
+        <div class="card-header bg-white fw-bold text-success d-flex justify-content-between align-items-center">
+            <span>{{ t('cadastrar_novo_usuario') }}</span>
+            <a href="{{ url_for('gerenciar_grupos') }}" class="btn btn-sm btn-outline-primary fw-bold">
+                <i class="bi bi-people"></i> + Cadastrar Novo Grupo
+            </a>
+        </div>
 
         <div class="card-body">
             <form method="POST" action="{{ url_for('gerenciar_usuarios') }}">
@@ -54,9 +45,10 @@
                     </div>
                     <div class="col-md-2 mb-3">
                         <label class="form-label text-muted">{{ t('nivel') }}</label>
-                        <select name="tipo_usuario" class="form-select" required>
+                        <!-- CORREÇÃO AQUI: Adicionado id="tipo_usuario_novo" para o JS funcionar -->
+                        <select name="tipo_usuario" id="tipo_usuario_novo" class="form-select" required>
                             <option value="Aluno">Aluno</option>
-                            <option value="Professor">Professor</option>  <!-- ADICIONE ESTA LINHA -->
+                            <option value="Professor">Professor</option>
                             <option value="Mentor">Mentor</option>
                             <option value="Mentor Administrador">Mentor Administrador</option>
                             <option value="Administrador">Administrador</option>
@@ -76,40 +68,15 @@
                         <input type="password" name="senha" class="form-control" required>
                     </div>
                     
-                    <!-- CAMPO PARA SELECIONAR MENTORES (CHECKBOXES MODERNAS) -->
-                    <div class="col-12 mb-3" id="bloco_mentores_novo" style="display: none;">
-                        <div class="p-3 bg-light border rounded">
-                            <label class="form-label text-primary fw-bold mb-3">🎓 {{ t('atribuir_mentores_cadastro') }}</label>
-                            
-                            <div class="row">
-                                {% for mentor in mentores %}
-                                    <div class="col-md-4 mb-2">
-                                        <input class="form-check-input m-0 me-2" type="checkbox" name="mentores" value="{{ mentor.id }}" id="mentor_novo_{{ mentor.id }}">
-                                            <label class="form-check-label w-100 cursor-pointer" for="mentor_novo_{{ mentor.id }}">
-                                                <strong>{{ mentor.nome }}</strong>
-                                                <span class="badge bg-secondary ms-1" style="font-size: 0.65rem;">{{ mentor.tipo_usuario }}</span>
-                                            </label>
-                                        </div>
-                                {% else %}
-                                    <div class="col-12 text-muted small">Nenhum mentor disponível no sistema.</div>
-                                {% endfor %}
-                            </div>
-
-                            <div class="form-text text-muted mt-2">
-                                <small>💡 {{ t('dica_selecao_multipla') }}</small>
-                            </div>
+                                        <!-- Checkbox de Forçar Troca no Cadastro -->
+                    <div class="col-12 mb-3">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" name="forcar_troca_senha" value="True" id="forcar_troca_novo" checked>
+                            <label class="form-check-label text-muted fw-bold" for="forcar_troca_novo">
+                                {{ t('exigir_troca_senha') }}
+                            </label>
                         </div>
                     </div>
-
-                    <!-- Checkbox de Forçar Troca no Cadastro -->
-                    <div class="col-12 mb-3">
-                    <div class="form-check">
-                        <input class="form-check-input" type="checkbox" name="forcar_troca_senha" value="True" id="forcar_troca_novo" checked>
-                        <label class="form-check-label text-muted fw-bold" for="forcar_troca_novo">
-                            {{ t('exigir_troca_senha') }}
-                        </label>
-                    </div>
-                </div>
                 </div>
                 <button type="submit" class="btn btn-success px-4 w-100">{{ t('salvar_cadastro') }}</button>
             </form>
@@ -117,98 +84,178 @@
     </div>
 
 
-<!-- Tabela de Usuários Cadastrados -->
-<div class="card shadow-sm border-0 mb-5">
-
+    <!-- ========================================================= -->
+    <!-- ÁREA DE TABELAS (SEPARADAS POR ABAS / TABS)                 -->
+    <!-- ========================================================= -->
     
-    <!-- Tabela de Usuários Cadastrados -->
-    <div class="card shadow-sm border-0 mb-5">
-        <div class="card-header bg-white fw-bold text-secondary d-flex justify-content-between align-items-center">
-            <span>{{ t('usuarios_sistema') }}</span>
-            <input type="text" id="filtroUsuarios" class="form-control form-control-sm w-25" placeholder="Buscar aluno, e-mail ou mentor...">
-        </div>
-        <div class="card-body p-0">
-            <table class="table table-hover align-middle mb-0 text-center">
-                <thead class="table-light">
-                    <tr>
-                        <th>{{ t('col_id') }}</th>
-                        <th>{{ t('nome') }}</th>
-                        <th>{{ t('email') }}</th>
-                        <th>{{ t('nivel') }}</th>
-                        <th>Mentores</th>
-                        <th>{{ t('status') }}</th>
-                        <th>{{ t('data_criacao') }}</th>
-                        <th>{{ t('criado_por') }}</th>
-                        <th>{{ t('seguranca_senha') }}</th>
-                        <th>{{ t('acoes') }}</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for u in usuarios %}
-                    <tr class="linha-usuario">
-                        <td>{{ u.id }}</td>
-                        <td class="fw-bold">{{ u.nome }}</td>
-                        <td>{{ u.email }}</td>
-                        <td>
-                            <span class="badge bg-secondary">
-                                {% if u.tipo_usuario == 'Aluno' %}
-                                    {{ t('nivel_aluno') }}
-                                {% elif u.tipo_usuario == 'Mentor' %}
-                                    {{ t('nivel_mentor') }}
-                                {% elif u.tipo_usuario == 'Mentor Administrador' %}
-                                    {{ t('nivel_mentor_admin') }}
-                                {% else %}
-                                    {{ t('nivel_administrador') }}
-                                {% endif %}
-                            </span>
-                            </td>
-                            <!-- NOVA COLUNA DE MENTORES -->
-                        <td class="text-muted small">
-                            {% if u.tipo_usuario == 'Aluno' %}
-                                {% set mentores_lista = u.mentores.all() %}
-                                {% if mentores_lista %}
-                                    {% for m in mentores_lista %}
-                                        <span class="badge bg-light text-dark border">{{ m.nome }}</span><br>
-                                    {% endfor %}
-                                {% else %}
-                                    <span class="text-danger">Sem mentor</span>
-                                {% endif %}
-                            {% else %}
-                                -
-                            {% endif %}
-                        </td>
-                        <!-- FIM DA NOVA COLUNA -->
-                        <td>
-                            {% if u.status == 'Ativo' %}
-                                <span class="badge bg-success">{{ t('ativo') }}</span>
-                            {% elif u.status == 'Ausente' %}
-                                <span class="badge bg-warning text-dark">{{ t('status_ausente') }}</span>
-                            {% elif u.status == 'Bloqueado' %}
-                                <span class="badge bg-danger border border-dark">Bloqueado (Senha 5x)</span>
-                            {% else %}
-                                <span class="badge bg-secondary">{{ t('status_desativado') }}</span>
-                            {% endif %}
-                        </td>
-                        <td class="text-muted small">
-                            {{ u.data_criacao.strftime('%d/%m/%Y às %H:%M') if u.data_criacao else 'Não registrada' }}
-                        </td>
-                        <td class="text-muted small fw-bold">
-                            {{ u.criado_por or 'Sistema' }}
-                        </td>
-                        <td class="text-muted small">
-                            Última troca: {{ u.data_ultima_troca_senha.strftime('%d/%m/%Y') if u.data_ultima_troca_senha else 'N/A' }}
-                        </td>
-                        <td>
-                            <button class="btn btn-sm btn-outline-primary fw-bold" data-bs-toggle="modal" data-bs-target="#modalEditar{{ u.id }}">
-                                {{ t('editar') }}
-                            </button>
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+    <!-- Filtro de Pesquisa Global -->
+    <div class="d-flex justify-content-end mb-3">
+        <div class="input-group w-50 shadow-sm">
+            <span class="input-group-text bg-light text-secondary border-secondary"><i class="bi bi-search"></i></span>
+            <input type="text" id="filtroUsuarios" class="form-control border-secondary" placeholder="Buscar qualquer usuário, e-mail ou mentor...">
         </div>
     </div>
+
+    <!-- Navegação das Abas -->
+    <ul class="nav nav-tabs fw-bold mb-3" id="usuariosTabs" role="tablist">
+        <li class="nav-item" role="presentation">
+            <button class="nav-link active" id="equipa-tab" data-bs-toggle="tab" data-bs-target="#equipa" type="button" role="tab">
+                <i class="bi bi-shield-lock-fill text-danger"></i> 01. Equipa Interna
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="parceiros-tab" data-bs-toggle="tab" data-bs-target="#parceiros" type="button" role="tab">
+                <i class="bi bi-building text-primary"></i> 02. Parceiros B2B
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="alunos-tab" data-bs-toggle="tab" data-bs-target="#alunos" type="button" role="tab">
+                <i class="bi bi-mortarboard-fill text-success"></i> 03. Corpo Discente
+            </button>
+        </li>
+    </ul>
+
+    <!-- Conteúdo das Abas -->
+    <div class="tab-content" id="usuariosTabsContent">
+
+        <!-- ABA 01: EQUIPA INTERNA -->
+        <div class="tab-pane fade show active" id="equipa" role="tabpanel">
+            <div class="card shadow-sm border-0 mb-5">
+                <div class="card-body p-0">
+                    <table class="table table-hover align-middle mb-0 text-center">
+                        <thead class="table-light">
+                            <tr>
+                                <th>{{ t('col_id') }}</th>
+                                <th>{{ t('nome') }}</th>
+                                <th>{{ t('email') }}</th>
+                                <th>{{ t('nivel') }}</th>
+                                <th>{{ t('status') }}</th>
+                                <th>{{ t('data_criacao') }}</th>
+                                <th>{{ t('seguranca_senha') }}</th>
+                                <th>{{ t('acoes') }}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for u in usuarios %}
+                            {% if u.tipo_usuario in ['Administrador', 'Mentor Administrador', 'Professor'] %}
+                            <tr class="linha-usuario">
+                                <td>{{ u.id }}</td>
+                                <td class="fw-bold">{{ u.nome }}</td>
+                                <td>{{ u.email }}</td>
+                                <td><span class="badge bg-danger">{{ u.tipo_usuario }}</span></td>
+                                <td>
+                                    {% if u.status == 'Ativo' %} <span class="badge bg-success">{{ t('ativo') }}</span>
+                                    {% elif u.status == 'Bloqueado' %} <span class="badge bg-danger border border-dark">Bloqueado</span>
+                                    {% else %} <span class="badge bg-secondary">{{ u.status }}</span> {% endif %}
+                                </td>
+                                <td class="text-muted small">{{ u.data_criacao.strftime('%d/%m/%Y às %H:%M') if u.data_criacao else '-' }}</td>
+                                <td class="text-muted small">Última troca: {{ u.data_ultima_troca_senha.strftime('%d/%m/%Y') if u.data_ultima_troca_senha else 'N/A' }}</td>
+                                <td>
+                                    <button class="btn btn-sm btn-outline-primary fw-bold" data-bs-toggle="modal" data-bs-target="#modalEditar{{ u.id }}">
+                                        {{ t('editar') }}
+                                    </button>
+                                </td>
+                            </tr>
+                            {% endif %}
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- ABA 02: PARCEIROS B2B -->
+        <div class="tab-pane fade" id="parceiros" role="tabpanel">
+            <div class="card shadow-sm border-0 mb-5">
+                <div class="card-body p-0">
+                    <table class="table table-hover align-middle mb-0 text-center">
+                        <thead class="table-light">
+                            <tr>
+                                <th>{{ t('col_id') }}</th>
+                                <th>{{ t('nome') }}</th>
+                                <th>{{ t('email') }}</th>
+                                <th>{{ t('nivel') }}</th>
+                                <th>{{ t('status') }}</th>
+                                <th>{{ t('data_criacao') }}</th>
+                                <th>{{ t('seguranca_senha') }}</th>
+                                <th>{{ t('acoes') }}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for u in usuarios %}
+                            {% if u.tipo_usuario in ['Admin B2B', 'Mentor'] %}
+                            <tr class="linha-usuario">
+                                <td>{{ u.id }}</td>
+                                <td class="fw-bold">{{ u.nome }}</td>
+                                <td>{{ u.email }}</td>
+                                <td><span class="badge bg-primary">{{ u.tipo_usuario }}</span></td>
+                                <td>
+                                    {% if u.status == 'Ativo' %} <span class="badge bg-success">{{ t('ativo') }}</span>
+                                    {% elif u.status == 'Bloqueado' %} <span class="badge bg-danger border border-dark">Bloqueado</span>
+                                    {% else %} <span class="badge bg-secondary">{{ u.status }}</span> {% endif %}
+                                </td>
+                                <td class="text-muted small">{{ u.data_criacao.strftime('%d/%m/%Y às %H:%M') if u.data_criacao else '-' }}</td>
+                                <td class="text-muted small">Última troca: {{ u.data_ultima_troca_senha.strftime('%d/%m/%Y') if u.data_ultima_troca_senha else 'N/A' }}</td>
+                                <td>
+                                    <button class="btn btn-sm btn-outline-primary fw-bold" data-bs-toggle="modal" data-bs-target="#modalEditar{{ u.id }}">
+                                        {{ t('editar') }}
+                                    </button>
+                                </td>
+                            </tr>
+                            {% endif %}
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- ABA 03: CORPO DISCENTE (ALUNOS) -->
+        <div class="tab-pane fade" id="alunos" role="tabpanel">
+            <div class="card shadow-sm border-0 mb-5">
+                <div class="card-body p-0">
+                    <table class="table table-hover align-middle mb-0 text-center">
+                        <thead class="table-light">
+                            <tr>
+                                <th>{{ t('col_id') }}</th>
+                                <th>{{ t('nome') }}</th>
+                                <th>{{ t('email') }}</th>
+                                <th>{{ t('status') }}</th>
+                                <th>{{ t('data_criacao') }}</th>
+                                <th>{{ t('seguranca_senha') }}</th>
+                                <th>{{ t('acoes') }}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for u in usuarios %}
+                            {% if u.tipo_usuario == 'Aluno' %}
+                            <tr class="linha-usuario">
+                                <td>{{ u.id }}</td>
+                                <td class="fw-bold">{{ u.nome }}</td>
+                                <td>{{ u.email }}</td>
+                                <td>
+                                    {% if u.status == 'Ativo' %} <span class="badge bg-success">{{ t('ativo') }}</span>
+                                    {% elif u.status == 'Bloqueado' %} <span class="badge bg-danger border border-dark">Bloqueado</span>
+                                    {% else %} <span class="badge bg-secondary">{{ u.status }}</span> {% endif %}
+                                </td>
+                                <td class="text-muted small">{{ u.data_criacao.strftime('%d/%m/%Y às %H:%M') if u.data_criacao else '-' }}</td>
+                                <td class="text-muted small">Última troca: {{ u.data_ultima_troca_senha.strftime('%d/%m/%Y') if u.data_ultima_troca_senha else 'N/A' }}</td>
+                                <td>
+                                    <button class="btn btn-sm btn-outline-primary fw-bold" data-bs-toggle="modal" data-bs-target="#modalEditar{{ u.id }}">
+                                        {{ t('editar') }}
+                                    </button>
+                                </td>
+                            </tr>
+                            {% endif %}
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+    </div> <!-- Fim das Abas -->
+
 
     <!-- ========================================================= -->
     <!-- ZONA DE MODAIS (ISOLADA COM BARRA DE ROLAGEM FORÇADA)     -->
@@ -260,7 +307,6 @@
                                     <option value="Mentor" {% if u.tipo_usuario == 'Mentor' %}selected{% endif %}>{{ t('nivel_mentor') }}</option>
                                     <option value="Mentor Administrador" {% if u.tipo_usuario == 'Mentor Administrador' %}selected{% endif %}>{{ t('nivel_mentor_admin') }}</option>
                                     <option value="Administrador" {% if u.tipo_usuario == 'Administrador' %}selected{% endif %}>{{ t('nivel_administrador') }}</option>
-                                    <!-- NOVA OPÇÃO AQUI -->
                                     <option value="Admin B2B" {% if u.tipo_usuario == 'Admin B2B' %}selected{% endif %}>Gestor Parceiro (Admin B2B)</option>
                                 </select>
                             </div>
@@ -300,30 +346,6 @@
                             <hr class="my-4">
                             <h6 class="text-success fw-bold mb-3">{{ t('prontuario_entrevista') }}</h6>
                             
-                            <!-- CAMPO DE EDIÇÃO DE MENTORES (CHECKBOXES MODERNAS) -->
-                            <div class="mb-4 p-3 bg-light border rounded">
-                                <label class="form-label fw-bold text-primary mb-3">🎓 {{ t('mentores_atribuidos') }}</label>
-                                
-                                <div class="row">
-                                    {% set mentores_atuais = u.mentores.all() %}
-                                    {% for mentor in mentores %}
-                                        <div class="col-md-6 mb-2">
-                                                <input class="form-check-input m-0 me-2" type="checkbox" name="mentores" value="{{ mentor.id }}" id="mentor_{{ u.id }}_{{ mentor.id }}" {% if mentor in mentores_atuais %}checked{% endif %}>
-                                                <label class="form-check-label w-100 cursor-pointer" for="mentor_{{ u.id }}_{{ mentor.id }}">
-                                                    <strong>{{ mentor.nome }}</strong>
-                                                    <span class="badge bg-secondary ms-1" style="font-size: 0.65rem;">{{ mentor.tipo_usuario }}</span>
-                                                </label>
-                                        </div>
-                                    {% else %}
-                                        <div class="col-12 text-muted small">Nenhum mentor disponível no sistema.</div>
-                                    {% endfor %}
-                                </div>
-
-                                <div class="form-text text-muted mt-2">
-                                    <small>💡 {{ t('dica_selecao_multipla_edicao') }}</small>
-                                </div>
-                            </div>
-
                             <div class="mb-3">
                                 <label class="form-label text-muted">{{ t('perfil_aluno') }}</label>
                                 <input type="text" name="perfil_aluno" class="form-control" value="{{ u.perfil_aluno or '' }}" placeholder="{{ t('placeholder_perfil_aluno') }}">
@@ -358,25 +380,9 @@
     </div>
     {% endfor %}
     
+    <!-- SCRIPTS MÁGICOS -->
     <script>
-        document.addEventListener("DOMContentLoaded", function() {
-            var selectTipo = document.getElementById('tipo_usuario_novo');
-            var blocoMentores = document.getElementById('bloco_mentores_novo');
-            
-            function alternarMentores() {
-                if (selectTipo && selectTipo.value === 'Aluno') {
-                    blocoMentores.style.display = 'block';
-                } else if (blocoMentores) {
-                    blocoMentores.style.display = 'none';
-                }
-            }
-
-            if (selectTipo) {
-                selectTipo.addEventListener('change', alternarMentores);
-                alternarMentores(); 
-            }
-        });
-        // Filtro Inteligente de Usuários
+        // Filtro Inteligente (Atravessa todas as abas!)
         const filtro = document.getElementById('filtroUsuarios');
         if (filtro) {
             filtro.addEventListener('input', function() {
@@ -388,6 +394,24 @@
             });
         }
 
+        // Script para Memória da Aba
+        document.addEventListener("DOMContentLoaded", function() {
+            var triggerTabList = [].slice.call(document.querySelectorAll('#usuariosTabs button[data-bs-toggle="tab"]'));
+            triggerTabList.forEach(function(triggerEl) {
+                triggerEl.addEventListener('shown.bs.tab', function (event) {
+                    localStorage.setItem('usuariosTabAtiva', event.target.id);
+                });
+            });
+
+            var abaSalva = localStorage.getItem('usuariosTabAtiva');
+            if (abaSalva) {
+                var tabElement = document.getElementById(abaSalva);
+                if (tabElement) {
+                    var tab = new bootstrap.Tab(tabElement);
+                    tab.show();
+                }
+            }
+        });
     </script>
 
 <script>
