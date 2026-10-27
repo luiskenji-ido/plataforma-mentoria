@@ -3196,88 +3196,36 @@ def api_mentores_empresa(empresa_id):
     return jsonify([]) # Se não tiver empresa, devolve vazio
 
 # ===========================================================================
-# EXECUÇÃO DO APLICATIVO (DEVE SER SEMPRE O ÚLTIMO BLOCO DO FICHEIRO)
+# ATUALIZAÇÃO DO BANCO DE DADOS (Garante que roda no PythonAnywhere)
+# ===========================================================================
+with app.app_context():
+    db.create_all()
+    from sqlalchemy import text
+    
+    colunas_novas = [
+        "ALTER TABLE acompanhamento ADD COLUMN planejamento_estudos TEXT",
+        "ALTER TABLE tarefa ADD COLUMN planejamento_tarefa TEXT",
+        "ALTER TABLE tarefa ADD COLUMN tempo_total_minutos INTEGER DEFAULT 0",
+        "ALTER TABLE acompanhamento ADD COLUMN nota_tecnica FLOAT",
+        "ALTER TABLE acompanhamento ADD COLUMN nota_postura FLOAT",
+        "ALTER TABLE projeto ADD COLUMN nota_conteudo FLOAT",
+        "ALTER TABLE projeto ADD COLUMN nota_apresentacao FLOAT",
+        "ALTER TABLE empresa ADD COLUMN contato_sec_nome VARCHAR(150)",
+        "ALTER TABLE empresa ADD COLUMN contato_sec_email VARCHAR(150)"
+    ]
+    
+    for comando in colunas_novas:
+        try:
+            db.session.execute(text(comando))
+            db.session.commit()
+        except:
+            db.session.rollback()
+
+# ===========================================================================
+# EXECUÇÃO DO APLICATIVO
 # ===========================================================================
 if __name__ == '__main__':
-    with app.app_context():
-        db.create_all()
-        from sqlalchemy import text
-        
-        # 1. Injeta coluna de estudos (ignora se já existir)
-        try:
-            db.session.execute(text("ALTER TABLE acompanhamento ADD COLUMN planejamento_estudos TEXT"))
-            db.session.commit()
-        except:
-            db.session.rollback()
-            
-        # 2. Injeta a primeira coluna de tarefas (ignora se já existir)
-        try:
-            db.session.execute(text("ALTER TABLE tarefa ADD COLUMN planejamento_tarefa TEXT"))
-            db.session.commit()
-        except:
-            db.session.rollback()
-            
-        # 3. Injeta a segunda coluna de tarefas (ignora se já existir)
-        try:
-            db.session.execute(text("ALTER TABLE tarefa ADD COLUMN tempo_total_minutos INTEGER DEFAULT 0"))
-            db.session.commit()
-        except:
-            db.session.rollback()
-
-        # 4. Cria a nova tabela de Frequência (se não existir)
-        try:
-            db.create_all() 
-        except:
-            pass
-
-        # 5. Injeta as colunas de Notas no Acompanhamento
-        try:
-            db.session.execute(text("ALTER TABLE acompanhamento ADD COLUMN nota_tecnica FLOAT"))
-            db.session.commit()
-        except:
-            db.session.rollback()
-
-        try:
-            db.session.execute(text("ALTER TABLE acompanhamento ADD COLUMN nota_postura FLOAT"))
-            db.session.commit()
-        except:
-            db.session.rollback()
-
-        # 6. Injeta as colunas de Notas Coletivas no Projeto
-        try:
-            db.session.execute(text("ALTER TABLE projeto ADD COLUMN nota_conteudo FLOAT"))
-            db.session.commit()
-        except:
-            db.session.rollback()
-
-        try:
-            db.session.execute(text("ALTER TABLE projeto ADD COLUMN nota_apresentacao FLOAT"))
-            db.session.commit()
-        except:
-            db.session.rollback()
-            
-        # 7. Garante a criação da tabela de Avaliação Individual
-        try:
-            db.create_all()
-        except:
-            pass
-
-        # 8. Injeta as novas colunas de Contato Secundário na Empresa
-        try:
-            db.session.execute(text("ALTER TABLE empresa ADD COLUMN contato_sec_nome VARCHAR(150)"))
-            db.session.commit()
-        except:
-            db.session.rollback()
-
-        try:
-            db.session.execute(text("ALTER TABLE empresa ADD COLUMN contato_sec_email VARCHAR(150)"))
-            db.session.commit()
-        except:
-            db.session.rollback()
-
-
-    # --- LIGA O MOTOR DE BACKUP AUTOMÁTICO AQUI ---
+    # Liga a tarefa de backup automático em segundo plano
     iniciar_agendador(app)
-    
     # Roda o servidor web no modo 'debug'
     app.run(debug=True)
