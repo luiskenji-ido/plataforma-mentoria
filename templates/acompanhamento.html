@@ -612,21 +612,22 @@
                     
                     <!-- EXIBIÇÃO VISUAL DOS HORÁRIOS GUARDADOS -->
                     {% if item.reg.planejamento_estudos %}
-                    <div class="mb-3 p-3 bg-white border border-success rounded shadow-sm">
-                        <label class="form-label fw-bold text-success small mb-3">📅 Horários Guardados:</label>
-                        <div class="d-flex flex-wrap gap-2">
-                            {% set slots = item.reg.planejamento_estudos.split('|') %}
-                            {% for slot in slots %}
-                                {% set partes = slot.split('::') %}
-                                {% if partes|length == 3 %}
-                                <div class="badge bg-light border border-success-subtle text-dark p-2 text-start shadow-sm" style="font-size: 0.85em;">
-                                    <span class="text-success fw-bold"><i class="bi bi-calendar-event"></i> {{ partes[0] }}</span><br>
-                                    <i class="bi bi-clock text-muted"></i> {{ partes[1] }} às {{ partes[2] }}
-                                </div>
-                                {% endif %}
-                            {% endfor %}
+                    <!-- Cabeçalho Inteligente dos Horários Guardados -->
+                        <div class="d-flex justify-content-between align-items-center mb-3 border-bottom pb-2">
+                            <span class="text-success fw-bold">🗓️ Horários Guardados:</span>
+                            
+                            {% if 'google_token' not in session %}
+                                <a href="{{ url_for('conectar_agenda') }}" class="btn btn-sm btn-warning text-dark fw-bold rounded-pill shadow-sm px-3" title="Clique para conectar ao Google">
+                                    <i class="bi bi-google"></i> Esqueceu de conectar a Agenda?
+                                </a>
+                            {% else %}
+                                <form action="{{ url_for('sincronizar_agenda_acompanhamento', acomp_id=item.reg.id) }}" method="POST" class="m-0 p-0">
+                                    <button type="submit" class="btn btn-sm btn-outline-primary fw-bold rounded-pill shadow-sm px-3" title="Forçar o envio destes horários para o Google">
+                                        <i class="bi bi-calendar-plus"></i> Sincronizar na Agenda
+                                    </button>
+                                </form>
+                            {% endif %}
                         </div>
-                    </div>
                     {% endif %}
 
                     <!-- Bloco Dinâmico para os Slots de Tempo -->
