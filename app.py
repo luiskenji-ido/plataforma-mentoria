@@ -1401,37 +1401,38 @@ def atualizar_tarefa():
             houve_novo_input = False
             
             for i in range(len(slot_datas)):
-                if slot_inicios[i] and slot_fims[i]: 
-                    houve_novo_input = True
-                    try:
-                        from datetime import datetime as dt_calc
-                        t_inicio = dt_calc.strptime(slot_inicios[i], '%H:%M')
-                        t_fim = dt_calc.strptime(slot_fims[i], '%H:%M')
-                        diff_minutos = (t_fim - t_inicio).seconds // 60
-                        total_minutos += diff_minutos
-                    except Exception:
-                        pass
+                        if not slot_datas[i]: continue
                         
-                    ano, mes, dia = slot_datas[i].split('-')
-                    data_br = f"{dia}/{mes}/{ano}"
-                    planejamento_salvo.append(f"{data_br}::{slot_inicios[i]}::{slot_fims[i]}")
-                    
-                    if current_user.nome == tarefa.responsavel:
-                        try:
-                            from datetime import datetime as dt_seguro
-                            data_slot = dt_seguro.strptime(slot_datas[i], '%Y-%m-%d')
-                            projeto_pai = db.session.get(Projeto, tarefa.projeto_id)
-                            nome_proj = projeto_pai.nome if projeto_pai else "Projeto"
+                        ano, mes, dia = slot_datas[i].split('-')
+                        data_br = f"{dia}/{mes}/{ano}"
+                        data_slot = datetime.strptime(slot_datas[i], '%Y-%m-%d').date()
+                        
+                        # Se o utilizador preencheu os horários, GUARDAMOS
+                        if slot_inicios[i] and slot_fims[i]:
                             
-                            sincronizar_evento_google(
-                                titulo=f"Tarefa: {tarefa.descricao[:25]}",
-                                descricao=f"Projeto: {nome_proj}\nAtividade: {tarefa.descricao}",
-                                data_inicio=data_slot,
-                                horario_str=slot_inicios[i],
-                                horario_fim_str=slot_fims[i]
-                            )
-                        except Exception:
-                            pass
+                            # Bloqueio de Viagem no Tempo (usando fuso BR)
+                            if data_slot < hoje:
+                                tentou_passado = True
+                                continue # Pula e não grava no banco nem na agenda
+                                
+                            # Adiciona ou atualiza este dia na nossa memória
+                            horarios_salvos[data_br] = f"{data_br}::{slot_inicios[i]}::{slot_fims[i]}"
+                            
+                            try:
+                                sincronizar_evento_google(
+                                    titulo=f"Estudo: {curso_obj.nome_curso}",
+                                    descricao=f"Sessão focada no curso: {curso_obj.nome_curso}.",
+                                    data_inicio=datetime.strptime(slot_datas[i], '%Y-%m-%d'),
+                                    horario_str=slot_inicios[i],
+                                    horario_fim_str=slot_fims[i]
+                                )
+                            except Exception:
+                                pass
+                        
+                        # O comando de deletar datas vazias foi removido daqui!
+                                
+                    # Grava no banco de dados fundindo o passado e o futuro em segurança
+                    regstro.planejamento_estudos = "|".join(horarios_salvos.values()) if horarios_salvos else None
                             
             if houve_novo_input:
                 tarefa.planejamento_tarefa = "|".join(planejamento_salvo)
