@@ -1024,16 +1024,16 @@ def acompanhamento():
                             except Exception:
                                 pass
                                 
-                    regstro.planejamento_estudos = "|".join(horarios_salvos.values()) if horarios_salvos else None
+                regstro.planejamento_estudos = "|".join(horarios_salvos.values()) if horarios_salvos else None
                     
-                    if tentou_passado:
-                        flash("⚠️ Datas antigas protegidas. Não é possível alterar horários do passado na agenda.", "warning")
+                if tentou_passado:
+                    flash("⚠️ Datas antigas protegidas. Não é possível alterar horários do passado na agenda.", "warning")
 
-                db.session.commit()
-                flash("Acompanhamento atualizado com sucesso!", "success")
+            db.session.commit()
+            flash("Acompanhamento atualizado com sucesso!", "success")
 
-                if request.form.get('acao_modal') == 'manter_aberto':
-                    return redirect(url_for('acompanhamento', abrir_modal=regstro.id))
+            if request.form.get('acao_modal') == 'manter_aberto':
+                return redirect(url_for('acompanhamento', abrir_modal=regstro.id))
                 
         else:
             # --- NOVA MATRÍCULA MANUAL ---
