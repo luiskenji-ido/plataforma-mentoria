@@ -961,6 +961,7 @@ def acompanhamento():
                     )
                     db.session.add(nova_duvida_qa)
 
+                from datetime import datetime, timezone, timedelta
                 fuso_br = timezone(timedelta(hours=-3))
 
                 nova_duvida_texto = request.form.get('nova_duvida_qa')
