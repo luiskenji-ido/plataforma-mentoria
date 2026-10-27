@@ -791,7 +791,7 @@ import os
 @app.route('/acompanhamento', methods=['GET', 'POST'])
 @login_required
 def acompanhamento():
-    from datetime import datetime  # <--- ADICIONE ESTA LINHA AQUI
+    from datetime import datetime, timedelta, timezone
     if request.method == 'POST':
         # --- NOVA FUNÇÃO: EXCLUIR MATERIAIS DE APOIO ---
         if request.form.get('acao') == 'excluir_materiais':
@@ -1002,9 +1002,8 @@ def acompanhamento():
                                 horarios_salvos[partes[0]] = slot # A chave é a data
                                 
                     # 2. Configura a data correta do Brasil (Crucial para servidores na nuvem)
-                    from datetime import datetime as dt_seguro, timedelta, timezone
                     fuso_br = timezone(timedelta(hours=-3))
-                    hoje = dt_seguro.now(fuso_br).date()
+                    hoje = datetime.now(fuso_br).date()
                     
                     tentou_passado = False
                     
@@ -1013,7 +1012,7 @@ def acompanhamento():
                         
                         ano, mes, dia = slot_datas[i].split('-')
                         data_br = f"{dia}/{mes}/{ano}"
-                        data_slot = dt_seguro.strptime(slot_datas[i], '%Y-%m-%d').date()
+                        data_slot = datetime.strptime(slot_datas[i], '%Y-%m-%d').date()
                         
                         # Se o aluno preencheu os horários
                         if slot_inicios[i] and slot_fims[i]:
@@ -1030,7 +1029,7 @@ def acompanhamento():
                                 sincronizar_evento_google(
                                     titulo=f"Estudo: {curso_obj.nome_curso}",
                                     descricao=f"Sessão focada no curso: {curso_obj.nome_curso}.",
-                                    data_inicio=dt_seguro.strptime(slot_datas[i], '%Y-%m-%d'),
+                                    data_inicio=datetime.strptime(slot_datas[i], '%Y-%m-%d'),
                                     horario_str=slot_inicios[i],
                                     horario_fim_str=slot_fims[i]
                                 )
