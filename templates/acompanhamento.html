@@ -613,22 +613,49 @@
                     <!-- EXIBIÇÃO VISUAL DOS HORÁRIOS GUARDADOS -->
                     {% if item.reg.planejamento_estudos %}
                     <!-- Cabeçalho Inteligente dos Horários Guardados -->
-                        <div class="d-flex justify-content-between align-items-center mb-3 border-bottom pb-2">
-                            <span class="text-success fw-bold">🗓️ Horários Guardados:</span>
+                        <!-- INÍCIO DA ZONA DE HORÁRIOS GUARDADOS -->
+                        <div class="border rounded p-3 mb-3 bg-white">
                             
-                            {% if 'google_token' not in session %}
-                                <a href="{{ url_for('conectar_agenda') }}" class="btn btn-sm btn-warning text-dark fw-bold rounded-pill shadow-sm px-3" title="Clique para conectar ao Google">
-                                    <i class="bi bi-google"></i> Esqueceu de conectar a Agenda?
-                                </a>
-                            {% else %}
-                                <form action="{{ url_for('sincronizar_agenda_acompanhamento', acomp_id=item.reg.id) }}" method="POST" class="m-0 p-0">
-                                    <button type="submit" class="btn btn-sm btn-outline-primary fw-bold rounded-pill shadow-sm px-3" title="Forçar o envio destes horários para o Google">
-                                        <i class="bi bi-calendar-plus"></i> Sincronizar na Agenda
-                                    </button>
-                                </form>
-                            {% endif %}
+                            <!-- 1. Cabeçalho com o Título e o Botão Amigável -->
+                            <div class="d-flex justify-content-between align-items-center mb-3 border-bottom pb-2">
+                                <span class="text-success fw-bold">
+                                    <i class="bi bi-calendar-check"></i> Horários Guardados:
+                                </span>
+                                
+                                {% if 'google_token' not in session %}
+                                    <!-- Botão discreto para quem não conectou (Não interfere no uso local) -->
+                                    <a href="{{ url_for('conectar_agenda') }}" class="btn btn-sm btn-outline-warning text-dark fw-bold rounded-pill shadow-sm px-3" title="Opcional: Conectar ao Google">
+                                        <i class="bi bi-google"></i> Esqueceu de conectar a Agenda?
+                                    </a>
+                                {% else %}
+                                    <!-- Botão para forçar sincronização se já estiver conectado -->
+                                    <form action="{{ url_for('sincronizar_agenda_acompanhamento', acomp_id=item.reg.id) }}" method="POST" class="m-0 p-0">
+                                        <button type="submit" class="btn btn-sm btn-outline-primary fw-bold rounded-pill shadow-sm px-3" title="Forçar o envio destes horários para o Google">
+                                            <i class="bi bi-calendar-plus"></i> Sincronizar na Agenda
+                                        </button>
+                                    </form>
+                                {% endif %}
+                            </div>
+
+                            <!-- 2. Onde as datas locais aparecem (Isto devolve os cartões verdes!) -->
+                            <div class="d-flex flex-wrap gap-2">
+                                {% if item.reg.planejamento_estudos %}
+                                    {% for slot in item.reg.planejamento_estudos.split('|') %}
+                                        {% set partes = slot.split('::') %}
+                                        {% if partes|length == 3 %}
+                                            <div class="border border-success rounded p-2 text-center bg-white shadow-sm" style="min-width: 110px;">
+                                                <div class="text-success fw-bold small">{{ partes[0] }}</div>
+                                                <div class="fw-bold text-dark" style="font-size: 0.85rem;">{{ partes[1] }} às {{ partes[2] }}</div>
+                                            </div>
+                                        {% endif %}
+                                    {% endfor %}
+                                {% else %}
+                                    <span class="text-muted small">Nenhum horário registrado na plataforma.</span>
+                                {% endif %}
+                            </div>
+                            
                         </div>
-                    {% endif %}
+                        <!-- FIM DA ZONA DE HORÁRIOS GUARDADOS -->
 
                     <!-- Bloco Dinâmico para os Slots de Tempo -->
                     <div class="mb-3 p-3 bg-light border border-primary-subtle rounded d-none" id="box_grade_{{ item.reg.id }}">
