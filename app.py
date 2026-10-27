@@ -784,16 +784,15 @@ os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 # ---------------------------------------------------------
 # Rota de Acompanhamento de Estudos
 # ---------------------------------------------------------
-from datetime import datetime, timedelta, timezone
-from werkzeug.utils import secure_filename
-import os
-
 @app.route('/acompanhamento', methods=['GET', 'POST'])
 @login_required
 def acompanhamento():
     from datetime import datetime, timedelta, timezone
+    from werkzeug.utils import secure_filename
+    import os
+
     if request.method == 'POST':
-        # --- NOVA FUNÇÃO: EXCLUIR MATERIAIS DE APOIO ---
+        # --- EXCLUIR MATERIAIS DE APOIO ---
         if request.form.get('acao') == 'excluir_materiais':
             acompanhamento_id = request.form.get('acompanhamento_id')
             materiais_para_excluir = request.form.getlist('materiais_excluir')
@@ -811,17 +810,17 @@ def acompanhamento():
                             caminho_arquivo = os.path.join(app.config['UPLOAD_FOLDER'], nome_arquivo)
                             if os.path.exists(caminho_arquivo):
                                 os.remove(caminho_arquivo)
-                        except Exception as e:
+                        except Exception:
                             pass
                     else:
                         materiais_restantes.append(mat)
                 
                 registro.material_apoio = '|'.join(materiais_restantes) if materiais_restantes else None
                 db.session.commit()
-                flash('Os materiais selecionados foram excluídos permanentemente.', 'success')
+                flash('Materiais excluídos permanentemente.', 'success')
             return redirect(url_for('acompanhamento'))
-        # -----------------------------------------------
 
+        # --- PARECER DO MENTOR ---
         if request.form.get('acao') == 'atualizar_parecer_livre' and current_user.tipo_usuario != 'Aluno':
             acompanhamento_id = request.form.get('acompanhamento_id')
             registro = Acompanhamento.query.get(acompanhamento_id)
@@ -829,7 +828,7 @@ def acompanhamento():
                 registro.observacao = request.form.get('observacao')
                 registro.data_parecer_mentor = datetime.now()
                 db.session.commit()
-                flash('Parecer oficial do mentor atualizado com sucesso!', 'success')
+                flash('Parecer oficial do mentor atualizado!', 'success')
             return redirect(url_for('acompanhamento'))
 
         acompanhamento_id = request.form.get('acompanhamento_id')
@@ -840,6 +839,7 @@ def acompanhamento():
                 QADuvida.query.filter_by(acompanhamento_id=acompanhamento_id, lida_pelo_mentor=False).update({'lida_pelo_mentor': True})
             db.session.commit()
             
+        # --- ANOTAÇÃO DO ALUNO ---
         if request.form.get('acao') == 'atualizar_anotacao_livre':
             acompanhamento_id = request.form.get('acompanhamento_id')
             novo_texto = request.form.get('observacao_aluno')
@@ -850,13 +850,13 @@ def acompanhamento():
                 flash('Anotações atualizadas com sucesso!', 'success')
             return redirect(url_for('acompanhamento'))
 
+        # --- ATUALIZAÇÃO PRINCIPAL DO ACOMPANHAMENTO ---
         if 'acompanhamento_id' in request.form and request.form.get('acao') != 'vincular':
             acompanhamento_id = request.form.get('acompanhamento_id')
             status = request.form.get('status')
-            percentual = int(request.form.get('percentual_conclusao'))
+            percentual = int(request.form.get('percentual_conclusao', 0))
             observacao_aluno = request.form.get('observacao_aluno')
             observacao_mentor = request.form.get('observacao')
-
             
             data_inicio_str = request.form.get('data_inicio')
             data_termino_str = request.form.get('data_termino')
@@ -924,19 +924,13 @@ def acompanhamento():
                 regstro.status = status
                 regstro.observacao_aluno = observacao_aluno
 
-                # --- AVALIAÇÃO DO MENTOR (NOTAS) ---
+                # Notas do Mentor
                 if current_user.tipo_usuario != 'Aluno':
                     nota_tecnica = request.form.get('nota_tecnica')
                     nota_postura = request.form.get('nota_postura')
-                    
-                    if nota_tecnica: 
-                        regstro.nota_tecnica = float(nota_tecnica)
-                    if nota_postura: 
-                        regstro.nota_postura = float(nota_postura)
+                    if nota_tecnica: regstro.nota_tecnica = float(nota_tecnica)
+                    if nota_postura: regstro.nota_postura = float(nota_postura)
 
-
-                
-                # --- CAPTURAR PROGRESSO DO MENTOR ---
                 novo_percentual_mentor = request.form.get('percentual_mentor')
                 if novo_percentual_mentor is not None:
                     regstro.percentual_mentor = int(novo_percentual_mentor)
@@ -961,9 +955,7 @@ def acompanhamento():
                     )
                     db.session.add(nova_duvida_qa)
 
-                from datetime import datetime, timezone, timedelta
                 fuso_br = timezone(timedelta(hours=-3))
-
                 nova_duvida_texto = request.form.get('nova_duvida_qa')
                 if nova_duvida_texto and current_user.tipo_usuario == 'Aluno':
                     nova_duvida = QADuvida(
@@ -986,44 +978,39 @@ def acompanhamento():
                             if hasattr(duvida_obj, 'data_resposta'):
                                 duvida_obj.data_resposta = datetime.now(fuso_br)
 
-                # GATILHO DA AGENDA: Lê a grade dinâmica gerada pelo ecrã e cria slots individuais
+                # =====================================================================
+                # MOTOR DE AGENDA SEGURO E ALINHADO
+                # =====================================================================
                 slot_datas = request.form.getlist('slot_data')
                 slot_inicios = request.form.getlist('slot_inicio')
                 slot_fims = request.form.getlist('slot_fim')
                 
                 if slot_datas:
                     curso_obj = db.session.get(Curso, regstro.curso_id)
-                    
-                    # 1. Recupera o histórico para não apagar dias anteriores já guardados
                     horarios_salvos = {}
+                    
                     if regstro.planejamento_estudos:
                         for slot in regstro.planejamento_estudos.split('|'):
                             partes = slot.split('::')
                             if len(partes) == 3:
-                                horarios_salvos[partes[0]] = slot # A chave é a data
+                                horarios_salvos[partes[0]] = slot
                                 
-                    # 2. Configura a data correta do Brasil (Crucial para servidores na nuvem)
-                    fuso_br = timezone(timedelta(hours=-3))
                     hoje = datetime.now(fuso_br).date()
-                    
                     tentou_passado = False
                     
                     for i in range(len(slot_datas)):
-                        if not slot_datas[i]: continue
-                        
+                        if not slot_datas[i]: 
+                            continue
+                            
                         ano, mes, dia = slot_datas[i].split('-')
                         data_br = f"{dia}/{mes}/{ano}"
                         data_slot = datetime.strptime(slot_datas[i], '%Y-%m-%d').date()
                         
-                        # Se o aluno preencheu os horários
                         if slot_inicios[i] and slot_fims[i]:
-                            
-                            # 3. Bloqueio de Viagem no Tempo (usando fuso BR)
                             if data_slot < hoje:
                                 tentou_passado = True
-                                continue # Pula e não grava este dia no banco nem na agenda
+                                continue 
                                 
-                            # Grava na nossa base de dados (se for hoje ou futuro)
                             horarios_salvos[data_br] = f"{data_br}::{slot_inicios[i]}::{slot_fims[i]}"
                             
                             try:
@@ -1036,58 +1023,47 @@ def acompanhamento():
                                 )
                             except Exception:
                                 pass
-                        
-                        # Se a hora veio em branco (o utilizador apagou no formulário para cancelar o estudo)
-                        elif not slot_inicios[i] and not slot_fims[i]:
-                            if data_br in horarios_salvos:
-                                del horarios_salvos[data_br]
                                 
-                    # Atualiza o banco de dados fundindo o passado e o futuro
                     regstro.planejamento_estudos = "|".join(horarios_salvos.values()) if horarios_salvos else None
                     
-                    # 4. Dispara a mensagem de erro ANTES de gravar as outras alterações
                     if tentou_passado:
-                        flash("⚠️ Atenção: Tentativa de agendamento no passado! Apenas as datas futuras foram processadas.", "warning")
+                        flash("⚠️ Datas antigas protegidas. Não é possível alterar horários do passado na agenda.", "warning")
 
                 db.session.commit()
                 flash("Acompanhamento atualizado com sucesso!", "success")
 
-                # Mantém o modal aberto se o botão de planeamento for clicado
                 if request.form.get('acao_modal') == 'manter_aberto':
                     return redirect(url_for('acompanhamento', abrir_modal=regstro.id))
                 
         else:
+            # --- NOVA MATRÍCULA MANUAL ---
             aluno_id = request.form.get('aluno_id')
             curso_id = request.form.get('curso_id')
             
             if not aluno_id or not curso_id:
-                flash("Por favor, selecione um aluno e um curso válidos para realizar a matrícula.", "danger")
+                flash("Selecione um aluno e um curso válidos.", "danger")
                 return redirect(url_for('acompanhamento'))
             
             curso_selecionado = db.session.get(Curso, int(curso_id))
             if curso_selecionado.status == 'Desativado':
-                flash(f"Ação bloqueada: O curso '{curso_selecionado.nome_curso}' está desativado.", "danger")
+                flash(f"O curso '{curso_selecionado.nome_curso}' está desativado.", "danger")
                 return redirect(url_for('acompanhamento'))
             
             existe = Acompanhamento.query.filter_by(aluno_id=int(aluno_id), curso_id=int(curso_id)).first()
             if existe:
-                flash("Este aluno já está matriculado neste curso.", "warning")
+                flash("Aluno já matriculado neste curso.", "warning")
             else:
-                novo = Acompanhamento(
-                    aluno_id=int(aluno_id), 
-                    curso_id=int(curso_id), 
-                    status='Iniciado', 
-                    percentual_conclusao=0
-                )
+                novo = Acompanhamento(aluno_id=int(aluno_id), curso_id=int(curso_id), status='Iniciado', percentual_conclusao=0)
                 db.session.add(novo)
                 db.session.commit()
                 flash("Matrícula realizada com sucesso!", "success")
                 
         return redirect(url_for('acompanhamento'))
 
+    # --- MÉTODO GET: CARREGAR A TELA ---
     if current_user.tipo_usuario == 'Aluno':
         registros = Acompanhamento.query.filter_by(aluno_id=current_user.id).all()
-    elif current_user.tipo_usuario == ['Mentor', 'Professor']:
+    elif current_user.tipo_usuario in ['Mentor', 'Professor']:
         registros = Acompanhamento.query.join(Usuario, Acompanhamento.aluno_id == Usuario.id).filter(Usuario.mentores.any(id=current_user.id)).all()
     else:
         registros = Acompanhamento.query.all()
@@ -1096,11 +1072,8 @@ def acompanhamento():
     for r in registros:
         aluno = db.session.get(Usuario, r.aluno_id)
         curso = db.session.get(Curso, r.curso_id)
-        
-        # --- MATEMÁTICA 1: Contagem de Sessões ---
         qtd_sessoes = SessaoMentoria.query.filter_by(aluno_id=r.aluno_id).count()
         
-        # --- MATEMÁTICA 2: Soma de Horas de Estudo (Agenda) ---
         minutos_estudo = 0
         if r.planejamento_estudos:
             slots = r.planejamento_estudos.split('|')
@@ -1120,32 +1093,22 @@ def acompanhamento():
         min_restantes = minutos_estudo % 60
         tempo_formatado = f"{horas_estudo}h {min_restantes}m" if horas_estudo > 0 else f"{min_restantes}m"
 
-        detalhes.append({
-            'reg': r, 
-            'aluno': aluno, 
-            'curso': curso,
-            'qtd_sessoes': qtd_sessoes,
-            'tempo_estudo': tempo_formatado
-        })
+        detalhes.append({'reg': r, 'aluno': aluno, 'curso': curso, 'qtd_sessoes': qtd_sessoes, 'tempo_estudo': tempo_formatado})
         
-    if current_user.tipo_usuario == ['Mentor', 'Professor']:
+    if current_user.tipo_usuario in ['Mentor', 'Professor']:
         lista_alunos = Usuario.query.filter(Usuario.tipo_usuario == 'Aluno', Usuario.mentores.any(id=current_user.id)).all()
     else:
         lista_alunos = Usuario.query.filter_by(tipo_usuario='Aluno').all()
         
     lista_cursos = Curso.query.filter_by(status='Ativo').all()
 
-    # Verificação universal e blindada do Check-in de Aula para hoje
     from datetime import datetime, time
-    
     hoje_inicio = datetime.combine(datetime.utcnow().date(), time.min)
     hoje_fim = datetime.combine(datetime.utcnow().date(), time.max)
     
     for item in registros:
         aluno_id = None
         curso_id = None
-        
-        # Tenta extrair IDs independentemente de 'item' ser objeto ou dicionário
         try:
             if isinstance(item, dict):
                 aluno_id = item.get('aluno_id') or getattr(item.get('aluno'), 'id', None) or getattr(item.get('reg'), 'aluno_id', None)
@@ -1165,13 +1128,11 @@ def acompanhamento():
                 CheckinAula.data_hora_entrada <= hoje_fim
             ).first() is not None
 
-        # Atribui o resultado de forma compatível com dicionários e objetos
         if isinstance(item, dict):
             item['ja_fez_checkin_hoje'] = ja_tem
         else:
             setattr(item, 'ja_fez_checkin_hoje', ja_tem)
     
-    # ESTA É A LINHA QUE FALTAVA PARA A TELA CARREGAR:
     return render_template('acompanhamento.html', registros=detalhes, alunos=lista_alunos, cursos=lista_cursos)
 
 
