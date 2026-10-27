@@ -992,21 +992,36 @@ def acompanhamento():
                 
                 if slot_datas:
                     curso_obj = db.session.get(Curso, regstro.curso_id)
-                    planejamento_salvo = [] 
+                    
+                    # 1. Recupera o histórico para não apagar os dias anteriores guardados
+                    horarios_salvos = {}
+                    if regstro.planejamento_estudos:
+                        for slot in regstro.planejamento_estudos.split('|'):
+                            partes = slot.split('::')
+                            if len(partes) == 3:
+                                horarios_salvos[partes[0]] = slot # A chave é a data (ex: 28/09/2026)
+                                
+                    from datetime import datetime as dt_seguro
+                    hoje = dt_seguro.now().date()
+                    tentou_passado = False
                     
                     for i in range(len(slot_datas)):
-                        # Só guarda se o utilizador preencheu as horas (ignorando os campos --:--)
-                        if slot_inicios[i] and slot_fims[i]: 
-                            # 1. Salva o cartão visual de forma segura (sem depender do módulo datetime)
-                            ano, mes, dia = slot_datas[i].split('-')
-                            data_br = f"{dia}/{mes}/{ano}"
-                            planejamento_salvo.append(f"{data_br}::{slot_inicios[i]}::{slot_fims[i]}")
+                        ano, mes, dia = slot_datas[i].split('-')
+                        data_br = f"{dia}/{mes}/{ano}"
+                        
+                        # Se o aluno preencheu os horários
+                        if slot_inicios[i] and slot_fims[i]:
+                            data_slot = dt_seguro.strptime(slot_datas[i], '%Y-%m-%d')
                             
-                            # 2. Tenta enviar para a Google Agenda num processo isolado
-                            try:
-                                from datetime import datetime as dt_seguro
-                                data_slot = dt_seguro.strptime(slot_datas[i], '%Y-%m-%d')
+                            # 2. Bloqueio de Viagem no Tempo (Impede gravar no passado)
+                            if data_slot.date() < hoje:
+                                tentou_passado = True
+                                continue # Pula este dia e vai para o próximo
                                 
+                            # Atualiza a nossa memória com o horário novo/modificado
+                            horarios_salvos[data_br] = f"{data_br}::{slot_inicios[i]}::{slot_fims[i]}"
+                            
+                            try:
                                 sincronizar_evento_google(
                                     titulo=f"Estudo: {curso_obj.nome_curso}",
                                     descricao=f"Sessão focada no curso: {curso_obj.nome_curso}.",
@@ -1016,9 +1031,17 @@ def acompanhamento():
                                 )
                             except Exception:
                                 pass
+                        
+                        # Se a data veio em branco, significa que o utilizador apagou esse dia de propósito
+                        else:
+                            if data_br in horarios_salvos:
+                                del horarios_salvos[data_br]
                                 
-                    # Grava todos os horários agrupados na coluna da base de dados
-                    regstro.planejamento_estudos = "|".join(planejamento_salvo) if planejamento_salvo else None
+                    # Grava a junção do passado com o futuro na base de dados
+                    regstro.planejamento_estudos = "|".join(horarios_salvos.values()) if horarios_salvos else None
+                    
+                    if tentou_passado:
+                        flash("Atenção: Não é possível agendar horários para datas que já passaram. Apenas os dias futuros foram sincronizados.", "warning")
 
                 db.session.commit()
                 flash("Acompanhamento atualizado com sucesso!", "success")
