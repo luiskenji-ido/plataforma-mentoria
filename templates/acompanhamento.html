@@ -377,7 +377,6 @@
                     <div class="col-md-4 d-flex flex-column align-items-end gap-2">
                         
                         <!-- LÓGICA DO CHECK-IN DE AULA (CADEADO VIRTUAL PARA ALUNOS) -->
-                        <!-- LÓGICA CORRIGIDA DO CHECK-IN DE AULA -->
                         {% if current_user.tipo_usuario == 'Aluno' %}
                             {% if item.ja_fez_checkin_hoje %}
                                 <!-- SE JÁ FEZ CHECK-IN: Libera o acesso -->
@@ -568,7 +567,7 @@
                                 onclick="document.getElementById('dialogEditar{{ item.reg.id }}').classList.toggle('modal-fullscreen');" 
                                 title="Tela Cheia / Restaurar" style="background: rgba(255,255,255,0.2); border: none; width: 30px; height: 30px;">
                             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
-                                <path fill-rule="evenodd" d="M5.828 10.172a.5.5 0 00-.707 0l-4.096 4.096V11.5a.5.5 0 0 0-1 0v3.975a.5.5 0 0 0 .5.5H4.5a.5.5 0 0 0 0-1H1.732l4.096-4.096a.5.5 0 0 0 0-.707m4.344 0a.5.5 0 0 1 .707 0l4.096 4.096V11.5a.5.5 0 1 1 1 0v3.975a.5.5 0 0 1-.5.5H11.5a.5.5 0 0 1 0-1h2.768l-4.096-4.096a.5.5 0 0 1 0-.707m0-4.344a.5.5 0 0 0 .707 0l4.096-4.096V4.5a.5.5 0 1 0 1 0V.525a.5.5 0 0 0-.5-.5H11.5a.5.5 0 0 0 0 1h2.768l-4.096 4.096a.5.5 0 0 0 0 .707m-4.344 0a.5.5 0 0 1-.707 0L1.025 1.732V4.5a.5.5 0 0 1-1 0V.525a.5.5 0 0 1 .5-.5H4.5a.5.5 0 0 1 0 1H1.732l4.096 4.096a.5.5 0 0 1 0 .707"/>
+                                <path fill-rule="evenodd" d="M5.828 10.172a.5.5 0 0 0-.707 0l-4.096 4.096V11.5a.5.5 0 0 0-1 0v3.975a.5.5 0 0 0 .5.5H4.5a.5.5 0 0 0 0-1H1.732l4.096-4.096a.5.5 0 0 0 0-.707m4.344 0a.5.5 0 0 1 .707 0l4.096 4.096V11.5a.5.5 0 1 1 1 0v3.975a.5.5 0 0 1-.5.5H11.5a.5.5 0 0 1 0-1h2.768l-4.096-4.096a.5.5 0 0 1 0-.707m0-4.344a.5.5 0 0 0 .707 0l4.096-4.096V4.5a.5.5 0 1 0 1 0V.525a.5.5 0 0 0-.5-.5H11.5a.5.5 0 0 0 0 1h2.768l-4.096 4.096a.5.5 0 0 0 0 .707m-4.344 0a.5.5 0 0 1-.707 0L1.025 1.732V4.5a.5.5 0 0 1-1 0V.525a.5.5 0 0 1 .5-.5H4.5a.5.5 0 0 1 0 1H1.732l4.096 4.096a.5.5 0 0 1 0 .707"/>
                             </svg>
                         </button>
                         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
@@ -600,44 +599,27 @@
                     
                     <div class="row">
                         <div class="col-md-6 mb-3">
-    <label class="form-label">
-        {{ t('data_inicio') }}
-        <!-- Aparece um cadeado se for Aluno -->
-        {% if current_user.tipo_usuario == 'Aluno' %}<i class="bi bi-lock-fill text-muted small" title="Apenas professores podem mudar"></i>{% endif %}
-    </label>
-    <input type="date" name="data_inicio" id="dt_ini_{{ item.reg.id }}" 
-           class="form-control {% if current_user.tipo_usuario == 'Aluno' %}bg-light text-muted{% endif %}" 
-           value="{{ item.reg.data_inicio.strftime('%Y-%m-%d') if item.reg.data_inicio else '' }}" 
-           onchange="gerarGrade_{{ item.reg.id }}()"
-           <!-- Essa linha trava a digitação para alunos -->
-           {% if current_user.tipo_usuario == 'Aluno' %}readonly tabindex="-1"{% endif %}>
-</div>
-                <div class="col-md-6 mb-3">
-    <label class="form-label">
-        {{ t('data_inicio') }}
-        <!-- Aparece um cadeado se for Aluno -->
-        {% if current_user.tipo_usuario == 'Aluno' %}<i class="bi bi-lock-fill text-muted small" title="Apenas professores podem mudar"></i>{% endif %}
-    </label>
-    <input type="date" name="data_inicio" id="dt_ini_{{ item.reg.id }}" 
-           class="form-control {% if current_user.tipo_usuario == 'Aluno' %}bg-light text-muted{% endif %}" 
-           value="{{ item.reg.data_inicio.strftime('%Y-%m-%d') if item.reg.data_inicio else '' }}" 
-           onchange="gerarGrade_{{ item.reg.id }}()"
-           <!-- Essa linha trava a digitação para alunos -->
-           {% if current_user.tipo_usuario == 'Aluno' %}readonly tabindex="-1"{% endif %}>
-</div>
-                    <div class="col-md-6 mb-3">
-                        <label class="form-label">
-                            {{ t('data_termino_meta') }}
-                            <!-- Aparece um cadeado se for Aluno -->
-                            {% if current_user.tipo_usuario == 'Aluno' %}<i class="bi bi-lock-fill text-muted small" title="Apenas professores podem mudar"></i>{% endif %}
-                        </label>
-                        <input type="date" name="data_termino" id="dt_fim_{{ item.reg.id }}" 
-                            class="form-control {% if current_user.tipo_usuario == 'Aluno' %}bg-light text-muted{% endif %}" 
-                            value="{{ item.reg.data_termino.strftime('%Y-%m-%d') if item.reg.data_termino else '' }}" 
-                            onchange="gerarGrade_{{ item.reg.id }}()"
-                            <!-- Essa linha trava a digitação para alunos -->
-                            {% if current_user.tipo_usuario == 'Aluno' %}readonly tabindex="-1"{% endif %}>
-                    </div>
+                            <label class="form-label">
+                                {{ t('data_inicio') }}
+                                {% if current_user.tipo_usuario == 'Aluno' %}<i class="bi bi-lock-fill text-muted small" title="Apenas professores podem mudar"></i>{% endif %}
+                            </label>
+                            <input type="date" name="data_inicio" id="dt_ini_{{ item.reg.id }}" 
+                                   class="form-control {% if current_user.tipo_usuario == 'Aluno' %}bg-light text-muted{% endif %}" 
+                                   value="{{ item.reg.data_inicio.strftime('%Y-%m-%d') if item.reg.data_inicio else '' }}" 
+                                   onchange="gerarGrade_{{ item.reg.id }}()" 
+                                   {% if current_user.tipo_usuario == 'Aluno' %}readonly tabindex="-1"{% endif %}>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">
+                                {{ t('data_termino_meta') }}
+                                {% if current_user.tipo_usuario == 'Aluno' %}<i class="bi bi-lock-fill text-muted small" title="Apenas professores podem mudar"></i>{% endif %}
+                            </label>
+                            <input type="date" name="data_termino" id="dt_fim_{{ item.reg.id }}" 
+                                   class="form-control {% if current_user.tipo_usuario == 'Aluno' %}bg-light text-muted{% endif %}" 
+                                   value="{{ item.reg.data_termino.strftime('%Y-%m-%d') if item.reg.data_termino else '' }}" 
+                                   onchange="gerarGrade_{{ item.reg.id }}()" 
+                                   {% if current_user.tipo_usuario == 'Aluno' %}readonly tabindex="-1"{% endif %}>
+                        </div>
                     </div>
                     
                     <!-- EXIBIÇÃO VISUAL DOS HORÁRIOS GUARDADOS -->
@@ -687,8 +669,6 @@
                         </div>
                         <!-- FIM DA ZONA DE HORÁRIOS GUARDADOS -->
                     {% endif %}
-
-                    <!-- Bloco Dinâmico para os Slots de Tempo -->
 
                     <!-- Bloco Dinâmico para os Slots de Tempo -->
                     <div class="mb-3 p-3 bg-light border border-primary-subtle rounded d-none" id="box_grade_{{ item.reg.id }}">
@@ -856,13 +836,6 @@
                     </div>
                     {% endif %}
                 </div>
-
-                {% if item.curso.exige_certificado == 'Sim' %}
-                    <div class="mb-3 p-3 bg-warning-subtle border border-warning rounded">
-                        <!-- ... (código do certificado) ... -->
-                    </div>
-                    {% endif %}
-                </div>
                 
                 <!-- ========================================================= -->
                 <!-- PAINEL DE AVALIAÇÃO FINAL (EXCLUSIVO PARA A GESTÃO)       -->
@@ -894,11 +867,6 @@
                 </div>
                 {% endif %}
                 
-                <!-- COLETAR O CÓDIGO DO BOLETIM EXATAMENTE AQUI -->
-
-                <div class="modal-footer" style="background-color: #f8f9fa;">
-                    <button type="button" class="btn btn-secondary fw-bold" data-bs-dismiss="modal">{{ t('cancelar') }}</button>
-
                 <div class="modal-footer" style="background-color: #f8f9fa;">
                     <button type="button" class="btn btn-secondary fw-bold" data-bs-dismiss="modal">{{ t('cancelar') }}</button>
                     <button type="submit" class="btn btn-primary fw-bold" style="background-color: #0d6efd !important; color: white !important; border-color: #0d6efd !important;">{{ t('salvar_alteracoes') }}</button>
