@@ -3250,3 +3250,62 @@ if __name__ == '__main__':
     iniciar_agendador(app)
     # Roda o servidor web no modo 'debug'
     app.run(debug=True)
+
+# ==============================================================================
+# ROTA: PAINEL DA BANCA AVALIADORA AO VIVO (NOTAS E Q&A)
+# ==============================================================================
+@app.route('/projetos/banca/<int:id>', methods=['GET', 'POST'])
+@login_required
+def painel_banca(id):
+    # Trava: Alunos não podem aceder ao painel de avaliação
+    if current_user.tipo_usuario == 'Aluno':
+        flash("Acesso restrito à Banca Avaliadora.", "danger")
+        return redirect(url_for('projetos'))
+
+    projeto = db.session.get(Projeto, id)
+    if not projeto:
+        return redirect(url_for('projetos'))
+
+    if request.method == 'POST':
+        # 1. Capta as Notas da Banca
+        nota_escrita = request.form.get('nota_escrita', 0, type=float)
+        nota_apresentacao = request.form.get('nota_apresentacao', 0, type=float)
+        nota_visual = request.form.get('nota_visual', 0, type=float)
+
+        # 2. Aplica a Fórmula do Documento: Escrita (40%) + Apresentação (40%) + Visual (20%)
+        nota_final = (nota_escrita * 0.4) + (nota_apresentacao * 0.4) + (nota_visual * 0.2)
+        
+        # Guarda as parciais
+        projeto.nota_conteudo = nota_escrita
+        projeto.nota_apresentacao = nota_apresentacao
+        
+        # 3. Define a aprovação automática (Nota >= 7.0)
+        if nota_final >= 7.0:
+            projeto.status = 'Concluído'
+            flash(f"🎉 Banca finalizada! Projeto APROVADO com nota final: {nota_final:.1f}", "success")
+        else:
+            projeto.status = 'Em Recuperação'
+            flash(f"⚠️ Banca finalizada! Projeto EM RECUPERAÇÃO. Nota final: {nota_final:.1f}", "warning")
+
+        # 4. Salva o Q&A (Perguntas feitas na hora e como os jovens responderam)
+        pergunta = request.form.get('pergunta_feita')
+        resposta = request.form.get('resposta_jovens')
+        
+        if pergunta:
+            from models import QABanca
+            novo_qa = QABanca(
+                projeto_id=projeto.id,
+                avaliador_id=current_user.id,
+                pergunta_feita=pergunta,
+                resposta_jovens=resposta
+            )
+            db.session.add(novo_qa)
+        
+        db.session.commit()
+        return redirect(url_for('projetos'))
+
+    # Se for apenas para abrir a tela (GET), busca o histórico de Q&A para os avaliadores lerem
+    from models import QABanca
+    historico_qa = QABanca.query.filter_by(projeto_id=projeto.id).order_by(QABanca.data_registro.desc()).all()
+
+    return render_template('banca_avaliacao.html', projeto=projeto, historico_qa=historico_qa)
