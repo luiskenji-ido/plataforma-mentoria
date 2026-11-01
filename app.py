@@ -591,6 +591,63 @@ def deletar_grupo(id):
     return redirect(url_for('gerenciar_grupos'))
 
 
+# ==============================================================================
+# MOTOR DE MATCH INTELIGENTE (ALUNO <-> MENTOR)
+# ==============================================================================
+def calcular_match_inteligente(aluno, mentores_disponiveis):
+    """
+    Analisa o objetivo do aluno e cruza com a especialidade/área de atuação dos mentores.
+    Retorna uma lista de mentores sugeridos organizados por % de afinidade.
+    """
+    sugestoes = []
+    
+    # Se o aluno não tiver preenchido o objetivo, aborta a análise
+    if not aluno.objetivo_principal:
+        return sugestoes
+
+    objetivo = aluno.objetivo_principal.lower()
+    
+    # Dicionário de sinónimos corporativos e tecnológicos
+    categorias_match = {
+        'Cloud & Infraestrutura': ['cloud', 'nuvem', 'azure', 'aws', 'redes', 'infraestrutura', 'servidores', 'segurança', 'cyber', 'cisco', 'juniper', 'dell'],
+        'Desenvolvimento de Software': ['programação', 'código', 'python', 'java', 'web', 'backend', 'frontend', 'app', 'software', 'flask', 'github'],
+        'Dados & IA': ['dados', 'análise', 'data science', 'machine learning', 'ia', 'inteligência artificial', 'sql', 'power bi', 'excel', 'pandas'],
+        'Liderança & Soft Skills': ['liderança', 'gestão', 'carreira', 'rh', 'comunicação', 'projetos', 'agile', 'scrum', 'negócios', 'apresentação']
+    }
+    
+    # Descobre os interesses do aluno
+    interesses_aluno = []
+    for categoria, palavras in categorias_match.items():
+        if any(p in objetivo for p in palavras):
+            interesses_aluno.append(categoria)
+            
+    # Cruza com a área de atuação de cada mentor executivo
+    for mentor in mentores_disponiveis:
+        score = 0
+        area_mentor = ""
+        
+        # Puxa a área de atuação do perfil avaliador (se existir) ou das observações
+        if hasattr(mentor, 'perfil_avaliador') and mentor.perfil_avaliador:
+            area_mentor = (mentor.perfil_avaliador.area_atuacao or "").lower()
+        else:
+            area_mentor = (mentor.observacoes_mentor or "").lower()
+            
+        for interesse in interesses_aluno:
+            if interesse.lower() in area_mentor or any(p in area_mentor for p in categorias_match[interesse]):
+                score += 50 # Ganha 50% de match por cada categoria em comum
+                
+        if score > 0:
+            sugestoes.append({
+                'mentor': mentor,
+                'score': min(score, 100), # Trava o match no máximo em 100%
+                'tags_comuns': ", ".join(interesses_aluno)
+            })
+            
+    # Ordena do maior match para o menor
+    sugestoes.sort(key=lambda x: x['score'], reverse=True)
+    return sugestoes
+
+
 # ---------------------------------------------------------
 # Rota de Cadastro de Usuários (AGORA COM MÚLTIPLOS MENTORES)
 # ---------------------------------------------------------

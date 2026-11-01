@@ -213,6 +213,24 @@
         <!-- ABA 03: CORPO DISCENTE (ALUNOS) -->
         <div class="tab-pane fade" id="alunos" role="tabpanel">
             <div class="card shadow-sm border-0 mb-5">
+                <!-- ========================================================================== -->
+                <!-- CAIXA DE AVISO DA IA (MATCH INTELIGENTE)                                   -->
+                <!-- ========================================================================== -->
+                {% set tem_sugestoes = false %}
+                {% for u in usuarios %}
+                    {% if u.tipo_usuario == 'Aluno' and (not u.mentores or u.mentores.count() == 0) and u.objetivo_principal %}
+                        {% set tem_sugestoes = true %}
+                    {% endif %}
+                {% endfor %}
+
+                {% if tem_sugestoes %}
+                <div class="alert alert-info border-info shadow-sm m-4">
+                    <h5 class="alert-heading fw-bold text-dark"><i class="bi bi-robot"></i> Inteligência Artificial: Match Disponível!</h5>
+                    <p class="mb-0 small text-muted">O sistema identificou alunos sem mentor cujos objetivos combinam com as especialidades da nossa equipe. Abra a edição do aluno para ver a sugestão da IA.</p>
+                </div>
+                {% endif %}
+                <!-- ========================================================================== -->
+
                 <div class="card-body p-0">
                     <table class="table table-hover align-middle mb-0 text-center">
                         <thead class="table-light">
