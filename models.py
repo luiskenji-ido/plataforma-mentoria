@@ -457,3 +457,32 @@ class QABanca(db.Model):
     resposta_jovens = db.Column(db.Text) # Resumo de como os jovens se saíram na resposta
     
     data_registro = db.Column(db.DateTime, default=datetime.utcnow)
+
+
+# ==============================================================================
+# 21. MÓDULO 5: PORTAL DE DEMANDAS INSTITUCIONAIS (TICKETS ITM & AON)
+# ==============================================================================
+
+class DemandaInstitucional(db.Model):
+    __tablename__ = 'demanda_institucional'
+    id = db.Column(db.Integer, primary_key=True)
+    autor_id = db.Column(db.Integer, db.ForeignKey('usuario.id'), nullable=False)
+    
+    # Classificação do Ticket
+    tipo_demanda = db.Column(db.String(50), nullable=False) # Mudança de Data, Melhoria, Alinhamento, etc.
+    prioridade = db.Column(db.String(20), default='Normal') # Baixa, Normal, Alta, Urgente
+    status = db.Column(db.String(20), default='Aberta')     # Aberta, Em Análise, Concluída, Cancelada
+    
+    # Conteúdo
+    titulo = db.Column(db.String(200), nullable=False)
+    descricao = db.Column(db.Text, nullable=False)
+    
+    # Resolução (Preenchido pelos Gestores/Admins)
+    resposta_oficial = db.Column(db.Text, nullable=True) 
+    
+    # Datas de rastreio
+    data_criacao = db.Column(db.DateTime, default=datetime.utcnow)
+    data_atualizacao = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Conexão com quem abriu o chamado
+    autor = db.relationship('Usuario', backref='demandas_criadas')
