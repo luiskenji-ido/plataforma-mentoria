@@ -9,7 +9,7 @@
 </div>
 {% endif %}
 
-<!-- INÍCIO DO MÓDULO DE VOLUNTARIADO CORPORATIVO (AON/ITM) -->
+<!-- INÍCIO DO MÓDULO DE VOLUNTARIADO CORPORATIVO (B2B / ITM) -->
 {% if current_user.tipo_usuario != 'Aluno' %}
 <div class="card shadow-sm border-0 mb-4 bg-white border-start border-4 border-success">
     <div class="card-body d-flex flex-column flex-md-row justify-content-between align-items-center">
@@ -18,27 +18,90 @@
                 <i class="bi bi-stopwatch"></i> Relógio de Voluntariado Corporativo
             </h5>
             <p class="card-text small text-muted mb-0">
-                Vai ler um TCC, analisar projetos ou fazer uma reunião extra? Registe o seu tempo exato para o relatório ESG.
+                Vai ler um TCC, analisar projetos ou fazer uma reunião extra? Registre o seu tempo exato para o relatório ESG.
             </p>
         </div>
         
-        <form action="{{ url_for('bater_ponto_voluntariado') }}" method="POST" class="m-0 d-flex gap-2 align-items-center">
+        <div class="d-flex flex-wrap gap-2 align-items-center">
+            <form action="{{ url_for('bater_ponto_voluntariado') }}" method="POST" class="m-0 d-flex gap-2 align-items-center">
+                {% if not relogio_aberto %}
+                    <select name="tipo_atividade" class="form-select form-select-sm shadow-sm" required style="width: auto;">
+                        <option value="Leitura Assíncrona de TCC">Leitura de TCC</option>
+                        <option value="Mentoria Extraordinária">Reunião Extra</option>
+                        <option value="Avaliação de Banca Ao Vivo">Banca Ao Vivo</option>
+                    </select>
+                    <button type="submit" class="btn btn-success fw-bold rounded-pill px-3 shadow-sm" title="Clique para iniciar o tempo agora">
+                        <i class="bi bi-play-circle"></i> Iniciar Contagem
+                    </button>
+                {% else %}
+                    <span class="badge bg-danger pulse-animation me-2 p-2">Tempo a contar...</span>
+                    <button type="submit" class="btn btn-outline-danger fw-bold rounded-pill px-4 shadow-sm" title="Clique para parar o relógio">
+                        <i class="bi bi-stop-circle"></i> Encerrar Voluntariado
+                    </button>
+                {% endif %}
+            </form>
+            
+            <!-- NOVO BOTÃO DE LANÇAMENTO MANUAL -->
             {% if not relogio_aberto %}
-                <select name="tipo_atividade" class="form-select form-select-sm shadow-sm" required style="width: auto;">
-                    <option value="Leitura Assíncrona de TCC">Leitura de TCC</option>
-                    <option value="Mentoria Extraordinária">Reunião Extra</option>
-                    <option value="Avaliação de Banca Ao Vivo">Banca Ao Vivo</option>
-                </select>
-                <button type="submit" class="btn btn-success fw-bold rounded-pill px-4 shadow-sm" title="Clique para iniciar o tempo">
-                    <i class="bi bi-play-circle"></i> Iniciar Contagem
-                </button>
-            {% else %}
-                <span class="badge bg-danger pulse-animation me-2 p-2">Tempo a contar...</span>
-                <button type="submit" class="btn btn-outline-danger fw-bold rounded-pill px-4 shadow-sm" title="Clique para parar o relógio">
-                    <i class="bi bi-stop-circle"></i> Encerrar Voluntariado
-                </button>
+            <button type="button" class="btn btn-outline-secondary fw-bold rounded-pill px-3 shadow-sm" data-bs-toggle="modal" data-bs-target="#modalVoluntariadoManual" title="Inserir horas de uma atividade que já passou">
+                <i class="bi bi-pencil-square"></i> Inserir Manual
+            </button>
             {% endif %}
-        </form>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL DE LANÇAMENTO MANUAL DE VOLUNTARIADO (GENÉRICO) -->
+<div class="modal fade text-start" id="modalVoluntariadoManual" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content shadow-lg border-0">
+            <div class="modal-header bg-secondary text-white">
+                <h5 class="modal-title fw-bold"><i class="bi bi-pencil-square"></i> Lançamento Manual de Horas</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <form action="{{ url_for('lancamento_manual_voluntariado') }}" method="POST">
+                <div class="modal-body bg-light">
+                    <div class="alert alert-warning small border-0 bg-warning-subtle text-warning-emphasis mb-4">
+                        <i class="bi bi-exclamation-triangle-fill"></i> Use esta opção <strong>apenas</strong> se realizou uma ajuda extra fora da plataforma e esqueceu de ligar o cronômetro oficial.
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label fw-bold text-dark">Qual foi a atividade?</label>
+                        <select name="tipo_atividade" class="form-select shadow-sm border-secondary" required>
+                            <option value="Leitura Assíncrona de TCC">Leitura de TCC em Offline</option>
+                            <option value="Mentoria Extraordinária">Reunião Extra (Teams / Presencial)</option>
+                            <option value="Avaliação de Banca Ao Vivo">Banca Ao Vivo (Atrasada)</option>
+                            <option value="Apoio Institucional">Outras Ajudas corporativas</option>
+                        </select>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label fw-bold text-dark">Data da Atividade</label>
+                        <input type="date" name="data" class="form-control shadow-sm border-secondary" required>
+                    </div>
+                    
+                    <div class="row mb-3">
+                        <div class="col-6">
+                            <label class="form-label fw-bold text-dark">Hora de Início</label>
+                            <input type="time" name="hora_inicio" class="form-control shadow-sm border-secondary" required>
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label fw-bold text-dark">Hora de Fim</label>
+                            <input type="time" name="hora_fim" class="form-control shadow-sm border-secondary" required>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-2">
+                        <label class="form-label fw-bold text-dark">Observações / Detalhes (Opcional)</label>
+                        <textarea name="observacoes" class="form-control shadow-sm border-secondary" rows="2" placeholder="Ex: Ajudei o grupo 4 na formatação da apresentação..."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer bg-white border-0">
+                    <button type="button" class="btn btn-outline-secondary fw-bold" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-success fw-bold px-4 shadow">Gravar Horas Manuais</button>
+                </div>
+            </form>
+        </div>
     </div>
 </div>
 

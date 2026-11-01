@@ -1885,6 +1885,54 @@ def portal_demandas():
 
     return render_template('demandas.html', demandas=lista_demandas)
 
+# ==============================================================================
+# ROTA: LANÇAMENTO MANUAL DE HORAS DE VOLUNTARIADO (B2B GENÉRICO)
+# ==============================================================================
+@app.route('/voluntariado/manual', methods=['POST'])
+@login_required
+def lancamento_manual_voluntariado():
+    from models import CheckinVoluntariado
+    from datetime import datetime
+    
+    tipo = request.form.get('tipo_atividade')
+    data_str = request.form.get('data')
+    hora_inicio_str = request.form.get('hora_inicio')
+    hora_fim_str = request.form.get('hora_fim')
+    observacoes = request.form.get('observacoes')
+    
+    if data_str and hora_inicio_str and hora_fim_str:
+        try:
+            # Junta a data com as horas para criar o formato completo
+            inicio_dt = datetime.strptime(f"{data_str} {hora_inicio_str}", "%Y-%m-%d %H:%M")
+            fim_dt = datetime.strptime(f"{data_str} {hora_fim_str}", "%Y-%m-%d %H:%M")
+            
+            # Trata o caso de virar a noite (ex: 23:00 até 01:00)
+            if fim_dt < inicio_dt:
+                from datetime import timedelta
+                fim_dt += timedelta(days=1)
+                
+            minutos = int((fim_dt - inicio_dt).total_seconds() / 60)
+            
+            novo_ponto = CheckinVoluntariado(
+                usuario_id=current_user.id,
+                tipo_atividade=f"{tipo} (Lançamento Manual)",
+                data_hora_inicio=inicio_dt,
+                data_hora_fim=fim_dt,
+                total_minutos=minutos,
+                observacoes=observacoes
+            )
+            db.session.add(novo_ponto)
+            db.session.commit()
+            
+            # Alerta limpo e genérico para qualquer parceiro B2B
+            flash(f"✅ Lançamento manual gravado! {minutos} minutos adicionados ao relatório corporativo ESG.", "success")
+        except Exception as e:
+            flash(f"Erro ao processar as datas. Tente novamente.", "danger")
+    else:
+        flash("Preencha todos os campos obrigatórios para o lançamento manual.", "warning")
+        
+    return redirect(request.referrer or url_for('dashboard'))
+
 
 # ===========================================================================
 # EXECUÇÃO DO APLICATIVO
