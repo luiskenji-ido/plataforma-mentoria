@@ -486,3 +486,17 @@ class DemandaInstitucional(db.Model):
     
     # Conexão com quem abriu o chamado
     autor = db.relationship('Usuario', backref='demandas_criadas')
+
+# ==============================================================================
+# 22. MÓDULO 6: COMPLIANCE E ONBOARDING (TERMOS DE USO B2B)
+# ==============================================================================
+
+class TermoAceite(db.Model):
+    __tablename__ = 'termo_aceite'
+    id = db.Column(db.Integer, primary_key=True)
+    usuario_id = db.Column(db.Integer, db.ForeignKey('usuario.id'), nullable=False)
+    
+    data_aceite = db.Column(db.DateTime, default=datetime.utcnow)
+    versao_termo = db.Column(db.String(50), default="1.0 - B2B Genérico")
+    
+    usuario = db.relationship('Usuario', backref='termos_assinados')

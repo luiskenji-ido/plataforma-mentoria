@@ -1933,6 +1933,55 @@ def lancamento_manual_voluntariado():
         
     return redirect(request.referrer or url_for('dashboard'))
 
+# ==============================================================================
+# MOTOR DO ONBOARDING B2B E TRAVA DE COMPLIANCE
+# ==============================================================================
+
+# O @app.before_request age como um segurança de porta: ele roda ANTES de qualquer página abrir
+@app.before_request
+def verificar_onboarding():
+    # Deixa passar livremente as páginas de login, logout, arquivos estáticos e o próprio onboarding
+    if request.endpoint in ['login', 'logout', 'static', 'onboarding', 'aceitar_termos']:
+        return
+    
+    if current_user.is_authenticated:
+        # Alunos não passam por este onboarding corporativo
+        if current_user.tipo_usuario == 'Aluno':
+            return
+        
+        from models import TermoAceite
+        # Verifica se existe uma assinatura no banco de dados para este usuário
+        aceite = TermoAceite.query.filter_by(usuario_id=current_user.id).first()
+        
+        # Se não tem a assinatura, "tranca" o usuário na página de Onboarding
+        if not aceite:
+            return redirect(url_for('onboarding'))
+
+# Rota visual para ler o termo
+@app.route('/onboarding')
+@login_required
+def onboarding():
+    # Se aluno cair aqui por acidente, manda de volta ao painel
+    if current_user.tipo_usuario == 'Aluno':
+        return redirect(url_for('dashboard'))
+    return render_template('onboarding.html')
+
+# Rota de gravação da assinatura
+@app.route('/onboarding/aceitar', methods=['POST'])
+@login_required
+def aceitar_termos():
+    from models import TermoAceite
+    from datetime import datetime
+    
+    novo_aceite = TermoAceite(
+        usuario_id=current_user.id,
+        data_aceite=datetime.utcnow()
+    )
+    db.session.add(novo_aceite)
+    db.session.commit()
+    
+    flash("✅ Diretrizes corporativas aceitas com sucesso! Bem-vindo(a) ao projeto.", "success")
+    return redirect(url_for('dashboard'))
 
 # ===========================================================================
 # EXECUÇÃO DO APLICATIVO

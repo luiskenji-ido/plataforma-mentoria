@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block title %}Onboarding Institucional{% endblock %}
+
+{% block content %}
+<div class="container mt-2 mb-5" style="max-width: 800px;">
+    
+    <div class="text-center mb-4">
+        <h2 class="text-primary fw-bold"><i class="bi bi-shield-check"></i> Onboarding de Voluntariado</h2>
+        <p class="text-muted">Termo de Compromisso, LGPD e Diretrizes de Mentoria B2B</p>
+    </div>
+
+    <div class="card shadow-lg border-0">
+        <div class="card-body p-5">
+            <h5 class="fw-bold mb-4 text-dark">Olá, {{ current_user.nome.split()[0] }}!</h5>
+            <p class="text-dark">Antes de acessar o painel e os dados dos jovens, precisamos que leia e concorde com as nossas diretrizes oficiais de relacionamento e privacidade.</p>
+            
+            <div class="bg-light border rounded p-4 mb-4" style="height: 300px; overflow-y: auto; font-size: 0.9rem;">
+                <h6 class="fw-bold text-dark">1. Confidencialidade e LGPD</h6>
+                <p class="text-muted">Todos os dados pessoais, informações acadêmicas e contatos dos jovens vinculados ao Instituto ITM são estritamente confidenciais. É vedada a extração, compartilhamento ou uso destes dados fora do escopo do programa de mentoria corporativa.</p>
+                
+                <h6 class="fw-bold text-dark">2. Conduta e Relacionamento</h6>
+                <p class="text-muted">A comunicação com os jovens deve ocorrer prioritariamente dentro das ferramentas institucionais e durante as reuniões agendadas. O voluntário compromete-se a manter uma postura ética, inclusiva e encorajadora durante toda a jornada.</p>
+
+                <h6 class="fw-bold text-dark">3. Critérios da Banca de TCC</h6>
+                <p class="text-muted">As avaliações finais de projeto seguirão a régua de governança: Conteúdo (40%), Apresentação (40%) e Visual (20%). O voluntário compromete-se a ser justo, embasado e a preencher o formulário de Q&A (Perguntas e Respostas) para auditoria do parceiro B2B.</p>
+                
+                <h6 class="fw-bold text-dark">4. Relatório ESG</h6>
+                <p class="text-muted">Ao utilizar o Relógio de Voluntariado Corporativo, você atesta que as horas ali lançadas representam com fidelidade o esforço empregado, que serão reportadas nos balanços sociais da sua corporação.</p>
+            </div>
+
+            <form action="{{ url_for('aceitar_termos') }}" method="POST">
+                <div class="form-check mb-4">
+                    <input class="form-check-input border-primary" type="checkbox" id="checkAceite" required style="width: 1.5em; height: 1.5em; cursor: pointer;">
+                    <label class="form-check-label ms-2 mt-1 text-dark fw-bold" for="checkAceite" style="cursor: pointer;">
+                        Li e concordo integralmente com os termos e diretrizes acima.
+                    </label>
+                </div>
+                
+                <button type="submit" class="btn btn-primary btn-lg w-100 fw-bold shadow-sm rounded-pill" id="btnAcessar" disabled>
+                    Assinar Digitalmente e Acessar Plataforma
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Libera o botão apenas quando o usuário marcar a caixinha
+    document.getElementById('checkAceite').addEventListener('change', function() {
+        document.getElementById('btnAcessar').disabled = !this.checked;
+    });
+</script>
+
+<!-- Esconde o menu superior para obrigar o aceite -->
+<style>
+    .navbar { display: none !important; }
+</style>
+{% endblock %}
