@@ -388,6 +388,27 @@
 
                     </div>
                     
+                    <!-- CAIXA DE MATCH DA IA DENTRO DA EDIÇÃO -->
+                        {% if u.tipo_usuario == 'Aluno' and u.objetivo_principal %}
+                            {% set sugestoes = calcular_match(u, mentores) %}
+                            {% if sugestoes %}
+                            <div class="alert alert-success border-success mt-4 mb-2 p-3 shadow-sm">
+                                <h6 class="fw-bold text-dark mb-2"><i class="bi bi-robot text-success"></i> Mentores Sugeridos pela IA:</h6>
+                                <ul class="mb-0 small text-muted" style="list-style-type: none; padding-left: 0;">
+                                    {% for sug in sugestoes %}
+                                        <li class="mb-1">
+                                            <i class="bi bi-arrow-right-short text-success"></i>
+                                            <strong>{{ sug.mentor.nome }}</strong> 
+                                            <span class="badge bg-success-subtle text-success border border-success-subtle rounded-pill mx-1">{{ sug.score }}% de afinidade</span>
+                                            <br><span style="font-size: 0.75rem; margin-left: 20px;">Áreas em comum: {{ sug.tags_comuns }}</span>
+                                        </li>
+                                    {% endfor %}
+                                </ul>
+                            </div>
+                            {% endif %}
+                        {% endif %}
+
+
                     <div class="modal-footer">
                         <button type="button" class="btn btn-secondary fw-bold" data-bs-dismiss="modal">{{ t('cancelar') }}</button>
                         <button type="submit" class="btn btn-primary fw-bold">{{ t('salvar_alteracoes') }}</button>

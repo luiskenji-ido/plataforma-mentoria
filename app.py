@@ -719,7 +719,7 @@ def gerenciar_usuarios():
     fill_nome = request.args.get('fill_nome', '')
     fill_email = request.args.get('fill_email', '')
 
-    return render_template('admin_usuarios.html', usuarios=usuarios, mentores=mentores, solicitacoes=solicitacoes, fill_nome=fill_nome, fill_email=fill_email)
+    return render_template('admin_usuarios.html', usuarios=usuarios, mentores=mentores, solicitacoes=solicitacoes, fill_nome=fill_nome, fill_email=fill_email, calcular_match=calcular_match_inteligente)
     
 # ---------------------------------------------------------
 # Rota de Edição de Usuários (AGORA COM MÚLTIPLOS MENTORES)
