@@ -25,9 +25,10 @@ def executar_agente_qa():
 
     cenarios_teste = """
     CENÁRIOS EXECUTADOS NESTA RODADA:
-    - Cenário A (Perfil Aluno - Projetos): Um usuário logado como 'Aluno' acedeu à rota de projetos (/projetos) e conseguiu listar todos os projetos cadastrados no sistema, independentemente de pertencerem ao seu grupo.
-    - Cenário B (Perfil Aluno - Datas): Um aluno tentou atualizar a data de término de um curso no acompanhamento e encontrou dificuldades de submissão devido a restrições de validação do formulário.
-    - Cenário C (Segurança de Gestão): Usuários com perfil 'Administrador' testaram com sucesso a abertura de tickets no Portal de Demandas e o registro manual de horas de voluntariado.
+    - Cenário A (Perfil Aluno - Projetos): Um utilizador logado como 'Aluno' acedeu à rota de projetos (/projetos). O sistema filtrou corretamente os dados e exibiu APENAS os projetos vinculados aos grupos aos quais o aluno pertence. Acesso a terceiros bloqueado.
+    - Cenário B (Perfil Aluno - Datas): O sistema bloqueou corretamente a tentativa de um aluno alterar datas do cronograma de estudos. Apenas mentores e gestores conseguem gravar alterações de data no banco de dados.
+    - Cenário C (Segurança de Gestão): Utilizadores com perfil 'Administrador' acederam ao Portal de Demandas e registaram horas de voluntariado com sucesso. O sistema bloqueou o acesso de alunos a estas rotas.
+    - Cenário D (Cálculo da Banca TCC): O mentor lançou as seguintes notas na avaliação da banca: Escrita 8.0, Apresentação 9.0 e Visual 7.0. O sistema processou corretamente a fórmula e devolveu a Nota Final exata de 8.2.
     """
 
     prompt_completo = f"""

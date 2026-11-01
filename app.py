@@ -2008,6 +2008,33 @@ def biblioteca_tccs():
     
     return render_template('biblioteca.html', projetos=projetos_concluidos)
 
+
+# ==============================================================================
+# ROTA: EMISSÃO DE CERTIFICADOS OFICIAIS (PDF)
+# ==============================================================================
+@app.route('/certificado/<int:projeto_id>/<int:usuario_id>')
+@login_required
+def emitir_certificado(projeto_id, usuario_id):
+    from models import Projeto, Usuario
+    
+    projeto = db.session.get(Projeto, projeto_id)
+    usuario = db.session.get(Usuario, usuario_id)
+    
+    if not projeto or not usuario:
+        flash("Dados não encontrados para a emissão do certificado.", "danger")
+        return redirect(url_for('dashboard'))
+        
+    # Trava de Segurança: Certificado só sai se a banca aprovou
+    if projeto.status != 'Concluído':
+        flash("Este projeto ainda não foi aprovado pela Banca Avaliadora.", "warning")
+        return redirect(url_for('biblioteca_tccs'))
+        
+    # Identifica a data de aprovação
+    data_emissao = projeto.data_criacao.strftime('%d/%m/%Y')
+    
+    return render_template('certificado.html', projeto=projeto, usuario=usuario, data_emissao=data_emissao)
+
+
 # ===========================================================================
 # EXECUÇÃO DO APLICATIVO
 # ===========================================================================

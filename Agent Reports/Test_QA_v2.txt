@@ -1,0 +1,110 @@
+==================================================
+    RELATÓRIO DE HOMOLOGAÇÃO DO AGENTE QA B2B     
+==================================================
+
+# Relatório Técnico de Garantia de Qualidade (QA) - Plataforma B2B
+
+**Data:** 24 de Outubro de 2023  
+**Responsável:** Engenharia de Qualidade (QA Sênior)  
+**Escopo:** Avaliação de Regras de Negócio, Isolamento de Dados (Multi-tenancy) e Segurança de Acesso
+
+---
+
+### 🟢 Homologado / Aprovado
+
+* **Fluxo de Gestão e Operações Administrativas (Cenário C - Regra 2):**
+  * O perfil **Administrador** executou com sucesso a criação e acompanhamento de tickets no Portal de Demandas.
+  * O apontamento manual de horas no Relógio de Voluntariado Corporativo operou de acordo com as permissões esperadas para o perfil gestor.
+
+---
+
+### 🔴 Falhas Encontradas
+
+1. **[CRÍTICO] Violação de Isolamento de Dados / BOLA (Broken Object Level Authorization) (Cenário A - Regra 1):**
+   * **Problema:** Um usuário com perfil `Aluno` conseguiu listar todos os projetos da base ao acessar a rota `/projetos`.
+   * **Impacto:** Vazamento de dados sensíveis entre grupos/empresas parceiras, violando preceitos de privacidade e a Regra de Negócio 1 (Isolamento de Alunos). O sistema está executando uma consulta irrestrita (`SELECT * FROM projetos`) sem correlacionar o usuário logado ao seu respectivo `grupo_id`.
+
+2. **[MÉDIO] Falha de Validação e Experiência do Usuário na Edição de Cronogramas (Cenário B - Regra 3):**
+   * **Problema:** A validação de formulário bloqueou indevidamente a atualização de datas no acompanhamento de estudos, impedindo submissões válidas ou gerando erros opacos sem feedback claro de validação.
+   * **Impacto:** Impedimento operacional para atualização de cronogramas legítimos. Embora a Regra 3 exija bloqueio contra prazos retroativos inválidos, a implementação atual no front-end/back-end carece de assertividade na comparação temporal (ex: validar apenas `data_fim >= data_inicio` em vez de bloquear arbitrariamente qualquer edição).
+
+3. **[ALERTA DE COBERTURA] Testes Negativos Pendentes (Regras 2 e 4):**
+   * Não foi executado o teste negativo de **tentativa de acesso direto de Alunos** às rotas restritas de Tickets e Voluntariado (Regra 2).
+   * O motor de cálculo ponderado de notas da Banca (Regra 4: 40% Escrita, 40% Apresentação, 20% Visual) não foi exercitado nesta suíte de testes.
+
+---
+
+### 💡 Recomendações de Correção
+
+#### 1. Correção de Isolamento de Dados (Flask + SQLAlchemy)
+Aplique a filtragem por escopo no endpoint `/projetos` utilizando o identificador do grupo presente na sessão do usuário autenticado:
+
+```python
+from flask import abort
+from flask_login import current_user, login_required
+
+@app.route('/projetos', methods=['GET'])
+@login_required
+def listar_projetos():
+    if current_user.role == 'aluno':
+        if not current_user.grupo_id:
+            abort(403, description="Aluno não vinculado a um grupo.")
+            
+        # Garante o isolamento estrito por grupo
+        projetos = Projeto.query.filter_by(grupo_id=current_user.grupo_id).all()
+    elif current_user.role in ['admin', 'gestor']:
+        projetos = Projeto.query.all()
+    else:
+        abort(403)
+        
+    return render_template('projetos.html', projetos=projetos)
+```
+
+#### 2. Proteção contra Acesso Indevido (RBAC para Regra 2)
+Implementar decoradores customizados para bloquear alunos em rotas restritas:
+
+```python
+from functools import wraps
+
+def role_required(*roles_permitidas):
+    def decorator(f):
+        @wraps(f)
+        def decorated_function(*args, **kwargs):
+            if current_user.role not in roles_permitidas:
+                abort(403, description="Acesso restrito ao perfil de gestão.")
+            return f(*args, **kwargs)
+        return decorated_function
+    return decorator
+
+# Exemplo de uso:
+@app.route('/demandas/tickets', methods=['GET', 'POST'])
+@login_required
+@role_required('admin', 'gestor')
+def portal_demandas():
+    ...
+```
+
+#### 3. Ajuste de Validação de Datas (Flask-WTF / Marshmallow)
+Ajustar o validador para garantir que datas retroativas inválidas sejam rejeitadas com mensagens claras, sem travar alterações legais:
+
+```python
+from datetime import date
+from wtforms.validators import ValidationError
+
+class CronogramaForm(FlaskForm):
+    data_inicio = DateField('Data Início', validators=[DataRequired()])
+    data_fim = DateField('Data Término', validators=[DataRequired()])
+
+    def validate_data_fim(self, field):
+        if field.data < self.data_inicio.data:
+            raise ValidationError("A data de término não pode ser anterior à data de início.")
+        if field.data < date.today():
+            raise ValidationError("Não é permitido definir um prazo de conclusão retroativo.")
+```
+
+#### 4. Próximos Passos de QA
+* Adicionar testes unitários automatizados com `pytest` para a fórmula de ponderação da Banca (`(Escrita * 0.4) + (Apresentacao * 0.4) + (Visual * 0.2)`).
+* Executar testes de intrusão/permissão forçando requisições autenticadas como `aluno` via `POST/GET` diretamente nas rotas do Portal de Demandas e Voluntariado corporativo.
+
+==================================================
+✅ [4/4] Ciclo de testes concluído com sucesso.

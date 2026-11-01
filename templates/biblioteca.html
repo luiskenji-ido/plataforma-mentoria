@@ -40,9 +40,9 @@
                 </div>
             </div>
             <div class="card-footer bg-white border-top-0 pt-0 pb-4 px-4">
-                <button class="btn btn-outline-primary w-100 fw-bold shadow-sm" onclick="alert('Funcionalidade de download do PDF corporativo será ativada em breve.')">
-                    <i class="bi bi-file-earmark-pdf-fill"></i> Visualizar Arquivos
-                </button>
+                <a href="{{ url_for('emitir_certificado', projeto_id=p.id, usuario_id=current_user.id) }}" target="_blank" class="btn btn-outline-primary w-100 fw-bold shadow-sm">
+                    <i class="bi bi-award-fill"></i> Emitir Certificado
+                </a>
             </div>
         </div>
     </div>
