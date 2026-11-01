@@ -88,6 +88,11 @@
                     <a href="{{ url_for('painel_banca', id=p.id) }}" class="btn btn-sm btn-success fw-bold px-3 me-2 shadow-sm" title="Acessar a Sala da Banca">
                         <i class="bi bi-person-video3"></i> Sala da Banca
                     </a>
+                    <!-- Botão de Emitir Certificado (Aparece apenas se o projeto estiver Concluído) -->
+                    {% if projeto.status == 'Concluído' %}
+                    <a href="{{ url_for('emitir_certificado', projeto_id=projeto.id, usuario_id=current_user.id) }}" target="_blank" class="btn btn-primary fw-bold shadow-sm ms-2">
+                        <i class="bi bi-award-fill"></i> Certificado
+                    </a>
                 {% endif %}
 
                 <!-- Botão de Excluir Projeto (Visível apenas p/ Mentores e Admins) -->
