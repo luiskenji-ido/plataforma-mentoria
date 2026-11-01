@@ -8,6 +8,53 @@
 <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
 </div>
 {% endif %}
+
+<!-- INÍCIO DO MÓDULO DE VOLUNTARIADO CORPORATIVO (AON/ITM) -->
+{% if current_user.tipo_usuario != 'Aluno' %}
+<div class="card shadow-sm border-0 mb-4 bg-white border-start border-4 border-success">
+    <div class="card-body d-flex flex-column flex-md-row justify-content-between align-items-center">
+        <div class="mb-3 mb-md-0">
+            <h5 class="card-title text-success fw-bold mb-1">
+                <i class="bi bi-stopwatch"></i> Relógio de Voluntariado Corporativo
+            </h5>
+            <p class="card-text small text-muted mb-0">
+                Vai ler um TCC, analisar projetos ou fazer uma reunião extra? Registe o seu tempo exato para o relatório ESG.
+            </p>
+        </div>
+        
+        <form action="{{ url_for('bater_ponto_voluntariado') }}" method="POST" class="m-0 d-flex gap-2 align-items-center">
+            {% if not relogio_aberto %}
+                <select name="tipo_atividade" class="form-select form-select-sm shadow-sm" required style="width: auto;">
+                    <option value="Leitura Assíncrona de TCC">Leitura de TCC</option>
+                    <option value="Mentoria Extraordinária">Reunião Extra</option>
+                    <option value="Avaliação de Banca Ao Vivo">Banca Ao Vivo</option>
+                </select>
+                <button type="submit" class="btn btn-success fw-bold rounded-pill px-4 shadow-sm" title="Clique para iniciar o tempo">
+                    <i class="bi bi-play-circle"></i> Iniciar Contagem
+                </button>
+            {% else %}
+                <span class="badge bg-danger pulse-animation me-2 p-2">Tempo a contar...</span>
+                <button type="submit" class="btn btn-outline-danger fw-bold rounded-pill px-4 shadow-sm" title="Clique para parar o relógio">
+                    <i class="bi bi-stop-circle"></i> Encerrar Voluntariado
+                </button>
+            {% endif %}
+        </form>
+    </div>
+</div>
+
+<style>
+    .pulse-animation {
+        animation: pulse-red 2s infinite;
+    }
+    @keyframes pulse-red {
+        0% { box-shadow: 0 0 0 0 rgba(220, 53, 69, 0.7); }
+        70% { box-shadow: 0 0 0 10px rgba(220, 53, 69, 0); }
+        100% { box-shadow: 0 0 0 0 rgba(220, 53, 69, 0); }
+    }
+</style>
+{% endif %}
+<!-- FIM DO MÓDULO DE VOLUNTARIADO -->
+
 <div class="d-flex justify-content-between align-items-center mb-4">
 <div>
 <!-- TÍTULO TRADUZIDO -->

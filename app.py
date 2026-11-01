@@ -1753,6 +1753,64 @@ def alterar_idioma(sigla_idioma):
     
     return redirect(request.referrer or url_for('dashboard'))
 
+# ==============================================================================
+# MOTOR DO RELÓGIO DE VOLUNTARIADO CORPORATIVO (ESG)
+# ==============================================================================
+
+# Sensor global que avisa o HTML (tela) se o relógio de um usuário está a contar
+@app.context_processor
+def verificar_relogio_voluntariado():
+    relogio_aberto = False
+    if current_user.is_authenticated:
+        from models import CheckinVoluntariado
+        try:
+            ponto = CheckinVoluntariado.query.filter_by(usuario_id=current_user.id, data_hora_fim=None).first()
+            if ponto:
+                relogio_aberto = True
+        except:
+            pass
+    return dict(relogio_aberto=relogio_aberto)
+
+# Rota que liga e desliga o cronômetro
+@app.route('/voluntariado/ponto', methods=['POST'])
+@login_required
+def bater_ponto_voluntariado():
+    from models import CheckinVoluntariado
+    from datetime import datetime
+    
+    tipo = request.form.get('tipo_atividade', 'Avaliação de TCC / Mentoria Extra')
+    
+    # Verifica se o voluntário já tem um relógio a contar
+    ponto_aberto = CheckinVoluntariado.query.filter_by(
+        usuario_id=current_user.id,
+        data_hora_fim=None
+    ).first()
+    
+    if ponto_aberto:
+        # DESLIGAR O RELÓGIO (Check-out)
+        ponto_aberto.data_hora_fim = datetime.utcnow()
+        
+        # Calcula os minutos exatos
+        tempo_passado = ponto_aberto.data_hora_fim - ponto_aberto.data_hora_inicio
+        minutos = int(tempo_passado.total_seconds() / 60)
+        ponto_aberto.total_minutos = minutos
+        
+        db.session.commit()
+        flash(f"⏱️ Check-out concluído! Foram contabilizados {minutos} minutos para o relatório ESG da Aon.", "success")
+    else:
+        # LIGAR O RELÓGIO (Check-in)
+        novo_ponto = CheckinVoluntariado(
+            usuario_id=current_user.id,
+            tipo_atividade=tipo,
+            data_hora_inicio=datetime.utcnow()
+        )
+        db.session.add(novo_ponto)
+        db.session.commit()
+        flash("⏳ O relógio de voluntariado começou a contar! Não se esqueça de desligar quando terminar a leitura ou reunião.", "info")
+        
+    return redirect(request.referrer or url_for('dashboard'))
+
+
 # ===========================================================================
 # EXECUÇÃO DO APLICATIVO
 # ===========================================================================
