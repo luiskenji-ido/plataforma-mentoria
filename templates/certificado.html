@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="pt">
+<html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
     <title>Certificado - {{ usuario.nome }}</title>
@@ -8,78 +8,90 @@
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,600;1,400&family=Montserrat:wght@400;700&display=swap" rel="stylesheet">
     
     <style>
-        /* Define o formato A4 em modo Paisagem para o PDF */
+        /* Define o formato A4 em modo Paisagem sem margens extras na impressão */
         @page { size: A4 landscape; margin: 0; }
         
         body {
-            background-color: #f0f2f5;
+            background-color: #e9ecef;
             font-family: 'Montserrat', sans-serif;
             display: flex;
+            align-items: center;
             justify-content: center;
+            min-height: 100vh;
+            margin: 0;
             padding: 20px;
+            gap: 30px;
         }
 
-        /* O "Papel" do Diploma */
+        /* --- MENU DE CONTROLO LATERAL (Botões) --- */
+        .painel-controles {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            width: 300px;
+            flex-shrink: 0;
+        }
+
+        /* --- O DIPLOMA FÍSICO --- */
         .certificado-container {
             width: 297mm;
-            height: 210mm;
+            height: 209mm; /* Ajustado rigorosamente para não vazar para a 2ª página */
             background-color: white;
-            padding: 20mm;
+            padding: 12mm; /* Espaçamento externo reduzido */
+            box-sizing: border-box;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
             position: relative;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
-            border: 2px solid #e0e0e0;
+            overflow: hidden;
         }
 
-        /* A Borda Dourada Interna */
+        /* A Borda Dourada Interna (Usa flexbox para distribuir o espaço perfeitamente) */
         .borda-dourada {
             width: 100%;
             height: 100%;
-            border: 5px double #c5a059;
-            padding: 40px;
+            border: 4px double #c5a059;
+            padding: 20px 40px;
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between; /* Distribui topo, meio e rodapé automaticamente */
             text-align: center;
-            position: relative;
         }
 
+        /* --- TEXTOS AJUSTADOS --- */
         .titulo {
             font-family: 'Playfair Display', serif;
-            font-size: 3.5rem;
+            font-size: 3rem; /* Fonte levemente menor para caber */
             color: #0d3b66;
-            margin-bottom: 30px;
+            margin: 10px 0;
             text-transform: uppercase;
             letter-spacing: 2px;
         }
 
         .texto-certificado {
-            font-size: 1.2rem;
+            font-size: 1.1rem;
             color: #4a4a4a;
-            line-height: 1.8;
-            margin-bottom: 20px;
+            line-height: 1.6;
+            margin-bottom: 5px;
         }
 
         .nome-destaque {
             font-family: 'Playfair Display', serif;
-            font-size: 2.8rem;
+            font-size: 2.5rem;
             color: #c5a059;
             font-weight: 600;
-            margin: 20px 0;
-            border-bottom: 2px solid #e0e0e0;
+            margin: 10px 0;
+            border-bottom: 1px solid #e0e0e0;
             display: inline-block;
-            padding-bottom: 10px;
+            padding-bottom: 5px;
         }
 
+        /* --- ÁREA DAS ASSINATURAS --- */
         .assinaturas {
             display: flex;
             justify-content: space-around;
-            margin-top: 60px;
-        }
-
-        .linha-assinatura {
-            border-top: 1px solid #000;
-            width: 250px;
-            padding-top: 10px;
-            font-size: 0.9rem;
-            font-weight: bold;
-            color: #333;
+            align-items: flex-end;
+            margin-top: 10px;
         }
 
         .caixa-assinatura {
@@ -87,7 +99,7 @@
             flex-direction: column;
             align-items: center;
             justify-content: flex-end;
-            height: 100px;
+            width: 250px;
         }
 
         .img-assinatura {
@@ -97,64 +109,111 @@
             object-fit: contain;
         }
 
-        /* Esconde os botões na hora de guardar como PDF */
+        .linha-assinatura {
+            border-top: 1px solid #000;
+            width: 100%;
+            padding-top: 5px;
+            font-size: 0.85rem;
+            font-weight: bold;
+            color: #333;
+        }
+
+        /* --- REGRAS MÁGICAS PARA A HORA DE IMPRIMIR --- */
         @media print {
-            .btn-imprimir, body { background-color: white; padding: 0; }
-            .btn-imprimir { display: none !important; }
-            .certificado-container { box-shadow: none; border: none; width: 100%; height: 100%; }
+            body { 
+                background-color: white; 
+                padding: 0; 
+                margin: 0; 
+                display: block;
+            }
+            .painel-controles { 
+                display: none !important; /* Esconde os botões no PDF */
+            }
+            .certificado-container { 
+                box-shadow: none; 
+                border: none; 
+                margin: 0;
+                width: 297mm;
+                height: 210mm;
+            }
         }
     </style>
 </head>
 <body>
 
-    <!-- Botões de Controlo (Ficam ocultos no PDF) -->
-    <div class="position-fixed top-0 start-0 m-4 btn-imprimir d-flex flex-column gap-2">
-        <button onclick="window.print()" class="btn btn-success btn-lg shadow fw-bold">
+    <!-- PAINEL LATERAL COM BOTÕES PARA CARREGAR AS IMAGENS -->
+    <div class="painel-controles d-flex flex-column gap-3">
+        <h5 class="text-primary fw-bold mb-3 border-bottom pb-2">Configurar Diploma</h5>
+        
+        <!-- Botão para a Logo -->
+        <div>
+            <label class="form-label small fw-bold text-muted mb-1">1. Logo da Instituição</label>
+            <input type="file" class="form-control form-control-sm" accept="image/*" onchange="carregarImagem(event, 'logo-img')">
+        </div>
+
+        <!-- Botão para a Assinatura 1 -->
+        <div>
+            <label class="form-label small fw-bold text-muted mb-1">2. Assinatura: Diretor (ITM)</label>
+            <input type="file" class="form-control form-control-sm" accept="image/*" onchange="carregarImagem(event, 'ass1-img')">
+        </div>
+
+        <!-- Botão para a Assinatura 2 -->
+        <div>
+            <label class="form-label small fw-bold text-muted mb-1">3. Assinatura: Gestor (B2B)</label>
+            <input type="file" class="form-control form-control-sm" accept="image/*" onchange="carregarImagem(event, 'ass2-img')">
+        </div>
+
+        <hr>
+
+        <button onclick="window.print()" class="btn btn-success fw-bold shadow-sm">
             ⬇️ Guardar em PDF
         </button>
-        <a href="{{ url_for('biblioteca_tccs') }}" class="btn btn-dark shadow">
+        <a href="{{ url_for('biblioteca_tccs') }}" class="btn btn-outline-secondary">
             Voltar à Biblioteca
         </a>
+        <small class="text-muted text-center" style="font-size: 0.75rem;">Este painel irá desaparecer automaticamente no PDF gerado.</small>
     </div>
 
-    <!-- O Diploma Físico -->
+    <!-- O DIPLOMA FÍSICO -->
     <div class="certificado-container">
         <div class="borda-dourada">
             
-            <div class="mb-4">
-                <!-- COLE O LINK DO SEU LOGOTIPO DENTRO DAS ASPAS DO SRC ABAIXO -->
-                <img src="https://cdn-icons-png.flaticon.com/512/2231/2231649.png" alt="Selo Oficial" style="height: 90px; object-fit: contain;">
+            <!-- ÁREA SUPERIOR: LOGO E TÍTULO -->
+            <div>
+                <!-- A imagem padrão é substituída quando você escolhe um arquivo -->
+                <img id="logo-img" src="https://cdn-icons-png.flaticon.com/512/2231/2231649.png" alt="Selo Oficial" style="height: 70px; object-fit: contain; margin-bottom: 15px;">
+                <h1 class="titulo">Certificado de Excelência</h1>
+            </div>
+            
+            <!-- ÁREA CENTRAL: DADOS DO ALUNO E TEXTO -->
+            <div>
+                <p class="texto-certificado">Certificamos com a devida honra que</p>
+                <h2 class="nome-destaque">{{ usuario.nome }}</h2>
+                
+                <p class="texto-certificado mt-3">
+                    {% if usuario.tipo_usuario == 'Aluno' %}
+                    concluiu com êxito o programa de mentoria corporativa e obteve aprovação oficial<br>
+                    na Banca de Avaliação do Projeto de Conclusão (TCC): <strong>"{{ projeto.nome }}"</strong>.
+                    {% else %}
+                    atuou com excelência no programa corporativo ESG, dedicando horas de voluntariado e mentoria<br>
+                    para o desenvolvimento e aprovação do projeto: <strong>"{{ projeto.nome }}"</strong>.
+                    {% endif %}
+                </p>
+                
+                <p class="text-muted mt-3 small">Registrado na plataforma em {{ data_emissao }}.</p>
             </div>
 
-            <h1 class="titulo">Certificado de Excelência</h1>
-            
-            <p class="texto-certificado">Certificamos com a devida honra que</p>
-            <h2 class="nome-destaque">{{ usuario.nome }}</h2>
-            
-            <p class="texto-certificado">
-                {% if usuario.tipo_usuario == 'Aluno' %}
-                concluiu com êxito o programa de mentoria corporativa e obteve aprovação oficial<br>
-                na Banca de Avaliação do Projeto de Conclusão (TCC): <strong>"{{ projeto.nome }}"</strong>.
-                {% else %}
-                atuou com excelência no programa corporativo ESG, dedicando horas de voluntariado e mentoria<br>
-                para o desenvolvimento e aprovação do projeto: <strong>"{{ projeto.nome }}"</strong>.
-                {% endif %}
-            </p>
-            
-            <p class="text-muted mt-4">Registado na plataforma em {{ data_emissao }}.</p>
-
+            <!-- ÁREA INFERIOR: ASSINATURAS -->
             <div class="assinaturas">
-                <!-- ASSINATURA 1: INSTITUTO -->
+                <!-- CAIXA 1: INSTITUTO -->
                 <div class="caixa-assinatura">
-                    <!-- Cole o link da assinatura do diretor dentro das aspas do SRC -->
-                    <img src="https://upload.wikimedia.org/wikipedia/commons/8/87/Signature_placeholder.svg" class="img-assinatura" alt="Assinatura ITM">
+                    <img id="ass1-img" src="" class="img-assinatura" alt="" style="min-height: 40px;">
                     <div class="linha-assinatura">Direção Institucional ITM</div>
                 </div>
                 
-                <!-- ASSINATURA 2: PARCEIRO B2B -->
+                <!-- CAIXA 2: PARCEIRO B2B -->
                 <div class="caixa-assinatura">
-                    <!-- Cole o link da assinatura do parceiro dentro das aspas do SRC -->
-                    <img src="https://upload.wikimedia.org/wikipedia/commons/8/87/Signature_placeholder.svg" class="img-assinatura" alt="Assinatura B2B">
+                    <img id="ass2-img" src="" class="img-assinatura" alt="" style="min-height: 40px;">
                     <div class="linha-assinatura">Gestor do Parceiro B2B</div>
                 </div>
             </div>
@@ -162,5 +221,21 @@
         </div>
     </div>
 
+    <!-- SCRIPT MÁGICO QUE LÊ A IMAGEM DO SEU PC E COLOCA NA TELA -->
+    <script>
+        function carregarImagem(event, imgId) {
+            var input = event.target;
+            if (input.files && input.files[0]) {
+                var reader = new FileReader();
+                reader.onload = function(e) {
+                    // Pega o elemento da imagem na tela e troca pela foto selecionada
+                    var imagemNaTela = document.getElementById(imgId);
+                    imagemNaTela.src = e.target.result;
+                }
+                // Lê o arquivo
+                reader.readAsDataURL(input.files[0]);
+            }
+        }
+    </script>
 </body>
 </html>
