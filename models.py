@@ -413,3 +413,47 @@ class CheckinAula(db.Model):
 
     def __repr__(self):
         return f"<CheckinAula {self.usuario.nome} - {self.curso.nome_curso}>"
+
+
+# ==============================================================================
+# 20. MÓDULO 4: BANCA AVALIADORA (AON / ITM) E VOLUNTARIADO DE LEITURA
+# ==============================================================================
+
+class PerfilAvaliador(db.Model):
+    __tablename__ = 'perfil_avaliador'
+    id = db.Column(db.Integer, primary_key=True)
+    usuario_id = db.Column(db.Integer, db.ForeignKey('usuario.id'), nullable=False)
+    
+    # Dados Corporativos do Executivo
+    empresa_origem = db.Column(db.String(150), default="Aon")
+    area_atuacao = db.Column(db.String(150))
+    curriculo_minibio = db.Column(db.Text)
+    
+    # Relação com a tabela principal de Usuários
+    usuario = db.relationship('Usuario', backref=db.backref('perfil_avaliador', uselist=False))
+
+class CheckinVoluntariado(db.Model):
+    __tablename__ = 'checkin_voluntariado'
+    id = db.Column(db.Integer, primary_key=True)
+    usuario_id = db.Column(db.Integer, db.ForeignKey('usuario.id'), nullable=False)
+    projeto_id = db.Column(db.Integer, db.ForeignKey('projeto.id'), nullable=True) # Pode ser leitura de um TCC específico
+    
+    # Ex: 'Leitura de TCC', 'Banca Ao Vivo', 'Mentoria Extraordinária'
+    tipo_atividade = db.Column(db.String(100), nullable=False) 
+    
+    data_hora_inicio = db.Column(db.DateTime, nullable=False)
+    data_hora_fim = db.Column(db.DateTime, nullable=True) # Fica vazio até o executivo fazer o Check-out
+    total_minutos = db.Column(db.Integer, default=0)
+    
+    observacoes = db.Column(db.Text)
+
+class QABanca(db.Model):
+    __tablename__ = 'qa_banca'
+    id = db.Column(db.Integer, primary_key=True)
+    projeto_id = db.Column(db.Integer, db.ForeignKey('projeto.id'), nullable=False)
+    avaliador_id = db.Column(db.Integer, db.ForeignKey('usuario.id'), nullable=False)
+    
+    pergunta_feita = db.Column(db.Text, nullable=False)
+    resposta_jovens = db.Column(db.Text) # Resumo de como os jovens se saíram na resposta
+    
+    data_registro = db.Column(db.DateTime, default=datetime.utcnow)
