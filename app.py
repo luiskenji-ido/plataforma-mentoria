@@ -864,15 +864,20 @@ def acompanhamento():
             regstro = db.session.get(Acompanhamento, acompanhamento_id)
             
             if regstro:
-                if data_inicio_str:
-                    regstro.data_inicio = datetime.strptime(data_inicio_str, '%Y-%m-%d')
-                else:
-                    regstro.data_inicio = None
+                # TRAVA DE SEGURANÇA: Apenas Mentores e Gestores podem alterar prazos oficiais
+                if current_user.tipo_usuario != 'Aluno':
+                    if data_inicio_str:
+                        regstro.data_inicio = datetime.strptime(data_inicio_str, '%Y-%m-%d')
+                    else:
+                        regstro.data_inicio = None
 
-                if data_termino_str:
-                    regstro.data_termino = datetime.strptime(data_termino_str, '%Y-%m-%d')
-                else:
-                    regstro.data_termino = None
+                    if data_termino_str:
+                        regstro.data_termino = datetime.strptime(data_termino_str, '%Y-%m-%d')
+                    else:
+                        regstro.data_termino = None
+                
+                if current_user.tipo_usuario != 'Aluno':
+                    aluno_obj = db.session.get(Usuario, regstro.aluno_id)
                 
                 if current_user.tipo_usuario != 'Aluno':
                     aluno_obj = db.session.get(Usuario, regstro.aluno_id)
@@ -1209,17 +1214,23 @@ def projetos():
         flash('Projeto criado com sucesso!', 'success')
         return redirect(url_for('projetos'))
 
-    # 2. Quando a página apenas carrega (GET)
+    # 2. Quando a página apenas carrega (GET) - CORREÇÃO DE SEGURANÇA E LGPD
     grupo_filtro = request.args.get('grupo_filtro')
-    
     query = Projeto.query
-    if grupo_filtro:
-        # Se um grupo foi escolhido, filtra apenas os projetos dele
-        query = query.filter_by(grupo_id=grupo_filtro)
+    
+    # TRAVA: Se for Aluno, filtra rigorosamente para mostrar apenas os grupos dele
+    if current_user.tipo_usuario == 'Aluno':
+        meus_grupos_ids = [g.id for g in current_user.grupos]
+        query = query.filter(Projeto.grupo_id.in_(meus_grupos_ids))
+        grupos_disponiveis = current_user.grupos # Aluno só pode escolher os seus grupos no filtro
+    else:
+        # Se for Gestor ou Mentor, pode ver tudo e usar filtros livres
+        if grupo_filtro:
+            query = query.filter_by(grupo_id=grupo_filtro)
+        grupos_disponiveis = Grupo.query.all()
         
     # Ordena para manter os mais recentes no topo
     lista_projetos = query.order_by(Projeto.id.desc()).all()
-    grupos_disponiveis = Grupo.query.all()
     
     return render_template('projetos.html', projetos=lista_projetos, grupos=grupos_disponiveis, grupo_filtro=grupo_filtro)
 

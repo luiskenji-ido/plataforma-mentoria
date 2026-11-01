@@ -1,0 +1,117 @@
+==================================================
+    RELATÓRIO DE HOMOLOGAÇÃO DO AGENTE QA B2B     
+==================================================
+
+# Relatório Técnico de Garantia da Qualidade (QA B2B)
+
+**Data da Análise:** 24/03/2026  
+**Responsável:** Engenharia de Qualidade Sênior  
+**Escopo:** Validação de Perfis de Acesso, Isolamento Multi-tenant/Grupos e Integridade de Negócio  
+
+---
+
+### 🟢 Homologado / Aprovado
+
+* **Cenário C — Operações Administrativas (Portal de Demandas e Voluntariado Corporativo):**
+  * **Status:** Aprovado em conformidade com a **Regra 2**.
+  * **Análise:** Usuários com perfil `Administrador` conseguiram acessar, registrar demandas (tickets) e lançar horas de voluntariado com sucesso. O comportamento operacional para usuários privilegiados está operando dentro dos parâmetros de negócio esperados.
+
+---
+
+### 🔴 Falhas Encontradas
+
+* **Cenário A — Quebra Crítica de Isolamento de Dados / IDOR (Broken Object Level Authorization):**
+  * **Severidade:** **Crítica (Blocker)** — Risco de Segurança / LGPD.
+  * **Violação:** **Regra 1 (Isolamento de Alunos)**.
+  * **Descrição:** A rota `/projetos` executou uma consulta global sem escopo contextual do usuário autenticado. Um usuário com perfil `Aluno` conseguiu enumerar e visualizar dados de projetos de grupos externos. Há ausência de filtro a nível de camada de dados vinculando o aluno ao seu respectivo `grupo_id`.
+
+* **Cenário B — Falha na Validação/Regra de Atualização de Cronograma:**
+  * **Severidade:** **Média / Alta**.
+  * **Violação:** **Regra 3 (Edição de Datas)**.
+  * **Descrição:** O formulário de atualização de cronograma apresentou comportamentos anômalos de validação. Foram constatados dois potenciais desvios:
+    1. **Controle de Acesso Frágil:** Alunos não deveriam ter autorização para estender ou alterar unilateralmente prazos finais de cursos sem aprovação da coordenação/banca.
+    2. **Feedback de Validação Inadequado:** A validação contra prazos retroativos inválidos falhou em fornecer retorno claro (ex.: mensagens de erro desacopladas ou validação puramente client-side que bloqueia submissões legítimas), causando quebra de fluxo sem tratamento HTTP semântico (esperado `422 Unprocessable Entity` com detalhamento do campo).
+
+---
+
+### 💡 Recomendações de Correção
+
+#### 1. Correção do Cenário A: Isolamento Multilocatário/Grupo com SQLAlchemy
+A consulta da rota `/projetos` não deve usar `.all()` irrestrito. Utilize o contexto de autenticação do `Flask-Login` (`current_user`) para forçar o escopo:
+
+```python
+from flask import abort, render_template
+from flask_login import current_user, login_required
+
+@app.route('/projetos', methods=['GET'])
+@login_required
+def listar_projetos():
+    if current_user.perfil == 'Aluno':
+        if not current_user.grupo_id:
+            return render_template('projetos.html', projetos=[])
+        
+        # Garante o isolamento estrito por grupo
+        projetos = Projeto.query.filter_by(grupo_id=current_user.grupo_id).all()
+    elif current_user.perfil in ['Administrador', 'Professor']:
+        # Visualização global permitida apenas a perfis de gestão
+        projetos = Projeto.query.all()
+    else:
+        abort(403)
+
+    return render_template('projetos.html', projetos=projetos)
+```
+
+---
+
+#### 2. Correção do Cenário B: Validação de Datas no Model com SQLAlchemy
+Aplique uma validação declarativa no modelo para impedir cronogramas inválidos e garanta que o formulário retorne mensagens estruturadas ao usuário:
+
+```python
+from datetime import date
+from sqlalchemy.orm import validates
+
+class AcompanhamentoEstudo(db.Model):
+    __tablename__ = 'acompanhamentos'
+
+    id = db.Column(db.Integer, primary_key=True)
+    data_inicio = db.Column(db.Date, nullable=False)
+    data_termino = db.Column(db.Date, nullable=False)
+
+    @validates('data_termino')
+    def validar_data_termino(self, key, data_termino):
+        if data_termino < date.today():
+            raise ValueError("O prazo de término não pode ser uma data retroativa.")
+        if self.data_inicio and data_termino < self.data_inicio:
+            raise ValueError("O prazo de término não pode ser anterior à data de início.")
+        return data_termino
+```
+
+*Adicionalmente, no controller (Flask), capture as exceções e retorne mensagens claras (ex.: via flash messages ou payloads JSON para WTForms).*
+
+---
+
+#### 3. Salvaguarda Preventiva: Cálculo Automatizado da Banca (Regra 4)
+Para evitar inconsistências manuais na composição da nota final, adicione uma `@hybrid_property` no modelo de avaliação:
+
+```python
+from sqlalchemy.ext.hybrid import hybrid_property
+
+class AvaliacaoTCC(db.Model):
+    __tablename__ = 'avaliacoes_tcc'
+
+    id = db.Column(db.Integer, primary_key=True)
+    nota_escrita = db.Column(db.Numeric(4, 2), nullable=False)       # Peso 40%
+    nota_apresentacao = db.Column(db.Numeric(4, 2), nullable=False)  # Peso 40%
+    nota_visual = db.Column(db.Numeric(4, 2), nullable=False)        # Peso 20%
+
+    @hybrid_property
+    def nota_final(self):
+        return (
+            (self.nota_escrita * 0.40) +
+            (self.nota_apresentacao * 0.40) +
+            (self.nota_visual * 0.20)
+        )
+```
+
+==================================================
+✅ [4/4] Ciclo de testes concluído com sucesso.
