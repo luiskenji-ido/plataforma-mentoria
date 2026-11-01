@@ -1983,6 +1983,20 @@ def aceitar_termos():
     flash("✅ Diretrizes corporativas aceitas com sucesso! Bem-vindo(a) ao projeto.", "success")
     return redirect(url_for('dashboard'))
 
+# ==============================================================================
+# ROTA: BIBLIOTECA HISTÓRICA DE TCCS (VITRINE DE PROJETOS)
+# ==============================================================================
+@app.route('/biblioteca')
+@login_required
+def biblioteca_tccs():
+    from models import Projeto
+    
+    # Busca apenas os projetos que já passaram pela banca e foram aprovados/concluídos
+    # Ordena pelos que tiveram a maior nota de conteúdo primeiro (se houver notas)
+    projetos_concluidos = Projeto.query.filter_by(status='Concluído').order_by(Projeto.nota_conteudo.desc()).all()
+    
+    return render_template('biblioteca.html', projetos=projetos_concluidos)
+
 # ===========================================================================
 # EXECUÇÃO DO APLICATIVO
 # ===========================================================================
