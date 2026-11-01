@@ -600,14 +600,44 @@
                     
                     <div class="row">
                         <div class="col-md-6 mb-3">
-                            <label class="form-label">{{ t('data_inicio') }}</label>
-                            <!-- Adicionado o evento onchange para disparar a grade -->
-                            <input type="date" name="data_inicio" id="dt_ini_{{ item.reg.id }}" class="form-control" value="{{ item.reg.data_inicio.strftime('%Y-%m-%d') if item.reg.data_inicio else '' }}" onchange="gerarGrade_{{ item.reg.id }}()">
-                        </div>
-                        <div class="col-md-6 mb-3">
-                            <label class="form-label">{{ t('data_termino_meta') }}</label>
-                            <input type="date" name="data_termino" id="dt_fim_{{ item.reg.id }}" class="form-control" value="{{ item.reg.data_termino.strftime('%Y-%m-%d') if item.reg.data_termino else '' }}" onchange="gerarGrade_{{ item.reg.id }}()">
-                        </div>
+    <label class="form-label">
+        {{ t('data_inicio') }}
+        <!-- Aparece um cadeado se for Aluno -->
+        {% if current_user.tipo_usuario == 'Aluno' %}<i class="bi bi-lock-fill text-muted small" title="Apenas professores podem mudar"></i>{% endif %}
+    </label>
+    <input type="date" name="data_inicio" id="dt_ini_{{ item.reg.id }}" 
+           class="form-control {% if current_user.tipo_usuario == 'Aluno' %}bg-light text-muted{% endif %}" 
+           value="{{ item.reg.data_inicio.strftime('%Y-%m-%d') if item.reg.data_inicio else '' }}" 
+           onchange="gerarGrade_{{ item.reg.id }}()"
+           <!-- Essa linha trava a digitação para alunos -->
+           {% if current_user.tipo_usuario == 'Aluno' %}readonly tabindex="-1"{% endif %}>
+</div>
+                <div class="col-md-6 mb-3">
+    <label class="form-label">
+        {{ t('data_inicio') }}
+        <!-- Aparece um cadeado se for Aluno -->
+        {% if current_user.tipo_usuario == 'Aluno' %}<i class="bi bi-lock-fill text-muted small" title="Apenas professores podem mudar"></i>{% endif %}
+    </label>
+    <input type="date" name="data_inicio" id="dt_ini_{{ item.reg.id }}" 
+           class="form-control {% if current_user.tipo_usuario == 'Aluno' %}bg-light text-muted{% endif %}" 
+           value="{{ item.reg.data_inicio.strftime('%Y-%m-%d') if item.reg.data_inicio else '' }}" 
+           onchange="gerarGrade_{{ item.reg.id }}()"
+           <!-- Essa linha trava a digitação para alunos -->
+           {% if current_user.tipo_usuario == 'Aluno' %}readonly tabindex="-1"{% endif %}>
+</div>
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">
+                            {{ t('data_termino_meta') }}
+                            <!-- Aparece um cadeado se for Aluno -->
+                            {% if current_user.tipo_usuario == 'Aluno' %}<i class="bi bi-lock-fill text-muted small" title="Apenas professores podem mudar"></i>{% endif %}
+                        </label>
+                        <input type="date" name="data_termino" id="dt_fim_{{ item.reg.id }}" 
+                            class="form-control {% if current_user.tipo_usuario == 'Aluno' %}bg-light text-muted{% endif %}" 
+                            value="{{ item.reg.data_termino.strftime('%Y-%m-%d') if item.reg.data_termino else '' }}" 
+                            onchange="gerarGrade_{{ item.reg.id }}()"
+                            <!-- Essa linha trava a digitação para alunos -->
+                            {% if current_user.tipo_usuario == 'Aluno' %}readonly tabindex="-1"{% endif %}>
+                    </div>
                     </div>
                     
                     <!-- EXIBIÇÃO VISUAL DOS HORÁRIOS GUARDADOS -->
