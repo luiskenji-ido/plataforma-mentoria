@@ -83,6 +83,12 @@
                 </button>
                 {% endif %}
 
+                <!-- Botão de Acesso à Sala da Banca Avaliadora -->
+                {% if current_user.tipo_usuario != 'Aluno' %}
+                    <a href="{{ url_for('painel_banca', id=p.id) }}" class="btn btn-sm btn-success fw-bold px-3 me-2 shadow-sm" title="Acessar a Sala da Banca">
+                        <i class="bi bi-person-video3"></i> Sala da Banca
+                    </a>
+                {% endif %}
 
                 <!-- Botão de Excluir Projeto (Visível apenas p/ Mentores e Admins) -->
                 {% if current_user.tipo_usuario in ['Mentor', 'Mentor Administrador', 'Administrador'] %}

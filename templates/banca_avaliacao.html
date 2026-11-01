@@ -1,0 +1,176 @@
+{% extends "base.html" %}
+{% block title %}Banca Avaliadora - {{ projeto.nome }}{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4 border-bottom pb-3">
+    <div>
+        <h2 class="text-primary fw-bold mb-0"><i class="bi bi-person-video3"></i> Banca de Avaliação Oficial</h2>
+        <p class="text-muted mb-0 mt-1">Projeto: <strong class="text-dark">{{ projeto.nome }}</strong> | Avaliador: {{ current_user.nome }}</p>
+    </div>
+    <a href="{{ url_for('projetos') }}" class="btn btn-outline-secondary fw-bold rounded-pill px-4 shadow-sm">
+        <i class="bi bi-arrow-left"></i> Voltar aos Projetos
+    </a>
+</div>
+
+<div class="row g-4">
+    <!-- COLUNA ESQUERDA: CRONÓMETRO E HISTÓRICO Q&A -->
+    <div class="col-md-5">
+        <!-- Cronómetro Oficial -->
+        <div class="card shadow-sm border-0 border-top border-4 border-danger mb-4">
+            <div class="card-body text-center py-5">
+                <h6 class="text-muted text-uppercase fw-bold mb-3">Cronómetro de Apresentação</h6>
+                <div id="displayTempo" class="display-1 fw-bold text-dark mb-4 font-monospace">15:00</div>
+                
+                <div class="d-flex justify-content-center gap-2">
+                    <button id="btnIniciar" class="btn btn-success fw-bold px-4 rounded-pill shadow-sm" onclick="iniciarCronometro()">
+                        <i class="bi bi-play-fill"></i> Iniciar
+                    </button>
+                    <button id="btnPausar" class="btn btn-warning fw-bold px-4 rounded-pill shadow-sm" onclick="pausarCronometro()" disabled>
+                        <i class="bi bi-pause-fill"></i> Pausar
+                    </button>
+                    <button class="btn btn-outline-danger fw-bold px-4 rounded-pill shadow-sm" onclick="resetarCronometro()">
+                        <i class="bi bi-arrow-counterclockwise"></i> Reiniciar
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Histórico de Perguntas -->
+        <div class="card shadow-sm border-0">
+            <div class="card-header bg-white border-bottom-0 pt-4">
+                <h6 class="text-primary fw-bold mb-0"><i class="bi bi-chat-right-quote"></i> Registo de Perguntas da Banca</h6>
+            </div>
+            <div class="card-body" style="max-height: 400px; overflow-y: auto;">
+                {% if historico_qa %}
+                    {% for qa in historico_qa %}
+                        <div class="bg-light rounded p-3 mb-3 border-start border-4 border-info">
+                            <p class="small text-muted mb-1 fw-bold">Por: {{ qa.avaliador_id }} - {{ qa.data_registro.strftime('%d/%m/%Y às %H:%M') }}</p>
+                            <p class="mb-2"><strong>Q:</strong> {{ qa.pergunta_feita }}</p>
+                            <p class="mb-0 text-success"><strong>R:</strong> {{ qa.resposta_jovens or 'Sem registo da resposta.' }}</p>
+                        </div>
+                    {% endfor %}
+                {% else %}
+                    <p class="text-muted small mb-0">Ainda não foram registadas perguntas para este projeto.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- COLUNA DIREITA: FORMULÁRIO DE NOTAS (REGRA AON) -->
+    <div class="col-md-7">
+        <div class="card shadow-sm border-0 bg-white h-100">
+            <div class="card-body p-4">
+                <h5 class="fw-bold text-dark border-bottom pb-2 mb-4">Lançamento de Notas Oficiais</h5>
+                
+                <form action="{{ url_for('painel_banca', id=projeto.id) }}" method="POST">
+                    
+                    <div class="alert alert-info border-0 bg-primary-subtle text-primary-emphasis mb-4">
+                        <i class="bi bi-info-circle-fill"></i> <strong>Critérios de Avaliação (0 a 10):</strong> O sistema calculará a média automaticamente, onde a nota final igual ou superior a 7.0 aprova o grupo.
+                    </div>
+
+                    <div class="row g-3 mb-4">
+                        <div class="col-md-4">
+                            <label class="form-label fw-bold text-muted small">Conteúdo Escrito (40%)</label>
+                            <input type="number" name="nota_escrita" class="form-control form-control-lg bg-light" step="0.1" min="0" max="10" placeholder="Ex: 8.5" required>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label fw-bold text-muted small">Apresentação Oral (40%)</label>
+                            <input type="number" name="nota_apresentacao" class="form-control form-control-lg bg-light" step="0.1" min="0" max="10" placeholder="Ex: 9.0" required>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label fw-bold text-muted small">Qualidade Visual (20%)</label>
+                            <input type="number" name="nota_visual" class="form-control form-control-lg bg-light" step="0.1" min="0" max="10" placeholder="Ex: 10.0" required>
+                        </div>
+                    </div>
+
+                    <h6 class="fw-bold text-dark border-bottom pb-2 mb-3 mt-5">Adicionar Pergunta (Q&A)</h6>
+                    
+                    <div class="mb-3">
+                        <label class="form-label fw-bold text-muted small">Pergunta feita ao grupo</label>
+                        <textarea name="pergunta_feita" class="form-control shadow-sm" rows="2" placeholder="Que pergunta fez aos jovens durante a apresentação?"></textarea>
+                    </div>
+                    
+                    <div class="mb-4">
+                        <label class="form-label fw-bold text-muted small">Desempenho na Resposta</label>
+                        <textarea name="resposta_jovens" class="form-control shadow-sm" rows="3" placeholder="Como é que os jovens se saíram ao responder a esta pergunta?"></textarea>
+                    </div>
+
+                    <div class="text-end pt-3 border-top">
+                        <button type="submit" class="btn btn-primary btn-lg fw-bold rounded-pill px-5 shadow">
+                            <i class="bi bi-check-circle"></i> Gravar Notas e Finalizar Banca
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Lógica do Cronómetro em JavaScript -->
+<script>
+    let tempoRestante = 15 * 60; // 15 minutos em segundos
+    let intervalo;
+    let correndo = false;
+    const display = document.getElementById('displayTempo');
+    const btnIniciar = document.getElementById('btnIniciar');
+    const btnPausar = document.getElementById('btnPausar');
+
+    function atualizarDisplay() {
+        let minutos = Math.floor(tempoRestante / 60);
+        let segundos = tempoRestante % 60;
+        
+        // Coloca o zero à esquerda se for menor que 10
+        minutos = minutos < 10 ? "0" + minutos : minutos;
+        segundos = segundos < 10 ? "0" + segundos : segundos;
+        
+        display.textContent = minutos + ":" + segundos;
+        
+        // Muda para vermelho se faltar menos de 2 minutos
+        if (tempoRestante < 120) {
+            display.classList.remove('text-dark');
+            display.classList.add('text-danger');
+        } else {
+            display.classList.remove('text-danger');
+            display.classList.add('text-dark');
+        }
+    }
+
+    function iniciarCronometro() {
+        if (!correndo && tempoRestante > 0) {
+            correndo = true;
+            btnIniciar.disabled = true;
+            btnPausar.disabled = false;
+            
+            intervalo = setInterval(function() {
+                tempoRestante--;
+                atualizarDisplay();
+                
+                if (tempoRestante <= 0) {
+                    clearInterval(intervalo);
+                    correndo = false;
+                    btnPausar.disabled = true;
+                    alert("O tempo de apresentação terminou!");
+                }
+            }, 1000);
+        }
+    }
+
+    function pausarCronometro() {
+        if (correndo) {
+            clearInterval(intervalo);
+            correndo = false;
+            btnIniciar.disabled = false;
+            btnPausar.disabled = true;
+        }
+    }
+
+    function resetarCronometro() {
+        clearInterval(intervalo);
+        correndo = false;
+        tempoRestante = 15 * 60;
+        btnIniciar.disabled = false;
+        btnPausar.disabled = true;
+        atualizarDisplay();
+    }
+</script>
+{% endblock %}
