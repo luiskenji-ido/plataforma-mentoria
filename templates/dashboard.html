@@ -98,26 +98,29 @@
     </div>
     
     <!-- ÁREA DOS BOTÕES COM ALINHAMENTO FLEXÍVEL (GAP) -->
-    <div class="d-flex flex-wrap gap-2 justify-content-xl-end">
-        {% if current_user.tipo_usuario in ['Administrador', 'Mentor Administrador'] %}
-        <a href="{{ url_for('gerenciar_usuarios') }}" class="btn btn-outline-primary fw-bold shadow-sm">{{ t('btn_cadastros') }}</a>
+    <div class="d-flex flex-wrap gap-2 justify-content-xl-end mt-3 mt-xl-0">
+        
+        <!-- Esconde os botões operacionais para a Gestão, mostrando apenas para Alunos e Mentores -->
+        {% if current_user.tipo_usuario not in ['Administrador', 'Mentor Administrador'] %}
+            
+            {% if current_user.tipo_usuario != 'Aluno' %}
+            <a href="{{ url_for('gerenciar_turmas') }}" class="btn btn-outline-success fw-bold shadow-sm">{{ t('btn_cursos') }}</a>
+            {% endif %}
+            
+            <a href="{{ url_for('acompanhamento') }}" class="btn btn-info text-white fw-bold shadow-sm">{{ t('btn_acompanhamento') }}</a>
+            
+            <a href="{{ url_for('sessoes') }}" class="btn btn-warning fw-bold shadow-sm">{{ t('btn_sessoes') }}</a>
+            
         {% endif %}
         
-        {% if current_user.tipo_usuario != 'Aluno' %}
-        <a href="{{ url_for('gerenciar_turmas') }}" class="btn btn-outline-success fw-bold shadow-sm">{{ t('btn_cursos') }}</a>
-        {% endif %}
-        
-        <a href="{{ url_for('acompanhamento') }}" class="btn btn-info text-white fw-bold shadow-sm">{{ t('btn_acompanhamento') }}</a>
-        
-        <a href="{{ url_for('sessoes') }}" class="btn btn-warning fw-bold shadow-sm">{{ t('btn_sessoes') }}</a>
-        
+        <!-- O portal de demandas fica como atalho rápido (Caixa de Entrada) para gestão e mentores -->
         {% if current_user.tipo_usuario != 'Aluno' %}
         <a href="{{ url_for('portal_demandas') }}" class="btn btn-dark fw-bold shadow-sm" title="Tickets Institucionais">
             <i class="bi bi-headset"></i> Demandas
         </a>
         {% endif %}
     </div>
-</div>
+
 <!-- CARDS DE RESUMO E CERTIFICAÇÃO (TEXTOS TRADUZIDOS) -->
 <div class="row g-2 mb-4">
 {% if current_user.tipo_usuario != 'Aluno' %}
