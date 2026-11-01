@@ -1,0 +1,185 @@
+{% extends "base.html" %}
+{% block title %}Portal de Demandas Institucionais{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4 border-bottom pb-3">
+    <div>
+        <h2 class="text-primary fw-bold mb-0"><i class="bi bi-headset"></i> Portal de Demandas (Tickets)</h2>
+        <p class="text-muted mb-0 mt-1">Canal Oficial de Alinhamento, Melhorias e Suporte entre ITM e Aon.</p>
+    </div>
+    <button class="btn btn-primary fw-bold rounded-pill px-4 shadow-sm" data-bs-toggle="modal" data-bs-target="#modalNovaDemanda">
+        <i class="bi bi-plus-circle"></i> Abrir Novo Ticket
+    </button>
+</div>
+
+<div class="card shadow-sm border-0 bg-white">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle text-center mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th class="py-3"># Ticket</th>
+                        <th class="text-start py-3">Assunto / Título</th>
+                        <th>Categoria</th>
+                        <th>Prioridade</th>
+                        <th>Autor</th>
+                        <th>Status</th>
+                        <th>Ações</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for d in demandas %}
+                    <tr>
+                        <td class="text-muted fw-bold">#{{ d.id }}</td>
+                        <td class="text-start fw-bold text-dark">{{ d.titulo }}</td>
+                        <td><span class="badge bg-secondary-subtle text-secondary border">{{ d.tipo_demanda }}</span></td>
+                        <td>
+                            {% if d.prioridade == 'Urgente' %}<span class="badge bg-danger">Urgente</span>
+                            {% elif d.prioridade == 'Alta' %}<span class="badge bg-warning text-dark">Alta</span>
+                            {% else %}<span class="badge bg-info text-dark">{{ d.prioridade }}</span>{% endif %}
+                        </td>
+                        <td class="text-muted">{{ d.autor.nome.split()[0] if d.autor else 'Desconhecido' }}</td>
+                        <td>
+                            {% if d.status == 'Aberta' %}
+                                <span class="badge bg-success pulse-animation px-3 py-2">Aberta</span>
+                            {% elif d.status == 'Em Análise' %}
+                                <span class="badge bg-warning text-dark px-3 py-2">Em Análise</span>
+                            {% else %}
+                                <span class="badge bg-dark px-3 py-2">{{ d.status }}</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <button class="btn btn-sm btn-outline-primary fw-bold px-3 rounded-pill" data-bs-toggle="modal" data-bs-target="#modalDemanda{{ d.id }}">
+                                Ver / Responder
+                            </button>
+                        </td>
+                    </tr>
+
+                    <!-- MODAL DE VISUALIZAÇÃO E RESPOSTA DO TICKET -->
+                    <div class="modal fade text-start" id="modalDemanda{{ d.id }}" tabindex="-1">
+                        <div class="modal-dialog modal-lg">
+                            <div class="modal-content shadow-lg border-0">
+                                <div class="modal-header bg-light border-bottom-0">
+                                    <h5 class="modal-title text-primary fw-bold">Ticket #{{ d.id }}</h5>
+                                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                </div>
+                                <div class="modal-body pt-0">
+                                    <!-- Dados da Demanda -->
+                                    <h4 class="fw-bold text-dark mb-3">{{ d.titulo }}</h4>
+                                    <div class="d-flex gap-2 mb-4">
+                                        <span class="badge bg-secondary">{{ d.tipo_demanda }}</span>
+                                        <span class="badge bg-dark">Prioridade: {{ d.prioridade }}</span>
+                                        <span class="text-muted small ms-2"><i class="bi bi-clock"></i> Criado em: {{ d.data_criacao.strftime('%d/%m/%Y às %H:%M') }}</span>
+                                    </div>
+                                    <div class="p-3 bg-light rounded border border-secondary-subtle mb-4 text-dark">
+                                        {{ d.descricao }}
+                                    </div>
+
+                                    <!-- Área de Resposta (Visível para todos, mas só editável por Gestores) -->
+                                    <h6 class="fw-bold text-success border-bottom pb-2"><i class="bi bi-chat-left-text"></i> Resposta Oficial (ITM/Aon)</h6>
+                                    
+                                    <form action="{{ url_for('portal_demandas') }}" method="POST">
+                                        <input type="hidden" name="acao" value="responder_demanda">
+                                        <input type="hidden" name="demanda_id" value="{{ d.id }}">
+
+                                        {% if current_user.tipo_usuario in ['Administrador', 'Mentor Administrador', 'Admin B2B'] %}
+                                            <!-- Gestor pode editar e responder -->
+                                            <textarea name="resposta_oficial" class="form-control mb-3 shadow-sm border-success" rows="4" placeholder="Escreva a resposta oficial para este ticket..." required>{{ d.resposta_oficial or '' }}</textarea>
+                                            
+                                            <div class="row align-items-center">
+                                                <div class="col-md-6">
+                                                    <label class="form-label fw-bold text-muted small">Alterar Status</label>
+                                                    <select name="status" class="form-select border-primary shadow-sm">
+                                                        <option value="Em Análise" {% if d.status == 'Em Análise' %}selected{% endif %}>Em Análise</option>
+                                                        <option value="Concluída" {% if d.status == 'Concluída' %}selected{% endif %}>Concluída (Resolvido)</option>
+                                                        <option value="Cancelada" {% if d.status == 'Cancelada' %}selected{% endif %}>Cancelada</option>
+                                                        <option value="Aberta" {% if d.status == 'Aberta' %}selected{% endif %}>Aberta</option>
+                                                    </select>
+                                                </div>
+                                                <div class="col-md-6 text-end mt-4">
+                                                    <button type="submit" class="btn btn-success fw-bold px-4 rounded-pill shadow">Gravar Resposta</button>
+                                                </div>
+                                            </div>
+                                        {% else %}
+                                            <!-- Mentor só pode ler a resposta -->
+                                            {% if d.resposta_oficial %}
+                                                <div class="p-3 bg-success-subtle text-success-emphasis rounded border border-success mb-3">
+                                                    {{ d.resposta_oficial }}
+                                                </div>
+                                                <p class="small text-muted text-end">Atualizado em: {{ d.data_atualizacao.strftime('%d/%m/%Y às %H:%M') }}</p>
+                                            {% else %}
+                                                <p class="text-muted fst-italic">A equipe de gestão ainda não respondeu a este ticket.</p>
+                                            {% endif %}
+                                        {% endif %}
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% else %}
+                    <tr><td colspan="7" class="text-muted py-4">Nenhum ticket registrado no momento. Todos alinhados!</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL: ABRIR NOVA DEMANDA -->
+<div class="modal fade text-start" id="modalNovaDemanda" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content shadow-lg border-0">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title fw-bold"><i class="bi bi-plus-circle"></i> Abrir Novo Ticket</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <form action="{{ url_for('portal_demandas') }}" method="POST">
+                <input type="hidden" name="acao" value="nova_demanda">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label fw-bold text-dark">Assunto / Título</label>
+                        <input type="text" name="titulo" class="form-control shadow-sm" required placeholder="Ex: Alteração da Data da Banca do Grupo 4">
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold text-dark">Categoria</label>
+                            <select name="tipo_demanda" class="form-select shadow-sm" required>
+                                <option value="Mudança de Data">Mudança de Data / Prazo</option>
+                                <option value="Alinhamento Pedagógico">Alinhamento Pedagógico</option>
+                                <option value="Dúvida Técnica (Plataforma)">Dúvida Técnica (Plataforma)</option>
+                                <option value="Sugestão de Melhoria">Sugestão de Melhoria</option>
+                                <option value="Outros">Outros</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold text-dark">Prioridade</label>
+                            <select name="prioridade" class="form-select shadow-sm" required>
+                                <option value="Normal">Normal (Análise Padrão)</option>
+                                <option value="Alta">Alta (Requer atenção breve)</option>
+                                <option value="Urgente">Urgente (Trava o andamento do projeto)</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="mb-2">
+                        <label class="form-label fw-bold text-dark">Descrição Detalhada</label>
+                        <textarea name="descricao" class="form-control shadow-sm" rows="5" required placeholder="Explique detalhadamente o contexto da sua solicitação para a equipe de gestão..."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer bg-light border-0">
+                    <button type="button" class="btn btn-secondary fw-bold" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary fw-bold px-4 shadow">Enviar Ticket</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<style>
+    .pulse-animation { animation: pulse-green 2s infinite; }
+    @keyframes pulse-green {
+        0% { box-shadow: 0 0 0 0 rgba(25, 135, 84, 0.7); }
+        70% { box-shadow: 0 0 0 8px rgba(25, 135, 84, 0); }
+        100% { box-shadow: 0 0 0 0 rgba(25, 135, 84, 0); }
+    }
+</style>
+{% endblock %}

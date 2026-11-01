@@ -1811,6 +1811,81 @@ def bater_ponto_voluntariado():
     return redirect(request.referrer or url_for('dashboard'))
 
 
+# ==============================================================================
+# ROTA: PORTAL DE DEMANDAS INSTITUCIONAIS (TICKETS ITM & AON)
+# ==============================================================================
+@app.route('/demandas', methods=['GET', 'POST'])
+@login_required
+def portal_demandas():
+    # Trava de segurança: Alunos não acessam este portal corporativo
+    if current_user.tipo_usuario == 'Aluno':
+        flash("Acesso restrito à gestão e mentores.", "danger")
+        return redirect(url_for('dashboard'))
+
+    from models import DemandaInstitucional
+    from datetime import datetime
+
+    if request.method == 'POST':
+        acao = request.form.get('acao')
+
+        # --- AÇÃO 1: CRIAR NOVO TICKET ---
+        if acao == 'nova_demanda':
+            titulo = request.form.get('titulo')
+            tipo_demanda = request.form.get('tipo_demanda')
+            prioridade = request.form.get('prioridade')
+            descricao = request.form.get('descricao')
+
+            nova_demanda = DemandaInstitucional(
+                autor_id=current_user.id,
+                titulo=titulo,
+                tipo_demanda=tipo_demanda,
+                prioridade=prioridade,
+                descricao=descricao,
+                status='Aberta'
+            )
+            db.session.add(nova_demanda)
+            db.session.commit()
+            flash("Ticket aberto com sucesso! A equipe de gestão foi notificada.", "success")
+
+        # --- AÇÃO 2: RESPONDER E ATUALIZAR TICKET ---
+        elif acao == 'responder_demanda':
+            # Apenas perfis de gestão (Admins) podem responder oficialmente
+            perfis_gestao = ['Administrador', 'Mentor Administrador', 'Admin B2B']
+            if current_user.tipo_usuario not in perfis_gestao:
+                flash("Apenas gestores podem responder oficialmente aos tickets.", "danger")
+                return redirect(url_for('portal_demandas'))
+
+            demanda_id = request.form.get('demanda_id')
+            resposta = request.form.get('resposta_oficial')
+            novo_status = request.form.get('status')
+
+            demanda = db.session.get(DemandaInstitucional, int(demanda_id))
+            if demanda:
+                demanda.resposta_oficial = resposta
+                demanda.status = novo_status
+                demanda.data_atualizacao = datetime.utcnow()
+                db.session.commit()
+                flash(f"Ticket #{demanda.id} atualizado com sucesso!", "success")
+
+        return redirect(url_for('portal_demandas'))
+
+    # --- MÉTODO GET: LISTAR OS TICKETS NA TELA ---
+    # Gestores veem todos os tickets organizados por status. Mentores veem apenas os seus.
+    if current_user.tipo_usuario in ['Administrador', 'Mentor Administrador', 'Admin B2B']:
+        lista_demandas = DemandaInstitucional.query.order_by(
+            db.case(
+                (DemandaInstitucional.status == 'Aberta', 1),
+                (DemandaInstitucional.status == 'Em Análise', 2),
+                else_=3
+            ),
+            DemandaInstitucional.data_criacao.desc()
+        ).all()
+    else:
+        lista_demandas = DemandaInstitucional.query.filter_by(autor_id=current_user.id).order_by(DemandaInstitucional.data_criacao.desc()).all()
+
+    return render_template('demandas.html', demandas=lista_demandas)
+
+
 # ===========================================================================
 # EXECUÇÃO DO APLICATIVO
 # ===========================================================================
