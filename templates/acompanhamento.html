@@ -519,7 +519,7 @@
         </div>
     </div>
 
-    <!-- MODAL DE PARECER DO MENTOR -->
+    <!-- MODAL DE PARECER DO MENTOR (ESTILO CADERNO IGUAL AO DO ALUNO) -->
     <div class="modal fade text-start" id="modalExpandirParecer{{ item.reg.id }}" tabindex="-1">
         <div class="modal-dialog modal-lg">
             <div class="modal-content shadow-lg">
@@ -539,15 +539,15 @@
                             </div>
                         {% else %}
                             <p class="text-muted small">{{ t('modal_parecer_instrucao_aluno') }}</p>
-                            <div class="p-3 bg-light border rounded text-dark" style="min-height: 150px; white-space: pre-wrap;">
-                                {{ item.reg.observacao if item.reg.observacao and item.reg.observacao != 'None' else t('nenhum_parecer') }}
+                            <div class="mb-3">
+                                <div class="fundo-caderno" style="min-height: 250px; white-space: pre-wrap; background-color: #f9f9f9;">{{ item.reg.observacao if item.reg.observacao and item.reg.observacao != 'None' else t('nenhum_parecer') }}</div>
                             </div>
                         {% endif %}
                     </div>
                     <div class="modal-footer">
                         <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">{{ t('cancelar') }}</button>
                         {% if current_user.tipo_usuario != 'Aluno' %}
-                        <button type="submit" class="btn btn-primary fw-bold">{{ t('modal_parecer_btn_salvar') }}</button>
+                        <button type="submit" class="btn btn-primary fw-bold" style="background-color: #198754 !important; border-color: #198754 !important; color: white !important;">Salvar Parecer</button>
                         {% endif %}
                     </div>
                 </form>
@@ -1057,7 +1057,7 @@ document.getElementById('btn-expand-gemini').addEventListener('click', function(
 </script>
 
 <script>
-// Roteiro específico do Tour para a tela de Acompanhamento
+// सुनो Roteiro específico do Tour para a tela de Acompanhamento
 function iniciarTourDaPagina() {
     let passos = [ { intro: "{{ t('tour_aco_intro') | safe }}" } ];
 
