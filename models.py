@@ -425,7 +425,7 @@ class PerfilAvaliador(db.Model):
     usuario_id = db.Column(db.Integer, db.ForeignKey('usuario.id'), nullable=False)
     
     # Dados Corporativos do Executivo
-    empresa_origem = db.Column(db.String(150), default="Aon")
+    empresa_origem = db.Column(db.String(150), default="Parceiro B2B")
     area_atuacao = db.Column(db.String(150))
     curriculo_minibio = db.Column(db.Text)
     

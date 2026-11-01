@@ -1796,7 +1796,7 @@ def bater_ponto_voluntariado():
         ponto_aberto.total_minutos = minutos
         
         db.session.commit()
-        flash(f"⏱️ Check-out concluído! Foram contabilizados {minutos} minutos para o relatório ESG da Aon.", "success")
+        flash(f"⏱️ Check-out concluído! Foram contabilizados {minutos} minutos para o relatório corporativo ESG.", "success")
     else:
         # LIGAR O RELÓGIO (Check-in)
         novo_ponto = CheckinVoluntariado(
