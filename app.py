@@ -3384,24 +3384,12 @@ def gerenciar_turmas():
         turmas = Turma.query.order_by(Turma.data_inicio.desc()).all()
         
     cursos = Curso.query.order_by(Curso.nome_curso).all() 
-    alunos = Usuario.query.filter_by(tipo_usuario='Aluno', status='Ativo').all() 
+    alunos = Usuario.query.filter_by(tipo_usuario='Aluno', status='Ativo').order_by(Usuario.nome).all() 
     grupos = Grupo.query.order_by(Grupo.nome).all() 
     
-    lista_mentores = Usuario.query.filter(Usuario.tipo_usuario.in_(['Mentor', 'Mentor Administrador', 'Professor']), Usuario.status=='Ativo').all()
-    lista_gestores = Usuario.query.filter(Usuario.tipo_usuario.in_(['Administrador', 'Admin B2B']), Usuario.status=='Ativo').all()
-
-    # ... (código existente da função gerenciar_turmas) ...
-    
-    # 1. Puxar as informações do banco
-    cursos = Curso.query.order_by(Curso.nome_curso).all()
-    empresas = Empresa.query.order_by(Empresa.nome).all()
-    grupos = Grupo.query.order_by(Grupo.nome).all()
-    turmas = Turma.query.order_by(Turma.data_inicio.desc()).all()
-    
     # Traz apenas quem é puramente Mentor (ignora os gestores Admin B2B para não dar erro)
-    mentores = Usuario.query.filter(Usuario.tipo_usuario.in_(['Mentor', 'Mentor Administrador', 'Professor']), Usuario.status=='Ativo').all()
-    gestores = Usuario.query.filter(Usuario.tipo_usuario.in_(['Administrador', 'Admin B2B']), Usuario.status=='Ativo').all()
-    alunos = Usuario.query.filter_by(tipo_usuario='Aluno', status='Ativo').all()
+    mentores = Usuario.query.filter(Usuario.tipo_usuario.in_(['Mentor', 'Mentor Administrador', 'Professor']), Usuario.status=='Ativo').order_by(Usuario.nome).all()
+    gestores = Usuario.query.filter(Usuario.tipo_usuario.in_(['Administrador', 'Admin B2B']), Usuario.status=='Ativo').order_by(Usuario.nome).all()
 
     # --- LÓGICA BLINDADA: MENTORES DISPONÍVEIS (POR ID) ---
     mentores_em_uso_ids = []
@@ -3423,6 +3411,7 @@ def gerenciar_turmas():
                            gestores=gestores,
                            alunos=alunos,
                            mentores_disponiveis=mentores_disponiveis)
+
 
 
     return render_template('admin_turmas.html', empresas=empresas, turmas=turmas, cursos=cursos, alunos=alunos, grupos=grupos, mentores=lista_mentores, gestores=lista_gestores)
