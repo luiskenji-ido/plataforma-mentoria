@@ -1132,10 +1132,11 @@ def acompanhamento():
     elif current_user.tipo_usuario in ['Mentor', 'Professor']:
         registros = Acompanhamento.query.join(Usuario, Acompanhamento.aluno_id == Usuario.id).filter(Usuario.mentores.any(id=current_user.id)).all()
     else:
-        registros = Acompanhamento.query.all()
+        registros = Acompanhamento.query.order_by(Acompanhamento.id.desc()).all()
 
     detalhes = []
     for r in registros:
+
         aluno = db.session.get(Usuario, r.aluno_id)
         curso = db.session.get(Curso, r.curso_id)
         qtd_sessoes = SessaoMentoria.query.filter_by(aluno_id=r.aluno_id).count()
