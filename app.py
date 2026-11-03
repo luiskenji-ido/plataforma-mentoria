@@ -2008,6 +2008,73 @@ def lancamento_manual_voluntariado():
     return redirect(request.referrer or url_for('dashboard'))
 
 # ==============================================================================
+# ROTA: EXPORTAÇÃO DE RELATÓRIO EXECUTIVO ESG (CSV/EXCEL)
+# ==============================================================================
+@app.route('/admin/exportar-relatorio-esg')
+@login_required
+def exportar_relatorio_esg():
+    import csv
+    import io
+    from flask import Response
+    from models import CheckinVoluntariado, Empresa
+    
+    # 1. Trava de segurança: Apenas Admins e Gestores B2B podem baixar o relatório
+    if current_user.tipo_usuario not in ['Administrador', 'Mentor Administrador', 'Admin B2B']:
+        flash('Acesso negado. Apenas gestores podem exportar o relatório ESG.', 'danger')
+        return redirect(url_for('dashboard'))
+        
+    # 2. Cria o arquivo na memória
+    output = io.StringIO()
+    # Usamos ponto e vírgula para abrir corretamente no Excel em português
+    writer = csv.writer(output, delimiter=';') 
+    
+    # 3. Cabeçalho das colunas do Excel
+    writer.writerow(['Nome do Colaborador', 'Perfil', 'Empresa Associada', 'Tipo de Atividade (ESG)', 'Minutos de Voluntariado', 'Data do Registo', 'Status'])
+    
+    # 4. Lógica de Isolamento B2B na exportação
+    if current_user.tipo_usuario == 'Admin B2B':
+        empresas_geridas = Empresa.query.filter_by(gestor_id=current_user.id).all()
+        mentores_da_empresa_ids = []
+        for emp in empresas_geridas:
+            mentores_da_empresa_ids.extend([m.id for m in emp.mentores])
+            
+        if not mentores_da_empresa_ids:
+            voluntariados = []
+        else:
+            voluntariados = CheckinVoluntariado.query.filter(CheckinVoluntariado.usuario_id.in_(mentores_da_empresa_ids)).order_by(CheckinVoluntariado.data_hora_inicio.desc()).all()
+    else:
+        # Administrador Geral vê tudo
+        voluntariados = CheckinVoluntariado.query.order_by(CheckinVoluntariado.data_hora_inicio.desc()).all()
+        
+    # 5. Preenche as linhas do Excel
+    for vol in voluntariados:
+        usuario = db.session.get(Usuario, vol.usuario_id)
+        nome_usuario = usuario.nome if usuario else 'Desconhecido'
+        perfil = usuario.tipo_usuario if usuario else 'N/A'
+        
+        # Puxa o nome da empresa se existir
+        empresa_nome = "Institucional (Hub)"
+        if usuario and hasattr(usuario, 'empresas') and usuario.empresas:
+            empresa_nome = ", ".join([e.nome for e in usuario.empresas])
+            
+        horas_str = str(vol.total_minutos) if vol.total_minutos else "0"
+        data_str = vol.data_hora_inicio.strftime('%d/%m/%Y %H:%M') if vol.data_hora_inicio else ""
+        status_str = "Concluído" if vol.data_hora_fim else "Em Andamento (Relógio Ativo)"
+        
+        writer.writerow([nome_usuario, perfil, empresa_nome, vol.tipo_atividade, horas_str, data_str, status_str])
+        
+    # Retorna para o início do arquivo
+    output.seek(0)
+    
+    # 6. Devolve o arquivo pronto para download (utf-8-sig evita que os acentos fiquem desconfigurados no Windows)
+    return Response(
+        output.getvalue().encode('utf-8-sig'),
+        mimetype="text/csv",
+        headers={"Content-Disposition": f"attachment;filename=Relatorio_Executivo_ESG_{datetime.now().strftime('%Y%m%d')}.csv"}
+    )
+
+
+# ==============================================================================
 # MOTOR DO ONBOARDING B2B E TRAVA DE COMPLIANCE
 # ==============================================================================
 
