@@ -375,9 +375,10 @@ def dashboard():
         total_sessoes = SessaoMentoria.query.filter_by(mentor_id=current_user.id).count()
     else:
         # Administrador e Mentor Administrador veem tudo
-        acompanhamentos = Acompanhamento.query.all()
+        acompanhamentos = Acompanhamento.query.order_by(Acompanhamento.id.desc()).all()
         total_alunos = Usuario.query.filter_by(tipo_usuario='Aluno').count()
         total_sessoes = SessaoMentoria.query.count()
+
 
     total_alunos_sistema = total_alunos
     total_matriculas = len(acompanhamentos)
@@ -472,9 +473,10 @@ def dashboard():
     if current_user.tipo_usuario in ['Aluno', 'Mentor']:
         meus_projetos = Projeto.query.join(Grupo).filter(Grupo.membros.any(id=current_user.id)).all()
     else:
-        meus_projetos = Projeto.query.all()
+        meus_projetos = Projeto.query.order_by(Projeto.id.desc()).all()
 
     total_projetos = len(meus_projetos)
+
     projetos_andamento = sum(1 for p in meus_projetos if p.status == 'Em Andamento')
     projetos_concluidos = sum(1 for p in meus_projetos if p.status == 'Concluído')
 
@@ -535,9 +537,10 @@ def gerenciar_grupos():
         return redirect(url_for('gerenciar_grupos'))
 
     # 3. Quando a página apenas carrega (GET)
-    lista_grupos = Grupo.query.all()
+    lista_grupos = Grupo.query.order_by(Grupo.nome).all()
     # Busca usuários ativos para montar a lista de seleção
     usuarios_disponiveis = Usuario.query.filter_by(status='Ativo').all()
+
 
     return render_template('admin_grupos.html', grupos=lista_grupos, usuarios=usuarios_disponiveis)
 
@@ -707,13 +710,14 @@ def gerenciar_usuarios():
         flash("Usuário cadastrado com sucesso!", "success")
         return redirect(url_for('gerenciar_usuarios'))
     
-    lista_usuarios = Usuario.query.all()
+    lista_usuarios = Usuario.query.order_by(Usuario.nome).all()
     lista_mentores = Usuario.query.filter(Usuario.tipo_usuario.in_(['Mentor', 'Mentor Administrador', 'Professor'])).all()
 
     # Busca todos os dados para montar a tela de Cadastros
-    usuarios = Usuario.query.all()
+    usuarios = Usuario.query.order_by(Usuario.nome).all()
     mentores = Usuario.query.filter(Usuario.tipo_usuario.in_(['Mentor', 'Mentor Administrador', 'Professor'])).all()
     solicitacoes = SolicitacaoMentoria.query.order_by(SolicitacaoMentoria.data_solicitacao.desc()).all()
+
 
     # Puxa os dados da URL caso o admin tenha clicado em "Aprovar"
     fill_nome = request.args.get('fill_nome', '')
@@ -1284,10 +1288,11 @@ def projetos():
         # Se for Gestor ou Mentor, pode ver tudo e usar filtros livres
         if grupo_filtro:
             query = query.filter_by(grupo_id=grupo_filtro)
-        grupos_disponiveis = Grupo.query.all()
+        grupos_disponiveis = Grupo.query.order_by(Grupo.nome).all()
         
     # Ordena para manter os mais recentes no topo
     lista_projetos = query.order_by(Projeto.id.desc()).all()
+
     
     return render_template('projetos.html', projetos=lista_projetos, grupos=grupos_disponiveis, grupo_filtro=grupo_filtro)
 
