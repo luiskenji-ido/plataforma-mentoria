@@ -26,7 +26,7 @@
     <!-- ========================================================= -->
     <!-- MACRO: MOLDE REUTILIZÁVEL DA TABELA DE USUÁRIOS (DRY)     -->
     <!-- ========================================================= -->
-    {% macro render_tabela_usuarios(lista_usuarios, filtro_tipos, badge_class, mostrar_nivel=true) %}
+    {% macro render_tabela_usuarios(lista_usuarios, filtro_tipos, badge_class, mostrar_nivel=True) context %}
     <table class="table table-hover align-middle mb-0 text-center">
         <thead class="table-light">
             <tr>
@@ -113,13 +113,12 @@
                 <!-- ========================================================================== -->
 
                 <div class="card-body p-0">
-                    {{ render_tabela_usuarios(usuarios, ['Aluno'], '', false) }}
+                    {{ render_tabela_usuarios(usuarios, ['Aluno'], '', False) }}
                 </div>
             </div>
         </div>
 
     </div> <!-- Fim das Abas -->
-
 
 
     <!-- ========================================================= -->
