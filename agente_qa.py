@@ -225,3 +225,8 @@ if __name__ == "__main__":
     executar_auditoria_estatica()
     # Executa a integração com IA
     executar_agente_qa()
+       
+    # Ponte de ligação: Chama o novo Agente de Usabilidade assim que terminar
+    import os
+    print("\n🚀 Passando o comando para o Agente de Usabilidade...")
+    os.system("python agente_usabilidade.py")
