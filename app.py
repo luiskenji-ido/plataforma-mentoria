@@ -633,7 +633,7 @@ def calcular_match_inteligente(aluno, mentores_disponiveis):
         if hasattr(mentor, 'perfil_avaliador') and mentor.perfil_avaliador:
             area_mentor = (mentor.perfil_avaliador.area_atuacao or "").lower()
         else:
-            area_mentor = (mentor.observacoes_mentor or "").lower()
+            area_mentor = (getattr(mentor, 'observacoes_mentor', '') or "").lower()
             
         for interesse in interesses_aluno:
             if interesse.lower() in area_mentor or any(p in area_mentor for p in categorias_match[interesse]):
