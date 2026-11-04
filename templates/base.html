@@ -636,38 +636,35 @@
         {% endif %}
 
         <!-- ============================================================================== -->
-        <!-- ÁREA RESTRITA: Gerenciamento Administrativo (Bloqueado para Admin B2B e Alunos) -->
         <!-- ============================================================================== -->
-        {% if current_user.is_authenticated and current_user.tipo_usuario in ['Administrador', 'Mentor Administrador'] %}
-        
-            <!-- 1. Gestão de Utilizadores -->
-            <li class="nav-item">
-                <a class="nav-link fw-bold {% if request.endpoint == 'gerenciar_usuarios' %}text-primary border-bottom border-2 border-primary{% endif %}" href="{{ url_for('gerenciar_usuarios') }}">
-                {{ t('nav_cadastros') }}
-                </a>
-            </li>
+        <!-- ÁREA RESTRITA: Gerenciamento Administrativo (Menu Suspenso)                    -->
+        <!-- ============================================================================== -->
+        {% if current_user.is_authenticated and current_user.tipo_usuario in ['Administrador', 'Mentor Administrador', 'Admin B2B'] %}
+        <li class="nav-item dropdown">
+            <a class="nav-link dropdown-toggle fw-bold text-danger" href="#" id="adminDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                <i class="bi bi-gear-fill"></i> Administração
+            </a>
+            <ul class="dropdown-menu shadow" aria-labelledby="adminDropdown">
+                <li><a class="dropdown-item fw-bold" href="{{ url_for('gerenciar_usuarios') }}"><i class="bi bi-people-fill"></i> Cadastros & Usuários</a></li>
+                <li><a class="dropdown-item fw-bold" href="{{ url_for('portal_demandas') }}"><i class="bi bi-ticket-detailed-fill"></i> Portal de Demandas</a></li>
+                <li><a class="dropdown-item fw-bold" href="{{ url_for('biblioteca_tccs') }}"><i class="bi bi-journal-bookmark-fill"></i> Biblioteca de Projetos</a></li>
+                
+                {% if current_user.tipo_usuario == 'Mentor Administrador' %}
+                <li><a class="dropdown-item fw-bold" href="{{ url_for('gerenciar_solicitacoes') }}"><i class="bi bi-envelope-paper-fill"></i> Solicitações</a></li>
+                {% endif %}
 
-            <!-- 2. Solicitações de Mentoria (Exclusivo Mentor Administrador) -->
-            {% if current_user.tipo_usuario == 'Mentor Administrador' %}
-            <li class="nav-item">
-                <a class="nav-link fw-bold {% if request.endpoint == 'gerenciar_solicitacoes' %}text-primary border-bottom border-2 border-primary{% endif %}" href="{{ url_for('gerenciar_solicitacoes') }}">
-                    {{ t('solicitacoes') }}
-                </a>
-            </li>
-            {% endif %}
-
-            <!-- 3. Manutenção do Banco (Acesso Restrito) -->
-            <li class="nav-item">
-                <a class="nav-link fw-bold text-danger {% if request.endpoint == 'manutencao_banco' %}border-bottom border-2 border-danger{% endif %}" href="{{ url_for('manutencao_banco') }}">
-                    {{ t('manutencao_db') }}
-                </a>
-            </li>
-            
+                {% if current_user.tipo_usuario == 'Administrador' %}
+                <li><hr class="dropdown-divider"></li>
+                <li><a class="dropdown-item fw-bold text-danger" href="{{ url_for('manutencao_banco') }}"><i class="bi bi-database-fill-gear"></i> Manutenção (DB)</a></li>
+                {% endif %}
+            </ul>
+        </li>
         {% endif %}
         
       </ul>
       
       <!-- Lado Direito: Seletor de Idioma, Seletor de Tema, Identificação do Usuário e Logout -->
+
       <div class="d-flex align-items-center gap-2">
           {% if current_user.is_authenticated %}
           

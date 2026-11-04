@@ -41,6 +41,34 @@ def analisar_codigo_duplicado(diretorio, extensao, tamanho_bloco=15):
             
     return duplicacoes[:3] # Retorna apenas os 3 piores casos para não encher o terminal
 
+def analisar_botoes_duplicados(diretorio):
+    """Procura links/botões (href) apontando para o mesmo lugar no mesmo ficheiro."""
+    avisos_ui = []
+    regex_url = r'href=[\'"]\{\{\s*url_for\([\'"](.*?)[\'"]\)\s*\}\}[\'"]'
+    
+    for root, _, files in os.walk(diretorio):
+        if 'venv' in root or '.git' in root or '__pycache__' in root:
+            continue
+        for file in files:
+            if file.endswith('.html'):
+                caminho = os.path.join(root, file)
+                try:
+                    with open(caminho, 'r', encoding='utf-8') as f:
+                        conteudo = f.read()
+                        # Encontra todos os links de rotas Flask neste ficheiro
+                        links_encontrados = re.findall(regex_url, conteudo)
+                        
+                        # Conta quantas vezes cada link aparece
+                        from collections import Counter
+                        contagem = Counter(links_encontrados)
+                        
+                        for link, qtd in contagem.items():
+                            if qtd > 1 and link not in ['dashboard', 'login', 'logout']: # ignora links comuns
+                                avisos_ui.append(f"Botão/Link '{link}' duplicado ({qtd} vezes) no ficheiro: {file}")
+                except Exception:
+                    pass
+    return set(avisos_ui)
+
 def executar_auditoria_estatica():
     print("==================================================")
     print("   🔍 [FASE 1] AGENTE QA - ANÁLISE ESTÁTICA LOCAL ")
@@ -107,6 +135,13 @@ def executar_auditoria_estatica():
         for d in set(duplicacoes): print(f"    - {d}")
     else:
         print(" 🟢 Código excelente! Nenhuma duplicação grave identificada.")
+
+    avisos_botoes = analisar_botoes_duplicados('templates')
+    print("\n--- 🖥️  INTERFACE E USABILIDADE (UI/UX) ---")
+    if avisos_botoes:
+        for a in avisos_botoes: print(f" 🟠 [ALERTA VISUAL] {a}")
+    else:
+        print(" 🟢 Nenhum botão duplicado detetado nas telas.")
 
     print("\n==================================================")
     print("   🤖 [FASE 2] AGENTE QA - AVALIAÇÃO COM GEMINI   ")

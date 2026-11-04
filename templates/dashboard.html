@@ -2,14 +2,6 @@
 {% block title %}{{ t('titulo_dashboard') }} Mentoria{% endblock %}
 {% block content %}
     
-<!-- BOTÃO DE EXPORTAÇÃO ESG -->
-{% if current_user.tipo_usuario in ['Administrador', 'Mentor Administrador', 'Admin B2B'] %}
-<div class="d-flex justify-content-end mb-3">
-    <a href="{{ url_for('exportar_relatorio_esg') }}" class="btn btn-outline-success fw-bold shadow-sm">
-        <i class="bi bi-file-earmark-excel"></i> Baixar Relatório ESG (Excel)
-    </a>
-</div>
-{% endif %}
 
 <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-3">
 
@@ -58,6 +50,28 @@
             <button type="button" class="btn btn-outline-secondary fw-bold rounded-pill px-3 shadow-sm" data-bs-toggle="modal" data-bs-target="#modalVoluntariadoManual" title="Inserir horas de uma atividade que já passou">
                 <i class="bi bi-pencil-square"></i> Inserir Manual
             </button>
+            
+            <!-- MENU DE EXPORTAÇÃO ESG (EXCEL E PDF) -->
+            {% if current_user.tipo_usuario in ['Administrador', 'Mentor Administrador', 'Admin B2B'] %}
+            <div class="dropdown">
+                <button class="btn btn-outline-success fw-bold rounded-pill px-3 shadow-sm dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                    <i class="bi bi-file-earmark-bar-graph"></i> Relatórios
+                </button>
+                <ul class="dropdown-menu shadow border-0">
+                    <li>
+                        <a class="dropdown-item fw-bold text-success" href="{{ url_for('exportar_relatorio_esg') }}">
+                            <i class="bi bi-file-earmark-excel"></i> Baixar em Excel
+                        </a>
+                    </li>
+                    <li>
+                        <!-- Esta função abre nativamente a janela de Salvar em PDF do navegador -->
+                        <a class="dropdown-item fw-bold text-danger" href="javascript:window.print()">
+                            <i class="bi bi-file-earmark-pdf"></i> Salvar Painel em PDF
+                        </a>
+                    </li>
+                </ul>
+            </div>
+            {% endif %}
             {% endif %}
         </div>
     </div>
@@ -188,24 +202,6 @@
             
         {% endif %}
         
-        <!-- O portal de demandas fica como atalho rápido (Caixa de Entrada) para gestão e mentores -->
-        {% if current_user.tipo_usuario != 'Aluno' %}
-        <a href="{{ url_for('portal_demandas') }}" class="btn btn-dark fw-bold shadow-sm" title="Tickets Institucionais">
-            <i class="bi bi-headset"></i> Demandas
-        </a>
-        {% endif %}
-        <!-- O portal de demandas fica como atalho rápido (Caixa de Entrada) para gestão e mentores -->
-        {% if current_user.tipo_usuario != 'Aluno' %}
-        <a href="{{ url_for('portal_demandas') }}" class="btn btn-dark fw-bold shadow-sm" title="Tickets Institucionais">
-            <i class="bi bi-headset"></i> Demandas
-        </a>
-        {% endif %}
-
-        <!-- Botão para a Biblioteca de TCCs (Visível para todos) -->
-        <a href="{{ url_for('biblioteca_tccs') }}" class="btn btn-outline-secondary fw-bold shadow-sm bg-white" title="Repositório Histórico de Projetos">
-            <i class="bi bi-journal-bookmark-fill"></i> Biblioteca
-        </a>
-
     </div>
 </div>
 

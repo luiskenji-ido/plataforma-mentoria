@@ -2073,6 +2073,99 @@ def exportar_relatorio_esg():
         headers={"Content-Disposition": f"attachment;filename=Relatorio_Executivo_ESG_{datetime.now().strftime('%Y%m%d')}.csv"}
     )
 
+# ==============================================================================
+# ROTA: EXPORTAÇÃO DE RELATÓRIO EXECUTIVO ESG (PDF / IMPRESSÃO)
+# ==============================================================================
+@app.route('/admin/exportar-relatorio-esg-pdf')
+@login_required
+def exportar_relatorio_esg_pdf():
+    from models import CheckinVoluntariado, Empresa
+    from flask import render_template_string
+    
+    if current_user.tipo_usuario not in ['Administrador', 'Mentor Administrador', 'Admin B2B']:
+        return redirect(url_for('dashboard'))
+        
+    if current_user.tipo_usuario == 'Admin B2B':
+        empresas = Empresa.query.filter_by(gestor_id=current_user.id).all()
+        mentores_ids = [m.id for emp in empresas for m in emp.mentores]
+        vols = CheckinVoluntariado.query.filter(CheckinVoluntariado.usuario_id.in_(mentores_ids)).order_by(CheckinVoluntariado.data_hora_inicio.desc()).all() if mentores_ids else []
+    else:
+        vols = CheckinVoluntariado.query.order_by(CheckinVoluntariado.data_hora_inicio.desc()).all()
+        
+    dados_formatados = []
+    for vol in vols:
+        usuario = db.session.get(Usuario, vol.usuario_id)
+        emp_nome = ", ".join([e.nome for e in usuario.empresas]) if usuario and hasattr(usuario, 'empresas') and usuario.empresas else "Hub Institucional"
+        dados_formatados.append({
+            'nome': usuario.nome if usuario else 'Desconhecido',
+            'perfil': usuario.tipo_usuario if usuario else 'N/A',
+            'empresa': emp_nome,
+            'atividade': vol.tipo_atividade,
+            'horas': vol.total_minutos or 0,
+            'data': vol.data_hora_inicio.strftime('%d/%m/%Y %H:%M') if vol.data_hora_inicio else "",
+            'status': "Concluído" if vol.data_hora_fim else "Em Andamento"
+        })
+
+    # Gera um HTML limpo otimizado para salvar como PDF
+    html_pdf = """
+    <!DOCTYPE html>
+    <html lang="pt">
+    <head>
+        <meta charset="UTF-8">
+        <title>Relatório ESG - PDF</title>
+        <style>
+            body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color: #333; padding: 20px; }
+            .header { text-align: center; border-bottom: 2px solid #198754; padding-bottom: 10px; margin-bottom: 20px; }
+            .header h1 { color: #198754; margin: 0; }
+            .header p { color: #666; font-size: 0.9em; }
+            table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 0.85em; }
+            th, td { border: 1px solid #ddd; padding: 10px; text-align: left; }
+            th { background-color: #f8f9fa; color: #198754; }
+            tr:nth-child(even) { background-color: #f9f9f9; }
+            .badge { background-color: #e9ecef; padding: 4px 8px; border-radius: 4px; font-size: 0.8em; }
+            @media print {
+                .no-print { display: none; }
+                body { padding: 0; }
+            }
+        </style>
+    </head>
+    <body onload="window.print()">
+        <div class="no-print" style="margin-bottom: 20px; text-align: right;">
+            <button onclick="window.print()" style="background: #198754; color: white; padding: 10px 15px; border: none; border-radius: 5px; cursor: pointer; font-weight: bold;">Salvar como PDF</button>
+            <a href="{{ url_for('dashboard') }}" style="margin-left: 15px; color: #666; text-decoration: none;">Voltar ao Sistema</a>
+        </div>
+        <div class="header">
+            <h1>Relatório Executivo ESG</h1>
+            <p>Horas de Voluntariado Corporativo e Impacto Social | Emitido em: {{ data_emissao }}</p>
+        </div>
+        <table>
+            <thead>
+                <tr>
+                    <th>Colaborador</th>
+                    <th>Empresa</th>
+                    <th>Atividade Executada</th>
+                    <th>Minutos</th>
+                    <th>Data</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for d in dados %}
+                <tr>
+                    <td><strong>{{ d.nome }}</strong><br><span class="badge">{{ d.perfil }}</span></td>
+                    <td>{{ d.empresa }}</td>
+                    <td>{{ d.atividade }}</td>
+                    <td><strong>{{ d.horas }} min</strong></td>
+                    <td>{{ d.data }}</td>
+                    <td>{{ d.status }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </body>
+    </html>
+    """
+    return render_template_string(html_pdf, dados=dados_formatados, data_emissao=datetime.now().strftime('%d/%m/%Y %H:%M'))
 
 # ==============================================================================
 # MOTOR DO ONBOARDING B2B E TRAVA DE COMPLIANCE
