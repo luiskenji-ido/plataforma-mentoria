@@ -69,7 +69,94 @@
 
     <!-- Formulário de Criação -->
     <div class="card shadow-sm mb-4 border-0">
-<!-- ... existing code ... -->
+        <div class="card-header bg-white fw-bold text-success d-flex justify-content-between align-items-center">
+            <span>{{ t('cadastrar_novo_usuario') }}</span>
+            <a href="{{ url_for('gerenciar_grupos') }}" class="btn btn-sm btn-outline-primary fw-bold">
+                <i class="bi bi-people"></i> + Cadastrar Novo Grupo
+            </a>
+        </div>
+
+        <div class="card-body">
+            <form method="POST" action="{{ url_for('gerenciar_usuarios') }}">
+                <div class="row align-items-end">
+                    <div class="col-md-3 mb-3">
+                        <label class="form-label text-muted">{{ t('nome') }}</label>
+                        <input type="text" name="nome" class="form-control" value="{{ fill_nome }}" required>
+                    </div>
+                    <div class="col-md-3 mb-3">
+                        <label class="form-label text-muted">{{ t('email') }}</label>
+                        <input type="email" name="email" class="form-control" placeholder="exemplo@dominio.com" value="{{ fill_email }}" required>
+                    </div>
+                    <div class="col-md-2 mb-3">
+                        <label class="form-label text-muted">{{ t('nivel') }}</label>
+                        <select name="tipo_usuario" id="tipo_usuario_novo" class="form-select" required>
+                            <option value="Aluno">Aluno</option>
+                            <option value="Professor">Professor</option>
+                            <option value="Mentor">Mentor</option>
+                            <option value="Mentor Administrador">Mentor Administrador</option>
+                            <option value="Administrador">Administrador</option>
+                            <option value="Admin B2B">Gestor Parceiro (Admin B2B)</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2 mb-3">
+                        <label class="form-label text-muted">{{ t('status') }}</label>
+                        <select name="status" class="form-select" required>
+                            <option value="Ativo" {% if request.form.get('status') == 'Ativo' or not request.form.get('status') %}selected{% endif %}>{{ t('ativo') }}</option>
+                            <option value="Ausente" {% if request.form.get('status') == 'Ausente' %}selected{% endif %}>{{ t('status_ausente') }}</option>
+                            <option value="Desativado" {% if request.form.get('status') == 'Desativado' %}selected{% endif %}>{{ t('status_desativado') }}</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2 mb-3">
+                        <label class="form-label text-muted">{{ t('senha') }}</label>
+                        <input type="password" name="senha" class="form-control" required>
+                    </div>
+                    
+                    <div class="col-12 mb-3">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" name="forcar_troca_senha" value="True" id="forcar_troca_novo" checked>
+                            <label class="form-check-label text-muted fw-bold" for="forcar_troca_novo">
+                                {{ t('exigir_troca_senha') }}
+                            </label>
+                        </div>
+                    </div>
+                </div>
+                <button type="submit" class="btn btn-success px-4 w-100">{{ t('salvar_cadastro') }}</button>
+            </form>
+        </div>
+    </div>
+
+
+    <!-- ========================================================= -->
+    <!-- ÁREA DE TABELAS (SEPARADAS POR ABAS / TABS)                 -->
+    <!-- ========================================================= -->
+    
+    <!-- Filtro de Pesquisa Global -->
+    <div class="d-flex justify-content-end mb-3">
+        <div class="input-group w-50 shadow-sm">
+            <span class="input-group-text bg-light text-secondary border-secondary"><i class="bi bi-search"></i></span>
+            <input type="text" id="filtroUsuarios" class="form-control border-secondary" placeholder="Buscar qualquer usuário, e-mail ou mentor...">
+        </div>
+    </div>
+
+    <!-- Navegação das Abas -->
+    <ul class="nav nav-tabs fw-bold mb-3" id="usuariosTabs" role="tablist">
+        <li class="nav-item" role="presentation">
+            <button class="nav-link active" id="equipa-tab" data-bs-toggle="tab" data-bs-target="#equipa" type="button" role="tab">
+                <i class="bi bi-shield-lock-fill text-danger"></i> 01. Equipa Interna
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="parceiros-tab" data-bs-toggle="tab" data-bs-target="#parceiros" type="button" role="tab">
+                <i class="bi bi-building text-primary"></i> 02. Parceiros B2B
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="alunos-tab" data-bs-toggle="tab" data-bs-target="#alunos" type="button" role="tab">
+                <i class="bi bi-mortarboard-fill text-success"></i> 03. Corpo Discente
+            </button>
+        </li>
+    </ul>
+
     <!-- Conteúdo das Abas -->
     <div class="tab-content" id="usuariosTabsContent">
 
@@ -94,9 +181,6 @@
         <!-- ABA 03: CORPO DISCENTE (ALUNOS) -->
         <div class="tab-pane fade" id="alunos" role="tabpanel">
             <div class="card shadow-sm border-0 mb-5">
-                <!-- ========================================================================== -->
-                <!-- CAIXA DE AVISO DA IA (MATCH INTELIGENTE)                                   -->
-                <!-- ========================================================================== -->
                 {% set tem_sugestoes = false %}
                 {% for u in usuarios %}
                     {% if u.tipo_usuario == 'Aluno' and (not u.mentores or u.mentores.count() == 0) and u.objetivo_principal %}
@@ -110,10 +194,9 @@
                     <p class="mb-0 small text-muted">O sistema identificou alunos sem mentor cujos objetivos combinam com as especialidades da nossa equipe. Abra a edição do aluno para ver a sugestão da IA.</p>
                 </div>
                 {% endif %}
-                <!-- ========================================================================== -->
 
                 <div class="card-body p-0">
-                    {{ render_tabela_usuarios(usuarios, ['Aluno'], '', False) }}
+                    {{ render_tabela_usuarios(usuarios, ['Aluno'], '', false) }}
                 </div>
             </div>
         </div>
@@ -126,17 +209,14 @@
     <!-- ========================================================= -->
     {% for u in usuarios %}
     <div class="modal fade text-start" id="modalEditar{{ u.id }}" tabindex="-1">
-        <!-- Adicionamos o ID dinâmico dialogEditarUsuario para o botão saber qual tela expandir -->
             <div class="modal-dialog modal-lg modal-dialog-scrollable" id="dialogEditarUsuario{{ u.id }}">
             <div class="modal-content shadow">
                 <form method="POST" action="{{ url_for('editar_usuario', id=u.id) }}" style="display: contents;">
 
-                <!-- Ajustamos o flexbox do cabeçalho para separar o título dos botões -->
                 <div class="modal-header bg-primary text-white d-flex justify-content-between align-items-center">
                 <h5 class="modal-title">{{ t('editar_usuario_titulo') }} {{ u.nome }}</h5>
 
             <div>
-                <!-- NOVO: Botão de Maximizar/Restaurar Tela -->
                 <button type="button" class="btn btn-sm text-white me-2 d-inline-flex align-items-center justify-content-center" 
                         onclick="document.getElementById('dialogEditarUsuario{{ u.id }}').classList.toggle('modal-fullscreen');" 
                         title="Tela Cheia / Restaurar" style="background: rgba(255,255,255,0.2); border: none; width: 30px; height: 30px;">
@@ -195,15 +275,14 @@
                                 <label class="form-check-label text-muted fw-bold" for="forcar_troca_{{ u.id }}">
                                     {{ t('exigir_troca_senha') }}
                                 </label>
-                                </div>
+                            </div>
 
-                                <!-- NOVO: Checkbox para resetar perguntas de segurança -->
-                                <div class="form-check mt-2">
+                            <div class="form-check mt-2">
                                 <input class="form-check-input border-danger" type="checkbox" name="resetar_perguntas" value="True" id="resetar_perguntas_{{ u.id }}">
                                 <label class="form-check-label text-danger fw-bold" for="resetar_perguntas_{{ u.id }}">
                                     Reiniciar Perguntas de Segurança (O aluno recadastrará no próximo login)
                                 </label>
-                                </div>
+                            </div>
                         </div>
 
                         {% if u.tipo_usuario == 'Aluno' %}
@@ -234,26 +313,24 @@
 
                     </div>
                     
-                    <!-- CAIXA DE MATCH DA IA DENTRO DA EDIÇÃO -->
-                        {% if u.tipo_usuario == 'Aluno' and u.objetivo_principal %}
-                            {% set sugestoes = calcular_match(u, mentores) %}
-                            {% if sugestoes %}
-                            <div class="alert alert-success border-success mt-4 mb-2 p-3 shadow-sm">
-                                <h6 class="fw-bold text-dark mb-2"><i class="bi bi-robot text-success"></i> Mentores Sugeridos pela IA:</h6>
-                                <ul class="mb-0 small text-muted" style="list-style-type: none; padding-left: 0;">
-                                    {% for sug in sugestoes %}
-                                        <li class="mb-1">
-                                            <i class="bi bi-arrow-right-short text-success"></i>
-                                            <strong>{{ sug.mentor.nome }}</strong> 
-                                            <span class="badge bg-success-subtle text-success border border-success-subtle rounded-pill mx-1">{{ sug.score }}% de afinidade</span>
-                                            <br><span style="font-size: 0.75rem; margin-left: 20px;">Áreas em comum: {{ sug.tags_comuns }}</span>
-                                        </li>
-                                    {% endfor %}
-                                </ul>
-                            </div>
-                            {% endif %}
+                    {% if u.tipo_usuario == 'Aluno' and u.objetivo_principal %}
+                        {% set sugestoes = calcular_match(u, mentores) %}
+                        {% if sugestoes %}
+                        <div class="alert alert-success border-success mt-4 mb-2 p-3 shadow-sm">
+                            <h6 class="fw-bold text-dark mb-2"><i class="bi bi-robot text-success"></i> Mentores Sugeridos pela IA:</h6>
+                            <ul class="mb-0 small text-muted" style="list-style-type: none; padding-left: 0;">
+                                {% for sug in sugestoes %}
+                                    <li class="mb-1">
+                                        <i class="bi bi-arrow-right-short text-success"></i>
+                                        <strong>{{ sug.mentor.nome }}</strong> 
+                                        <span class="badge bg-success-subtle text-success border border-success-subtle rounded-pill mx-1">{{ sug.score }}% de afinidade</span>
+                                        <br><span style="font-size: 0.75rem; margin-left: 20px;">Áreas em comum: {{ sug.tags_comuns }}</span>
+                                    </li>
+                                {% endfor %}
+                            </ul>
+                        </div>
                         {% endif %}
-
+                    {% endif %}
 
                     <div class="modal-footer">
                         <button type="button" class="btn btn-secondary fw-bold" data-bs-dismiss="modal">{{ t('cancelar') }}</button>
@@ -267,7 +344,6 @@
     
     <!-- SCRIPTS MÁGICOS -->
     <script>
-        // Filtro Inteligente (Atravessa todas as abas!)
         const filtro = document.getElementById('filtroUsuarios');
         if (filtro) {
             filtro.addEventListener('input', function() {
@@ -279,7 +355,6 @@
             });
         }
 
-        // Script para Memória da Aba
         document.addEventListener("DOMContentLoaded", function() {
             var triggerTabList = [].slice.call(document.querySelectorAll('#usuariosTabs button[data-bs-toggle="tab"]'));
             triggerTabList.forEach(function(triggerEl) {
@@ -299,44 +374,41 @@
         });
     </script>
 
-<script>
-function iniciarTourDaPagina() {
-    let passos = [ { intro: "{{ t('tour_cad_intro') | safe }}" } ];
+    <script>
+    function iniciarTourDaPagina() {
+        let passos = [ { intro: "{{ t('tour_cad_intro') | safe }}" } ];
 
-    let formCad = document.querySelector('form[action*="gerenciar_usuarios"]') || document.querySelector('form');
-    if (formCad) passos.push({ element: formCad, intro: "{{ t('tour_cad_form') | safe }}" });
+        let formCad = document.querySelector('form[action*="gerenciar_usuarios"]') || document.querySelector('form');
+        if (formCad) passos.push({ element: formCad, intro: "{{ t('tour_cad_form') | safe }}" });
 
-    let tabela = document.querySelector('.table') || document.querySelector('table');
-    if (tabela) passos.push({ element: tabela, intro: "{{ t('tour_cad_tabela') | safe }}" });
+        let tabela = document.querySelector('.table') || document.querySelector('table');
+        if (tabela) passos.push({ element: tabela, intro: "{{ t('tour_cad_tabela') | safe }}" });
 
-    // Identifica o perfil para saber para onde o Tour deve ir depois
-    let tipoPerfil = "{{ current_user.tipo_usuario }}";
-    let ehMentorAdmin = (tipoPerfil === 'Mentor Administrador');
+        let tipoPerfil = "{{ current_user.tipo_usuario }}";
+        let ehMentorAdmin = (tipoPerfil === 'Mentor Administrador');
 
-    introJs().setOptions({
-        steps: passos,
-        nextLabel: "{{ t('tour_btn_proximo') }}",
-        prevLabel: "{{ t('tour_btn_anterior') }}",
-        // Se for Mentor Admin, vai para Solicitações. Se for Admin, pula para Manutenção.
-        doneLabel: ehMentorAdmin ? "{{ t('tour_btn_solicitacoes') }}" : "{{ t('tour_btn_manutencao') }}",
-        showProgress: true,
-        showBullets: false
-    }).oncomplete(function() {
-        if(window.location.search.includes('tour_continuo=1')) {
-            if (ehMentorAdmin) {
-                window.location.href = "{{ url_for('gerenciar_solicitacoes') }}?tour_continuo=1";
-            } else {
-                window.location.href = "{{ url_for('manutencao_banco') }}?tour_continuo=1";
+        introJs().setOptions({
+            steps: passos,
+            nextLabel: "{{ t('tour_btn_proximo') }}",
+            prevLabel: "{{ t('tour_btn_anterior') }}",
+            doneLabel: ehMentorAdmin ? "{{ t('tour_btn_solicitacoes') }}" : "{{ t('tour_btn_manutencao') }}",
+            showProgress: true,
+            showBullets: false
+        }).oncomplete(function() {
+            if(window.location.search.includes('tour_continuo=1')) {
+                if (ehMentorAdmin) {
+                    window.location.href = "{{ url_for('gerenciar_solicitacoes') }}?tour_continuo=1";
+                } else {
+                    window.location.href = "{{ url_for('manutencao_banco') }}?tour_continuo=1";
+                }
             }
-        }
-    }).start();
-}
-
-document.addEventListener("DOMContentLoaded", function() {
-    if(window.location.search.includes('tour_continuo=1')) {
-        setTimeout(iniciarTourDaPagina, 500);
+        }).start();
     }
-});
-</script>
 
+    document.addEventListener("DOMContentLoaded", function() {
+        if(window.location.search.includes('tour_continuo=1')) {
+            setTimeout(iniciarTourDaPagina, 500);
+        }
+    });
+    </script>
 {% endblock %}
