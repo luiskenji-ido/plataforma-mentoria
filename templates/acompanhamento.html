@@ -634,12 +634,7 @@
                                     <i class="bi bi-calendar-check"></i> Horários Guardados:
                                 </span>
                                 
-                                {% if 'google_token' not in session %}
-                                    <!-- Botão discreto para quem não conectou (Não interfere no uso local) -->
-                                    <a href="{{ url_for('conectar_agenda') }}" class="btn btn-sm btn-outline-warning text-dark fw-bold rounded-pill shadow-sm px-3" title="Opcional: Conectar ao Google">
-                                        <i class="bi bi-google"></i> Esqueceu de conectar a Agenda?
-                                    </a>
-                                {% else %}
+                                {% if 'google_token' in session %}
                                     <!-- Botão para forçar sincronização se já estiver conectado -->
                                     <form action="{{ url_for('sincronizar_agenda_acompanhamento', acomp_id=item.reg.id) }}" method="POST" class="m-0 p-0">
                                         <button type="submit" class="btn btn-sm btn-outline-primary fw-bold rounded-pill shadow-sm px-3" title="Forçar o envio destes horários para o Google">
