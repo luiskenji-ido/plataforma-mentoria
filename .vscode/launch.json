@@ -1,0 +1,86 @@
+{
+    // Atalhos do OmniTest (painel "Executar e Depurar" do VS Code).
+    // Cada agente testa SÓ o seu perfil; os dois últimos rodam todos.
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "OmniTest · Aluno",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/agentes_omnitest/agente_aluno.py",
+            "args": ["--pausar"],
+            "python": "${workspaceFolder}/.venv/Scripts/python.exe",
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "OmniTest · Professor",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/agentes_omnitest/agente_professor.py",
+            "args": ["--pausar"],
+            "python": "${workspaceFolder}/.venv/Scripts/python.exe",
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "OmniTest · Mentor",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/agentes_omnitest/agente_mentor.py",
+            "args": ["--pausar"],
+            "python": "${workspaceFolder}/.venv/Scripts/python.exe",
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "OmniTest · Administrador",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/agentes_omnitest/agente_administrador.py",
+            "args": ["--pausar"],
+            "python": "${workspaceFolder}/.venv/Scripts/python.exe",
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "OmniTest · Mentor Administrador",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/agentes_omnitest/agente_mentor_administrador.py",
+            "args": ["--pausar"],
+            "python": "${workspaceFolder}/.venv/Scripts/python.exe",
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "OmniTest · Gestor B2B",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/agentes_omnitest/agente_gestor_b2b.py",
+            "args": ["--pausar"],
+            "python": "${workspaceFolder}/.venv/Scripts/python.exe",
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "OmniTest · TODOS (paralelo, sem janela)",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/agentes_omnitest/executar_todos.py",
+            "python": "${workspaceFolder}/.venv/Scripts/python.exe",
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "OmniTest · TODOS (com janela, um por vez)",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/agentes_omnitest/executar_todos.py",
+            "args": ["--sequencial", "--visual"],
+            "python": "${workspaceFolder}/.venv/Scripts/python.exe",
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal"
+        }
+    ]
+}

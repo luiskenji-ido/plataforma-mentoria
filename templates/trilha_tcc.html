@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% block title %}{{ t('trilha_titulo') }}{% endblock %}
+
+{% block content %}
+<div class="container mt-2 mb-5" style="max-width: 860px;">
+
+    <div class="mb-4">
+        <h2 class="text-primary fw-bold mb-1"><i class="bi bi-mortarboard-fill"></i> {{ t('trilha_titulo') }}</h2>
+        <p class="text-muted mb-3">{{ t('trilha_subtitulo') }}</p>
+        {% set pct = ((feitos / total) * 100) | round | int if total else 100 %}
+        <div class="d-flex align-items-center gap-3">
+            <div class="progress flex-grow-1" style="height: 12px;" role="progressbar" aria-label="{{ t('trilha_progresso') }}" aria-valuenow="{{ pct }}" aria-valuemin="0" aria-valuemax="100">
+                <div class="progress-bar bg-success" style="width: {{ pct }}%"></div>
+            </div>
+            <span class="fw-bold text-dark text-nowrap">{{ feitos }} / {{ total }} {{ t('trilha_modulos') }}</span>
+        </div>
+    </div>
+
+    <div class="d-flex flex-column gap-3">
+        {% for m in modulos %}
+        {% set leitura = lidos.get(m.id) %}
+        {% set concluido = leitura and leitura.versao_lida >= m.versao %}
+        <div class="card shadow-sm border-0 border-start border-4 {% if concluido %}border-success{% else %}border-warning{% endif %}" id="modulo-{{ m.id }}">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-start gap-3 flex-wrap mb-2">
+                    <h5 class="fw-bold text-dark mb-0">{{ loop.index }}. {{ m.titulo }}</h5>
+                    {% if concluido %}
+                        <span class="badge bg-success"><i class="bi bi-check2-circle"></i> {{ t('trilha_lido_em') }} {{ leitura.data_conclusao.strftime('%d/%m/%Y') }}</span>
+                    {% elif leitura %}
+                        <span class="badge bg-warning text-dark"><i class="bi bi-arrow-repeat"></i> {{ t('trilha_atualizado') }}</span>
+                    {% else %}
+                        <span class="badge bg-secondary">{{ t('trilha_pendente') }}</span>
+                    {% endif %}
+                </div>
+                <div class="text-dark conteudo-trilha">{{ m.conteudo_html | safe }}</div>
+                {% if m.link_video %}
+                <p class="mb-2"><a href="{{ m.link_video }}" target="_blank" rel="noopener" class="fw-bold"><i class="bi bi-play-circle"></i> {{ t('trilha_video') }}</a></p>
+                {% endif %}
+                {% if not concluido %}
+                <form method="POST" action="{{ url_for('concluir_modulo_tcc', modulo_id=m.id) }}" class="text-end mt-2">
+                    <button type="submit" class="btn btn-success fw-bold rounded-pill px-4">{{ t('trilha_li_entendi') }}</button>
+                </form>
+                {% endif %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    {% if feitos >= total %}
+    <div class="text-center mt-4">
+        <a href="{{ url_for('dashboard') }}" class="btn btn-primary fw-bold rounded-pill px-4">{{ t('trilha_ir_painel') }}</a>
+    </div>
+    {% endif %}
+</div>
+
+<style>
+    .conteudo-trilha table { font-size: 0.9rem; }
+    html[data-theme="escuro"] .conteudo-trilha table,
+    html[data-theme="futurista"] .conteudo-trilha table { --bs-table-bg: transparent; color: inherit; }
+</style>
+{% endblock %}

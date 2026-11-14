@@ -100,7 +100,7 @@
                             <td class="ps-4 text-primary fw-bold">{{ g.nome }}</td>
                             <td>
                                 {% for membro in g.membros %}
-                                    <span class="badge bg-info text-dark mb-1">{{ membro.nome }}</span>
+                                    <span class="badge bg-info text-dark mb-1">{{ membro.nome }}{% if membro.tipo_usuario == 'Aluno' and membro.modalidade_participacao in ['Online', 'Híbrido'] %} · 💻 {{ t('modalidade_' ~ ('online' if membro.modalidade_participacao == 'Online' else 'hibrido')) }}{% endif %}</span>
                                 {% else %}
                                     <span class="text-muted small">Nenhum membro cadastrado.</span>
                                 {% endfor %}

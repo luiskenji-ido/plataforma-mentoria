@@ -1,0 +1,118 @@
+{% extends "base.html" %}
+{% block title %}{{ t('trilha_gestao_titulo') }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-2 mb-5 px-lg-4">
+    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-4">
+        <div>
+            <h2 class="text-primary fw-bold mb-1"><i class="bi bi-mortarboard"></i> {{ t('trilha_gestao_titulo') }}</h2>
+            <p class="text-muted mb-0">{{ t('trilha_gestao_subtitulo') }}</p>
+        </div>
+        <button class="btn btn-primary fw-bold rounded-pill px-4" data-bs-toggle="modal" data-bs-target="#modalModulo0">
+            <i class="bi bi-plus-circle"></i> {{ t('trilha_novo_modulo') }}
+        </button>
+    </div>
+
+    <div class="row g-4">
+        <!-- Progresso de cada mentor / professor -->
+        <div class="col-lg-6">
+            <div class="card shadow-sm border-0">
+                <div class="card-header bg-white fw-bold">{{ t('trilha_progresso_equipe') }}</div>
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="table-light">
+                            <tr><th>{{ t('trilha_col_pessoa') }}</th><th>{{ t('trilha_col_perfil') }}</th><th class="text-center">{{ t('trilha_progresso') }}</th><th>{{ t('trilha_col_ultima') }}</th></tr>
+                        </thead>
+                        <tbody>
+                            {% for p in progresso %}
+                            <tr>
+                                <td class="fw-bold">{{ p.pessoa.nome }}</td>
+                                <td class="text-muted small">{{ p.pessoa.tipo_usuario }}</td>
+                                <td class="text-center">
+                                    {% if p.feitos >= p.total %}<span class="badge bg-success">{{ p.feitos }}/{{ p.total }}</span>
+                                    {% else %}<span class="badge bg-warning text-dark">{{ p.feitos }}/{{ p.total }}</span>{% endif %}
+                                </td>
+                                <td class="small text-muted">{{ p.ultima.strftime('%d/%m/%Y %H:%M') if p.ultima else '—' }}</td>
+                            </tr>
+                            {% else %}
+                            <tr><td colspan="4" class="text-muted text-center py-4">{{ t('trilha_sem_pessoas') }}</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Módulos da trilha -->
+        <div class="col-lg-6">
+            <div class="card shadow-sm border-0">
+                <div class="card-header bg-white fw-bold">{{ t('trilha_modulos_cadastrados') }}</div>
+                <ul class="list-group list-group-flush">
+                    {% for m in modulos %}
+                    <li class="list-group-item d-flex justify-content-between align-items-center gap-2">
+                        <div>
+                            <span class="fw-bold">{{ m.ordem }}. {{ m.titulo }}</span>
+                            <div class="small text-muted">v{{ m.versao }} · {% if m.ativo %}{{ t('trilha_ativo') }}{% else %}{{ t('trilha_inativo') }}{% endif %}</div>
+                        </div>
+                        <button class="btn btn-sm btn-outline-primary fw-bold rounded-pill" data-bs-toggle="modal" data-bs-target="#modalModulo{{ m.id }}">{{ t('trilha_editar') }}</button>
+                    </li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modais de edição (id 0 = novo módulo) -->
+{% for m in [None] + modulos %}
+{% set mid = m.id if m else 0 %}
+<div class="modal fade" id="modalModulo{{ mid }}" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <form method="POST" action="{{ url_for('gestao_trilha_tcc') }}">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title fw-bold">{{ m.titulo if m else t('trilha_novo_modulo') }}</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="{{ t('fechar') }}"></button>
+                </div>
+                <div class="modal-body d-flex flex-column gap-3">
+                    <input type="hidden" name="modulo_id" value="{{ mid }}">
+                    <div class="row g-2">
+                        <div class="col-9">
+                            <label class="form-label fw-bold small" for="titulo{{ mid }}">{{ t('trilha_campo_titulo') }}</label>
+                            <input class="form-control" id="titulo{{ mid }}" name="titulo" value="{{ m.titulo if m else '' }}" required>
+                        </div>
+                        <div class="col-3">
+                            <label class="form-label fw-bold small" for="ordem{{ mid }}">{{ t('trilha_campo_ordem') }}</label>
+                            <input class="form-control" type="number" min="1" id="ordem{{ mid }}" name="ordem" value="{{ m.ordem if m else (modulos|length + 1) }}">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="form-label fw-bold small" for="conteudo{{ mid }}">{{ t('trilha_campo_conteudo') }}</label>
+                        <textarea class="form-control font-monospace small" id="conteudo{{ mid }}" name="conteudo_html" rows="10" required>{{ m.conteudo_html if m else '' }}</textarea>
+                    </div>
+                    <div>
+                        <label class="form-label fw-bold small" for="video{{ mid }}">{{ t('trilha_campo_video') }}</label>
+                        <input class="form-control" type="url" id="video{{ mid }}" name="link_video" value="{{ m.link_video or '' if m else '' }}" placeholder="https://">
+                    </div>
+                    <div class="d-flex gap-4 flex-wrap">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="ativo{{ mid }}" name="ativo" {% if not m or m.ativo %}checked{% endif %}>
+                            <label class="form-check-label" for="ativo{{ mid }}">{{ t('trilha_ativo') }}</label>
+                        </div>
+                        {% if m %}
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="releitura{{ mid }}" name="exigir_releitura">
+                            <label class="form-check-label" for="releitura{{ mid }}">{{ t('trilha_exigir_releitura') }}</label>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="submit" class="btn btn-success fw-bold px-4">{{ t('trilha_salvar') }}</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endfor %}
+{% endblock %}

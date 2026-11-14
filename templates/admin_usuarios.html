@@ -1,3 +1,4 @@
+{% from "_macros_adequacoes.html" import selo_modalidade with context %}
 {% extends "base.html" %}
 
 {% block title %}{{ t('gerenciamento_cadastros') }} - Mentoria{% endblock %}
@@ -7,17 +8,6 @@
     .cursor-pointer { cursor: pointer; }
     </style>
 
-    <!-- Área de Alertas -->
-    {% with messages = get_flashed_messages(with_categories=true) %}
-      {% if messages %}
-        {% for category, message in messages %}
-          <div class="alert alert-{{ category }} alert-dismissible fade show">
-            {{ message }}
-            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-          </div>
-        {% endfor %}
-      {% endif %}
-    {% endwith %}
 
     <div class="d-flex justify-content-between align-items-center mb-4">
         <h2 class="text-primary fw-bold mb-0">{{ t('gerenciamento_cadastros') }}</h2>
@@ -45,7 +35,7 @@
             {% if u.tipo_usuario in filtro_tipos %}
             <tr class="linha-usuario">
                 <td>{{ u.id }}</td>
-                <td class="fw-bold">{{ u.nome }}</td>
+                <td class="fw-bold">{{ u.nome }} {{ selo_modalidade(u) }}</td>
                 <td>{{ u.email }}</td>
                 {% if mostrar_nivel %}<td><span class="badge {{ badge_class }}">{{ u.tipo_usuario }}</span></td>{% endif %}
                 <td>
@@ -96,6 +86,14 @@
                             <option value="Mentor Administrador">Mentor Administrador</option>
                             <option value="Administrador">Administrador</option>
                             <option value="Admin B2B">Gestor Parceiro (Admin B2B)</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2 mb-3" id="campoModalidadeNovo">
+                        <label class="form-label text-muted" for="modalidadeNovo">{{ t('modalidade_participacao') }}</label>
+                        <select name="modalidade_participacao" id="modalidadeNovo" class="form-select">
+                            <option value="Presencial">{{ t('modalidade_presencial') }}</option>
+                            <option value="Online">{{ t('modalidade_online') }}</option>
+                            <option value="Híbrido">{{ t('modalidade_hibrido') }}</option>
                         </select>
                     </div>
                     <div class="col-md-2 mb-3">
@@ -263,6 +261,16 @@
                                     <option value="Bloqueado" {% if u.status == 'Bloqueado' %} selected{% endif %}>Bloqueado (Senha 5x)</option>
                                 </select>
                             </div>
+                            {% if u.tipo_usuario == 'Aluno' %}
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label" for="modalidade{{ u.id }}">{{ t('modalidade_participacao') }}</label>
+                                <select name="modalidade_participacao" id="modalidade{{ u.id }}" class="form-select">
+                                    {% for valor, chave in [('Presencial', 'modalidade_presencial'), ('Online', 'modalidade_online'), ('Híbrido', 'modalidade_hibrido')] %}
+                                    <option value="{{ valor }}" {% if (u.modalidade_participacao or 'Presencial') == valor %}selected{% endif %}>{{ t(chave) }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            {% endif %}
                         </div>
 
                         <div class="mb-4">
@@ -412,3 +420,15 @@
     });
     </script>
 {% endblock %}
+
+<script>
+    // Modalidade de participação só aparece quando o novo cadastro é de um Aluno
+    (function () {
+        const tipo = document.getElementById('tipo_usuario_novo');
+        const campo = document.getElementById('campoModalidadeNovo');
+        if (!tipo || !campo) return;
+        const atualizar = () => { campo.hidden = tipo.value !== 'Aluno'; };
+        tipo.addEventListener('change', atualizar);
+        atualizar();
+    })();
+</script>

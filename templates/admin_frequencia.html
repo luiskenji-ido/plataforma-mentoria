@@ -1,3 +1,4 @@
+{% from "_macros_adequacoes.html" import selo_modalidade with context %}
 {% extends 'base.html' %}
 
 {% block content %}
@@ -162,6 +163,7 @@
                             <th class="ps-4">Data e Hora</th>
                             <th>Utilizador (Nome e E-mail)</th>
                             <th>Modalidade</th>
+                            <th>{{ t('modalidade_cadastrada') }}</th>
                             <th class="d-print-none">Anotações do Utilizador</th>
                             <th class="text-center">Status de Validação</th>
                             <th class="text-center pe-4 d-print-none">Ação</th>
@@ -187,6 +189,13 @@
                                     <span class="badge bg-secondary"><i class="bi bi-shield-check"></i> Falta Justificada</span>
                                 {% else %}
                                     <span class="badge bg-danger"><i class="bi bi-x-circle"></i> Falta</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {{ selo_modalidade(r.usuario) }}
+                                {% set cadastro = r.usuario.modalidade_participacao or 'Presencial' %}
+                                {% if r.usuario.tipo_usuario == 'Aluno' and r.tipo_presenca in ['Online', 'Presencial'] and cadastro != 'Híbrido' and cadastro != r.tipo_presenca %}
+                                    <div class="small text-warning-emphasis fw-bold mt-1"><i class="bi bi-exclamation-triangle"></i> {{ t('modalidade_divergente') }}</div>
                                 {% endif %}
                             </td>
                             <td class="d-print-none">

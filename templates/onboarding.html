@@ -3,41 +3,58 @@
 
 {% block content %}
 <div class="container mt-2 mb-5" style="max-width: 800px;">
-    
+
     <div class="text-center mb-4">
-        <h2 class="text-primary fw-bold"><i class="bi bi-shield-check"></i> Onboarding de Voluntariado</h2>
-        <p class="text-muted">Termo de Compromisso, LGPD e Diretrizes de Mentoria B2B</p>
+        <h2 class="text-primary fw-bold"><i class="bi bi-shield-check"></i> {{ t('termo_titulo') }}</h2>
+        <p class="text-muted">{{ t('termo_subtitulo') }}</p>
     </div>
 
     <div class="card shadow-lg border-0">
-        <div class="card-body p-5">
-            <h5 class="fw-bold mb-4 text-dark">Olá, {{ current_user.nome.split()[0] }}!</h5>
-            <p class="text-dark">Antes de acessar o painel e os dados dos jovens, precisamos que leia e concorde com as nossas diretrizes oficiais de relacionamento e privacidade.</p>
-            
-            <div class="bg-light border rounded p-4 mb-4" style="height: 300px; overflow-y: auto; font-size: 0.9rem;">
-                <h6 class="fw-bold text-dark">1. Confidencialidade e LGPD</h6>
-                <p class="text-muted">Todos os dados pessoais, informações acadêmicas e contatos dos jovens vinculados ao Instituto ITM são estritamente confidenciais. É vedada a extração, compartilhamento ou uso destes dados fora do escopo do programa de mentoria corporativa.</p>
-                
-                <h6 class="fw-bold text-dark">2. Conduta e Relacionamento</h6>
-                <p class="text-muted">A comunicação com os jovens deve ocorrer prioritariamente dentro das ferramentas institucionais e durante as reuniões agendadas. O voluntário compromete-se a manter uma postura ética, inclusiva e encorajadora durante toda a jornada.</p>
+        <div class="card-body p-4 p-md-5">
+            <h5 class="fw-bold mb-3 text-dark">Olá, {{ current_user.nome.split()[0] }}!</h5>
+            <p class="text-dark">{{ t('termo_intro') }}</p>
 
-                <h6 class="fw-bold text-dark">3. Critérios da Banca de TCC</h6>
-                <p class="text-muted">As avaliações finais de projeto seguirão a régua de governança: Conteúdo (40%), Apresentação (40%) e Visual (20%). O voluntário compromete-se a ser justo, embasado e a preencher o formulário de Q&A (Perguntas e Respostas) para auditoria do parceiro B2B.</p>
-                
-                <h6 class="fw-bold text-dark">4. Relatório ESG</h6>
-                <p class="text-muted">Ao utilizar o Relógio de Voluntariado Corporativo, você atesta que as horas ali lançadas representam com fidelidade o esforço empregado, que serão reportadas nos balanços sociais da sua corporação.</p>
+            <!-- Texto legal do termo (em português, idioma oficial do instrumento) -->
+            <div class="bg-light border rounded p-4 mb-4" style="height: 340px; overflow-y: auto; font-size: 0.9rem;" tabindex="0" aria-label="{{ t('termo_titulo') }}">
+                <h6 class="fw-bold text-dark text-center mb-3">TERMO DE ADESÃO AO SERVIÇO VOLUNTÁRIO</h6>
+                <p class="text-muted">Pelo presente instrumento, de um lado, <strong>{{ organizacao }}</strong>, doravante denominada ORGANIZAÇÃO, e de outro lado, o(a) colaborador(a) <strong>{{ current_user.nome }}</strong> ({{ current_user.email }}), doravante denominado(a) VOLUNTÁRIO(A), ajustam o presente Termo de Adesão para prestação de serviço voluntário, mediante as seguintes cláusulas:</p>
+
+                <h6 class="fw-bold text-dark">CLÁUSULA PRIMEIRA – Do Objeto</h6>
+                <p class="text-muted">O VOLUNTÁRIO prestará serviços não remunerados no âmbito do projeto de capacitação de jovens denominado "{{ projeto }}", atuando conforme sua escolha e alinhamento prévio nas funções de palestrante, mentor de Trabalho de Conclusão de Curso (TCC), participante de banca examinadora e/ou suporte de back office.</p>
+
+                <h6 class="fw-bold text-dark">CLÁUSULA SEGUNDA – Da Natureza do Vínculo</h6>
+                <p class="text-muted">A atividade é prestada nos termos da Lei nº 9.608, de 18 de fevereiro de 1998, com caráter estritamente espontâneo, gratuito, cívico e cultural. Este termo NÃO gera vínculo empregatício nem obrigação de natureza trabalhista, previdenciária ou afim entre o VOLUNTÁRIO e a ORGANIZAÇÃO, e não altera as obrigações do contrato de trabalho já existente entre as partes.</p>
+
+                <h6 class="fw-bold text-dark">CLÁUSULA TERCEIRA – Da Carga Horária e Prazos</h6>
+                <p class="text-muted">As atividades seguem o cronograma oficial do projeto disponibilizado nesta plataforma. Os registros de entrada e saída (check-in e check-out) servirão exclusivamente para controle de indicadores sociais e emissão de certificados.</p>
+
+                <h6 class="fw-bold text-dark">CLÁUSULA QUARTA – Dos Direitos e Deveres</h6>
+                <p class="text-muted">São deveres do VOLUNTÁRIO exercer suas atribuições com assiduidade, urbanidade e respeito aos jovens beneficiários e à equipe, zelando pelo sigilo das informações e pela integridade do projeto. É assegurado ao VOLUNTÁRIO o certificado de participação ao término do ciclo, desde que cumprida a agenda acordada.</p>
+
+                <h6 class="fw-bold text-dark">CLÁUSULA QUINTA – Das Despesas</h6>
+                <p class="text-muted">Por se tratar de voluntariado corporativo realizado nas estruturas da própria empresa ou em formato online previamente acordado, não haverá reembolso de despesas ordinárias, salvo as autorizadas por escrito pela coordenação do projeto.</p>
+
+                <h6 class="fw-bold text-dark">CLÁUSULA SEXTA – Do Uso de Imagem e Dados</h6>
+                <p class="text-muted">O VOLUNTÁRIO autoriza, a título gratuito, o uso de sua imagem, voz e nome em materiais de divulgação institucional do projeto (redes sociais, newsletters, relatórios ESG), em conformidade com a legislação de proteção de dados.</p>
+                <p class="text-muted"><strong>Parágrafo primeiro:</strong> o VOLUNTÁRIO compromete-se a manter total sigilo sobre dados pessoais, informações escolares, histórico familiar ou registros digitais dos jovens a que tenha acesso, sendo proibido compartilhá-los com terceiros ou fora dos canais oficiais desta plataforma, em observância à Lei Geral de Proteção de Dados (LGPD).</p>
+                <p class="text-muted"><strong>Parágrafo segundo:</strong> é vedado ao VOLUNTÁRIO utilizar ideias, projetos de TCC ou propriedade intelectual dos jovens para fins comerciais próprios ou em benefício de áreas de negócio da empresa sem autorização expressa e por escrito da coordenação do projeto.</p>
+
+                <h6 class="fw-bold text-dark">CLÁUSULA SÉTIMA – Da Vigência e Rescisão</h6>
+                <p class="text-muted">Este termo vigora durante as atividades do projeto "{{ projeto }}" e pode ser rescindido a qualquer momento por qualquer das partes, sem aviso prévio e sem indenização.</p>
+
+                <p class="text-muted mb-0">Assinado eletronicamente nesta plataforma em {{ data_hoje }}. Versão do termo: {{ versao_termo }}.</p>
             </div>
 
             <form action="{{ url_for('aceitar_termos') }}" method="POST">
                 <div class="form-check mb-4">
                     <input class="form-check-input border-primary" type="checkbox" id="checkAceite" required style="width: 1.5em; height: 1.5em; cursor: pointer;">
                     <label class="form-check-label ms-2 mt-1 text-dark fw-bold" for="checkAceite" style="cursor: pointer;">
-                        Li e concordo integralmente com os termos e diretrizes acima.
+                        {{ t('termo_aceite') }}
                     </label>
                 </div>
-                
+
                 <button type="submit" class="btn btn-primary btn-lg w-100 fw-bold shadow-sm rounded-pill" id="btnAcessar" disabled>
-                    Assinar Digitalmente e Acessar Plataforma
+                    {{ t('termo_assinar') }}
                 </button>
             </form>
         </div>

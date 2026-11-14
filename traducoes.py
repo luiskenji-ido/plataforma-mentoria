@@ -983,6 +983,11 @@ TEXTOS = {
     }
 }
 
+# Chaves das adequações Aon/ITM, mantidas em traducoes_adequacoes.py
+from traducoes_adequacoes import TEXTOS_ADEQUACOES
+for _idioma, _textos in TEXTOS_ADEQUACOES.items():
+    TEXTOS[_idioma].update(_textos)
+
 def t(chave, idioma='pt'):
     """Retorna a tradução com base na chave e no idioma escolhido."""
     if idioma not in TEXTOS:

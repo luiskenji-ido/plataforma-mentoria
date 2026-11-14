@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}{{ t('notif_titulo') }}{% endblock %}
+
+{% block content %}
+<div class="container mt-2 mb-5" style="max-width: 860px;">
+    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-4">
+        <div>
+            <h2 class="text-primary fw-bold mb-1"><i class="bi bi-bell-fill"></i> {{ t('notif_titulo') }}</h2>
+            <p class="text-muted mb-0">{{ t('notif_subtitulo') }}</p>
+        </div>
+        <form method="POST" action="{{ url_for('central_notificacoes') }}">
+            <input type="hidden" name="acao" value="marcar_todas">
+            <button type="submit" class="btn btn-outline-primary fw-bold rounded-pill px-3">{{ t('notif_marcar_todas') }}</button>
+        </form>
+    </div>
+
+    <!-- Preferência de e-mail -->
+    <form method="POST" action="{{ url_for('central_notificacoes') }}" class="card shadow-sm border-0 mb-4">
+        <div class="card-body d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <input type="hidden" name="acao" value="preferencia_email">
+            <div class="form-check form-switch mb-0">
+                <input class="form-check-input" type="checkbox" role="switch" id="receberEmail" name="receber_email" {% if current_user.receber_email is not false %}checked{% endif %}>
+                <label class="form-check-label fw-bold" for="receberEmail">{{ t('notif_receber_email') }}</label>
+            </div>
+            <button type="submit" class="btn btn-sm btn-primary fw-bold rounded-pill px-3">{{ t('notif_salvar_preferencia') }}</button>
+        </div>
+    </form>
+
+    <div class="list-group shadow-sm">
+        {% for n in notificacoes %}
+        <a href="{{ url_for('abrir_notificacao', id=n.id) }}" class="list-group-item list-group-item-action py-3 {% if not n.lida %}border-start border-4 border-primary{% endif %}">
+            <div class="d-flex justify-content-between gap-3">
+                <strong class="{% if n.lida %}text-muted{% else %}text-dark{% endif %}">{{ n.titulo }}</strong>
+                <small class="text-muted text-nowrap">{{ n.data_criacao.strftime('%d/%m/%Y %H:%M') }}</small>
+            </div>
+            {% if n.mensagem %}<div class="small text-muted mt-1">{{ n.mensagem }}</div>{% endif %}
+        </a>
+        {% else %}
+        <div class="list-group-item text-muted text-center py-5">{{ t('notif_vazio') }}</div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}

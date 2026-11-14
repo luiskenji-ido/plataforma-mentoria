@@ -1,0 +1,14 @@
+{# ============================================================================
+   Macros reutilizáveis das adequações Aon/ITM.
+   Importe com: {% from "_macros_adequacoes.html" import selo_modalidade with context %}
+   ============================================================================ #}
+
+{# Selo da modalidade de participação do jovem (Presencial, Online ou Híbrido) #}
+{% macro selo_modalidade(u) -%}
+{%- if u and u.tipo_usuario == 'Aluno' -%}
+{%- set m = u.modalidade_participacao or 'Presencial' -%}
+<span class="badge rounded-pill ms-1 {% if m == 'Online' %}bg-primary{% elif m == 'Híbrido' %}bg-warning text-dark{% else %}bg-secondary{% endif %}" title="{{ t('modalidade_participacao') }}">
+{%- if m == 'Online' %}<i class="bi bi-laptop"></i> {{ t('modalidade_online') }}{% elif m == 'Híbrido' %}<i class="bi bi-shuffle"></i> {{ t('modalidade_hibrido') }}{% else %}<i class="bi bi-building"></i> {{ t('modalidade_presencial') }}{% endif -%}
+</span>
+{%- endif -%}
+{%- endmacro %}

@@ -2,14 +2,6 @@
 {% block title %}{{ t('manutencao_titulo') }}{% endblock %}
 {% block content %}
 
-<!-- Área de Alertas -->
-{% with messages = get_flashed_messages(with_categories=true) %}
-  {% if messages %}
-    {% for category, message in messages %}
-      <div class="alert alert-{{ category }} alert-dismissible fade show">{{ message }}<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>
-    {% endfor %}
-  {% endif %}
-{% endwith %}
 
 <h2 class="mb-4 text-primary fw-bold">{{ t('manutencao_titulo') }}</h2>
 <p class="text-muted mb-4">{{ t('manutencao_subtitulo') }}</p>

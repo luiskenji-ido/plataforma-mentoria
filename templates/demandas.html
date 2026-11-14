@@ -112,6 +112,34 @@
                                             {% endif %}
                                         {% endif %}
                                     </form>
+
+                                    <!-- Histórico da conversa: autor e gestão trocam mensagens sem sair da plataforma -->
+                                    <h6 class="fw-bold text-primary border-bottom pb-2 mt-4"><i class="bi bi-chat-dots"></i> {{ t('demanda_historico') }}</h6>
+                                    <div class="d-flex flex-column gap-2 mb-3">
+                                        {% for c in d.comentarios %}
+                                        <div class="p-2 rounded border {% if c.autor_id == d.autor_id %}bg-light{% else %}bg-primary-subtle border-primary-subtle{% endif %}">
+                                            <div class="small text-muted mb-1">
+                                                <strong class="text-dark">{{ c.autor.nome if c.autor else '—' }}</strong>
+                                                {% if c.autor %}· {{ c.autor.tipo_usuario }}{% endif %}
+                                                · {{ c.data_criacao.strftime('%d/%m/%Y %H:%M') }}
+                                            </div>
+                                            <div class="text-dark" style="white-space: pre-line;">{{ c.texto }}</div>
+                                        </div>
+                                        {% else %}
+                                        <p class="text-muted fst-italic small mb-0">{{ t('demanda_sem_comentarios') }}</p>
+                                        {% endfor %}
+                                    </div>
+                                    {% if d.status not in ['Concluída', 'Cancelada'] %}
+                                    <form action="{{ url_for('portal_demandas') }}" method="POST" class="d-flex flex-column gap-2">
+                                        <input type="hidden" name="acao" value="comentar_demanda">
+                                        <input type="hidden" name="demanda_id" value="{{ d.id }}">
+                                        <label class="visually-hidden" for="comentario{{ d.id }}">{{ t('demanda_comentar_placeholder') }}</label>
+                                        <textarea id="comentario{{ d.id }}" name="texto" class="form-control shadow-sm" rows="2" placeholder="{{ t('demanda_comentar_placeholder') }}" required></textarea>
+                                        <div class="text-end">
+                                            <button type="submit" class="btn btn-outline-primary fw-bold rounded-pill px-4">{{ t('demanda_enviar_comentario') }}</button>
+                                        </div>
+                                    </form>
+                                    {% endif %}
                                 </div>
                             </div>
                         </div>
@@ -148,6 +176,9 @@
                                 <option value="Alinhamento Pedagógico">Alinhamento Pedagógico</option>
                                 <option value="Dúvida Técnica (Plataforma)">Dúvida Técnica (Plataforma)</option>
                                 <option value="Sugestão de Melhoria">Sugestão de Melhoria</option>
+                                <option value="Melhoria">{{ t('demanda_tipo_melhoria') }}</option>
+                                <option value="Mudança de processo">{{ t('demanda_tipo_mudanca') }}</option>
+                                <option value="Sugestão">{{ t('demanda_tipo_sugestao') }}</option>
                                 <option value="Outros">Outros</option>
                             </select>
                         </div>

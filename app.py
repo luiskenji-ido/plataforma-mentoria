@@ -62,6 +62,7 @@ app = Flask(__name__)
 # IMPORTAÇÃO DO MÓDULO DE TRADUÇÕES
 # ---------------------------------------------------------
 from traducoes import t
+from notificacoes import notificar, usuarios_gestao
 
 # ---------------------------------------------------------
 # INJETOR DE TRADUÇÃO PARA OS TEMPLATES (HTML)
@@ -136,19 +137,39 @@ def injetar_notificacoes_qa():
             })
 
     # 3. BUSCA ALUNOS BLOQUEADOS (SINO DE ADMINS E MENTORES)
-        if current_user.tipo_usuario != 'Aluno':
-            if current_user.tipo_usuario in ['Administrador', 'Mentor Administrador']:
-                alunos_bloqueados = Usuario.query.filter_by(status='Bloqueado').all()
-            else:
-                alunos_bloqueados = Usuario.query.filter(Usuario.status == 'Bloqueado', Usuario.mentores.any(id=current_user.id)).all()
-            
-            for ab in alunos_bloqueados:
-                notificacoes_formatadas.append({
-                    'link': url_for('gerenciar_usuarios'),
-                    'texto': f"⚠️ BLOQUEADO (Senha): {ab.nome.split()[0]}",
-                    'data': datetime.now() # Data atual para forçar o aviso a ficar no topo do sino
-                })
+    if current_user.tipo_usuario != 'Aluno':
+        if current_user.tipo_usuario in ['Administrador', 'Mentor Administrador']:
+            alunos_bloqueados = Usuario.query.filter_by(status='Bloqueado').all()
+        else:
+            alunos_bloqueados = Usuario.query.filter(Usuario.status == 'Bloqueado', Usuario.mentores.any(id=current_user.id)).all()
 
+        for ab in alunos_bloqueados:
+            notificacoes_formatadas.append({
+                'link': url_for('gerenciar_usuarios'),
+                'texto': f"⚠️ BLOQUEADO (Senha): {ab.nome.split()[0]}",
+                'data': datetime.now() # Data atual para forçar o aviso a ficar no topo do sino
+            })
+
+    # 5. NOTIFICAÇÕES DA PLATAFORMA (demandas, reuniões, bancas, lembretes...)
+    from models import Notificacao
+    for n in Notificacao.query.filter_by(usuario_id=current_user.id, lida=False).order_by(Notificacao.data_criacao.desc()).limit(10).all():
+        notificacoes_formatadas.append({
+            'link': url_for('abrir_notificacao', id=n.id),
+            'texto': f"🔔 {n.titulo}",
+            'data': n.data_criacao
+        })
+
+
+    # 4. TICKETS DO PORTAL DE DEMANDAS AGUARDANDO RESPOSTA (só gestão)
+    if current_user.tipo_usuario in ['Administrador', 'Mentor Administrador', 'Admin B2B']:
+        from models import DemandaInstitucional
+        abertas = DemandaInstitucional.query.filter_by(status='Aberta').order_by(DemandaInstitucional.data_criacao.desc()).all()
+        if abertas:
+            notificacoes_formatadas.append({
+                'link': url_for('portal_demandas'),
+                'texto': f"🎫 {len(abertas)} {t('notif_tickets_abertos', current_user.idioma)}",
+                'data': abertas[0].data_criacao
+            })
 
     # Mistura tudo e ordena pela data mais recente
     notificacoes_formatadas.sort(key=lambda x: x['data'] if x['data'] else datetime.min, reverse=True)
@@ -191,6 +212,28 @@ from flask_login import login_user, logout_user, login_required, current_user
 # ===========================================================================
 
 # Rota de Login (Página Inicial)
+# ===========================================================================
+# ESCOPO DE VISIBILIDADE DOS JOVENS POR PERFIL (usado em painéis e listas)
+# ===========================================================================
+def ids_jovens_visiveis(usuario):
+    """None = todos os jovens (Administrador e Mentor Administrador).
+    Nos demais perfis, devolve o conjunto de ids dos jovens que a pessoa acompanha."""
+    if usuario.tipo_usuario in ['Administrador', 'Mentor Administrador']:
+        return None
+    if usuario.tipo_usuario == 'Aluno':
+        return {usuario.id}
+    if usuario.tipo_usuario == 'Admin B2B':
+        linhas = db.session.query(turma_aluno.c.aluno_id) \
+            .join(Turma, Turma.id == turma_aluno.c.turma_id) \
+            .join(Empresa, Empresa.id == Turma.empresa_id) \
+            .filter(Empresa.gestor_id == usuario.id).all()
+        return {linha[0] for linha in linhas}
+    # Mentor, Professor e demais: jovens vinculados a ele + jovens dos grupos de que participa
+    vinculados = {a.id for a in Usuario.query.filter(Usuario.tipo_usuario == 'Aluno', Usuario.mentores.any(id=usuario.id)).all()}
+    dos_grupos = {m.id for g in (getattr(usuario, 'grupos', None) or []) for m in g.membros if m.tipo_usuario == 'Aluno'}
+    return vinculados | dos_grupos
+
+
 @app.route('/', methods=['GET', 'POST'])
 def login():
     # ==============================================================================
@@ -368,11 +411,17 @@ def dashboard():
     if current_user.tipo_usuario == 'Aluno':
         acompanhamentos = Acompanhamento.query.filter_by(aluno_id=current_user.id).all()
         total_sessoes = SessaoMentoria.query.filter_by(aluno_id=current_user.id).count()
-    elif current_user.tipo_usuario == ['Mentor','Professor']:
+    elif current_user.tipo_usuario in ['Mentor', 'Professor']:
         # Filtra os acompanhamentos e totalizadores apenas para os alunos deste mentor
         acompanhamentos = Acompanhamento.query.join(Usuario, Acompanhamento.aluno_id == Usuario.id).filter(Usuario.mentores.any(id=current_user.id)).all()
         total_alunos = Usuario.query.filter(Usuario.tipo_usuario == 'Aluno', Usuario.mentores.any(id=current_user.id)).count()
         total_sessoes = SessaoMentoria.query.filter_by(mentor_id=current_user.id).count()
+    elif current_user.tipo_usuario == 'Admin B2B':
+        # Gestor B2B: só os jovens das turmas das empresas que ele gere (LGPD)
+        ids_b2b = list(ids_jovens_visiveis(current_user)) or [-1]
+        acompanhamentos = Acompanhamento.query.filter(Acompanhamento.aluno_id.in_(ids_b2b)).order_by(Acompanhamento.id.desc()).all()
+        total_alunos = Usuario.query.filter(Usuario.tipo_usuario == 'Aluno', Usuario.id.in_(ids_b2b)).count()
+        total_sessoes = SessaoMentoria.query.filter(SessaoMentoria.aluno_id.in_(ids_b2b)).count()
     else:
         # Administrador e Mentor Administrador veem tudo
         acompanhamentos = Acompanhamento.query.order_by(Acompanhamento.id.desc()).all()
@@ -480,7 +529,26 @@ def dashboard():
     projetos_andamento = sum(1 for p in meus_projetos if p.status == 'Em Andamento')
     projetos_concluidos = sum(1 for p in meus_projetos if p.status == 'Concluído')
 
-    return render_template('dashboard.html', 
+    # Jovens que registraram presença Online hoje (no escopo de quem está vendo)
+    jovens_online_hoje = None
+    jovens_online_cadastro = None
+    if current_user.tipo_usuario != 'Aluno':
+        inicio_hoje = datetime.combine(datetime.utcnow().date(), datetime.min.time())
+        consulta_online = Frequencia.query.join(Usuario, Usuario.id == Frequencia.usuario_id).filter(
+            Usuario.tipo_usuario == 'Aluno', Frequencia.tipo_presenca == 'Online', Frequencia.data_registro >= inicio_hoje)
+        consulta_cadastro = Usuario.query.filter(Usuario.tipo_usuario == 'Aluno', Usuario.status == 'Ativo',
+                                                 Usuario.modalidade_participacao.in_(['Online', 'Híbrido']))
+        visiveis = ids_jovens_visiveis(current_user)
+        if visiveis is not None:
+            consulta_online = consulta_online.filter(Frequencia.usuario_id.in_(list(visiveis)))
+            consulta_cadastro = consulta_cadastro.filter(Usuario.id.in_(list(visiveis)))
+        jovens_online_hoje = consulta_online.count()
+        jovens_online_cadastro = consulta_cadastro.count()
+
+    return render_template('dashboard.html',
+                           jovens_online_hoje=jovens_online_hoje,
+                           jovens_online_cadastro=jovens_online_cadastro,
+                           data_hoje_iso=datetime.utcnow().strftime('%Y-%m-%d'),
                            nome_mentor=nome_do_mentor,
                            dias_restantes_senha=dias_restantes_senha,
                            total_alunos=total_alunos,
@@ -695,7 +763,8 @@ def gerenciar_usuarios():
             data_criacao=datetime.utcnow(),
             data_ultima_troca_senha=datetime.utcnow(),
             criado_por=current_user.nome,
-            forcar_troca_senha=forcar_troca
+            forcar_troca_senha=forcar_troca,
+            modalidade_participacao=(request.form.get('modalidade_participacao') or 'Presencial') if tipo_usuario == 'Aluno' else None
         )
         
         if tipo_usuario == 'Aluno' and mentores_selecionados_ids:
@@ -746,6 +815,8 @@ def editar_usuario(id):
         usuario.nome = request.form.get('nome')
         usuario.email = novo_email
         usuario.tipo_usuario = request.form.get('tipo_usuario')
+        if usuario.tipo_usuario == 'Aluno' and request.form.get('modalidade_participacao'):
+            usuario.modalidade_participacao = request.form.get('modalidade_participacao')
         novo_status = request.form.get('status')
         if novo_status == 'Ativo' and usuario.status == 'Bloqueado':
             usuario.tentativas_login = 0
@@ -1711,7 +1782,7 @@ def sessoes():
             'feedbacks': feedbacks_detalhados
         })
         
-    if current_user.tipo_usuario == ['Mentor', 'Professor']:
+    if current_user.tipo_usuario in ['Mentor', 'Professor']:
         lista_alunos = Usuario.query.filter(Usuario.tipo_usuario == 'Aluno', Usuario.mentores.any(id=current_user.id)).all()
     else:
         lista_alunos = Usuario.query.filter_by(tipo_usuario='Aluno').all()
@@ -1888,15 +1959,50 @@ def bater_ponto_voluntariado():
 # ==============================================================================
 # ROTA: PORTAL DE DEMANDAS INSTITUCIONAIS (TICKETS ITM & AON)
 # ==============================================================================
+# ==============================================================================
+# ROTAS: NOTIFICAÇÕES DO USUÁRIO (histórico do sino e preferência de e-mail)
+# ==============================================================================
+@app.route('/notificacoes', methods=['GET', 'POST'])
+@login_required
+def central_notificacoes():
+    from models import Notificacao
+    if request.method == 'POST':
+        acao = request.form.get('acao')
+        if acao == 'marcar_todas':
+            Notificacao.query.filter_by(usuario_id=current_user.id, lida=False).update({'lida': True})
+            db.session.commit()
+            flash(t('notif_todas_lidas', current_user.idioma), "success")
+        elif acao == 'preferencia_email':
+            current_user.receber_email = bool(request.form.get('receber_email'))
+            db.session.commit()
+            flash(t('notif_preferencia_salva', current_user.idioma), "success")
+        return redirect(url_for('central_notificacoes'))
+
+    notificacoes = Notificacao.query.filter_by(usuario_id=current_user.id).order_by(Notificacao.data_criacao.desc()).limit(100).all()
+    return render_template('notificacoes.html', notificacoes=notificacoes)
+
+
+@app.route('/notificacoes/<int:id>/abrir')
+@login_required
+def abrir_notificacao(id):
+    from models import Notificacao
+    notificacao = db.session.get(Notificacao, id)
+    if not notificacao or notificacao.usuario_id != current_user.id:
+        return redirect(url_for('central_notificacoes'))
+    notificacao.lida = True
+    db.session.commit()
+    # Só segue links internos da própria plataforma
+    destino = notificacao.link if (notificacao.link or '').startswith('/') else url_for('central_notificacoes')
+    return redirect(destino)
+
+
 @app.route('/demandas', methods=['GET', 'POST'])
 @login_required
 def portal_demandas():
-    # Trava de segurança: Alunos não acessam este portal corporativo
-    if current_user.tipo_usuario == 'Aluno':
-        flash("Acesso restrito à gestão e mentores.", "danger")
-        return redirect(url_for('dashboard'))
-
-    from models import DemandaInstitucional
+    # Canal oficial para TODOS os perfis (inclusive o Aluno): cada um vê os próprios tickets
+    # e só a gestão vê todos e responde oficialmente.
+    from models import DemandaInstitucional, ComentarioDemanda
+    perfis_gestao = ['Administrador', 'Mentor Administrador', 'Admin B2B']
     from datetime import datetime
 
     if request.method == 'POST':
@@ -1919,12 +2025,15 @@ def portal_demandas():
             )
             db.session.add(nova_demanda)
             db.session.commit()
+            notificar(usuarios_gestao(exceto_id=current_user.id),
+                      ('notif_demanda_nova_titulo', {'id': nova_demanda.id, 'titulo': titulo}),
+                      ('notif_demanda_nova_msg', {'autor': current_user.nome, 'tipo': tipo_demanda, 'prioridade': prioridade}),
+                      link=url_for('portal_demandas'), tipo='demanda', referencia=f"demanda-nova:{nova_demanda.id}")
             flash("Ticket aberto com sucesso! A equipe de gestão foi notificada.", "success")
 
         # --- AÇÃO 2: RESPONDER E ATUALIZAR TICKET ---
         elif acao == 'responder_demanda':
             # Apenas perfis de gestão (Admins) podem responder oficialmente
-            perfis_gestao = ['Administrador', 'Mentor Administrador', 'Admin B2B']
             if current_user.tipo_usuario not in perfis_gestao:
                 flash("Apenas gestores podem responder oficialmente aos tickets.", "danger")
                 return redirect(url_for('portal_demandas'))
@@ -1939,13 +2048,42 @@ def portal_demandas():
                 demanda.status = novo_status
                 demanda.data_atualizacao = datetime.utcnow()
                 db.session.commit()
+                if demanda.autor and demanda.autor_id != current_user.id:
+                    notificar([demanda.autor], ('notif_demanda_resposta_titulo', {'id': demanda.id, 'titulo': demanda.titulo}),
+                              ('notif_demanda_resposta_msg', {'status': demanda.status}),
+                              link=url_for('portal_demandas'), tipo='demanda')
                 flash(f"Ticket #{demanda.id} atualizado com sucesso!", "success")
+
+        # --- AÇÃO 3: MENSAGEM NO HISTÓRICO DO TICKET (autor ou gestão) ---
+        elif acao == 'comentar_demanda':
+            demanda = db.session.get(DemandaInstitucional, request.form.get('demanda_id', type=int) or 0)
+            texto_comentario = (request.form.get('texto') or '').strip()
+            if not demanda or (current_user.tipo_usuario not in perfis_gestao and demanda.autor_id != current_user.id):
+                flash(t('demanda_sem_permissao', current_user.idioma), "danger")
+            elif not texto_comentario:
+                flash(t('demanda_comentario_vazio', current_user.idioma), "warning")
+            else:
+                db.session.add(ComentarioDemanda(demanda_id=demanda.id, autor_id=current_user.id, texto=texto_comentario))
+                demanda.data_atualizacao = datetime.utcnow()
+                # Gestão comentando um ticket ainda 'Aberta' coloca-o em análise
+                if current_user.tipo_usuario in perfis_gestao and demanda.status == 'Aberta':
+                    demanda.status = 'Em Análise'
+                db.session.commit()
+                # Gestão escreveu: avisa o autor. Autor escreveu: avisa a gestão.
+                if current_user.tipo_usuario in perfis_gestao:
+                    destino = [demanda.autor] if demanda.autor_id != current_user.id else []
+                else:
+                    destino = usuarios_gestao(exceto_id=current_user.id)
+                notificar(destino, ('notif_demanda_msg_titulo', {'id': demanda.id, 'titulo': demanda.titulo}),
+                          f"{current_user.nome}: {texto_comentario[:300]}",
+                          link=url_for('portal_demandas'), tipo='demanda')
+                flash(t('demanda_comentario_ok', current_user.idioma), "success")
 
         return redirect(url_for('portal_demandas'))
 
     # --- MÉTODO GET: LISTAR OS TICKETS NA TELA ---
-    # Gestores veem todos os tickets organizados por status. Mentores veem apenas os seus.
-    if current_user.tipo_usuario in ['Administrador', 'Mentor Administrador', 'Admin B2B']:
+    # Gestores veem todos os tickets organizados por status. Os demais perfis veem apenas os seus.
+    if current_user.tipo_usuario in perfis_gestao:
         lista_demandas = DemandaInstitucional.query.order_by(
             db.case(
                 (DemandaInstitucional.status == 'Aberta', 1),
@@ -2172,24 +2310,65 @@ def exportar_relatorio_esg_pdf():
 # ==============================================================================
 
 # O @app.before_request age como um segurança de porta: ele roda ANTES de qualquer página abrir
+# Versão vigente do Termo de Adesão (Lei 9.608/98). Mudar a versão obriga todos a assinar de novo.
+VERSAO_TERMO_ATUAL = "2.0 - Lei 9.608/98"
+TERMO_ORGANIZACAO = "Aon / Instituto ITM"
+TERMO_PROJETO = "Jovem Seguro 2026"
+
+# Perfis que precisam concluir a trilha de orientação do TCC antes de usar a plataforma
+PERFIS_TRILHA_TCC = ['Mentor', 'Professor', 'Mentor Administrador']
+
+# Rotas que continuam livres enquanto o termo ou a trilha estão pendentes
+# (registrar_frequencia estava fora desta lista e prendia Mentor/Professor no primeiro acesso)
+ENDPOINTS_LIVRES_ONBOARDING = ['login', 'logout', 'static', 'onboarding', 'aceitar_termos', 'registrar_frequencia',
+                               'desativar_tour', 'alterar_tema', 'alterar_idioma', 'trocar_senha_obrigatoria',
+                               'cadastrar_perguntas', 'recuperar_senha', 'trilha_tcc', 'concluir_modulo_tcc']
+
+
+def progresso_trilha_tcc(usuario):
+    """Devolve (módulos lidos na versão atual, total de módulos ativos)."""
+    from models import ModuloOnboardingTCC, ConclusaoModuloTCC
+    modulos = ModuloOnboardingTCC.query.filter_by(ativo=True).all()
+    lidos = {c.modulo_id: c.versao_lida for c in ConclusaoModuloTCC.query.filter_by(usuario_id=usuario.id).all()}
+    feitos = sum(1 for m in modulos if (lidos.get(m.id) or 0) >= (m.versao or 1))
+    return feitos, len(modulos)
+
+
 @app.before_request
 def verificar_onboarding():
     # Deixa passar livremente as páginas de login, logout, arquivos estáticos e o próprio onboarding
-    if request.endpoint in ['login', 'logout', 'static', 'onboarding', 'aceitar_termos']:
+    if request.endpoint is None or request.endpoint in ENDPOINTS_LIVRES_ONBOARDING:
         return
-    
+
     if current_user.is_authenticated:
         # Alunos não passam por este onboarding corporativo
         if current_user.tipo_usuario == 'Aluno':
             return
-        
+
         from models import TermoAceite
-        # Verifica se existe uma assinatura no banco de dados para este usuário
-        aceite = TermoAceite.query.filter_by(usuario_id=current_user.id).first()
-        
+        # Precisa existir a assinatura da versão VIGENTE do termo
+        aceite = TermoAceite.query.filter_by(usuario_id=current_user.id, versao_termo=VERSAO_TERMO_ATUAL).first()
+
         # Se não tem a assinatura, "tranca" o usuário na página de Onboarding
         if not aceite:
             return redirect(url_for('onboarding'))
+
+        # Trilha do TCC: o Painel continua aberto (mostra o progresso); o resto espera a conclusão
+        if current_user.tipo_usuario in PERFIS_TRILHA_TCC and request.endpoint != 'dashboard':
+            feitos, total = progresso_trilha_tcc(current_user)
+            if feitos < total:
+                flash(t('trilha_pendente_aviso', current_user.idioma).format(feitos=feitos, total=total), "warning")
+                return redirect(url_for('trilha_tcc'))
+
+
+@app.context_processor
+def injetar_progresso_trilha():
+    # Banner do Painel para quem ainda não terminou a trilha do TCC
+    if current_user.is_authenticated and current_user.tipo_usuario in PERFIS_TRILHA_TCC:
+        feitos, total = progresso_trilha_tcc(current_user)
+        if feitos < total:
+            return dict(trilha_tcc_pendente={'feitos': feitos, 'total': total})
+    return dict(trilha_tcc_pendente=None)
 
 # Rota visual para ler o termo
 @app.route('/onboarding')
@@ -2198,7 +2377,8 @@ def onboarding():
     # Se aluno cair aqui por acidente, manda de volta ao painel
     if current_user.tipo_usuario == 'Aluno':
         return redirect(url_for('dashboard'))
-    return render_template('onboarding.html')
+    return render_template('onboarding.html', versao_termo=VERSAO_TERMO_ATUAL, organizacao=TERMO_ORGANIZACAO,
+                           projeto=TERMO_PROJETO, data_hoje=datetime.now().strftime('%d/%m/%Y'))
 
 # Rota de gravação da assinatura
 @app.route('/onboarding/aceitar', methods=['POST'])
@@ -2209,13 +2389,98 @@ def aceitar_termos():
     
     novo_aceite = TermoAceite(
         usuario_id=current_user.id,
-        data_aceite=datetime.utcnow()
+        data_aceite=datetime.utcnow(),
+        versao_termo=VERSAO_TERMO_ATUAL
     )
     db.session.add(novo_aceite)
     db.session.commit()
-    
+
     flash("✅ Diretrizes corporativas aceitas com sucesso! Bem-vindo(a) ao projeto.", "success")
+    # Mentores e professores seguem direto para a trilha do TCC, se ainda não concluíram
+    if current_user.tipo_usuario in PERFIS_TRILHA_TCC:
+        feitos, total = progresso_trilha_tcc(current_user)
+        if feitos < total:
+            return redirect(url_for('trilha_tcc'))
     return redirect(url_for('dashboard'))
+# ==============================================================================
+# TRILHA OBRIGATÓRIA DE ORIENTAÇÃO DO TCC (Mentor, Professor e Mentor Administrador)
+# ==============================================================================
+@app.route('/onboarding/trilha-tcc')
+@login_required
+def trilha_tcc():
+    from models import ModuloOnboardingTCC, ConclusaoModuloTCC
+    if current_user.tipo_usuario not in PERFIS_TRILHA_TCC + ['Administrador']:
+        return redirect(url_for('dashboard'))
+
+    modulos = ModuloOnboardingTCC.query.filter_by(ativo=True).order_by(ModuloOnboardingTCC.ordem).all()
+    lidos = {c.modulo_id: c for c in ConclusaoModuloTCC.query.filter_by(usuario_id=current_user.id).all()}
+    feitos, total = progresso_trilha_tcc(current_user)
+    return render_template('trilha_tcc.html', modulos=modulos, lidos=lidos, feitos=feitos, total=total)
+
+
+@app.route('/onboarding/trilha-tcc/<int:modulo_id>/concluir', methods=['POST'])
+@login_required
+def concluir_modulo_tcc(modulo_id):
+    from models import ModuloOnboardingTCC, ConclusaoModuloTCC
+    modulo = db.session.get(ModuloOnboardingTCC, modulo_id)
+    if not modulo or not modulo.ativo:
+        return redirect(url_for('trilha_tcc'))
+
+    conclusao = ConclusaoModuloTCC.query.filter_by(usuario_id=current_user.id, modulo_id=modulo.id).first()
+    if conclusao:
+        conclusao.versao_lida = modulo.versao
+        conclusao.data_conclusao = datetime.utcnow()
+    else:
+        db.session.add(ConclusaoModuloTCC(usuario_id=current_user.id, modulo_id=modulo.id, versao_lida=modulo.versao))
+    db.session.commit()
+
+    feitos, total = progresso_trilha_tcc(current_user)
+    if feitos >= total:
+        flash(t('trilha_concluida', current_user.idioma), "success")
+        return redirect(url_for('dashboard'))
+    return redirect(url_for('trilha_tcc') + f"#modulo-{modulo.id}")
+
+
+@app.route('/onboarding/trilha-tcc/gestao', methods=['GET', 'POST'])
+@login_required
+def gestao_trilha_tcc():
+    from models import ModuloOnboardingTCC, ConclusaoModuloTCC, Usuario
+    if current_user.tipo_usuario not in ['Administrador', 'Mentor Administrador']:
+        flash("Acesso negado.", "danger")
+        return redirect(url_for('dashboard'))
+
+    if request.method == 'POST':
+        titulo = (request.form.get('titulo') or '').strip()
+        conteudo = (request.form.get('conteudo_html') or '').strip()
+        if not titulo or not conteudo:
+            flash(t('trilha_gestao_campos', current_user.idioma), "warning")
+            return redirect(url_for('gestao_trilha_tcc'))
+
+        modulo = db.session.get(ModuloOnboardingTCC, request.form.get('modulo_id', type=int) or 0)
+        if not modulo:
+            modulo = ModuloOnboardingTCC(versao=1)
+            db.session.add(modulo)
+        elif request.form.get('exigir_releitura'):
+            # Nova versão: quem leu a anterior volta a ter o módulo pendente
+            modulo.versao = (modulo.versao or 1) + 1
+        modulo.titulo = titulo
+        modulo.conteudo_html = conteudo
+        modulo.link_video = (request.form.get('link_video') or '').strip() or None
+        modulo.ordem = request.form.get('ordem', type=int) or 1
+        modulo.ativo = bool(request.form.get('ativo'))
+        db.session.commit()
+        flash(t('trilha_gestao_salvo', current_user.idioma), "success")
+        return redirect(url_for('gestao_trilha_tcc'))
+
+    modulos = ModuloOnboardingTCC.query.order_by(ModuloOnboardingTCC.ordem).all()
+    pessoas = Usuario.query.filter(Usuario.tipo_usuario.in_(PERFIS_TRILHA_TCC), Usuario.status == 'Ativo').order_by(Usuario.nome).all()
+    progresso = []
+    for pessoa in pessoas:
+        feitos, total = progresso_trilha_tcc(pessoa)
+        ultima = ConclusaoModuloTCC.query.filter_by(usuario_id=pessoa.id).order_by(ConclusaoModuloTCC.data_conclusao.desc()).first()
+        progresso.append({'pessoa': pessoa, 'feitos': feitos, 'total': total,
+                          'ultima': ultima.data_conclusao if ultima else None})
+    return render_template('trilha_tcc_gestao.html', modulos=modulos, progresso=progresso)
 
 # ==============================================================================
 # ROTA: BIBLIOTECA HISTÓRICA DE TCCS (VITRINE DE PROJETOS)
@@ -2607,6 +2872,7 @@ def solicitar_mentoria():
 def gerenciar_solicitacoes():
     # TRAVA DE SEGURANÇA: Apenas 'Mentor Administrador' passa daqui
     if current_user.tipo_usuario != 'Mentor Administrador':
+        flash("Acesso negado.", "danger")
         return redirect(url_for('dashboard'))
 
     # Pega as datas digitadas no filtro
@@ -3011,6 +3277,10 @@ def gerenciar_frequencia():
 
     query = Frequencia.query
 
+    visiveis = ids_jovens_visiveis(current_user)
+    if visiveis is not None:
+        query = query.filter(Frequencia.usuario_id.in_(list(visiveis | {current_user.id})))
+
     if filtro_aluno:
         query = query.filter(Frequencia.usuario_id == filtro_aluno)
     
@@ -3047,6 +3317,8 @@ def gerenciar_frequencia():
 
     # Trazemos a lista de alunos para preencher o select do filtro
     alunos = Usuario.query.filter_by(tipo_usuario='Aluno').all()
+    if visiveis is not None:
+        alunos = [a for a in alunos if a.id in visiveis]
 
 
     # ==========================================
@@ -3150,7 +3422,8 @@ def verificar_frequencia_diaria():
     precisa_registrar = False
     
     # Só dispara se estiver logado E for Aluno, Mentor ou Professor
-    if current_user.is_authenticated and current_user.tipo_usuario in ['Aluno', 'Mentor', 'Professor']:
+    if current_user.is_authenticated and current_user.tipo_usuario in ['Aluno', 'Mentor', 'Professor'] \
+            and request.endpoint not in ['onboarding', 'trilha_tcc']:
         from datetime import datetime, time
         
         hoje_inicio = datetime.combine(datetime.utcnow().date(), time.min)
@@ -3652,6 +3925,62 @@ def api_mentores_empresa(empresa_id):
     
     return jsonify([]) # Se não tiver empresa, devolve vazio
 
+# ==============================================================================
+# CONTEÚDO INICIAL DA TRILHA DO TCC (editável depois em Onboarding › Gestão da trilha)
+# ==============================================================================
+MODULOS_TRILHA_PADRAO = [
+    ("O cronograma do TCC: 6 encontros e os marcos de entrega", """
+<p>Os encontros são fixos e o tempo dos jovens é curto. A plataforma é o fio condutor entre um encontro e outro: a cada encontro, abre-se o prazo da entrega seguinte.</p>
+<table class="table table-sm table-bordered align-middle">
+<thead><tr><th>Encontro</th><th>Foco com os mentores</th><th>Entrega na plataforma</th></tr></thead>
+<tbody>
+<tr><td>1</td><td>Alinhamento inicial e chuva de ideias</td><td>Tema do TCC, justificativa e objetivo geral</td></tr>
+<tr><td>2</td><td>Estruturação do esqueleto</td><td>Sumário inicial e primeiras fontes de pesquisa</td></tr>
+<tr><td>3</td><td>Revisão do conteúdo inicial</td><td>Introdução e primeiro capítulo de fundamentação</td></tr>
+<tr><td>4</td><td>Desenvolvimento e solução</td><td>Rascunho completo da solução / projeto prático</td></tr>
+<tr><td>5</td><td>Conclusão e lapidação</td><td>Versão escrita final (PDF) para avaliação prévia</td></tr>
+<tr><td>6</td><td>Ensaio geral da apresentação</td><td>Slides da apresentação</td></tr>
+<tr><td>Banca</td><td>Apresentação oficial</td><td>Arquivo histórico na biblioteca de TCCs</td></tr>
+</tbody></table>"""),
+    ("O papel do mentor e a ata de cada encontro", """
+<p>Cada grupo conta com 2 a 4 mentores. Para que todos falem a mesma língua, ao final de cada encontro um mentor (ou um jovem relator) registra a ata com:</p>
+<ul>
+<li><strong>Resumo das deliberações:</strong> o que foi discutido e o denominador comum alcançado;</li>
+<li><strong>Fontes recomendadas:</strong> links, livros e artigos sugeridos;</li>
+<li><strong>Próximos passos:</strong> tarefas claras, com prazo até o encontro seguinte.</li>
+</ul>
+<p>Use linguagem simples: muitos termos corporativos não fazem parte do dia a dia dos jovens. Na dúvida, pergunte se ficou claro.</p>"""),
+    ("Check-in, check-out e horas extras", """
+<p>Todo tempo dedicado ao projeto precisa de <strong>check-in e check-out</strong> na plataforma: encontros oficiais, leitura de TCCs, banca e, principalmente, as <strong>orientações extras</strong> fora do cronograma.</p>
+<ul>
+<li>Nas atividades extras com o grupo, os <strong>jovens também</strong> fazem check-in e check-out.</li>
+<li>Informe sempre o grupo e o motivo do encontro extra.</li>
+<li>Esses registros alimentam os indicadores de voluntariado (ESG) e o seu certificado de participação.</li>
+</ul>"""),
+    ("A banca de avaliação", """
+<p>A nota final do TCC segue a fórmula oficial:</p>
+<p class="fw-bold">Nota final = Escrito × 0,4 + Apresentação × 0,4 + Visual × 0,2 — aprovado a partir de 7,0.</p>
+<ul>
+<li>Cada avaliador registra suas notas com comentários e justificativas.</li>
+<li>As perguntas feitas aos jovens e as respostas deles ficam registradas para feedback.</li>
+<li>As notas são divulgadas apenas no final, pela coordenação.</li>
+</ul>"""),
+    ("LGPD, sigilo e comunicação pela plataforma", """
+<p>O voluntário mantém total sigilo sobre dados pessoais, informações escolares, histórico familiar e registros dos jovens, e não os compartilha fora dos canais oficiais (Lei Geral de Proteção de Dados).</p>
+<p>É vedado usar ideias, projetos de TCC ou propriedade intelectual dos jovens para fins comerciais próprios ou da empresa sem autorização por escrito da coordenação.</p>
+<p><strong>Tudo é registrado na plataforma:</strong> demandas, mudanças e sugestões entram pelo Portal de Demandas, não por WhatsApp ou e-mail.</p>"""),
+]
+
+
+def garantir_modulos_trilha_tcc():
+    """Cria os módulos iniciais da trilha só se a tabela estiver vazia."""
+    from models import ModuloOnboardingTCC
+    if ModuloOnboardingTCC.query.count() == 0:
+        for ordem, (titulo, conteudo) in enumerate(MODULOS_TRILHA_PADRAO, 1):
+            db.session.add(ModuloOnboardingTCC(ordem=ordem, titulo=titulo, conteudo_html=conteudo.strip(), versao=1, ativo=True))
+        db.session.commit()
+
+
 # ===========================================================================
 # ATUALIZAÇÃO DO BANCO DE DADOS (Garante que roda no PythonAnywhere)
 # ===========================================================================
@@ -3668,7 +3997,10 @@ with app.app_context():
         "ALTER TABLE projeto ADD COLUMN nota_conteudo FLOAT",
         "ALTER TABLE projeto ADD COLUMN nota_apresentacao FLOAT",
         "ALTER TABLE empresa ADD COLUMN contato_sec_nome VARCHAR(150)",
-        "ALTER TABLE empresa ADD COLUMN contato_sec_email VARCHAR(150)"
+        "ALTER TABLE empresa ADD COLUMN contato_sec_email VARCHAR(150)",
+        # Adequações Aon/ITM
+        "ALTER TABLE usuario ADD COLUMN modalidade_participacao VARCHAR(20) DEFAULT 'Presencial'",
+        "ALTER TABLE usuario ADD COLUMN receber_email BOOLEAN DEFAULT 1"
     ]
     
     for comando in colunas_novas:
@@ -3677,6 +4009,8 @@ with app.app_context():
             db.session.commit()
         except:
             db.session.rollback()
+
+    garantir_modulos_trilha_tcc()
 
 # ===========================================================================
 # EXECUÇÃO DO APLICATIVO

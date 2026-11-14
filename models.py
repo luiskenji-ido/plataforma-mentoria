@@ -32,6 +32,10 @@ class Usuario(db.Model, UserMixin):
     criado_por = db.Column(db.String(100), default='Sistema')
     forcar_troca_senha = db.Column(db.Boolean, default=True)
     exibir_tour = db.Column(db.Boolean, default=True)
+    # Como o jovem participa do programa: 'Presencial', 'Online' ou 'Híbrido'
+    modalidade_participacao = db.Column(db.String(20), default='Presencial')
+    # Aceita receber por e-mail os avisos da plataforma (o sino continua mostrando tudo)
+    receber_email = db.Column(db.Boolean, default=True)
     perfil_aluno = db.Column(db.Text, nullable=True)
     objetivo_principal = db.Column(db.Text, nullable=True)
     expectativa_mentoria = db.Column(db.Text, nullable=True)
@@ -500,3 +504,70 @@ class TermoAceite(db.Model):
     versao_termo = db.Column(db.String(50), default="1.0 - B2B Genérico")
     
     usuario = db.relationship('Usuario', backref='termos_assinados')
+
+
+# ==============================================================================
+# TABELA: Conversa dos tickets do Portal de Demandas (autor <-> gestão)
+# ==============================================================================
+class ComentarioDemanda(db.Model):
+    __tablename__ = 'comentario_demanda'
+    id = db.Column(db.Integer, primary_key=True)
+    demanda_id = db.Column(db.Integer, db.ForeignKey('demanda_institucional.id'), nullable=False)
+    autor_id = db.Column(db.Integer, db.ForeignKey('usuario.id'), nullable=False)
+    texto = db.Column(db.Text, nullable=False)
+    data_criacao = db.Column(db.DateTime, default=datetime.utcnow)
+
+    demanda = db.relationship('DemandaInstitucional', backref=db.backref(
+        'comentarios', lazy=True, order_by='ComentarioDemanda.data_criacao', cascade="all, delete-orphan"))
+    autor = db.relationship('Usuario')
+
+
+
+# ==============================================================================
+# TABELAS: Trilha obrigatória de orientação do TCC para mentores e professores
+# Cada módulo tem uma versão; ao exigir releitura, a versão sobe e o módulo volta
+# a ficar pendente para quem leu uma versão anterior.
+# ==============================================================================
+class ModuloOnboardingTCC(db.Model):
+    __tablename__ = 'modulo_onboarding_tcc'
+    id = db.Column(db.Integer, primary_key=True)
+    ordem = db.Column(db.Integer, default=1)
+    titulo = db.Column(db.String(200), nullable=False)
+    conteudo_html = db.Column(db.Text, nullable=False)
+    link_video = db.Column(db.String(500), nullable=True)
+    ativo = db.Column(db.Boolean, default=True)
+    versao = db.Column(db.Integer, default=1)
+    data_atualizacao = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class ConclusaoModuloTCC(db.Model):
+    __tablename__ = 'conclusao_modulo_tcc'
+    id = db.Column(db.Integer, primary_key=True)
+    usuario_id = db.Column(db.Integer, db.ForeignKey('usuario.id'), nullable=False)
+    modulo_id = db.Column(db.Integer, db.ForeignKey('modulo_onboarding_tcc.id'), nullable=False)
+    versao_lida = db.Column(db.Integer, default=1)
+    data_conclusao = db.Column(db.DateTime, default=datetime.utcnow)
+
+    usuario = db.relationship('Usuario', backref=db.backref('modulos_tcc_concluidos', lazy=True))
+    modulo = db.relationship('ModuloOnboardingTCC', backref=db.backref('conclusoes', lazy=True, cascade="all, delete-orphan"))
+    __table_args__ = (db.UniqueConstraint('usuario_id', 'modulo_id', name='uq_conclusao_modulo_usuario'),)
+
+
+# ==============================================================================
+# TABELA: Notificações da plataforma (sino e e-mail)
+# 'referencia' identifica o evento (ex.: 'checkout:15') para não avisar duas vezes.
+# ==============================================================================
+class Notificacao(db.Model):
+    __tablename__ = 'notificacao'
+    id = db.Column(db.Integer, primary_key=True)
+    usuario_id = db.Column(db.Integer, db.ForeignKey('usuario.id'), nullable=False, index=True)
+    titulo = db.Column(db.String(200), nullable=False)
+    mensagem = db.Column(db.Text, nullable=True)
+    link = db.Column(db.String(500), nullable=True)
+    tipo = db.Column(db.String(50), default='geral')
+    referencia = db.Column(db.String(100), nullable=True, index=True)
+    lida = db.Column(db.Boolean, default=False)
+    data_criacao = db.Column(db.DateTime, default=datetime.utcnow)
+
+    usuario = db.relationship('Usuario', backref=db.backref('notificacoes', lazy='dynamic'))
+

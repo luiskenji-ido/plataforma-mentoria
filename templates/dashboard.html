@@ -192,7 +192,8 @@
         <!-- Esconde os botões operacionais para a Gestão, mostrando apenas para Alunos e Mentores -->
         {% if current_user.tipo_usuario not in ['Administrador', 'Mentor Administrador'] %}
             
-            {% if current_user.tipo_usuario != 'Aluno' %}
+            {# Só o Gestor B2B chega aqui com acesso ao Hub (Mentor e Professor são barrados pela rota) #}
+            {% if current_user.tipo_usuario == 'Admin B2B' %}
             <a href="{{ url_for('gerenciar_turmas') }}" class="btn btn-outline-success fw-bold shadow-sm">{{ t('btn_cursos') }}</a>
             {% endif %}
             
@@ -214,6 +215,16 @@
 <h3 class="fw-bold text-primary mb-0" style="font-size: 1.5rem;">{{ total_alunos }}</h3>
 </div>
 </div>
+{% if jovens_online_hoje is not none %}
+<!-- Jovens que registraram presença Online hoje (link para a Frequência já filtrada) -->
+<div class="col">
+<a href="{{ url_for('gerenciar_frequencia', tipo_presenca='Online', data_inicio=data_hoje_iso, data_fim=data_hoje_iso) }}" class="card shadow-sm border-0 p-2 text-center h-100 text-decoration-none" title="{{ t('jovens_online_cadastrados') }}: {{ jovens_online_cadastro }}">
+<small class="text-muted d-block fw-bold" style="font-size: 0.8rem;">{{ t('jovens_online_hoje') }}</small>
+<h3 class="fw-bold text-info mb-0" style="font-size: 1.5rem;"><i class="bi bi-laptop"></i> {{ jovens_online_hoje }}</h3>
+<span class="small text-muted">{{ jovens_online_cadastro }} {{ t('jovens_online_cadastrados_curto') }}</span>
+</a>
+</div>
+{% endif %}
 {% endif %}
 <div class="col">
 <div class="card shadow-sm border-0 p-2 text-center h-100">
@@ -587,7 +598,7 @@ window.iniciarTourDaPagina = function() {
     let tipoPerfil = "{{ current_user.tipo_usuario }}";
     
     // CORREÇÃO: Administrador, Mentor Administrador e Mentor acessam Cursos. Só o 'Aluno' pula para Sessões.
-    let acessaCursos = (tipoPerfil !== 'Aluno');
+    let acessaCursos = ['Administrador', 'Mentor Administrador', 'Admin B2B'].includes(tipoPerfil);
 
     introJs().setOptions({
         steps: passos,
