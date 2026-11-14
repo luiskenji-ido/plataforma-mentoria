@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="{{ current_user.idioma or 'pt' }}">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{{ t('banca_telao') }} - {{ banca.projeto.nome }}</title>
+    <style>
+        html, body { height: 100%; margin: 0; }
+        body { background: #0b1220; color: #f1f5f9; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+               display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
+        #fase { font-size: clamp(1.2rem, 4vw, 2.4rem); letter-spacing: .08em; text-transform: uppercase; color: #93c5fd; }
+        #tempo { font-family: 'Consolas', 'Courier New', monospace; font-weight: 700; font-size: clamp(5rem, 24vw, 18rem); line-height: 1; margin: .1em 0; }
+        #aviso { font-size: clamp(1rem, 3vw, 2rem); min-height: 1.4em; font-weight: 700; }
+        #projeto { margin-top: 2rem; color: #94a3b8; font-size: clamp(.9rem, 2vw, 1.3rem); }
+        .amarelo { color: #facc15; } .vermelho { color: #f87171; }
+        .piscar { animation: piscar 1s steps(2, start) infinite; }
+        @keyframes piscar { to { visibility: hidden; } }
+        @media (prefers-reduced-motion: reduce) { .piscar { animation: none; } }
+        button { margin-top: 1.5rem; background: transparent; color: #94a3b8; border: 1px solid #334155; border-radius: 8px; padding: .5rem 1rem; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <div id="fase">{{ t('banca_cron_parado') }}</div>
+    <div id="tempo" aria-live="polite">--:--</div>
+    <div id="aviso"></div>
+    <div id="projeto">{{ banca.projeto.nome }} · {{ banca.projeto.grupo.nome if banca.projeto.grupo else '' }}</div>
+    <button type="button" onclick="document.documentElement.requestFullscreen && document.documentElement.requestFullscreen().catch(() => {})">{{ t('banca_tela_cheia') }}</button>
+<script>
+(function () {
+    const url = "{{ url_for('estado_cronometro_banca', id=banca.id) }}";
+    const nomes = { apresentacao: "{{ t('banca_cron_apresentacao') }}", perguntas: "{{ t('banca_cron_perguntas') }}" };
+    const parado = "{{ t('banca_cron_parado') }}", pausado = "{{ t('banca_cron_pausado') }}";
+    const a5 = "{{ t('banca_cron_5min') }}", a1 = "{{ t('banca_cron_1min') }}", estouro = "{{ t('banca_cron_estouro') }}";
+    let estado = null, recebido = 0;
+    const mmss = s => { const a = Math.abs(s); return String(Math.floor(a / 60)).padStart(2, '0') + ':' + String(a % 60).padStart(2, '0'); };
+    function desenhar() {
+        const tempo = document.getElementById('tempo'), fase = document.getElementById('fase'), aviso = document.getElementById('aviso');
+        if (!estado || !estado.fase) { fase.textContent = parado; tempo.textContent = '--:--'; tempo.className = ''; aviso.textContent = ''; return; }
+        const decorrido = estado.decorrido + (estado.pausado ? 0 : Math.floor((Date.now() - recebido) / 1000));
+        const resta = estado.limite - decorrido;
+        fase.textContent = nomes[estado.fase] + (estado.pausado ? ' · ' + pausado : '');
+        tempo.textContent = (resta < 0 ? '+' : '') + mmss(resta);
+        tempo.className = resta < 0 ? 'vermelho' : resta <= 60 ? 'vermelho piscar' : resta <= 300 ? 'amarelo' : '';
+        aviso.className = tempo.className.replace('piscar', '');
+        aviso.textContent = resta < 0 ? estouro : resta <= 60 ? a1 : resta <= 300 ? a5 : '';
+    }
+    async function atualizar() { try { const r = await fetch(url); if (r.ok) { estado = await r.json(); recebido = Date.now(); } } catch (e) {} }
+    atualizar().then(desenhar);
+    setInterval(desenhar, 500);
+    setInterval(atualizar, 2000);
+})();
+</script>
+</body>
+</html>

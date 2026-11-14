@@ -232,6 +232,12 @@ class Projeto(db.Model):
     # Notas da Avaliação Coletiva (Entregável do Grupo)
     nota_conteudo = db.Column(db.Float, nullable=True)
     nota_apresentacao = db.Column(db.Float, nullable=True)
+    # Banca: médias consolidadas e divulgação controlada pela coordenação
+    nota_visual = db.Column(db.Float, nullable=True)
+    nota_final = db.Column(db.Float, nullable=True)
+    data_avaliacao = db.Column(db.DateTime, nullable=True)
+    notas_publicadas = db.Column(db.Boolean, default=False)
+    data_publicacao_notas = db.Column(db.DateTime, nullable=True)
 
 # ==============================================================================
 # 13. TABELA: Tarefa (Agora suporta Subtarefas e Equipe de Apoio)
@@ -432,6 +438,11 @@ class PerfilAvaliador(db.Model):
     empresa_origem = db.Column(db.String(150), default="Parceiro B2B")
     area_atuacao = db.Column(db.String(150))
     curriculo_minibio = db.Column(db.Text)
+    # Adequações Aon/ITM: ficha do executivo para a apresentação final
+    nome_completo = db.Column(db.String(200), nullable=True)
+    telefone = db.Column(db.String(40), nullable=True)
+    linkedin = db.Column(db.String(300), nullable=True)
+    curriculo_arquivo = db.Column(db.String(255), nullable=True)  # PDF em uploads/tcc/
     
     # Relação com a tabela principal de Usuários
     usuario = db.relationship('Usuario', backref=db.backref('perfil_avaliador', uselist=False))
@@ -468,8 +479,11 @@ class QABanca(db.Model):
     
     pergunta_feita = db.Column(db.Text, nullable=False)
     resposta_jovens = db.Column(db.Text) # Resumo de como os jovens se saíram na resposta
-    
+
     data_registro = db.Column(db.DateTime, default=datetime.utcnow)
+    banca_id = db.Column(db.Integer, db.ForeignKey('banca.id'), nullable=True)
+    ordem = db.Column(db.Integer, default=0)
+    avaliador = db.relationship('Usuario')
 
 
 # ==============================================================================
@@ -672,3 +686,110 @@ class EncaminhamentoReuniao(db.Model):
     data_conclusao = db.Column(db.DateTime, nullable=True)
 
     responsavel = db.relationship('Usuario')
+
+
+# ==============================================================================
+# BANCA DE AVALIAÇÃO DO TCC (agenda, avaliadores, entregas, notas por avaliador)
+# Datas e horas da banca em hora local, como digitadas pela coordenação.
+# ==============================================================================
+banca_avaliador = db.Table('banca_avaliador',
+    db.Column('banca_id', db.Integer, db.ForeignKey('banca.id'), primary_key=True),
+    db.Column('usuario_id', db.Integer, db.ForeignKey('usuario.id'), primary_key=True)
+)
+
+
+class Banca(db.Model):
+    __tablename__ = 'banca'
+    id = db.Column(db.Integer, primary_key=True)
+    projeto_id = db.Column(db.Integer, db.ForeignKey('projeto.id'), nullable=False, unique=True)
+    data_hora = db.Column(db.DateTime, nullable=False)
+    local = db.Column(db.String(200), nullable=True)
+    link_sala = db.Column(db.String(500), nullable=True)
+    duracao_apresentacao_min = db.Column(db.Integer, default=15)
+    duracao_perguntas_min = db.Column(db.Integer, default=10)
+    status = db.Column(db.String(20), default='Agendada')  # Agendada / Remarcada / Realizada / Cancelada
+    prazo_entrega_escrito = db.Column(db.DateTime, nullable=True)
+    prazo_entrega_slides = db.Column(db.DateTime, nullable=True)
+    prazo_leitura_avaliadores = db.Column(db.DateTime, nullable=True)
+    horas_antes_formulario = db.Column(db.Integer, default=24)
+    anonimizar_feedback = db.Column(db.Boolean, default=True)
+    encerrada_em = db.Column(db.DateTime, nullable=True)
+    criado_por_id = db.Column(db.Integer, db.ForeignKey('usuario.id'), nullable=True)
+    data_criacao = db.Column(db.DateTime, default=datetime.utcnow)
+    # Cronômetro compartilhado (sala do avaliador e telão dos jovens)
+    cron_fase = db.Column(db.String(20), nullable=True)  # apresentacao / perguntas
+    cron_inicio = db.Column(db.DateTime, nullable=True)  # UTC do último "iniciar/retomar"
+    cron_acumulado_seg = db.Column(db.Integer, default=0)
+    cron_pausado = db.Column(db.Boolean, default=True)
+    tempo_real_apresentacao_seg = db.Column(db.Integer, nullable=True)
+    tempo_real_perguntas_seg = db.Column(db.Integer, nullable=True)
+
+    projeto = db.relationship('Projeto', backref=db.backref('banca', uselist=False))
+    avaliadores = db.relationship('Usuario', secondary=banca_avaliador, lazy='subquery')
+    historico_datas = db.relationship('HistoricoDataBanca', backref='banca', lazy=True,
+                                      cascade="all, delete-orphan", order_by='HistoricoDataBanca.data_alteracao.desc()')
+
+    @property
+    def fim_previsto(self):
+        from datetime import timedelta
+        return self.data_hora + timedelta(minutes=(self.duracao_apresentacao_min or 15) + (self.duracao_perguntas_min or 10))
+
+
+class HistoricoDataBanca(db.Model):
+    __tablename__ = 'historico_data_banca'
+    id = db.Column(db.Integer, primary_key=True)
+    banca_id = db.Column(db.Integer, db.ForeignKey('banca.id'), nullable=False)
+    data_anterior = db.Column(db.DateTime, nullable=False)
+    data_nova = db.Column(db.DateTime, nullable=False)
+    motivo = db.Column(db.Text, nullable=False)
+    alterado_por_id = db.Column(db.Integer, db.ForeignKey('usuario.id'), nullable=True)
+    data_alteracao = db.Column(db.DateTime, default=datetime.utcnow)
+
+    alterado_por = db.relationship('Usuario')
+
+
+class EntregaTCC(db.Model):
+    __tablename__ = 'entrega_tcc'
+    id = db.Column(db.Integer, primary_key=True)
+    projeto_id = db.Column(db.Integer, db.ForeignKey('projeto.id'), nullable=False)
+    tipo = db.Column(db.String(40), nullable=False)  # 'Escrito final' / 'Slides da apresentação'
+    arquivo = db.Column(db.String(255), nullable=False)  # nome salvo em uploads/tcc/
+    nome_original = db.Column(db.String(255), nullable=True)
+    versao = db.Column(db.Integer, default=1)
+    enviado_por_id = db.Column(db.Integer, db.ForeignKey('usuario.id'), nullable=False)
+    data_envio = db.Column(db.DateTime, default=datetime.now)
+    observacao = db.Column(db.Text, nullable=True)
+    entregue_no_prazo = db.Column(db.Boolean, default=True)
+
+    projeto = db.relationship('Projeto', backref=db.backref('entregas', lazy=True, order_by='EntregaTCC.data_envio.desc()'))
+    enviado_por = db.relationship('Usuario')
+
+
+class AvaliacaoBanca(db.Model):
+    __tablename__ = 'avaliacao_banca'
+    id = db.Column(db.Integer, primary_key=True)
+    projeto_id = db.Column(db.Integer, db.ForeignKey('projeto.id'), nullable=False)
+    banca_id = db.Column(db.Integer, db.ForeignKey('banca.id'), nullable=True)
+    avaliador_id = db.Column(db.Integer, db.ForeignKey('usuario.id'), nullable=False)
+    nota_escrita = db.Column(db.Float, nullable=True)
+    justificativa_escrita = db.Column(db.Text, nullable=True)
+    nota_apresentacao = db.Column(db.Float, nullable=True)
+    nota_visual = db.Column(db.Float, nullable=True)
+    justificativa_oral = db.Column(db.Text, nullable=True)
+    feedback_jovens = db.Column(db.Text, nullable=True)
+    etapa_escrita_concluida_em = db.Column(db.DateTime, nullable=True)
+    etapa_oral_concluida_em = db.Column(db.DateTime, nullable=True)
+
+    avaliador = db.relationship('Usuario')
+    projeto = db.relationship('Projeto', backref=db.backref('avaliacoes_banca', lazy=True))
+    __table_args__ = (db.UniqueConstraint('projeto_id', 'avaliador_id', name='uq_avaliacao_banca_projeto_avaliador'),)
+
+
+class EnvioFormularioBanca(db.Model):
+    __tablename__ = 'envio_formulario_banca'
+    id = db.Column(db.Integer, primary_key=True)
+    banca_id = db.Column(db.Integer, db.ForeignKey('banca.id'), nullable=False)
+    avaliador_id = db.Column(db.Integer, db.ForeignKey('usuario.id'), nullable=False)
+    tipo = db.Column(db.String(20), default='formulario')  # formulario / lembrete_2h
+    enviado_em = db.Column(db.DateTime, default=datetime.utcnow)
+    __table_args__ = (db.UniqueConstraint('banca_id', 'avaliador_id', 'tipo', name='uq_envio_formulario_banca'),)

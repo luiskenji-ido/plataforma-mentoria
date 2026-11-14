@@ -26,9 +26,9 @@ class AgenteMentorAdministrador(AgenteOmniTest):
     # Único perfil com acesso às Solicitações de Mentoria
     ROTAS_PERMITIDAS = ["dashboard", "sessoes", "acompanhamento", "projetos", "biblioteca", "hub_educacional",
                         "frequencia", "notas", "usuarios", "grupos", "demandas", "solicitacoes", "banca",
-                        "esg_csv", "esg_pdf", "atividades_extras", "reunioes"]
+                        "esg_csv", "esg_pdf", "atividades_extras", "reunioes", "agenda_bancas", "avaliadores_banca", "minhas_bancas"]
     ROTAS_BLOQUEADAS = []
-    MENU_VISIVEL = ["atividades_extras", "reunioes", "dashboard", "hub_educacional", "sessoes", "acompanhamento", "projetos", "frequencia", "notas",
+    MENU_VISIVEL = ["agenda_bancas", "avaliadores_banca", "atividades_extras", "reunioes", "dashboard", "hub_educacional", "sessoes", "acompanhamento", "projetos", "frequencia", "notas",
                     "usuarios", "demandas", "biblioteca", "solicitacoes"]
     MENU_OCULTO = ["banco"]
 

@@ -86,6 +86,7 @@
                             <option value="Mentor Administrador">Mentor Administrador</option>
                             <option value="Administrador">Administrador</option>
                             <option value="Admin B2B">Gestor Parceiro (Admin B2B)</option>
+                            <option value="Avaliador Banca">Avaliador da Banca (executivo convidado)</option>
                         </select>
                     </div>
                     <div class="col-md-2 mb-3" id="campoModalidadeNovo">
@@ -250,6 +251,7 @@
                                     <option value="Mentor Administrador" {% if u.tipo_usuario == 'Mentor Administrador' %}selected{% endif %}>{{ t('nivel_mentor_admin') }}</option>
                                     <option value="Administrador" {% if u.tipo_usuario == 'Administrador' %}selected{% endif %}>{{ t('nivel_administrador') }}</option>
                                     <option value="Admin B2B" {% if u.tipo_usuario == 'Admin B2B' %}selected{% endif %}>Gestor Parceiro (Admin B2B)</option>
+                                    <option value="Avaliador Banca" {% if u.tipo_usuario == 'Avaliador Banca' %}selected{% endif %}>Avaliador da Banca (executivo convidado)</option>
                                 </select>
                             </div>
                             <div class="col-md-6 mb-3">

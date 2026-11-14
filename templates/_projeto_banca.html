@@ -1,0 +1,78 @@
+{# Bloco da banca dentro do card do projeto: data, entrega do TCC e resultado (depois de publicado).
+   Usa a variável "p" (projeto) do laço de projetos.html. #}
+{% set banca = p.banca %}
+<div class="px-3 py-3 border-bottom bg-body-tertiary small d-flex flex-column gap-2">
+    <!-- Banca -->
+    <div class="d-flex flex-wrap gap-2 align-items-center">
+        <strong class="text-dark"><i class="bi bi-person-video3"></i> {{ t('banca_sua') }}:</strong>
+        {% if banca and banca.status != 'Cancelada' %}
+            <span>{{ banca.data_hora.strftime('%d/%m/%Y %H:%M') }}{% if banca.local %} · {{ banca.local }}{% endif %}</span>
+            <span class="badge {% if banca.status == 'Realizada' %}bg-success{% elif banca.status == 'Remarcada' %}bg-warning text-dark{% else %}bg-primary{% endif %}">{{ banca.status }}</span>
+            {% if banca.historico_datas %}<span class="text-muted">({{ t('banca_remarcada_de') }} {{ banca.historico_datas[0].data_anterior.strftime('%d/%m %H:%M') }})</span>{% endif %}
+            {% if banca.prazo_entrega_escrito %}<span class="text-muted">· {{ t('banca_prazo_escrito') }}: {{ banca.prazo_entrega_escrito.strftime('%d/%m/%Y %H:%M') }}</span>{% endif %}
+            {% if banca.prazo_entrega_slides %}<span class="text-muted">· {{ t('banca_prazo_slides') }}: {{ banca.prazo_entrega_slides.strftime('%d/%m/%Y %H:%M') }}</span>{% endif %}
+        {% else %}
+            <span class="text-muted">{{ t('banca_nao_agendada_curto') }}</span>
+        {% endif %}
+    </div>
+
+    <!-- Entrega final do TCC -->
+    {% if pode_baixar_entrega(current_user, p) %}
+    <div class="d-flex flex-wrap gap-2 align-items-center">
+        <strong class="text-dark"><i class="bi bi-cloud-upload"></i> {{ t('entrega_titulo') }}:</strong>
+        {% for tipo in ['Escrito final', 'Slides da apresentação'] %}
+            {% set versoes = p.entregas | selectattr('tipo', 'equalto', tipo) | list %}
+            {% if versoes %}
+                <a href="{{ url_for('baixar_entrega_tcc', id=versoes[0].id) }}" class="badge text-decoration-none {{ 'bg-success' if versoes[0].entregue_no_prazo else 'bg-danger' }}">
+                    {{ t('entrega_escrito') if tipo == 'Escrito final' else t('entrega_slides') }} v{{ versoes[0].versao }} · {{ versoes[0].data_envio.strftime('%d/%m %H:%M') }}{% if not versoes[0].entregue_no_prazo %} · {{ t('entrega_fora_prazo_curto') }}{% endif %}
+                </a>
+            {% else %}
+                <span class="badge bg-light text-dark border">{{ t('entrega_escrito') if tipo == 'Escrito final' else t('entrega_slides') }}: {{ t('entrega_pendente') }}</span>
+            {% endif %}
+        {% endfor %}
+        {% if p.entregas | length > 2 %}
+        <details class="w-100"><summary class="text-primary fw-bold">{{ t('entrega_historico') }} ({{ p.entregas|length }})</summary>
+            <ul class="mb-0">{% for e in p.entregas %}<li><a href="{{ url_for('baixar_entrega_tcc', id=e.id) }}">{{ e.tipo }} v{{ e.versao }}</a> · {{ e.data_envio.strftime('%d/%m/%Y %H:%M') }} · {{ e.enviado_por.nome if e.enviado_por else '' }}{% if e.observacao %} · {{ e.observacao }}{% endif %}</li>{% endfor %}</ul>
+        </details>
+        {% endif %}
+    </div>
+    {% if pode_enviar_entrega(current_user, p) and not (banca and banca.status == 'Realizada') %}
+    <form method="POST" action="{{ url_for('enviar_entrega_tcc', id=p.id) }}" enctype="multipart/form-data" class="d-flex flex-wrap gap-2 align-items-center">
+        <label class="visually-hidden" for="tipoEntrega{{ p.id }}">{{ t('entrega_tipo') }}</label>
+        <select name="tipo" id="tipoEntrega{{ p.id }}" class="form-select form-select-sm" style="width:auto">
+            <option value="Escrito final">{{ t('entrega_escrito') }} (PDF)</option>
+            <option value="Slides da apresentação">{{ t('entrega_slides') }} (PPTX/PDF)</option>
+        </select>
+        <label class="visually-hidden" for="arquivoEntrega{{ p.id }}">{{ t('entrega_arquivo') }}</label>
+        <input type="file" name="arquivo" id="arquivoEntrega{{ p.id }}" class="form-control form-control-sm" style="max-width: 280px" accept=".pdf,.pptx,.ppt" required>
+        <label class="visually-hidden" for="obsEntrega{{ p.id }}">{{ t('entrega_observacao') }}</label>
+        <input name="observacao" id="obsEntrega{{ p.id }}" class="form-control form-control-sm" style="max-width: 260px" placeholder="{{ t('entrega_observacao') }}">
+        <button class="btn btn-sm btn-primary fw-bold rounded-pill px-3" type="submit">{{ t('entrega_enviar') }}</button>
+    </form>
+    {% endif %}
+    {% endif %}
+
+    {# Resultado da banca: só depois que a coordenação publica #}
+    {% if p.notas_publicadas and p.nota_final is not none %}
+    <div class="border rounded p-3 bg-white">
+        <div class="d-flex flex-wrap gap-3 align-items-center mb-2">
+            <strong class="text-dark fs-6"><i class="bi bi-award"></i> {{ t('banca_resultado') }}</strong>
+            <span class="badge {{ 'bg-success' if p.status == 'Concluído' else 'bg-warning text-dark' }} fs-6">{{ t('banca_aprovado') if p.status == 'Concluído' else t('banca_recuperacao') }}</span>
+            <span>{{ t('banca_nota_final') }}: <strong>{{ '%.1f'|format(p.nota_final) }}</strong></span>
+            <span class="text-muted">{{ t('banca_nota_escrita') }} {{ '%.1f'|format(p.nota_conteudo) }} · {{ t('banca_nota_apresentacao') }} {{ '%.1f'|format(p.nota_apresentacao) }} · {{ t('banca_nota_visual') }} {{ '%.1f'|format(p.nota_visual) }}</span>
+        </div>
+        {% set feedbacks = p.avaliacoes_banca | selectattr('feedback_jovens') | list %}
+        {% if feedbacks %}
+        <div class="mb-2"><strong>{{ t('banca_feedback_titulo') }}</strong>
+            <ul class="mb-0">{% for f in feedbacks %}<li><em>{% if banca and banca.anonimizar_feedback %}{{ t('banca_avaliador') }} {{ loop.index }}{% else %}{{ f.avaliador.nome }}{% endif %}:</em> {{ f.feedback_jovens }}</li>{% endfor %}</ul>
+        </div>
+        {% endif %}
+        {% set perguntas = perguntas_do_projeto(p) %}
+        {% if perguntas %}
+        <details><summary class="fw-bold text-primary">{{ t('banca_qa_titulo') }} ({{ perguntas|length }})</summary>
+            <ol class="mb-0 mt-1">{% for q in perguntas %}<li><strong>{{ q.pergunta_feita }}</strong>{% if q.resposta_jovens %}<br><span class="text-muted">{{ q.resposta_jovens }}</span>{% endif %}</li>{% endfor %}</ol>
+        </details>
+        {% endif %}
+    </div>
+    {% endif %}
+</div>

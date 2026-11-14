@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+    <meta charset="UTF-8">
+    <title>Ficha da Banca - {{ banca.projeto.nome }}</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color: #333; padding: 24px; max-width: 900px; margin: 0 auto; }
+        .header { border-bottom: 2px solid #198754; padding-bottom: 10px; margin-bottom: 20px; }
+        .header h1 { color: #198754; margin: 0 0 4px; font-size: 1.5em; }
+        .header p { color: #666; margin: 0; }
+        .avaliador { border: 1px solid #ddd; border-radius: 8px; padding: 14px 16px; margin-bottom: 14px; page-break-inside: avoid; }
+        .avaliador h2 { margin: 0; font-size: 1.15em; }
+        .avaliador .meta { color: #198754; font-weight: 600; font-size: 0.9em; margin: 2px 0 8px; }
+        .avaliador p { margin: 0; font-size: 0.92em; line-height: 1.5; white-space: pre-line; }
+        @media print { .no-print { display: none; } body { padding: 0; } }
+    </style>
+</head>
+<body onload="window.print()">
+    <div class="no-print" style="text-align: right; margin-bottom: 16px;">
+        <button onclick="window.print()" style="background:#198754;color:#fff;border:0;border-radius:5px;padding:8px 14px;font-weight:bold;cursor:pointer;">Salvar como PDF</button>
+    </div>
+    <div class="header">
+        <h1>Banca de Avaliação — {{ banca.projeto.nome }}</h1>
+        <p>Grupo {{ banca.projeto.grupo.nome if banca.projeto.grupo else '—' }} · {{ banca.data_hora.strftime('%d/%m/%Y às %H:%M') }}{% if banca.local %} · {{ banca.local }}{% endif %}</p>
+    </div>
+    {% for a in banca.avaliadores %}
+    {% set p = a.perfil_avaliador %}
+    <div class="avaliador">
+        <h2>{{ p.nome_completo if p and p.nome_completo else a.nome }}</h2>
+        <div class="meta">{{ (p.area_atuacao if p else None) or a.tipo_usuario }}{% if p and p.empresa_origem %} · {{ p.empresa_origem }}{% endif %}</div>
+        <p>{{ p.curriculo_minibio if p and p.curriculo_minibio else 'Minicurrículo não informado.' }}</p>
+    </div>
+    {% else %}
+    <p>Nenhum avaliador escalado para esta banca.</p>
+    {% endfor %}
+</body>
+</html>

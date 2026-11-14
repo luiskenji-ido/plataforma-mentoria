@@ -590,6 +590,14 @@
         </li>
         {% endif %}
 
+        {% if current_user.is_authenticated and current_user.tipo_usuario == 'Avaliador Banca' %}
+        <!-- Executivo da banca: só o que é da banca dele -->
+        <li class="nav-item">
+          <a class="nav-link fw-bold {% if request.endpoint == 'minhas_bancas' %}{{ ativo }}{% endif %}" href="{{ url_for('minhas_bancas') }}">
+            <i class="bi bi-person-video3"></i> {{ t('menu_minhas_bancas') }}
+          </a>
+        </li>
+        {% else %}
         <!-- Sessões -->
         <li class="nav-item">
           <a class="nav-link fw-bold {% if request.endpoint == 'sessoes' %}{{ ativo }}{% endif %}" href="{{ url_for('sessoes') }}">
@@ -611,6 +619,15 @@
           </a>
         </li>
 
+        {% if tem_minhas_bancas %}
+        <li class="nav-item">
+          <a class="nav-link fw-bold {% if request.endpoint == 'minhas_bancas' %}{{ ativo }}{% endif %}" href="{{ url_for('minhas_bancas') }}">
+            <i class="bi bi-person-video3"></i> {{ t('menu_minhas_bancas') }}
+          </a>
+        </li>
+        {% endif %}
+        {% endif %}
+
         <!-- Biblioteca de TCCs: aberta a todos os perfis (material de pesquisa) -->
         <li class="nav-item">
           <a class="nav-link fw-bold {% if request.endpoint == 'biblioteca_tccs' %}{{ ativo }}{% endif %}" href="{{ url_for('biblioteca_tccs') }}">
@@ -628,7 +645,7 @@
         {% endif %}
 
         <!-- Atividades extras do grupo (fora do cronograma) com check-in/out -->
-        {% if current_user.is_authenticated %}
+        {% if current_user.is_authenticated and current_user.tipo_usuario != 'Avaliador Banca' %}
         <li class="nav-item">
           <a class="nav-link fw-bold {% if request.endpoint == 'atividades_extras' %}{{ ativo }}{% endif %}" href="{{ url_for('atividades_extras') }}">
             <i class="bi bi-people-fill"></i> {{ t('menu_extras') }}
@@ -639,7 +656,7 @@
         <!-- ============================================================================== -->
         <!-- MENU SUSPENSO: DIÁRIO DE CLASSE (Oculto para Alunos)                           -->
         <!-- ============================================================================== -->
-        {% if current_user.is_authenticated and current_user.tipo_usuario != 'Aluno' %}
+        {% if current_user.is_authenticated and current_user.tipo_usuario not in ['Aluno', 'Avaliador Banca'] %}
         <li class="nav-item dropdown">
             <a class="nav-link dropdown-toggle fw-bold {% if request.endpoint in ['gerenciar_frequencia', 'gerenciar_notas'] %}{{ ativo }}{% endif %}" href="#" id="menuDiario" role="button" data-bs-toggle="dropdown" aria-expanded="false">
                 <i class="bi bi-journal-bookmark-fill"></i> {{ t('menu_diario') }}
@@ -674,6 +691,8 @@
                 <li><a class="dropdown-item fw-bold" href="{{ url_for('gestao_trilha_tcc') }}"><i class="bi bi-mortarboard"></i> {{ t('menu_trilha_tcc') }}</a></li>
                 {% endif %}
                 <li><a class="dropdown-item fw-bold" href="{{ url_for('reunioes') }}"><i class="bi bi-journal-text"></i> {{ t('menu_reunioes') }}</a></li>
+                <li><a class="dropdown-item fw-bold" href="{{ url_for('agenda_bancas') }}"><i class="bi bi-calendar-event"></i> {{ t('menu_agenda_bancas') }}</a></li>
+                <li><a class="dropdown-item fw-bold" href="{{ url_for('avaliadores_banca') }}"><i class="bi bi-person-badge"></i> {{ t('aval_titulo') }}</a></li>
 
                 {% if current_user.tipo_usuario == 'Mentor Administrador' %}
                 <li><a class="dropdown-item fw-bold" href="{{ url_for('gerenciar_solicitacoes') }}"><i class="bi bi-envelope-paper-fill"></i> {{ t('menu_solicitacoes') }}</a></li>

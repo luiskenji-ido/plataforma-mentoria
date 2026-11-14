@@ -15,9 +15,11 @@ class AgenteProfessor(AgenteOmniTest):
     ESCOPO_ALUNOS = "vinculados"
 
     ROTAS_PERMITIDAS = ["dashboard", "sessoes", "acompanhamento", "projetos", "biblioteca",
-                        "frequencia", "notas", "demandas", "banca", "atividades_extras"]
+                        "frequencia", "notas", "demandas", "atividades_extras"]
     # Reuniões ITM × Aon: só quem participou vê a ata (o perfil de teste não participa de nenhuma)
-    ROTAS_BLOQUEADAS = ["hub_educacional", "usuarios", "grupos", "solicitacoes", "banco", "esg_csv", "esg_pdf", "reunioes"]
+    ROTAS_BLOQUEADAS = ["hub_educacional", "usuarios", "grupos", "solicitacoes", "banco", "esg_csv", "esg_pdf", "reunioes", "agenda_bancas", "avaliadores_banca", "minhas_bancas",
+                        # Sala da Banca: só quem está escalado na banca daquele TCC
+                        "banca"]
     MENU_VISIVEL = ["dashboard", "sessoes", "acompanhamento", "projetos", "biblioteca", "demandas", "atividades_extras", "frequencia", "notas"]
     # O Hub Educacional nega o acesso ao Professor, por isso não deveria estar no menu
     MENU_OCULTO = ["hub_educacional", "usuarios", "solicitacoes", "banco"]

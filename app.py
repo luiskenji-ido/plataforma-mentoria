@@ -5,7 +5,7 @@ from werkzeug.utils import secure_filename
 
 
 # Importações do Flask
-from flask import Flask, render_template, request, redirect, url_for, flash, send_from_directory, send_file, session
+from flask import Flask, render_template, request, redirect, url_for, flash, send_from_directory, send_file, session, jsonify
 
 # Importações do Google Calendar
 from google_auth_oauthlib.flow import Flow
@@ -85,9 +85,12 @@ def injetar_notificacoes_qa():
         return dict(novas_mensagens_count=0, notificacoes_qa=[])
     
     notificacoes_formatadas = []
-    
+    so_plataforma = current_user.tipo_usuario == 'Avaliador Banca'
+
     # --- 1. BUSCA NOTIFICAÇÕES DE Q&A (ACOMPANHAMENTO) ---
-    if current_user.tipo_usuario == 'Aluno':
+    if so_plataforma:
+        notifs_qa = []
+    elif current_user.tipo_usuario == 'Aluno':
         notifs_qa = QADuvida.query.join(Acompanhamento).filter(
             QADuvida.lida_pelo_aluno == False,
             Acompanhamento.aluno_id == current_user.id
@@ -116,7 +119,9 @@ def injetar_notificacoes_qa():
             })
 
     # --- 2. BUSCA NOTIFICAÇÕES DE FEEDBACK (SESSÕES) ---
-    if current_user.tipo_usuario == 'Aluno':
+    if so_plataforma:
+        notifs_fb = []
+    elif current_user.tipo_usuario == 'Aluno':
         notifs_fb = FeedbackSessao.query.join(SessaoMentoria).filter(
             FeedbackSessao.lida_pelo_aluno == False,
             SessaoMentoria.aluno_id == current_user.id
@@ -137,7 +142,7 @@ def injetar_notificacoes_qa():
             })
 
     # 3. BUSCA ALUNOS BLOQUEADOS (SINO DE ADMINS E MENTORES)
-    if current_user.tipo_usuario != 'Aluno':
+    if current_user.tipo_usuario not in ['Aluno', 'Avaliador Banca']:
         if current_user.tipo_usuario in ['Administrador', 'Mentor Administrador']:
             alunos_bloqueados = Usuario.query.filter_by(status='Bloqueado').all()
         else:
@@ -369,6 +374,8 @@ import re
 @app.route('/dashboard')
 @login_required
 def dashboard():
+    if current_user.tipo_usuario == 'Avaliador Banca':
+        return redirect(url_for('minhas_bancas'))
 
     nome_do_mentor = "Não atribuído"
     if current_user.tipo_usuario == 'Aluno':
@@ -571,8 +578,15 @@ def dashboard():
 
     encaminhamentos_vencidos = encaminhamentos_atrasados(current_user) if current_user.tipo_usuario != 'Aluno' else []
 
+    from models import Banca
+    ids_meus_grupos = [g.id for g in (getattr(current_user, 'grupos', None) or [])] or [-1]
+    minhas_bancas_grupo = Banca.query.join(Projeto, Projeto.id == Banca.projeto_id).filter(
+        Projeto.grupo_id.in_(ids_meus_grupos), Banca.status.in_(['Agendada', 'Remarcada']),
+        Banca.data_hora >= datetime.now() - timedelta(hours=3)).order_by(Banca.data_hora).all()
+
     return render_template('dashboard.html',
                            encaminhamentos_vencidos=encaminhamentos_vencidos,
+                           minhas_bancas_grupo=minhas_bancas_grupo,
                            atividades_agora=atividades_agora,
                            minhas_presencas_agora=minhas_presencas_agora,
                            **contexto_voluntariado,
@@ -1646,9 +1660,12 @@ def avaliar_projeto(id):
         nota_conteudo = request.form.get('nota_conteudo')
         nota_apresentacao = request.form.get('nota_apresentacao')
         
-        if nota_conteudo: 
+        # Depois que a banca começa a dar notas, a nota do grupo é a consolidada da banca
+        from models import AvaliacaoBanca
+        banca_avaliando = AvaliacaoBanca.query.filter_by(projeto_id=projeto.id).first() is not None
+        if nota_conteudo and not banca_avaliando:
             projeto.nota_conteudo = float(nota_conteudo)
-        if nota_apresentacao: 
+        if nota_apresentacao and not banca_avaliando:
             projeto.nota_apresentacao = float(nota_apresentacao)
 
         # 2. Capta as notas e observações Individuais (Para cada membro do grupo)
@@ -1865,6 +1882,17 @@ def sincronizar_sessao_aluno(id):
 @app.route('/uploads/<nome_arquivo>')
 @login_required
 def acessar_upload(nome_arquivo):
+    if current_user.tipo_usuario == 'Aluno':
+        meus_grupos = [g.id for g in current_user.grupos] or [-1]
+        tarefas = Tarefa.query.join(Projeto, Projeto.id == Tarefa.projeto_id).filter(
+            Projeto.grupo_id.in_(meus_grupos), Tarefa.arquivo_anexo.like(f"%{nome_arquivo}%")).all()
+        materiais = Acompanhamento.query.filter(Acompanhamento.aluno_id == current_user.id,
+                                                Acompanhamento.material_apoio.like(f"%{nome_arquivo}%")).all()
+        dono = any(nome_arquivo in (x.arquivo_anexo or '').split('|') for x in tarefas) or \
+            any(nome_arquivo in (x.material_apoio or '').split('|') for x in materiais)
+        if not dono:
+            flash("Acesso negado.", "danger")
+            return redirect(url_for('dashboard'))
     return send_from_directory(app.config['UPLOAD_FOLDER'], nome_arquivo)
 
 # ---------------------------------------------------------
@@ -1939,6 +1967,7 @@ def alterar_idioma(sigla_idioma):
 TIPOS_ATIVIDADE_VOLUNTARIADO = [
     ('Mentoria Extraordinária', 'vol_tipo_extra'),
     ('Leitura Assíncrona de TCC', 'vol_tipo_leitura'),
+    ('Análise e Notas', 'vol_tipo_analise'),
     ('Avaliação de Banca Ao Vivo', 'vol_tipo_banca'),
     ('Apoio Institucional', 'vol_tipo_apoio'),
 ]
@@ -1962,11 +1991,15 @@ def grupos_do_usuario(usuario):
 
 
 def projetos_do_usuario(usuario):
-    """TCCs dos grupos da pessoa (gestores veem todos)."""
+    """TCCs dos grupos da pessoa e das bancas em que está escalada (gestores veem todos)."""
     if usuario.tipo_usuario in PERFIS_GESTAO_VOLUNTARIADO:
         return Projeto.query.order_by(Projeto.nome).all()
+    from models import Banca
+    ids_banca = {b.projeto_id for b in Banca.query.all() if usuario in b.avaliadores}
+    if usuario.tipo_usuario == 'Avaliador Banca':
+        return Projeto.query.filter(Projeto.id.in_(list(ids_banca) or [-1])).order_by(Projeto.nome).all()
     ids_grupos = [g.id for g in grupos_do_usuario(usuario)] or [-1]
-    return Projeto.query.filter(Projeto.grupo_id.in_(ids_grupos)).order_by(Projeto.nome).all()
+    return Projeto.query.filter(Projeto.grupo_id.in_(ids_grupos) | Projeto.id.in_(list(ids_banca) or [-1])).order_by(Projeto.nome).all()
 
 
 def validar_vinculos_voluntariado(usuario, tipo, formulario):
@@ -1984,7 +2017,7 @@ def validar_vinculos_voluntariado(usuario, tipo, formulario):
             return 'vol_erro_motivo', None, None, motivo
     else:
         grupo_id = None
-    if tipo_base == 'Leitura Assíncrona de TCC':
+    if tipo_base in ['Leitura Assíncrona de TCC', 'Análise e Notas', 'Avaliação de Banca Ao Vivo']:
         if projeto_id not in {p.id for p in projetos_do_usuario(usuario)}:
             return 'vol_erro_projeto', None, None, motivo
     elif tipo_base != 'Mentoria Extraordinária':
@@ -2976,7 +3009,7 @@ def biblioteca_tccs():
     
     # Busca apenas os projetos que já passaram pela banca e foram aprovados/concluídos
     # Ordena pelos que tiveram a maior nota de conteúdo primeiro (se houver notas)
-    projetos_concluidos = Projeto.query.filter_by(status='Concluído').order_by(Projeto.nota_conteudo.desc()).all()
+    projetos_concluidos = Projeto.query.filter_by(status='Concluído', notas_publicadas=True).order_by(Projeto.nota_conteudo.desc()).all()
     
     return render_template('biblioteca.html', projetos=projetos_concluidos)
 
@@ -4410,6 +4443,670 @@ def api_mentores_empresa(empresa_id):
     return jsonify([]) # Se não tiver empresa, devolve vazio
 
 # ==============================================================================
+# BANCA DE AVALIAÇÃO DO TCC — avaliadores, agenda, entregas e check-in/out
+# ==============================================================================
+PERFIS_GESTAO_BANCA = ['Administrador', 'Mentor Administrador', 'Admin B2B']
+TIPO_AVALIADOR = 'Avaliador Banca'
+# Quem pode ser escalado numa banca: executivos convidados e a equipe de mentoria
+PERFIS_ESCALAVEIS_BANCA = [TIPO_AVALIADOR, 'Mentor', 'Professor', 'Mentor Administrador']
+PASTA_TCC = os.path.join(app.config['UPLOAD_FOLDER'], 'tcc')
+os.makedirs(PASTA_TCC, exist_ok=True)
+TIPOS_ENTREGA_TCC = {'Escrito final': {'pdf'}, 'Slides da apresentação': {'pdf', 'pptx', 'ppt'}}
+LIMITE_ENTREGA_MB = 20
+
+# O Avaliador Banca (executivo convidado) só enxerga o que é da banca dele
+ENDPOINTS_AVALIADOR = {'login', 'logout', 'static', 'dashboard', 'onboarding', 'aceitar_termos', 'trocar_senha_obrigatoria',
+                       'cadastrar_perguntas', 'recuperar_senha', 'alterar_tema', 'alterar_idioma', 'desativar_tour',
+                       'central_notificacoes', 'abrir_notificacao', 'portal_demandas', 'biblioteca_tccs',
+                       'bater_ponto_voluntariado', 'lancamento_manual_voluntariado', 'minhas_bancas', 'relogio_banca',
+                       'painel_banca', 'perguntas_banca', 'cronometro_banca', 'estado_cronometro_banca', 'telao_banca',
+                       'baixar_entrega_tcc', 'curriculo_avaliador', 'ficha_banca', 'emitir_certificado', 'meus_certificados'}
+
+
+@app.before_request
+def restringir_avaliador_banca():
+    if current_user.is_authenticated and current_user.tipo_usuario == TIPO_AVALIADOR \
+            and request.endpoint and request.endpoint not in ENDPOINTS_AVALIADOR:
+        flash("Acesso negado.", "danger")
+        return redirect(url_for('minhas_bancas'))
+
+
+def eh_avaliador_da_banca(usuario, banca):
+    return banca is not None and usuario in banca.avaliadores
+
+
+def pode_gerir_bancas(usuario):
+    return usuario.tipo_usuario in PERFIS_GESTAO_BANCA
+
+
+def bancas_visiveis_gestao(usuario):
+    """Agenda da gestão. O Gestor B2B vê as bancas com jovens das suas empresas ou avaliadores da sua empresa."""
+    from models import Banca
+    todas = Banca.query.order_by(Banca.data_hora).all()
+    if usuario.tipo_usuario != 'Admin B2B':
+        return todas
+    jovens = ids_jovens_visiveis(usuario) or set()
+    empresas = {e.nome for e in Empresa.query.filter_by(gestor_id=usuario.id).all()}
+    def da_empresa(b):
+        membros = {m.id for m in b.projeto.grupo.membros} if b.projeto and b.projeto.grupo else set()
+        avaliadores = {a.perfil_avaliador.empresa_origem for a in b.avaliadores if getattr(a, 'perfil_avaliador', None)}
+        return bool(membros & jovens) or bool(avaliadores & empresas)
+    return [b for b in todas if da_empresa(b)]
+
+
+def bancas_do_avaliador(usuario):
+    from models import Banca
+    return [b for b in Banca.query.order_by(Banca.data_hora).all() if usuario in b.avaliadores and b.status != 'Cancelada']
+
+
+def membros_do_projeto(projeto):
+    return list(projeto.grupo.membros) if projeto and projeto.grupo else []
+
+
+def pode_enviar_entrega(usuario, projeto):
+    return usuario in membros_do_projeto(projeto) or usuario.tipo_usuario in ['Administrador', 'Mentor Administrador']
+
+
+def pode_baixar_entrega(usuario, projeto):
+    banca = getattr(projeto, 'banca', None)
+    return (usuario in membros_do_projeto(projeto) or pode_gerir_bancas(usuario)
+            or eh_avaliador_da_banca(usuario, banca))
+
+
+def situacao_entrega(projeto, tipo='Escrito final'):
+    """'sem' (nada enviado), 'no_prazo' ou 'atrasada' — para o painel da gestão."""
+    entregas = [e for e in projeto.entregas if e.tipo == tipo]
+    if not entregas:
+        return 'sem'
+    return 'no_prazo' if entregas[0].entregue_no_prazo else 'atrasada'
+
+
+def pessoas_escalaveis_banca():
+    return Usuario.query.filter(Usuario.tipo_usuario.in_(PERFIS_ESCALAVEIS_BANCA), Usuario.status == 'Ativo').order_by(Usuario.nome).all()
+
+
+def ler_datahora(valor):
+    try:
+        return datetime.strptime(valor, "%Y-%m-%dT%H:%M") if valor else None
+    except ValueError:
+        return None
+
+
+# ------------------------------------------------------------------------------
+# P08 — Avaliadores da banca (executivos convidados)
+# ------------------------------------------------------------------------------
+@app.route('/bancas/avaliadores', methods=['GET', 'POST'])
+@login_required
+def avaliadores_banca():
+    from models import PerfilAvaliador
+    if not pode_gerir_bancas(current_user):
+        flash("Acesso negado.", "danger")
+        return redirect(url_for('dashboard'))
+    empresas_b2b = [e.nome for e in Empresa.query.filter_by(gestor_id=current_user.id).order_by(Empresa.nome).all()] \
+        if current_user.tipo_usuario == 'Admin B2B' else None
+
+    if request.method == 'POST':
+        acao = request.form.get('acao')
+        empresa = (request.form.get('empresa_origem') or '').strip()
+        if empresas_b2b is not None and empresa not in empresas_b2b:
+            flash(t('aval_erro_empresa', current_user.idioma), "warning")
+            return redirect(url_for('avaliadores_banca'))
+
+        if acao == 'criar':
+            nome = (request.form.get('nome_completo') or '').strip()
+            email = (request.form.get('email') or '').strip().lower()
+            senha = request.form.get('senha') or ''
+            if not nome or not re.match(r'^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$', email):
+                flash(t('aval_erro_campos', current_user.idioma), "warning")
+                return redirect(url_for('avaliadores_banca'))
+            if Usuario.query.filter_by(email=email).first():
+                flash(t('aval_erro_email', current_user.idioma), "warning")
+                return redirect(url_for('avaliadores_banca'))
+            if not re.match(r'^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[\W_]).{10,}$', senha):
+                flash("Segurança: A senha inicial deve ter no mínimo 10 caracteres (maiúsculas, minúsculas, números e especiais).", "danger")
+                return redirect(url_for('avaliadores_banca'))
+            usuario = Usuario(nome=nome, email=email, tipo_usuario=TIPO_AVALIADOR, status='Ativo',
+                              senha=bcrypt.generate_password_hash(senha).decode('utf-8'), criado_por=current_user.nome,
+                              forcar_troca_senha=True, data_criacao=datetime.utcnow(), data_ultima_troca_senha=datetime.utcnow())
+            db.session.add(usuario)
+            db.session.flush()
+            perfil = PerfilAvaliador(usuario_id=usuario.id)
+            db.session.add(perfil)
+        else:
+            perfil = db.session.get(PerfilAvaliador, request.form.get('perfil_id', type=int) or 0)
+            if not perfil or (empresas_b2b is not None and perfil.empresa_origem not in empresas_b2b):
+                flash("Acesso negado.", "danger")
+                return redirect(url_for('avaliadores_banca'))
+            perfil.usuario.nome = (request.form.get('nome_completo') or perfil.usuario.nome).strip()
+
+        perfil.nome_completo = (request.form.get('nome_completo') or '').strip() or perfil.usuario.nome
+        perfil.empresa_origem = empresa or None
+        perfil.area_atuacao = (request.form.get('area_atuacao') or '').strip() or None
+        perfil.curriculo_minibio = (request.form.get('curriculo_minibio') or '').strip() or None
+        perfil.telefone = (request.form.get('telefone') or '').strip() or None
+        perfil.linkedin = (request.form.get('linkedin') or '').strip() or None
+
+        arquivo = request.files.get('curriculo_arquivo')
+        if arquivo and arquivo.filename:
+            if not arquivo.filename.lower().endswith('.pdf'):
+                db.session.rollback()
+                flash(t('aval_erro_pdf', current_user.idioma), "warning")
+                return redirect(url_for('avaliadores_banca'))
+            arquivo.seek(0, os.SEEK_END)
+            tamanho = arquivo.tell()
+            arquivo.seek(0)
+            if tamanho > 5 * 1024 * 1024:
+                db.session.rollback()
+                flash(t('aval_erro_tamanho', current_user.idioma), "warning")
+                return redirect(url_for('avaliadores_banca'))
+            nome_arquivo = f"curriculo_{perfil.usuario_id}_{datetime.now().strftime('%Y%m%d%H%M%S')}.pdf"
+            arquivo.save(os.path.join(PASTA_TCC, nome_arquivo))
+            perfil.curriculo_arquivo = nome_arquivo
+        db.session.commit()
+        flash(t('aval_salvo', current_user.idioma), "success")
+        return redirect(url_for('avaliadores_banca'))
+
+    consulta = PerfilAvaliador.query.join(Usuario).order_by(Usuario.nome)
+    perfis = [p for p in consulta.all() if empresas_b2b is None or p.empresa_origem in empresas_b2b]
+    return render_template('avaliadores_banca.html', perfis=perfis, empresas_b2b=empresas_b2b)
+
+
+@app.route('/bancas/avaliadores/<int:usuario_id>/curriculo')
+@login_required
+def curriculo_avaliador(usuario_id):
+    from models import PerfilAvaliador
+    perfil = PerfilAvaliador.query.filter_by(usuario_id=usuario_id).first()
+    colega = any(perfil and perfil.usuario in b.avaliadores for b in bancas_do_avaliador(current_user))
+    if not perfil or not perfil.curriculo_arquivo or not (pode_gerir_bancas(current_user) or colega or current_user.id == usuario_id):
+        flash("Acesso negado.", "danger")
+        return redirect(url_for('dashboard'))
+    return send_from_directory(PASTA_TCC, perfil.curriculo_arquivo, as_attachment=False)
+
+
+@app.route('/bancas/<int:id>/ficha')
+@login_required
+def ficha_banca(id):
+    from models import Banca
+    banca = db.session.get(Banca, id)
+    if not banca or not (pode_gerir_bancas(current_user) or eh_avaliador_da_banca(current_user, banca)):
+        flash("Acesso negado.", "danger")
+        return redirect(url_for('dashboard'))
+    return render_template('banca_ficha.html', banca=banca)
+
+
+# ------------------------------------------------------------------------------
+# P12 — Agenda de bancas (com histórico de remarcações) e "Minhas bancas"
+# ------------------------------------------------------------------------------
+def notificar_banca(banca, titulo, mensagem, incluir_grupo=True, referencia=None):
+    destinatarios = list(banca.avaliadores)
+    if incluir_grupo:
+        destinatarios += membros_do_projeto(banca.projeto)
+    notificar([p for p in destinatarios if p.id != current_user.id], titulo, mensagem,
+              link=url_for('minhas_bancas'), tipo='banca', referencia=referencia)
+
+
+@app.route('/bancas', methods=['GET', 'POST'])
+@login_required
+def agenda_bancas():
+    from models import Banca, HistoricoDataBanca, EnvioFormularioBanca
+    if not pode_gerir_bancas(current_user):
+        flash("Acesso negado.", "danger")
+        return redirect(url_for('dashboard'))
+
+    if request.method == 'POST':
+        acao = request.form.get('acao')
+        banca = db.session.get(Banca, request.form.get('banca_id', type=int) or 0)
+
+        if acao == 'salvar':
+            data_hora = ler_datahora(request.form.get('data_hora'))
+            projeto = db.session.get(Projeto, request.form.get('projeto_id', type=int) or 0)
+            if not data_hora or (not banca and not projeto):
+                flash(t('banca_erro_campos', current_user.idioma), "warning")
+                return redirect(url_for('agenda_bancas'))
+            nova = banca is None
+            if nova:
+                if Banca.query.filter_by(projeto_id=projeto.id).first():
+                    flash(t('banca_erro_duplicada', current_user.idioma), "warning")
+                    return redirect(url_for('agenda_bancas'))
+                banca = Banca(projeto_id=projeto.id, data_hora=data_hora, criado_por_id=current_user.id)
+                db.session.add(banca)
+            elif data_hora != banca.data_hora:
+                motivo = (request.form.get('motivo_alteracao') or '').strip()
+                if len(motivo) < 5:
+                    flash(t('banca_erro_motivo', current_user.idioma), "warning")
+                    return redirect(url_for('agenda_bancas'))
+                db.session.add(HistoricoDataBanca(banca_id=banca.id, data_anterior=banca.data_hora, data_nova=data_hora,
+                                                  motivo=motivo, alterado_por_id=current_user.id))
+                data_antiga = banca.data_hora
+                banca.data_hora = data_hora
+                banca.status = 'Remarcada'
+                # O formulário da banca volta a ser enviado na nova janela
+                EnvioFormularioBanca.query.filter_by(banca_id=banca.id).delete()
+                db.session.flush()
+                notificar_banca(banca, ('notif_banca_remarcada_titulo', {'projeto': banca.projeto.nome}),
+                                ('notif_banca_remarcada_msg', {'antiga': data_antiga.strftime('%d/%m/%Y %H:%M'),
+                                                               'nova': data_hora.strftime('%d/%m/%Y %H:%M'), 'motivo': motivo}))
+
+            banca.local = (request.form.get('local') or '').strip() or None
+            banca.link_sala = (request.form.get('link_sala') or '').strip() or None
+            banca.duracao_apresentacao_min = request.form.get('duracao_apresentacao_min', type=int) or 15
+            banca.duracao_perguntas_min = request.form.get('duracao_perguntas_min', type=int) or 10
+            banca.prazo_entrega_escrito = ler_datahora(request.form.get('prazo_entrega_escrito'))
+            banca.prazo_entrega_slides = ler_datahora(request.form.get('prazo_entrega_slides'))
+            banca.prazo_leitura_avaliadores = ler_datahora(request.form.get('prazo_leitura_avaliadores'))
+            banca.horas_antes_formulario = request.form.get('horas_antes_formulario', type=int) or 24
+            banca.anonimizar_feedback = bool(request.form.get('anonimizar_feedback'))
+            ids = [int(i) for i in request.form.getlist('avaliadores') if i.isdigit()]
+            banca.avaliadores = Usuario.query.filter(Usuario.id.in_(ids or [-1]), Usuario.tipo_usuario.in_(PERFIS_ESCALAVEIS_BANCA)).all()
+            db.session.commit()
+            if nova:
+                notificar_banca(banca, ('notif_banca_nova_titulo', {'projeto': banca.projeto.nome}),
+                                ('notif_banca_nova_msg', {'data': banca.data_hora.strftime('%d/%m/%Y %H:%M'),
+                                                          'local': banca.local or banca.link_sala or '—'}),
+                                referencia=f"banca-nova:{banca.id}")
+            flash(t('banca_salva', current_user.idioma), "success")
+
+        elif acao == 'cancelar' and banca and banca.status in ['Agendada', 'Remarcada']:
+            banca.status = 'Cancelada'
+            db.session.commit()
+            flash(t('banca_cancelada', current_user.idioma), "info")
+
+        elif acao in ['publicar', 'publicar_todas'] and current_user.tipo_usuario in ['Administrador', 'Mentor Administrador']:
+            alvo = [banca] if acao == 'publicar' and banca else [b for b in bancas_visiveis_gestao(current_user)]
+            publicadas = sum(1 for b in alvo if publicar_resultado_banca(b))
+            flash(t('banca_publicadas', current_user.idioma).format(n=publicadas), "success" if publicadas else "info")
+        return redirect(url_for('agenda_bancas'))
+
+    bancas = bancas_visiveis_gestao(current_user)
+    com_banca = {b.projeto_id for b in Banca.query.all()}
+    projetos_sem_banca = [p for p in Projeto.query.order_by(Projeto.nome).all() if p.id not in com_banca]
+    envios = {(e.banca_id, e.avaliador_id): e.enviado_em for e in EnvioFormularioBanca.query.filter_by(tipo='formulario').all()}
+    return render_template('agenda_bancas.html', bancas=bancas, projetos_sem_banca=projetos_sem_banca,
+                           pessoas=pessoas_escalaveis_banca(), envios=envios, situacao_entrega=situacao_entrega,
+                           pode_publicar=current_user.tipo_usuario in ['Administrador', 'Mentor Administrador'])
+
+
+@app.route('/minhas-bancas')
+@login_required
+def minhas_bancas():
+    from models import CheckinVoluntariado, AvaliacaoBanca
+    bancas = bancas_do_avaliador(current_user)
+    if not bancas and not pode_gerir_bancas(current_user) and current_user.tipo_usuario != TIPO_AVALIADOR:
+        flash(t('banca_nenhuma', current_user.idioma), "info")
+        return redirect(url_for('dashboard'))
+    minutos = {}
+    for c in CheckinVoluntariado.query.filter(CheckinVoluntariado.usuario_id == current_user.id,
+                                             CheckinVoluntariado.projeto_id.isnot(None)).all():
+        chave = (c.projeto_id, c.tipo_atividade.replace(' (Lançamento Manual)', ''))
+        minutos[chave] = minutos.get(chave, 0) + (c.total_minutos or 0)
+    aberto = CheckinVoluntariado.query.filter_by(usuario_id=current_user.id, data_hora_fim=None).first()
+    avaliacoes = {a.projeto_id: a for a in AvaliacaoBanca.query.filter_by(avaliador_id=current_user.id).all()}
+    return render_template('minhas_bancas.html', bancas=bancas, minutos=minutos, aberto=aberto, avaliacoes=avaliacoes,
+                           agora=datetime.now())
+
+
+# ------------------------------------------------------------------------------
+# P10 — Entrega do TCC (escrito final e slides) com prazos e versões
+# ------------------------------------------------------------------------------
+@app.route('/projetos/<int:id>/entregas', methods=['POST'])
+@login_required
+def enviar_entrega_tcc(id):
+    from models import EntregaTCC
+    projeto = db.session.get(Projeto, id)
+    if not projeto or not pode_enviar_entrega(current_user, projeto):
+        flash("Acesso negado.", "danger")
+        return redirect(url_for('projetos'))
+    tipo = request.form.get('tipo')
+    arquivo = request.files.get('arquivo')
+    extensao = arquivo.filename.rsplit('.', 1)[-1].lower() if arquivo and '.' in (arquivo.filename or '') else ''
+    if tipo not in TIPOS_ENTREGA_TCC or extensao not in TIPOS_ENTREGA_TCC[tipo]:
+        flash(t('entrega_erro_tipo', current_user.idioma), "warning")
+        return redirect(url_for('projetos'))
+    arquivo.seek(0, os.SEEK_END)
+    tamanho = arquivo.tell()
+    arquivo.seek(0)
+    if tamanho > LIMITE_ENTREGA_MB * 1024 * 1024:
+        flash(t('entrega_erro_tamanho', current_user.idioma), "warning")
+        return redirect(url_for('projetos'))
+
+    versao = 1 + max([e.versao for e in projeto.entregas if e.tipo == tipo] or [0])
+    nome_salvo = f"tcc_{projeto.id}_{'escrito' if tipo == 'Escrito final' else 'slides'}_v{versao}_{datetime.now().strftime('%Y%m%d%H%M%S')}.{extensao}"
+    arquivo.save(os.path.join(PASTA_TCC, nome_salvo))
+    banca = getattr(projeto, 'banca', None)
+    prazo = (banca.prazo_entrega_escrito if tipo == 'Escrito final' else banca.prazo_entrega_slides) if banca else None
+    entrega = EntregaTCC(projeto_id=projeto.id, tipo=tipo, arquivo=nome_salvo, nome_original=secure_filename(arquivo.filename),
+                         versao=versao, enviado_por_id=current_user.id, observacao=(request.form.get('observacao') or '').strip() or None,
+                         entregue_no_prazo=(prazo is None or datetime.now() <= prazo))
+    db.session.add(entrega)
+    db.session.commit()
+    if tipo == 'Escrito final' and banca and banca.avaliadores:
+        prazo_leitura = banca.prazo_leitura_avaliadores.strftime('%d/%m/%Y %H:%M') if banca.prazo_leitura_avaliadores else '—'
+        notificar(banca.avaliadores, ('notif_entrega_titulo', {'projeto': projeto.nome}),
+                  ('notif_entrega_msg', {'versao': versao, 'prazo': prazo_leitura}),
+                  link=url_for('minhas_bancas'), tipo='banca', referencia=f"entrega:{entrega.id}")
+    flash(t('entrega_ok', current_user.idioma).format(versao=versao) + ('' if entrega.entregue_no_prazo else ' ' + t('entrega_fora_prazo', current_user.idioma)),
+          "success" if entrega.entregue_no_prazo else "warning")
+    return redirect(url_for('projetos') + f"#projeto-{projeto.id}")
+
+
+@app.route('/entregas/<int:id>/arquivo')
+@login_required
+def baixar_entrega_tcc(id):
+    from models import EntregaTCC
+    entrega = db.session.get(EntregaTCC, id)
+    if not entrega or not pode_baixar_entrega(current_user, entrega.projeto):
+        flash("Acesso negado.", "danger")
+        return redirect(url_for('dashboard'))
+    return send_from_directory(PASTA_TCC, entrega.arquivo, as_attachment=True,
+                               download_name=entrega.nome_original or entrega.arquivo)
+
+
+# ------------------------------------------------------------------------------
+# P09 — Check-in/out do avaliador ligado ao TCC (leitura, análise e banca ao vivo)
+# ------------------------------------------------------------------------------
+ACOES_RELOGIO_BANCA = {'iniciar_leitura': 'Leitura Assíncrona de TCC', 'iniciar_analise': 'Análise e Notas',
+                       'checkin_banca': 'Avaliação de Banca Ao Vivo'}
+
+
+@app.route('/bancas/<int:id>/relogio/<acao>', methods=['POST'])
+@login_required
+def relogio_banca(id, acao):
+    from models import Banca, CheckinVoluntariado
+    banca = db.session.get(Banca, id)
+    if not banca or not (eh_avaliador_da_banca(current_user, banca) or pode_gerir_bancas(current_user)):
+        flash("Acesso negado.", "danger")
+        return redirect(url_for('minhas_bancas'))
+    aberto = CheckinVoluntariado.query.filter_by(usuario_id=current_user.id, data_hora_fim=None).first()
+    agora_utc = datetime.utcnow()
+
+    if acao == 'encerrar':
+        if aberto:
+            aberto.data_hora_fim = agora_utc
+            aberto.total_minutos = int((aberto.data_hora_fim - aberto.data_hora_inicio).total_seconds() / 60)
+            db.session.commit()
+            flash(t('banca_relogio_encerrado', current_user.idioma).format(minutos=aberto.total_minutos), "success")
+        return redirect(url_for('minhas_bancas'))
+
+    tipo = ACOES_RELOGIO_BANCA.get(acao)
+    if not tipo:
+        return redirect(url_for('minhas_bancas'))
+    if aberto:
+        flash(t('banca_relogio_ja_aberto', current_user.idioma), "warning")
+        return redirect(url_for('minhas_bancas'))
+    if acao == 'checkin_banca' and not (banca.data_hora - timedelta(hours=2) <= datetime.now() <= banca.fim_previsto + timedelta(hours=2)):
+        flash(t('banca_checkin_fora_janela', current_user.idioma), "warning")
+        return redirect(url_for('minhas_bancas'))
+    db.session.add(CheckinVoluntariado(usuario_id=current_user.id, tipo_atividade=tipo, projeto_id=banca.projeto_id,
+                                       categoria='Regular', data_hora_inicio=agora_utc,
+                                       observacoes=f"Banca #{banca.id}: {banca.projeto.nome}"))
+    db.session.commit()
+    flash(t('banca_relogio_iniciado', current_user.idioma), "info")
+    return redirect(url_for('minhas_bancas'))
+
+
+# ------------------------------------------------------------------------------
+# P11 / P16 — Sala da Banca: notas por avaliador, consolidação e divulgação
+# ------------------------------------------------------------------------------
+@app.route('/projetos/banca/<int:id>', methods=['GET', 'POST'])
+@login_required
+def painel_banca(id):
+    # Sala da Banca: só os avaliadores escalados nesta banca e a gestão entram (Alunos nunca)
+    from models import AvaliacaoBanca, QABanca
+    projeto = db.session.get(Projeto, id)
+    if not projeto:
+        return redirect(url_for('projetos'))
+    banca = getattr(projeto, 'banca', None)
+    gestor = pode_gerir_bancas(current_user)
+    avaliador = eh_avaliador_da_banca(current_user, banca)
+    if not (gestor or avaliador):
+        flash("Acesso restrito à Banca Avaliadora.", "danger")
+        return redirect(url_for('projetos'))
+    if not banca:
+        flash(t('banca_nao_agendada', current_user.idioma), "warning")
+        return redirect(url_for('agenda_bancas'))
+
+    minha = AvaliacaoBanca.query.filter_by(projeto_id=projeto.id, avaliador_id=current_user.id).first()
+    encerrada = banca.status == 'Realizada'
+
+    if request.method == 'POST':
+        acao = request.form.get('acao')
+        if acao in ['etapa_escrita', 'etapa_oral']:
+            if not avaliador or encerrada:
+                flash("Acesso negado.", "danger")
+                return redirect(url_for('painel_banca', id=projeto.id))
+            if not minha:
+                minha = AvaliacaoBanca(projeto_id=projeto.id, banca_id=banca.id, avaliador_id=current_user.id)
+                db.session.add(minha)
+            erro = registrar_etapa_avaliacao(minha, acao, request.form)
+            if erro:
+                db.session.rollback()
+                flash(t(erro, current_user.idioma), "warning")
+                return redirect(url_for('painel_banca', id=projeto.id))
+            db.session.commit()
+            fechou = consolidar_banca(banca)
+            flash(t('banca_etapa_salva', current_user.idioma) + (' ' + t('banca_encerrada_auto', current_user.idioma) if fechou else ''), "success")
+        elif acao == 'encerrar' and gestor and not encerrada:
+            if consolidar_banca(banca, encerrar=True):
+                flash(t('banca_encerrada_ok', current_user.idioma).format(nota=f"{projeto.nota_final:.1f}", status=projeto.status), "success")
+            else:
+                flash(t('banca_encerrar_sem_notas', current_user.idioma), "warning")
+        return redirect(url_for('painel_banca', id=projeto.id))
+
+    avaliacoes = AvaliacaoBanca.query.filter_by(projeto_id=projeto.id).all() if gestor else []
+    entregas = [e for e in projeto.entregas]
+    historico_qa = QABanca.query.filter_by(projeto_id=projeto.id).order_by(QABanca.data_registro).all()
+    return render_template('banca_avaliacao.html', projeto=projeto, banca=banca, minha=minha, avaliador=avaliador,
+                           gestor=gestor, encerrada=encerrada, avaliacoes=avaliacoes, entregas=entregas, historico_qa=historico_qa)
+
+
+def ler_nota(formulario, campo):
+    try:
+        valor = round(float((formulario.get(campo) or '').replace(',', '.')), 1)
+    except ValueError:
+        return None
+    return valor if 0 <= valor <= 10 else None
+
+
+def registrar_etapa_avaliacao(avaliacao, etapa, formulario):
+    """Grava uma etapa da avaliação. Devolve a chave do erro ou None."""
+    if etapa == 'etapa_escrita':
+        nota = ler_nota(formulario, 'nota_escrita')
+        justificativa = (formulario.get('justificativa_escrita') or '').strip()
+        if nota is None:
+            return 'banca_erro_nota'
+        if nota < 7 and len(justificativa) < 10:
+            return 'banca_erro_justificativa'
+        avaliacao.nota_escrita, avaliacao.justificativa_escrita = nota, justificativa or None
+        avaliacao.etapa_escrita_concluida_em = datetime.utcnow()
+    else:
+        apresentacao, visual = ler_nota(formulario, 'nota_apresentacao'), ler_nota(formulario, 'nota_visual')
+        justificativa = (formulario.get('justificativa_oral') or '').strip()
+        if apresentacao is None or visual is None:
+            return 'banca_erro_nota'
+        if min(apresentacao, visual) < 7 and len(justificativa) < 10:
+            return 'banca_erro_justificativa'
+        avaliacao.nota_apresentacao, avaliacao.nota_visual = apresentacao, visual
+        avaliacao.justificativa_oral = justificativa or None
+        avaliacao.feedback_jovens = (formulario.get('feedback_jovens') or '').strip() or None
+        avaliacao.etapa_oral_concluida_em = datetime.utcnow()
+    return None
+
+
+def consolidar_banca(banca, encerrar=False):
+    """Médias por critério entre os avaliadores e fórmula oficial (40/40/20).
+    O status do projeto só muda quando todos os escalados concluírem ou a gestão encerrar.
+    Devolve True quando a banca foi encerrada agora."""
+    from models import AvaliacaoBanca
+    projeto = banca.projeto
+    avaliacoes = AvaliacaoBanca.query.filter_by(projeto_id=projeto.id).all()
+
+    def media(campo):
+        valores = [getattr(a, campo) for a in avaliacoes if getattr(a, campo) is not None]
+        return round(sum(valores) / len(valores), 2) if valores else None
+
+    projeto.nota_conteudo, projeto.nota_apresentacao, projeto.nota_visual = media('nota_escrita'), media('nota_apresentacao'), media('nota_visual')
+    if None not in (projeto.nota_conteudo, projeto.nota_apresentacao, projeto.nota_visual):
+        projeto.nota_final = round(projeto.nota_conteudo * 0.4 + projeto.nota_apresentacao * 0.4 + projeto.nota_visual * 0.2, 2)
+    else:
+        projeto.nota_final = None
+
+    concluidas = {a.avaliador_id for a in avaliacoes if a.etapa_escrita_concluida_em and a.etapa_oral_concluida_em}
+    todos = bool(banca.avaliadores) and {p.id for p in banca.avaliadores} <= concluidas
+    fechou = False
+    if (encerrar or todos) and projeto.nota_final is not None and banca.status != 'Realizada':
+        projeto.status = 'Concluído' if projeto.nota_final >= 7.0 else 'Em Recuperação'
+        projeto.data_avaliacao = datetime.utcnow()
+        banca.status = 'Realizada'
+        banca.encerrada_em = datetime.utcnow()
+        fechou = True
+    db.session.commit()
+    return fechou
+
+
+def publicar_resultado_banca(banca):
+    """Divulga as notas aos jovens e mentores do grupo (P16). Só bancas encerradas e ainda não publicadas."""
+    projeto = banca.projeto
+    if banca.status != 'Realizada' or projeto.notas_publicadas:
+        return False
+    projeto.notas_publicadas = True
+    projeto.data_publicacao_notas = datetime.utcnow()
+    db.session.commit()
+    notificar(membros_do_projeto(projeto), ('notif_resultado_titulo', {'projeto': projeto.nome}),
+              ('notif_resultado_msg', {'status': projeto.status}),
+              link=url_for('projetos') + f"#projeto-{projeto.id}", tipo='banca', referencia=f"resultado:{projeto.id}")
+    return True
+
+
+def pode_ver_resultado(usuario, projeto):
+    """Antes da publicação, só a gestão e os avaliadores escalados enxergam notas e status final."""
+    return projeto.notas_publicadas or pode_gerir_bancas(usuario) or eh_avaliador_da_banca(usuario, getattr(projeto, 'banca', None))
+
+
+def perguntas_do_projeto(projeto):
+    from models import QABanca
+    return QABanca.query.filter_by(projeto_id=projeto.id).order_by(QABanca.ordem, QABanca.data_registro).all()
+
+
+@app.context_processor
+def injetar_bancas_menu():
+    if current_user.is_authenticated and current_user.tipo_usuario not in ['Aluno', TIPO_AVALIADOR]:
+        return dict(tem_minhas_bancas=bool(bancas_do_avaliador(current_user)))
+    return dict(tem_minhas_bancas=False)
+
+
+# Funções de permissão da banca disponíveis nos templates
+app.jinja_env.globals.update(pode_ver_resultado=pode_ver_resultado, pode_enviar_entrega=pode_enviar_entrega,
+                             pode_baixar_entrega=pode_baixar_entrega, eh_avaliador_da_banca=eh_avaliador_da_banca,
+                             pode_gerir_bancas=pode_gerir_bancas, situacao_entrega=situacao_entrega,
+                             perguntas_do_projeto=perguntas_do_projeto)
+
+
+# ------------------------------------------------------------------------------
+# P14 — Perguntas da banca e respostas dos jovens (a qualquer momento, sem enviar notas)
+# ------------------------------------------------------------------------------
+@app.route('/bancas/<int:id>/perguntas', methods=['GET', 'POST'])
+@login_required
+def perguntas_banca(id):
+    from models import Banca, QABanca
+    banca = db.session.get(Banca, id)
+    if not banca or not (eh_avaliador_da_banca(current_user, banca) or pode_gerir_bancas(current_user)):
+        return jsonify({'erro': 'acesso negado'}), 403
+
+    if request.method == 'POST':
+        dados = request.get_json(silent=True) or request.form
+        acao = dados.get('acao', 'adicionar')
+        registro = db.session.get(QABanca, int(dados.get('id') or 0)) if dados.get('id') else None
+        if banca.status == 'Realizada':
+            return jsonify({'erro': t('banca_qa_encerrada', current_user.idioma)}), 400
+        if acao == 'adicionar':
+            pergunta = (dados.get('pergunta') or '').strip()
+            if not pergunta:
+                return jsonify({'erro': t('banca_qa_vazia', current_user.idioma)}), 400
+            ordem = 1 + (db.session.query(db.func.max(QABanca.ordem)).filter(QABanca.projeto_id == banca.projeto_id).scalar() or 0)
+            db.session.add(QABanca(projeto_id=banca.projeto_id, banca_id=banca.id, avaliador_id=current_user.id, ordem=ordem,
+                                   pergunta_feita=pergunta, resposta_jovens=(dados.get('resposta') or '').strip() or None))
+        elif registro and registro.avaliador_id == current_user.id and registro.projeto_id == banca.projeto_id:
+            if acao == 'editar':
+                registro.pergunta_feita = (dados.get('pergunta') or registro.pergunta_feita).strip()
+                registro.resposta_jovens = (dados.get('resposta') or '').strip() or None
+            elif acao == 'apagar':
+                db.session.delete(registro)
+        db.session.commit()
+
+    registros = QABanca.query.filter_by(projeto_id=banca.projeto_id).order_by(QABanca.ordem, QABanca.data_registro).all()
+    return jsonify({'perguntas': [{'id': r.id, 'pergunta': r.pergunta_feita, 'resposta': r.resposta_jovens or '',
+                                   'autor': r.avaliador.nome if getattr(r, 'avaliador', None) else '',
+                                   'minha': r.avaliador_id == current_user.id,
+                                   'hora': r.data_registro.strftime('%H:%M') if r.data_registro else ''} for r in registros]})
+
+
+# ------------------------------------------------------------------------------
+# P15 — Cronômetro em duas fases, sincronizado entre a sala e o telão
+# ------------------------------------------------------------------------------
+def estado_cronometro(banca):
+    decorrido = banca.cron_acumulado_seg or 0
+    if banca.cron_fase and not banca.cron_pausado and banca.cron_inicio:
+        decorrido += int((datetime.utcnow() - banca.cron_inicio).total_seconds())
+    limite = 60 * ((banca.duracao_apresentacao_min or 15) if banca.cron_fase != 'perguntas' else (banca.duracao_perguntas_min or 10))
+    return {'fase': banca.cron_fase, 'decorrido': decorrido, 'limite': limite, 'pausado': bool(banca.cron_pausado),
+            'tempo_real_apresentacao': banca.tempo_real_apresentacao_seg, 'tempo_real_perguntas': banca.tempo_real_perguntas_seg,
+            'duracao_apresentacao': (banca.duracao_apresentacao_min or 15) * 60, 'duracao_perguntas': (banca.duracao_perguntas_min or 10) * 60}
+
+
+def pode_ver_cronometro(usuario, banca):
+    return eh_avaliador_da_banca(usuario, banca) or pode_gerir_bancas(usuario) or usuario in membros_do_projeto(banca.projeto)
+
+
+@app.route('/bancas/<int:id>/cronometro', methods=['POST'])
+@login_required
+def cronometro_banca(id):
+    from models import Banca
+    banca = db.session.get(Banca, id)
+    if not banca or not (eh_avaliador_da_banca(current_user, banca) or pode_gerir_bancas(current_user)):
+        return jsonify({'erro': 'acesso negado'}), 403
+    acao = (request.get_json(silent=True) or request.form).get('acao')
+    agora = datetime.utcnow()
+    if acao in ['iniciar_apresentacao', 'iniciar_perguntas']:
+        banca.cron_fase = 'apresentacao' if acao == 'iniciar_apresentacao' else 'perguntas'
+        banca.cron_inicio, banca.cron_acumulado_seg, banca.cron_pausado = agora, 0, False
+    elif acao == 'pausar' and banca.cron_fase and not banca.cron_pausado:
+        banca.cron_acumulado_seg = estado_cronometro(banca)['decorrido']
+        banca.cron_pausado = True
+    elif acao == 'retomar' and banca.cron_fase and banca.cron_pausado:
+        banca.cron_inicio, banca.cron_pausado = agora, False
+    elif acao == 'encerrar_fase' and banca.cron_fase:
+        decorrido = estado_cronometro(banca)['decorrido']
+        if banca.cron_fase == 'apresentacao':
+            banca.tempo_real_apresentacao_seg = decorrido
+        else:
+            banca.tempo_real_perguntas_seg = decorrido
+        banca.cron_fase, banca.cron_inicio, banca.cron_acumulado_seg, banca.cron_pausado = None, None, 0, True
+    db.session.commit()
+    return jsonify(estado_cronometro(banca))
+
+
+@app.route('/bancas/<int:id>/cronometro/estado')
+@login_required
+def estado_cronometro_banca(id):
+    from models import Banca
+    banca = db.session.get(Banca, id)
+    if not banca or not pode_ver_cronometro(current_user, banca):
+        return jsonify({'erro': 'acesso negado'}), 403
+    return jsonify(estado_cronometro(banca))
+
+
+@app.route('/bancas/<int:id>/telao')
+@login_required
+def telao_banca(id):
+    from models import Banca
+    banca = db.session.get(Banca, id)
+    if not banca or not pode_ver_cronometro(current_user, banca):
+        flash("Acesso negado.", "danger")
+        return redirect(url_for('dashboard'))
+    return render_template('banca_telao.html', banca=banca)
+
+
+# ==============================================================================
 # CONTEÚDO INICIAL DA TRILHA DO TCC (editável depois em Onboarding › Gestão da trilha)
 # ==============================================================================
 MODULOS_TRILHA_PADRAO = [
@@ -4489,7 +5186,18 @@ with app.app_context():
         "ALTER TABLE checkin_voluntariado ADD COLUMN categoria VARCHAR(20) DEFAULT 'Regular'",
         # Correção idempotente: lançamentos antigos de mentoria extraordinária são horas EXTRAS
         "UPDATE checkin_voluntariado SET categoria = 'Extra' WHERE tipo_atividade LIKE 'Mentoria Extraordin%' AND (categoria IS NULL OR categoria = 'Regular')",
-        "ALTER TABLE checkin_voluntariado ADD COLUMN reuniao_id INTEGER REFERENCES reuniao_institucional(id)"
+        "ALTER TABLE checkin_voluntariado ADD COLUMN reuniao_id INTEGER REFERENCES reuniao_institucional(id)",
+        "ALTER TABLE perfil_avaliador ADD COLUMN nome_completo VARCHAR(200)",
+        "ALTER TABLE perfil_avaliador ADD COLUMN telefone VARCHAR(40)",
+        "ALTER TABLE perfil_avaliador ADD COLUMN linkedin VARCHAR(300)",
+        "ALTER TABLE perfil_avaliador ADD COLUMN curriculo_arquivo VARCHAR(255)",
+        "ALTER TABLE projeto ADD COLUMN nota_visual FLOAT",
+        "ALTER TABLE projeto ADD COLUMN nota_final FLOAT",
+        "ALTER TABLE projeto ADD COLUMN data_avaliacao DATETIME",
+        "ALTER TABLE projeto ADD COLUMN notas_publicadas BOOLEAN DEFAULT 0",
+        "ALTER TABLE projeto ADD COLUMN data_publicacao_notas DATETIME",
+        "ALTER TABLE qa_banca ADD COLUMN banca_id INTEGER REFERENCES banca(id)",
+        "ALTER TABLE qa_banca ADD COLUMN ordem INTEGER DEFAULT 0"
     ]
     
     for comando in colunas_novas:
@@ -4509,62 +5217,3 @@ if __name__ == '__main__':
     iniciar_agendador(app)
     # Roda o servidor web no modo 'debug'
     app.run(debug=True)
-
-# ==============================================================================
-# ROTA: PAINEL DA BANCA AVALIADORA AO VIVO (NOTAS E Q&A)
-# ==============================================================================
-@app.route('/projetos/banca/<int:id>', methods=['GET', 'POST'])
-@login_required
-def painel_banca(id):
-    # Trava: Alunos não podem aceder ao painel de avaliação
-    if current_user.tipo_usuario == 'Aluno':
-        flash("Acesso restrito à Banca Avaliadora.", "danger")
-        return redirect(url_for('projetos'))
-
-    projeto = db.session.get(Projeto, id)
-    if not projeto:
-        return redirect(url_for('projetos'))
-
-    if request.method == 'POST':
-        # 1. Capta as Notas da Banca
-        nota_escrita = request.form.get('nota_escrita', 0, type=float)
-        nota_apresentacao = request.form.get('nota_apresentacao', 0, type=float)
-        nota_visual = request.form.get('nota_visual', 0, type=float)
-
-        # 2. Aplica a Fórmula do Documento: Escrita (40%) + Apresentação (40%) + Visual (20%)
-        nota_final = (nota_escrita * 0.4) + (nota_apresentacao * 0.4) + (nota_visual * 0.2)
-        
-        # Guarda as parciais
-        projeto.nota_conteudo = nota_escrita
-        projeto.nota_apresentacao = nota_apresentacao
-        
-        # 3. Define a aprovação automática (Nota >= 7.0)
-        if nota_final >= 7.0:
-            projeto.status = 'Concluído'
-            flash(f"🎉 Banca finalizada! Projeto APROVADO com nota final: {nota_final:.1f}", "success")
-        else:
-            projeto.status = 'Em Recuperação'
-            flash(f"⚠️ Banca finalizada! Projeto EM RECUPERAÇÃO. Nota final: {nota_final:.1f}", "warning")
-
-        # 4. Salva o Q&A (Perguntas feitas na hora e como os jovens responderam)
-        pergunta = request.form.get('pergunta_feita')
-        resposta = request.form.get('resposta_jovens')
-        
-        if pergunta:
-            from models import QABanca
-            novo_qa = QABanca(
-                projeto_id=projeto.id,
-                avaliador_id=current_user.id,
-                pergunta_feita=pergunta,
-                resposta_jovens=resposta
-            )
-            db.session.add(novo_qa)
-        
-        db.session.commit()
-        return redirect(url_for('projetos'))
-
-    # Se for apenas para abrir a tela (GET), busca o histórico de Q&A para os avaliadores lerem
-    from models import QABanca
-    historico_qa = QABanca.query.filter_by(projeto_id=projeto.id).order_by(QABanca.data_registro.desc()).all()
-
-    return render_template('banca_avaliacao.html', projeto=projeto, historico_qa=historico_qa)

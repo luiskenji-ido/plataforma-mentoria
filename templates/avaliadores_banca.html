@@ -1,0 +1,110 @@
+{% extends "base.html" %}
+{% block title %}{{ t('aval_titulo') }}{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-4 border-bottom pb-3">
+    <div>
+        <h2 class="text-primary fw-bold mb-1"><i class="bi bi-person-badge"></i> {{ t('aval_titulo') }}</h2>
+        <p class="text-muted mb-0">{{ t('aval_subtitulo') }}</p>
+    </div>
+    <div class="d-flex gap-2">
+        <a href="{{ url_for('agenda_bancas') }}" class="btn btn-outline-primary fw-bold rounded-pill px-3"><i class="bi bi-calendar-event"></i> {{ t('menu_agenda_bancas') }}</a>
+        <button class="btn btn-primary fw-bold rounded-pill px-4 shadow-sm" data-bs-toggle="modal" data-bs-target="#modalAvaliador0"><i class="bi bi-plus-circle"></i> {{ t('aval_novo') }}</button>
+    </div>
+</div>
+
+<div class="row g-3">
+    {% for p in perfis %}
+    <div class="col-md-6 col-xl-4">
+        <div class="card shadow-sm border-0 h-100">
+            <div class="card-body d-flex flex-column gap-2">
+                <div class="d-flex align-items-center gap-3">
+                    <div class="rounded-circle bg-primary text-white fw-bold d-flex align-items-center justify-content-center flex-shrink-0" style="width:48px;height:48px;" aria-hidden="true">
+                        {{ ((p.nome_completo or p.usuario.nome).split()[0][0] ~ ((p.nome_completo or p.usuario.nome).split()[-1][0] if (p.nome_completo or p.usuario.nome).split()|length > 1 else '')) | upper }}
+                    </div>
+                    <div class="min-w-0">
+                        <h5 class="fw-bold text-dark mb-0">{{ p.nome_completo or p.usuario.nome }}</h5>
+                        <div class="small text-muted">{{ p.area_atuacao or '—' }} · {{ p.empresa_origem or '—' }}</div>
+                    </div>
+                </div>
+                <p class="small text-dark mb-0" style="white-space: pre-line;">{{ p.curriculo_minibio or t('aval_sem_minibio') }}</p>
+                <div class="small text-muted">{{ p.usuario.email }}{% if p.telefone %} · {{ p.telefone }}{% endif %}{% if p.linkedin %} · <a href="{{ p.linkedin }}" target="_blank" rel="noopener">LinkedIn</a>{% endif %}</div>
+                <div class="mt-auto d-flex gap-2 flex-wrap">
+                    {% if p.curriculo_arquivo %}<a href="{{ url_for('curriculo_avaliador', usuario_id=p.usuario_id) }}" target="_blank" class="btn btn-sm btn-outline-secondary fw-bold rounded-pill"><i class="bi bi-file-earmark-pdf"></i> {{ t('aval_curriculo') }}</a>{% endif %}
+                    <button class="btn btn-sm btn-outline-primary fw-bold rounded-pill" data-bs-toggle="modal" data-bs-target="#modalAvaliador{{ p.id }}">{{ t('trilha_editar') }}</button>
+                    <span class="badge bg-light text-dark border align-self-center">{{ p.usuario.tipo_usuario }}</span>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% else %}
+    <div class="col-12"><div class="card shadow-sm border-0"><div class="card-body text-muted text-center py-5">{{ t('aval_vazio') }}</div></div></div>
+    {% endfor %}
+</div>
+
+{% for p in [None] + perfis %}
+{% set pid = p.id if p else 0 %}
+<div class="modal fade" id="modalAvaliador{{ pid }}" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <form method="POST" enctype="multipart/form-data">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title fw-bold">{{ (p.nome_completo or p.usuario.nome) if p else t('aval_novo') }}</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="{{ t('fechar') }}"></button>
+                </div>
+                <div class="modal-body row g-3">
+                    <input type="hidden" name="acao" value="{{ 'editar' if p else 'criar' }}">
+                    <input type="hidden" name="perfil_id" value="{{ pid }}">
+                    <div class="col-md-6">
+                        <label class="form-label fw-bold" for="aNome{{ pid }}">{{ t('aval_nome_completo') }}</label>
+                        <input class="form-control" id="aNome{{ pid }}" name="nome_completo" required value="{{ (p.nome_completo or p.usuario.nome) if p else '' }}">
+                    </div>
+                    {% if not p %}
+                    <div class="col-md-6">
+                        <label class="form-label fw-bold" for="aEmail0">E-mail</label>
+                        <input type="email" class="form-control" id="aEmail0" name="email" required>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-bold" for="aSenha0">{{ t('aval_senha_inicial') }}</label>
+                        <input type="password" class="form-control" id="aSenha0" name="senha" required minlength="10" autocomplete="new-password">
+                        <div class="form-text">{{ t('aval_senha_dica') }}</div>
+                    </div>
+                    {% endif %}
+                    <div class="col-md-6">
+                        <label class="form-label fw-bold" for="aEmpresa{{ pid }}">{{ t('aval_empresa') }}</label>
+                        {% if empresas_b2b is not none %}
+                        <select class="form-select" id="aEmpresa{{ pid }}" name="empresa_origem" required>
+                            {% for e in empresas_b2b %}<option value="{{ e }}" {% if p and p.empresa_origem == e %}selected{% endif %}>{{ e }}</option>{% endfor %}
+                        </select>
+                        {% else %}
+                        <input class="form-control" id="aEmpresa{{ pid }}" name="empresa_origem" value="{{ p.empresa_origem or '' if p else 'Aon' }}">
+                        {% endif %}
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-bold" for="aArea{{ pid }}">{{ t('aval_area') }}</label>
+                        <input class="form-control" id="aArea{{ pid }}" name="area_atuacao" value="{{ p.area_atuacao or '' if p else '' }}">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-bold" for="aTelefone{{ pid }}">{{ t('aval_telefone') }} <span class="text-muted small fw-normal">({{ t('vol_opcional') }})</span></label>
+                        <input class="form-control" id="aTelefone{{ pid }}" name="telefone" value="{{ p.telefone or '' if p else '' }}">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-bold" for="aLinkedin{{ pid }}">LinkedIn <span class="text-muted small fw-normal">({{ t('vol_opcional') }})</span></label>
+                        <input type="url" class="form-control" id="aLinkedin{{ pid }}" name="linkedin" value="{{ p.linkedin or '' if p else '' }}" placeholder="https://">
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label fw-bold" for="aBio{{ pid }}">{{ t('aval_minibio') }}</label>
+                        <textarea class="form-control" id="aBio{{ pid }}" name="curriculo_minibio" rows="4">{{ p.curriculo_minibio or '' if p else '' }}</textarea>
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label fw-bold" for="aCv{{ pid }}">{{ t('aval_curriculo_pdf') }}</label>
+                        <input type="file" class="form-control" id="aCv{{ pid }}" name="curriculo_arquivo" accept="application/pdf">
+                    </div>
+                </div>
+                <div class="modal-footer"><button class="btn btn-success fw-bold px-4" type="submit">{{ t('trilha_salvar') }}</button></div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endfor %}
+{% endblock %}

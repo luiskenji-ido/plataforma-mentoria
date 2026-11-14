@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+{% block title %}{{ t('menu_minhas_bancas') }}{% endblock %}
+
+{% block content %}
+<div class="mb-4 border-bottom pb-3">
+    <h2 class="text-primary fw-bold mb-1"><i class="bi bi-person-video3"></i> {{ t('menu_minhas_bancas') }}</h2>
+    <p class="text-muted mb-0">{{ t('banca_minhas_subtitulo') }}</p>
+</div>
+
+{% if aberto %}
+<div class="alert alert-danger d-flex justify-content-between align-items-center flex-wrap gap-2">
+    <span><i class="bi bi-stopwatch"></i> {{ t('banca_relogio_aberto') }}: <strong>{{ aberto.tipo_atividade }}</strong> · {{ t('extra_presente_desde') }} {{ aberto.data_hora_inicio.strftime('%H:%M') }} (UTC)</span>
+    <form method="POST" action="{{ url_for('relogio_banca', id=(bancas[0].id if bancas else 0), acao='encerrar') }}" class="m-0">
+        <button class="btn btn-sm btn-danger fw-bold rounded-pill px-3" type="submit">{{ t('banca_encerrar_relogio') }}</button>
+    </form>
+</div>
+{% endif %}
+
+<div class="d-flex flex-column gap-3">
+    {% for b in bancas %}
+    {% set p = b.projeto %}
+    {% set av = avaliacoes.get(p.id) %}
+    {% set escritos = p.entregas | selectattr('tipo', 'equalto', 'Escrito final') | list %}
+    {% set slides = p.entregas | selectattr('tipo', 'equalto', 'Slides da apresentação') | list %}
+    <div class="card shadow-sm border-0 border-start border-4 {% if b.status == 'Realizada' %}border-success{% elif b.status == 'Remarcada' %}border-warning{% else %}border-primary{% endif %}">
+        <div class="card-body">
+            <div class="d-flex justify-content-between align-items-start flex-wrap gap-2">
+                <div>
+                    <h5 class="fw-bold text-dark mb-1">{{ p.nome }}</h5>
+                    <div class="small text-muted">
+                        {{ t('vol_campo_grupo') }} {{ p.grupo.nome if p.grupo else '—' }} ·
+                        <i class="bi bi-calendar-event"></i> <strong class="text-dark">{{ b.data_hora.strftime('%d/%m/%Y %H:%M') }}</strong>
+                        {% if b.local %} · {{ b.local }}{% endif %}
+                        {% if b.link_sala %} · <a href="{{ b.link_sala }}" target="_blank" rel="noopener">{{ t('extra_link_sala') }}</a>{% endif %}
+                    </div>
+                    {% if b.prazo_leitura_avaliadores %}<div class="small fw-bold {% if agora > b.prazo_leitura_avaliadores and not (av and av.etapa_escrita_concluida_em) %}text-danger{% else %}text-dark{% endif %}">{{ t('banca_prazo_leitura') }}: {{ b.prazo_leitura_avaliadores.strftime('%d/%m/%Y %H:%M') }}</div>{% endif %}
+                </div>
+                <span class="badge {% if b.status == 'Realizada' %}bg-success{% elif b.status == 'Remarcada' %}bg-warning text-dark{% else %}bg-primary{% endif %}">{{ b.status }}</span>
+            </div>
+
+            <!-- Material do TCC -->
+            <div class="d-flex flex-wrap gap-2 my-2">
+                {% if escritos %}<a href="{{ url_for('baixar_entrega_tcc', id=escritos[0].id) }}" class="btn btn-sm btn-outline-primary fw-bold rounded-pill"><i class="bi bi-file-earmark-pdf"></i> {{ t('entrega_escrito') }} v{{ escritos[0].versao }}</a>
+                {% else %}<span class="badge bg-light text-dark border p-2">{{ t('banca_escrito_pendente') }}</span>{% endif %}
+                {% if slides %}<a href="{{ url_for('baixar_entrega_tcc', id=slides[0].id) }}" class="btn btn-sm btn-outline-primary fw-bold rounded-pill"><i class="bi bi-easel"></i> {{ t('entrega_slides') }} v{{ slides[0].versao }}</a>{% endif %}
+            </div>
+
+            <!-- Tempo dedicado (check-in/out ligado a este TCC) -->
+            <div class="small text-muted mb-2">
+                {{ t('banca_tempo_dedicado') }}:
+                {{ t('vol_tipo_leitura') }} {{ minutos.get((p.id, 'Leitura Assíncrona de TCC'), 0) }} min ·
+                {{ t('vol_tipo_analise') }} {{ minutos.get((p.id, 'Análise e Notas'), 0) }} min ·
+                {{ t('vol_tipo_banca') }} {{ minutos.get((p.id, 'Avaliação de Banca Ao Vivo'), 0) }} min
+            </div>
+
+            <div class="d-flex flex-wrap gap-2 align-items-center">
+                {% if not aberto and b.status != 'Realizada' %}
+                <form method="POST" action="{{ url_for('relogio_banca', id=b.id, acao='iniciar_leitura') }}" class="m-0"><button class="btn btn-sm btn-outline-success fw-bold rounded-pill px-3" type="submit"><i class="bi bi-book"></i> {{ t('banca_iniciar_leitura') }}</button></form>
+                <form method="POST" action="{{ url_for('relogio_banca', id=b.id, acao='iniciar_analise') }}" class="m-0"><button class="btn btn-sm btn-outline-success fw-bold rounded-pill px-3" type="submit"><i class="bi bi-clipboard-check"></i> {{ t('banca_iniciar_analise') }}</button></form>
+                <form method="POST" action="{{ url_for('relogio_banca', id=b.id, acao='checkin_banca') }}" class="m-0"><button class="btn btn-sm btn-success fw-bold rounded-pill px-3" type="submit"><i class="bi bi-box-arrow-in-right"></i> {{ t('banca_checkin') }}</button></form>
+                {% endif %}
+                <a href="{{ url_for('painel_banca', id=p.id) }}" class="btn btn-sm btn-primary fw-bold rounded-pill px-3 ms-auto"><i class="bi bi-pencil-square"></i> {{ t('banca_abrir_formulario') }}</a>
+                <a href="{{ url_for('ficha_banca', id=b.id) }}" target="_blank" class="btn btn-sm btn-outline-secondary fw-bold rounded-pill px-3">{{ t('banca_ficha') }}</a>
+            </div>
+            <div class="mt-2">
+                <span class="badge {{ 'bg-success' if av and av.etapa_escrita_concluida_em else 'bg-light text-dark border' }}">{{ t('banca_etapa_escrita') }}</span>
+                <span class="badge {{ 'bg-success' if av and av.etapa_oral_concluida_em else 'bg-light text-dark border' }}">{{ t('banca_etapa_oral') }}</span>
+            </div>
+        </div>
+    </div>
+    {% else %}
+    <div class="card shadow-sm border-0"><div class="card-body text-muted text-center py-5">{{ t('banca_minhas_vazio') }}</div></div>
+    {% endfor %}
+</div>
+{% endblock %}

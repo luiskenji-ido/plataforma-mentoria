@@ -12,7 +12,7 @@ No computador:
 from datetime import datetime, timedelta
 
 from app import app
-from models import db, CheckinVoluntariado, Usuario, EncaminhamentoReuniao
+from models import db, CheckinVoluntariado, Usuario, EncaminhamentoReuniao, Banca, EnvioFormularioBanca, AvaliacaoBanca
 from notificacoes import notificar
 
 # Relógio de voluntariado aberto há mais tempo que isto recebe o lembrete de check-out
@@ -52,8 +52,56 @@ def lembrar_encaminhamentos_vencidos(agora):
     return enviados
 
 
-# As próximas adequações acrescentam aqui os lembretes delas (prazos do TCC, formulário da banca...)
-TAREFAS = [lembrar_checkout_esquecido, lembrar_encaminhamentos_vencidos]
+def enviar_formulario_banca(agora):
+    """P13: X horas antes da banca (hora local), cada avaliador recebe o link do formulário; 2 h antes, lembrete
+    a quem ainda não concluiu a etapa escrita. EnvioFormularioBanca evita repetir (remarcar apaga os envios)."""
+    agora_local = datetime.now()
+    enviados = 0
+    for banca in Banca.query.filter(Banca.status.in_(['Agendada', 'Remarcada'])).all():
+        if agora_local > banca.fim_previsto:
+            continue
+        janela = banca.data_hora - timedelta(hours=banca.horas_antes_formulario or 24)
+        for avaliador in banca.avaliadores:
+            ja = {e.tipo for e in EnvioFormularioBanca.query.filter_by(banca_id=banca.id, avaliador_id=avaliador.id)}
+            parametros = {'projeto': banca.projeto.nome, 'data': banca.data_hora.strftime('%d/%m/%Y %H:%M'),
+                          'local': banca.local or banca.link_sala or '—'}
+            if agora_local >= janela and 'formulario' not in ja:
+                enviados += notificar([avaliador], ('notif_form_banca_titulo', parametros), ('notif_form_banca_msg', parametros),
+                                      link=f"/projetos/banca/{banca.projeto_id}", tipo='banca')
+                db.session.add(EnvioFormularioBanca(banca_id=banca.id, avaliador_id=avaliador.id, tipo='formulario'))
+            av = AvaliacaoBanca.query.filter_by(projeto_id=banca.projeto_id, avaliador_id=avaliador.id).first()
+            if agora_local >= banca.data_hora - timedelta(hours=2) and 'lembrete_2h' not in ja \
+                    and not (av and av.etapa_escrita_concluida_em):
+                enviados += notificar([avaliador], ('notif_lembrete_banca_titulo', parametros), ('notif_lembrete_banca_msg', parametros),
+                                      link=f"/projetos/banca/{banca.projeto_id}", tipo='banca')
+                db.session.add(EnvioFormularioBanca(banca_id=banca.id, avaliador_id=avaliador.id, tipo='lembrete_2h'))
+        db.session.commit()
+    return enviados
+
+
+def fechar_checkin_banca_esquecido(agora):
+    """P09: check-in na banca ao vivo fecha sozinho 2 h depois do fim previsto."""
+    fechados = 0
+    abertos = CheckinVoluntariado.query.filter(CheckinVoluntariado.data_hora_fim.is_(None),
+                                               CheckinVoluntariado.tipo_atividade == 'Avaliação de Banca Ao Vivo',
+                                               CheckinVoluntariado.projeto_id.isnot(None)).all()
+    for registro in abertos:
+        banca = Banca.query.filter_by(projeto_id=registro.projeto_id).first()
+        if not banca:
+            continue
+        # O relógio grava em UTC e a banca em hora local: compara pela diferença de fuso do servidor
+        limite_utc = banca.fim_previsto + timedelta(hours=2) + (agora - datetime.now())
+        if agora >= limite_utc:
+            registro.data_hora_fim = max(limite_utc, registro.data_hora_inicio)
+            registro.total_minutos = int((registro.data_hora_fim - registro.data_hora_inicio).total_seconds() / 60)
+            registro.observacoes = ((registro.observacoes or '') + ' · check-out automático').strip(' ·')
+            fechados += 1
+    db.session.commit()
+    return fechados
+
+
+# As próximas adequações acrescentam aqui os lembretes delas
+TAREFAS = [lembrar_checkout_esquecido, lembrar_encaminhamentos_vencidos, enviar_formulario_banca, fechar_checkin_banca_esquecido]
 
 
 def executar_tarefas():

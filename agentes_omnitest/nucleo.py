@@ -86,6 +86,9 @@ ROTAS = {
     "banca": {"caminho": "/projetos/banca/{projeto_id}", "nome": "Sala da Banca"},
     "atividades_extras": {"caminho": "/atividades-extras", "nome": "Atividades extras"},
     "reunioes": {"caminho": "/reunioes", "nome": "Reuniões ITM × Aon"},
+    "agenda_bancas": {"caminho": "/bancas", "nome": "Agenda de bancas"},
+    "avaliadores_banca": {"caminho": "/bancas/avaliadores", "nome": "Avaliadores da banca"},
+    "minhas_bancas": {"caminho": "/minhas-bancas", "nome": "Minhas bancas"},
     "esg_csv": {"caminho": "/admin/exportar-relatorio-esg", "nome": "Exportar ESG (CSV)", "download": True},
     # O "PDF" é uma página HTML pronta para imprimir (render_template_string), não um ficheiro
     # "independente": não estende base.html (sem menu, tema, idioma nem tour), por isso fica fora dessas varreduras
@@ -107,13 +110,16 @@ ARQUIVOS_POR_MODULO = {
     "Portal de Demandas": "app.py (rota portal_demandas), templates/demandas.html",
     "Solicitações de Mentoria": "app.py (rota gerenciar_solicitacoes), templates/admin_solicitacoes.html",
     "Manutenção (DB)": "app.py (rota manutencao_banco), templates/admin_banco.html",
-    "Sala da Banca": "app.py (rota painel_banca), templates/banca_avaliacao.html",
     "Recuperação de Senha": "app.py (rotas recuperar_senha e trocar_senha_obrigatoria), templates/index.html, templates/perguntas_seguranca.html, templates/trocar_senha.html",
     "Autenticação": "app.py (rotas login e logout), templates/index.html",
     "Regras de Entrada": "app.py (verificar_onboarding, verificar_frequencia_diaria, registrar_frequencia), templates/base.html, templates/onboarding.html",
     "Menu Superior": "templates/base.html (navbar #menuPrincipal)",
     "Voluntariado ESG": "app.py (bater_ponto_voluntariado, lancamento_manual_voluntariado, validar_vinculos_voluntariado), templates/dashboard.html",
     "Atividades extras": "app.py (atividades_extras, nova_atividade_extra, acao_atividade_extra, fechar_presenca), templates/atividades_extras.html",
+    "Agenda de bancas": "app.py (agenda_bancas, publicar_resultado_banca), templates/agenda_bancas.html",
+    "Avaliadores da banca": "app.py (avaliadores_banca, curriculo_avaliador), templates/avaliadores_banca.html",
+    "Minhas bancas": "app.py (minhas_bancas, relogio_banca), templates/minhas_bancas.html",
+    "Sala da Banca": "app.py (painel_banca, consolidar_banca, perguntas_banca, cronometro_banca), templates/banca_avaliacao.html, templates/banca_telao.html",
     "Reuniões ITM × Aon": "app.py (reunioes, editar_reuniao, detalhe_reuniao, sincronizar_voluntariado_reuniao), templates/reunioes.html, reuniao_form.html, reuniao_detalhe.html",
     "Tour": "templates/dashboard.html (modalTourInicial, iniciarTourDaPagina, desativarTourBackend), app.py (rota desativar_tour), "
             "templates/base.html (botão de tour manual) e a função iniciarTourDaPagina do template de cada página",
