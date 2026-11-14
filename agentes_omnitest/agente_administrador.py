@@ -16,9 +16,9 @@ class AgenteAdministrador(AgenteOmniTest):
 
     # Regra 2: o Administrador acede ao Portal de Demandas, à Biblioteca e gere utilizadores
     ROTAS_PERMITIDAS = ["dashboard", "sessoes", "acompanhamento", "projetos", "biblioteca", "hub_educacional",
-                        "frequencia", "notas", "usuarios", "grupos", "demandas", "banco", "banca", "esg_csv", "esg_pdf"]
+                        "frequencia", "notas", "usuarios", "grupos", "demandas", "banco", "banca", "esg_csv", "esg_pdf", "atividades_extras", "reunioes"]
     ROTAS_BLOQUEADAS = ["solicitacoes"]
-    MENU_VISIVEL = ["dashboard", "hub_educacional", "sessoes", "acompanhamento", "projetos", "frequencia", "notas",
+    MENU_VISIVEL = ["atividades_extras", "reunioes", "dashboard", "hub_educacional", "sessoes", "acompanhamento", "projetos", "frequencia", "notas",
                     "usuarios", "demandas", "biblioteca", "banco"]
     MENU_OCULTO = ["solicitacoes"]
 

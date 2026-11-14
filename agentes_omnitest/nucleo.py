@@ -84,6 +84,8 @@ ROTAS = {
     "solicitacoes": {"caminho": "/admin/solicitacoes", "nome": "Solicitações de Mentoria"},
     "banco": {"caminho": "/admin/banco", "nome": "Manutenção (DB)"},
     "banca": {"caminho": "/projetos/banca/{projeto_id}", "nome": "Sala da Banca"},
+    "atividades_extras": {"caminho": "/atividades-extras", "nome": "Atividades extras"},
+    "reunioes": {"caminho": "/reunioes", "nome": "Reuniões ITM × Aon"},
     "esg_csv": {"caminho": "/admin/exportar-relatorio-esg", "nome": "Exportar ESG (CSV)", "download": True},
     # O "PDF" é uma página HTML pronta para imprimir (render_template_string), não um ficheiro
     # "independente": não estende base.html (sem menu, tema, idioma nem tour), por isso fica fora dessas varreduras
@@ -110,7 +112,9 @@ ARQUIVOS_POR_MODULO = {
     "Autenticação": "app.py (rotas login e logout), templates/index.html",
     "Regras de Entrada": "app.py (verificar_onboarding, verificar_frequencia_diaria, registrar_frequencia), templates/base.html, templates/onboarding.html",
     "Menu Superior": "templates/base.html (navbar #menuPrincipal)",
-    "Voluntariado ESG": "app.py (bater_ponto_voluntariado, lancamento_manual_voluntariado), templates/dashboard.html",
+    "Voluntariado ESG": "app.py (bater_ponto_voluntariado, lancamento_manual_voluntariado, validar_vinculos_voluntariado), templates/dashboard.html",
+    "Atividades extras": "app.py (atividades_extras, nova_atividade_extra, acao_atividade_extra, fechar_presenca), templates/atividades_extras.html",
+    "Reuniões ITM × Aon": "app.py (reunioes, editar_reuniao, detalhe_reuniao, sincronizar_voluntariado_reuniao), templates/reunioes.html, reuniao_form.html, reuniao_detalhe.html",
     "Tour": "templates/dashboard.html (modalTourInicial, iniciarTourDaPagina, desativarTourBackend), app.py (rota desativar_tour), "
             "templates/base.html (botão de tour manual) e a função iniciarTourDaPagina do template de cada página",
     "Tema": "templates/base.html (CSS por html[data-theme]) e o template da página citada",
@@ -958,7 +962,7 @@ class AgenteOmniTest:
             self.page.keyboard.press("Escape")
             return
         modal = self.page.locator("#modalVoluntariadoManual")
-        modal.locator('select[name="tipo_atividade"]').select_option(index=1 if modal.locator('select[name="tipo_atividade"] option').count() > 1 else 0)
+        modal.locator('select[name="tipo_atividade"]').select_option(value="Apoio Institucional")
         modal.locator('input[name="data"]').fill(date.today().isoformat())
         modal.locator('input[name="hora_inicio"]').fill("09:00")
         modal.locator('input[name="hora_fim"]').fill("10:00")
@@ -1580,14 +1584,23 @@ class AgenteOmniTest:
                            esperado="Gravar a nova senha e abrir o /dashboard")
             return
 
-        # A senha antiga deixa de funcionar
+        # A senha antiga deixa de funcionar: primeiro a verdade do banco, depois o comportamento da tela
+        from app import bcrypt as _bcrypt
+        from models import Usuario as _Usuario
+        trocou_no_banco = consultar_banco(lambda: not _bcrypt.check_password_hash(
+            _Usuario.query.filter_by(email=self.perfil["email"]).first().senha, SENHA_PADRAO))
         self.page.goto(BASE_URL + "/logout", wait_until="domcontentloaded")
         self.page.goto(BASE_URL + "/", wait_until="domcontentloaded")
         self.page.fill('input[name="email"]', self.perfil["email"])
         self.page.fill('input[name="senha"]', SENHA_PADRAO)
-        self.page.click('button[type="submit"]')
+        self.page.locator('form:has(input[name="senha"]) button[type="submit"]').first.click()
         self.page.wait_for_load_state("domcontentloaded")
-        if self.caminho_atual() == "/":
+        self.aguardar()
+        recusada_na_tela = self.caminho_atual() == "/" and "incorretos" in self.texto_pagina()
+        if not trocou_no_banco:
+            self.registrar("Recuperação de Senha", "Senha antiga invalidada", FALHA, "A nova senha não foi gravada no banco.",
+                           esperado="trocar_senha_obrigatoria grava o novo hash da senha")
+        elif recusada_na_tela:
             self.registrar("Recuperação de Senha", "Senha antiga invalidada", APROVADO, evidencia=False)
         else:
             self.registrar("Recuperação de Senha", "Senha antiga invalidada", FALHA, "A senha anterior ainda permite entrar.",

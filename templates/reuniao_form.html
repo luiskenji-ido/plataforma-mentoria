@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+{% block title %}{{ t('reuniao_nova') if not reuniao else reuniao.titulo }}{% endblock %}
+
+{% block content %}
+<div class="container mt-2 mb-5" style="max-width: 900px;">
+    <h2 class="text-primary fw-bold mb-4"><i class="bi bi-journal-plus"></i> {{ t('reuniao_nova') if not reuniao else t('reuniao_editar') }}</h2>
+    {% set ids_participantes = reuniao.participantes | map(attribute='id') | list if reuniao else [] %}
+
+    <form method="POST" class="card shadow-sm border-0">
+        <div class="card-body row g-3">
+            <div class="col-12">
+                <label class="form-label fw-bold" for="rTitulo">{{ t('reuniao_campo_titulo') }}</label>
+                <input class="form-control" id="rTitulo" name="titulo" maxlength="200" required value="{{ reuniao.titulo if reuniao else ('Alinhamento: ' ~ demanda_inicial.titulo if demanda_inicial else '') }}">
+            </div>
+            <div class="col-md-4">
+                <label class="form-label fw-bold" for="rData">{{ t('reuniao_campo_data') }}</label>
+                <input type="datetime-local" class="form-control" id="rData" name="data_hora" required value="{{ reuniao.data_hora.strftime('%Y-%m-%dT%H:%M') if reuniao else '' }}">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label fw-bold" for="rDuracao">{{ t('extra_campo_duracao') }}</label>
+                <input type="number" class="form-control" id="rDuracao" name="duracao_minutos" min="5" max="720" required value="{{ reuniao.duracao_minutos if reuniao else 60 }}">
+            </div>
+            <div class="col-md-5">
+                <label class="form-label fw-bold" for="rModalidade">{{ t('modalidade_participacao') }}</label>
+                <select class="form-select" id="rModalidade" name="modalidade">
+                    {% for m in ['Online', 'Presencial', 'Híbrido'] %}<option value="{{ m }}" {% if reuniao and reuniao.modalidade == m %}selected{% endif %}>{{ m }}</option>{% endfor %}
+                </select>
+            </div>
+            <div class="col-md-7">
+                <label class="form-label fw-bold" for="rLocal">{{ t('reuniao_campo_local') }}</label>
+                <input class="form-control" id="rLocal" name="local_ou_link" value="{{ reuniao.local_ou_link or '' if reuniao else '' }}">
+            </div>
+            <div class="col-md-5">
+                <label class="form-label fw-bold" for="rDemanda">{{ t('reuniao_campo_ticket') }}</label>
+                <select class="form-select" id="rDemanda" name="demanda_id">
+                    <option value="">—</option>
+                    {% set demanda_atual = reuniao.demanda_id if reuniao else (demanda_inicial.id if demanda_inicial else None) %}
+                    {% for d in demandas %}<option value="{{ d.id }}" {% if d.id == demanda_atual %}selected{% endif %}>#{{ d.id }} · {{ d.titulo[:60] }}</option>{% endfor %}
+                </select>
+            </div>
+
+            <div class="col-md-6">
+                <label class="form-label fw-bold" for="rParticipantes">{{ t('reuniao_participantes_internos') }}</label>
+                <select class="form-select" id="rParticipantes" name="participantes" multiple size="8">
+                    {% for p in pessoas %}<option value="{{ p.id }}" {% if p.id in ids_participantes or (not reuniao and p.id == current_user.id) %}selected{% endif %}>{{ p.nome }} · {{ p.tipo_usuario }}</option>{% endfor %}
+                </select>
+                <div class="form-text">{{ t('reuniao_dica_multipla') }}</div>
+            </div>
+            <div class="col-md-6">
+                <label class="form-label fw-bold" for="rExternos">{{ t('reuniao_participantes_externos') }}</label>
+                <textarea class="form-control" id="rExternos" name="participantes_externos" rows="7" placeholder="Maria Souza – Instituto ITM">{{ reuniao.participantes_externos or '' if reuniao else '' }}</textarea>
+            </div>
+
+            <div class="col-12">
+                <label class="form-label fw-bold" for="rPauta">{{ t('reuniao_campo_pauta') }}</label>
+                <textarea class="form-control" id="rPauta" name="pauta" rows="3">{{ reuniao.pauta or '' if reuniao else (demanda_inicial.descricao if demanda_inicial else '') }}</textarea>
+            </div>
+            <div class="col-12">
+                <label class="form-label fw-bold" for="rDeliberacoes">{{ t('reuniao_campo_deliberacoes') }}</label>
+                <textarea class="form-control" id="rDeliberacoes" name="deliberacoes" rows="5">{{ reuniao.deliberacoes or '' if reuniao else '' }}</textarea>
+            </div>
+
+            <div class="col-12">
+                <label class="form-label fw-bold mb-1">{{ t('reuniao_novos_encaminhamentos') }}</label>
+                {% for i in range(3) %}
+                <div class="row g-2 mb-2">
+                    <div class="col-md-6"><input class="form-control form-control-sm" name="enc_descricao" placeholder="{{ t('reuniao_enc_descricao') }}" aria-label="{{ t('reuniao_enc_descricao') }}"></div>
+                    <div class="col-md-4">
+                        <select class="form-select form-select-sm" name="enc_responsavel" aria-label="{{ t('reuniao_enc_responsavel') }}">
+                            <option value="">{{ t('reuniao_enc_responsavel') }}</option>
+                            {% for p in pessoas %}<option value="{{ p.id }}">{{ p.nome }}</option>{% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-2"><input type="date" class="form-control form-control-sm" name="enc_prazo" aria-label="{{ t('reuniao_enc_prazo') }}"></div>
+                </div>
+                {% endfor %}
+            </div>
+
+            <div class="col-12 form-check ms-2">
+                <input class="form-check-input" type="checkbox" id="rContar" name="contar_voluntariado" {% if not reuniao or reuniao.contar_voluntariado %}checked{% endif %}>
+                <label class="form-check-label" for="rContar">{{ t('reuniao_contar_voluntariado') }}</label>
+            </div>
+        </div>
+        <div class="card-footer bg-white d-flex justify-content-end gap-2">
+            <a href="{{ url_for('detalhe_reuniao', id=reuniao.id) if reuniao else url_for('reunioes') }}" class="btn btn-outline-secondary fw-bold">Cancelar</a>
+            <button class="btn btn-success fw-bold px-4" type="submit">{{ t('reuniao_salvar') }}</button>
+        </div>
+    </form>
+</div>
+{% endblock %}

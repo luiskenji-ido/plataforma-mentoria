@@ -113,6 +113,12 @@
                                         {% endif %}
                                     </form>
 
+                                    {% if current_user.tipo_usuario in ['Administrador', 'Mentor Administrador', 'Admin B2B'] %}
+                                    <div class="text-end mt-3">
+                                        <a href="{{ url_for('editar_reuniao', demanda_id=d.id) }}" class="btn btn-sm btn-outline-secondary fw-bold rounded-pill px-3"><i class="bi bi-journal-plus"></i> {{ t('reuniao_registrar_ticket') }}</a>
+                                    </div>
+                                    {% endif %}
+
                                     <!-- Histórico da conversa: autor e gestão trocam mensagens sem sair da plataforma -->
                                     <h6 class="fw-bold text-primary border-bottom pb-2 mt-4"><i class="bi bi-chat-dots"></i> {{ t('demanda_historico') }}</h6>
                                     <div class="d-flex flex-column gap-2 mb-3">

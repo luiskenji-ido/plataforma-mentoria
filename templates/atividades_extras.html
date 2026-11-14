@@ -1,0 +1,171 @@
+{% extends "base.html" %}
+{% block title %}{{ t('extra_titulo') }}{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-4 border-bottom pb-3">
+    <div>
+        <h2 class="text-primary fw-bold mb-1"><i class="bi bi-people-fill"></i> {{ t('extra_titulo') }}</h2>
+        <p class="text-muted mb-0">{{ t('extra_subtitulo') }}</p>
+    </div>
+    {% if pode_criar %}
+    <button class="btn btn-primary fw-bold rounded-pill px-4 shadow-sm" data-bs-toggle="modal" data-bs-target="#modalNovaAtividade">
+        <i class="bi bi-plus-circle"></i> {{ t('extra_nova') }}
+    </button>
+    {% endif %}
+</div>
+
+<div class="d-flex flex-column gap-3">
+    {% for a in atividades %}
+    {% set minha = minhas.get(a.id) %}
+    <div class="card shadow-sm border-0 border-start border-4 {% if a.status == 'Em andamento' %}border-success{% elif a.status == 'Agendada' %}border-primary{% elif a.status == 'Cancelada' %}border-secondary{% else %}border-dark{% endif %}" id="extra-{{ a.id }}">
+        <div class="card-body">
+            <div class="d-flex justify-content-between align-items-start flex-wrap gap-2">
+                <div>
+                    <h5 class="fw-bold text-dark mb-1">{{ a.titulo }}</h5>
+                    <div class="small text-muted">
+                        <i class="bi bi-people"></i> {{ a.grupo.nome if a.grupo else '—' }} ·
+                        <i class="bi bi-calendar-event"></i> {{ a.data_hora_inicio_prevista.strftime('%d/%m/%Y %H:%M') }} · {{ a.duracao_prevista_min }} min ·
+                        {% if a.modalidade == 'Online' %}<i class="bi bi-laptop"></i>{% else %}<i class="bi bi-building"></i>{% endif %} {{ a.modalidade }} ·
+                        {{ t('extra_criada_por') }} {{ a.criado_por.nome if a.criado_por else '—' }}
+                    </div>
+                </div>
+                <span class="badge {% if a.status == 'Em andamento' %}bg-success{% elif a.status == 'Agendada' %}bg-primary{% elif a.status == 'Cancelada' %}bg-secondary{% else %}bg-dark{% endif %}">{{ a.status }}</span>
+            </div>
+
+            <p class="mt-2 mb-2 text-dark small" style="white-space: pre-line;"><strong>{{ t('vol_campo_motivo') }}:</strong> {{ a.motivo }}</p>
+            {% if a.link_sala %}<p class="mb-2 small"><a href="{{ a.link_sala }}" target="_blank" rel="noopener" class="fw-bold"><i class="bi bi-camera-video"></i> {{ t('extra_link_sala') }}</a></p>{% endif %}
+
+            <!-- Minha presença -->
+            <div class="d-flex flex-wrap gap-2 align-items-center">
+                {% if minha and minha.check_out %}
+                    <span class="badge bg-success-subtle text-success-emphasis border border-success p-2">
+                        <i class="bi bi-check2-circle"></i> {{ minha.check_in.strftime('%H:%M') }} – {{ minha.check_out.strftime('%H:%M') }} · {{ minha.total_minutos }} min{% if minha.checkout_automatico %} ({{ t('extra_checkout_auto') }}){% endif %}
+                    </span>
+                {% elif minha %}
+                    <span class="badge bg-danger pulse-animation p-2">{{ t('extra_presente_desde') }} {{ minha.check_in.strftime('%H:%M') }}</span>
+                    <form method="POST" action="{{ url_for('acao_atividade_extra', id=a.id, acao='checkout') }}" class="m-0">
+                        <button type="submit" class="btn btn-sm btn-outline-danger fw-bold rounded-pill px-3"><i class="bi bi-box-arrow-right"></i> Check-out</button>
+                    </form>
+                {% elif a.status in ['Agendada', 'Em andamento'] and pode_registrar(a) %}
+                    <form method="POST" action="{{ url_for('acao_atividade_extra', id=a.id, acao='checkin') }}" class="m-0 d-flex gap-2 align-items-center">
+                        <label class="visually-hidden" for="modalidadeCheckin{{ a.id }}">{{ t('modalidade_participacao') }}</label>
+                        <select name="modalidade" id="modalidadeCheckin{{ a.id }}" class="form-select form-select-sm" style="width:auto">
+                            <option value="Presencial" {% if a.modalidade == 'Presencial' %}selected{% endif %}>{{ t('modalidade_presencial') }}</option>
+                            <option value="Online" {% if a.modalidade == 'Online' %}selected{% endif %}>{{ t('modalidade_online') }}</option>
+                        </select>
+                        <button type="submit" class="btn btn-sm btn-success fw-bold rounded-pill px-3"><i class="bi bi-box-arrow-in-right"></i> Check-in</button>
+                    </form>
+                {% endif %}
+
+                {% if pode_gerir(a) and a.status in ['Agendada', 'Em andamento'] %}
+                    <form method="POST" action="{{ url_for('acao_atividade_extra', id=a.id, acao='encerrar') }}" class="m-0 ms-auto">
+                        <button type="submit" class="btn btn-sm btn-dark fw-bold rounded-pill px-3">{{ t('extra_encerrar') }}</button>
+                    </form>
+                    {% if a.status == 'Agendada' %}
+                    <form method="POST" action="{{ url_for('acao_atividade_extra', id=a.id, acao='cancelar') }}" class="m-0">
+                        <button type="submit" class="btn btn-sm btn-outline-secondary fw-bold rounded-pill px-3">{{ t('extra_cancelar') }}</button>
+                    </form>
+                    {% endif %}
+                {% endif %}
+            </div>
+
+            <!-- Participantes (quem gere a atividade e a coordenação veem o detalhe) -->
+            {% if a.presencas %}
+            <details class="mt-3">
+                <summary class="small fw-bold text-primary">{{ t('extra_participantes') }} ({{ a.presencas|length }})</summary>
+                {% if pode_gerir(a) or current_user.tipo_usuario in ['Administrador', 'Mentor Administrador', 'Admin B2B'] %}
+                <div class="table-responsive mt-2">
+                    <table class="table table-sm align-middle small mb-2">
+                        <thead><tr><th>{{ t('trilha_col_pessoa') }}</th><th>{{ t('trilha_col_perfil') }}</th><th>{{ t('extra_entrada') }}</th><th>{{ t('extra_saida') }}</th><th class="text-end">Min</th><th>{{ t('modalidade_participacao') }}</th></tr></thead>
+                        <tbody>
+                            {% for p in a.presencas|sort(attribute='check_in') %}
+                            <tr>
+                                <td>{{ p.usuario.nome if p.usuario else '—' }}</td>
+                                <td class="text-muted">{{ p.usuario.tipo_usuario if p.usuario else '' }}</td>
+                                <td>{{ p.check_in.strftime('%H:%M') }}</td>
+                                <td>{{ p.check_out.strftime('%H:%M') if p.check_out else '—' }}{% if p.checkout_automatico %} <span class="badge bg-warning text-dark">auto</span>{% endif %}</td>
+                                <td class="text-end">{{ p.total_minutos or 0 }}</td>
+                                <td>{{ p.modalidade or '' }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                <a href="{{ url_for('relatorio_atividade_extra', id=a.id) }}" class="small fw-bold"><i class="bi bi-file-earmark-excel"></i> {{ t('extra_baixar_csv') }}</a>
+                {% endif %}
+            </details>
+            {% endif %}
+        </div>
+    </div>
+    {% else %}
+    <div class="card shadow-sm border-0"><div class="card-body text-muted text-center py-5">{{ t('extra_vazio') }}</div></div>
+    {% endfor %}
+</div>
+
+{% if pode_criar %}
+<!-- MODAL: NOVA ATIVIDADE EXTRA -->
+<div class="modal fade text-start" id="modalNovaAtividade" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content shadow-lg border-0">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title fw-bold"><i class="bi bi-plus-circle"></i> {{ t('extra_nova') }}</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="{{ t('fechar') }}"></button>
+            </div>
+            <form method="POST" action="{{ url_for('nova_atividade_extra') }}">
+                <div class="modal-body row g-3">
+                    <div class="col-md-6">
+                        <label class="form-label fw-bold" for="extraGrupo">{{ t('vol_campo_grupo') }}</label>
+                        <select name="grupo_id" id="extraGrupo" class="form-select" required>
+                            <option value="">{{ t('vol_selecione') }}</option>
+                            {% for g in grupos %}<option value="{{ g.id }}">{{ g.nome }}</option>{% endfor %}
+                        </select>
+                        {% if not grupos %}<div class="form-text text-danger">{{ t('vol_sem_grupos') }}</div>{% endif %}
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-bold" for="extraTitulo">{{ t('extra_campo_titulo') }}</label>
+                        <input name="titulo" id="extraTitulo" class="form-control" maxlength="200" required>
+                    </div>
+                    <div class="col-md-5">
+                        <label class="form-label fw-bold" for="extraInicio">{{ t('extra_campo_inicio') }}</label>
+                        <input type="datetime-local" name="data_hora_inicio" id="extraInicio" class="form-control" required>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label fw-bold" for="extraDuracao">{{ t('extra_campo_duracao') }}</label>
+                        <input type="number" name="duracao_prevista_min" id="extraDuracao" class="form-control" min="10" max="720" value="60" required>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label fw-bold" for="extraModalidade">{{ t('modalidade_participacao') }}</label>
+                        <select name="modalidade" id="extraModalidade" class="form-select">
+                            <option value="Presencial">{{ t('modalidade_presencial') }}</option>
+                            <option value="Online">{{ t('modalidade_online') }}</option>
+                        </select>
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label fw-bold" for="extraLink">{{ t('extra_link_sala') }} <span class="text-muted small fw-normal">({{ t('vol_opcional') }})</span></label>
+                        <input type="url" name="link_sala" id="extraLink" class="form-control" placeholder="https://">
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label fw-bold" for="extraMotivo">{{ t('vol_campo_motivo') }}</label>
+                        <textarea name="motivo" id="extraMotivo" class="form-control" rows="3" minlength="10" required placeholder="{{ t('vol_motivo_placeholder') }}"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary fw-bold" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary fw-bold px-4">{{ t('extra_criar') }}</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<style>
+    .pulse-animation { animation: pulse-red 2s infinite; }
+    @keyframes pulse-red {
+        0% { box-shadow: 0 0 0 0 rgba(220, 53, 69, 0.7); }
+        70% { box-shadow: 0 0 0 10px rgba(220, 53, 69, 0); }
+        100% { box-shadow: 0 0 0 0 rgba(220, 53, 69, 0); }
+    }
+    @media (prefers-reduced-motion: reduce) { .pulse-animation { animation: none; } }
+</style>
+{% endblock %}

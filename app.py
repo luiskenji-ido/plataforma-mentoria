@@ -545,7 +545,37 @@ def dashboard():
         jovens_online_hoje = consulta_online.count()
         jovens_online_cadastro = consulta_cadastro.count()
 
+    # Relógio de voluntariado: opções de grupo/TCC e o histórico "Minhas horas"
+    contexto_voluntariado = {}
+    if current_user.tipo_usuario != 'Aluno':
+        from models import CheckinVoluntariado
+        minhas_horas = CheckinVoluntariado.query.filter_by(usuario_id=current_user.id) \
+            .order_by(CheckinVoluntariado.data_hora_inicio.desc()).limit(30).all()
+        concluidos = CheckinVoluntariado.query.filter(CheckinVoluntariado.usuario_id == current_user.id,
+                                                      CheckinVoluntariado.data_hora_fim.isnot(None)).all()
+        contexto_voluntariado = dict(
+            tipos_voluntariado=TIPOS_ATIVIDADE_VOLUNTARIADO,
+            grupos_voluntariado=grupos_do_usuario(current_user),
+            projetos_voluntariado=projetos_do_usuario(current_user),
+            minhas_horas=minhas_horas,
+            minutos_regulares=sum((c.total_minutos or 0) for c in concluidos if (c.categoria or classificar_categoria(c.tipo_atividade)) == 'Regular'),
+            minutos_extras=sum((c.total_minutos or 0) for c in concluidos if (c.categoria or classificar_categoria(c.tipo_atividade)) == 'Extra'),
+        )
+
+    # Atividade extra do grupo acontecendo agora (janela: 30 min antes até 1 h depois do fim previsto)
+    agora_local = datetime.now()
+    atividades_agora = [a for a in atividades_extras_visiveis(current_user)
+                        if a.status in ['Agendada', 'Em andamento'] and pode_registrar_presenca(current_user, a)
+                        and a.data_hora_inicio_prevista - timedelta(minutes=30) <= agora_local <= a.fim_previsto + timedelta(hours=1)]
+    minhas_presencas_agora = {p.atividade_id: p for a in atividades_agora for p in a.presencas if p.usuario_id == current_user.id}
+
+    encaminhamentos_vencidos = encaminhamentos_atrasados(current_user) if current_user.tipo_usuario != 'Aluno' else []
+
     return render_template('dashboard.html',
+                           encaminhamentos_vencidos=encaminhamentos_vencidos,
+                           atividades_agora=atividades_agora,
+                           minhas_presencas_agora=minhas_presencas_agora,
+                           **contexto_voluntariado,
                            jovens_online_hoje=jovens_online_hoje,
                            jovens_online_cadastro=jovens_online_cadastro,
                            data_hoje_iso=datetime.utcnow().strftime('%Y-%m-%d'),
@@ -1902,6 +1932,97 @@ def alterar_idioma(sigla_idioma):
 # MOTOR DO RELÓGIO DE VOLUNTARIADO CORPORATIVO (ESG)
 # ==============================================================================
 
+# ==============================================================================
+# VOLUNTARIADO: TIPOS, CATEGORIAS E VÍNCULOS (grupo / TCC) DOS LANÇAMENTOS
+# ==============================================================================
+# (valor gravado no banco, chave de tradução do rótulo)
+TIPOS_ATIVIDADE_VOLUNTARIADO = [
+    ('Mentoria Extraordinária', 'vol_tipo_extra'),
+    ('Leitura Assíncrona de TCC', 'vol_tipo_leitura'),
+    ('Avaliação de Banca Ao Vivo', 'vol_tipo_banca'),
+    ('Apoio Institucional', 'vol_tipo_apoio'),
+]
+# Atividades fora do cronograma oficial: entram como horas EXTRAS no relatório ESG
+TIPOS_EXTRA = ['Mentoria Extraordinária', 'Reunião Institucional']
+PERFIS_GESTAO_VOLUNTARIADO = ['Administrador', 'Mentor Administrador', 'Admin B2B']
+
+
+def classificar_categoria(tipo_atividade):
+    """'Extra' para o que acontece fora do cronograma oficial; 'Regular' para o resto.
+    Isolada aqui para ajustarmos quando existir o calendário oficial de encontros."""
+    tipo_base = (tipo_atividade or '').replace(' (Lançamento Manual)', '')
+    return 'Extra' if tipo_base in TIPOS_EXTRA else 'Regular'
+
+
+def grupos_do_usuario(usuario):
+    """Grupos em que a pessoa pode lançar horas: os seus (gestores veem todos)."""
+    if usuario.tipo_usuario in PERFIS_GESTAO_VOLUNTARIADO:
+        return Grupo.query.order_by(Grupo.nome).all()
+    return sorted(getattr(usuario, 'grupos', None) or [], key=lambda g: g.nome)
+
+
+def projetos_do_usuario(usuario):
+    """TCCs dos grupos da pessoa (gestores veem todos)."""
+    if usuario.tipo_usuario in PERFIS_GESTAO_VOLUNTARIADO:
+        return Projeto.query.order_by(Projeto.nome).all()
+    ids_grupos = [g.id for g in grupos_do_usuario(usuario)] or [-1]
+    return Projeto.query.filter(Projeto.grupo_id.in_(ids_grupos)).order_by(Projeto.nome).all()
+
+
+def validar_vinculos_voluntariado(usuario, tipo, formulario):
+    """Confere os vínculos exigidos por cada tipo de atividade.
+    Devolve (chave_do_erro ou None, grupo_id, projeto_id, motivo)."""
+    motivo = (formulario.get('observacoes') or '').strip()
+    grupo_id = formulario.get('grupo_id', type=int)
+    projeto_id = formulario.get('projeto_id', type=int)
+    tipo_base = (tipo or '').replace(' (Lançamento Manual)', '')
+
+    if tipo_base == 'Mentoria Extraordinária':
+        if grupo_id not in {g.id for g in grupos_do_usuario(usuario)}:
+            return 'vol_erro_grupo', None, None, motivo
+        if len(motivo) < 10:
+            return 'vol_erro_motivo', None, None, motivo
+    else:
+        grupo_id = None
+    if tipo_base == 'Leitura Assíncrona de TCC':
+        if projeto_id not in {p.id for p in projetos_do_usuario(usuario)}:
+            return 'vol_erro_projeto', None, None, motivo
+    elif tipo_base != 'Mentoria Extraordinária':
+        projeto_id = projeto_id if projeto_id in {p.id for p in projetos_do_usuario(usuario)} else None
+    return None, grupo_id, projeto_id, motivo
+
+
+def registros_esg_do_perfil(usuario):
+    """Lançamentos de voluntariado que o perfil pode ver no relatório ESG."""
+    from models import CheckinVoluntariado
+    consulta = CheckinVoluntariado.query
+    if usuario.tipo_usuario == 'Admin B2B':
+        empresas = Empresa.query.filter_by(gestor_id=usuario.id).all()
+        ids_mentores = [m.id for emp in empresas for m in emp.mentores] or [-1]
+        consulta = consulta.filter(CheckinVoluntariado.usuario_id.in_(ids_mentores))
+    return consulta.order_by(CheckinVoluntariado.data_hora_inicio.desc()).all()
+
+
+def linha_relatorio_esg(vol):
+    """Uma linha do relatório ESG (CSV e PDF usam o mesmo formato)."""
+    usuario = db.session.get(Usuario, vol.usuario_id)
+    # O relacionamento correto é empresas_vinculadas (backref de Empresa.mentores)
+    empresas = getattr(usuario, 'empresas_vinculadas', None) or []
+    return {
+        'nome': usuario.nome if usuario else 'Desconhecido',
+        'perfil': usuario.tipo_usuario if usuario else 'N/A',
+        'empresa': ", ".join(e.nome for e in empresas) if empresas else "Institucional (Hub)",
+        'atividade': vol.tipo_atividade,
+        'categoria': vol.categoria or classificar_categoria(vol.tipo_atividade),
+        'grupo': vol.grupo.nome if vol.grupo else '',
+        'projeto': vol.projeto.nome if vol.projeto else '',
+        'motivo': vol.observacoes or '',
+        'minutos': vol.total_minutos or 0,
+        'data': vol.data_hora_inicio.strftime('%d/%m/%Y %H:%M') if vol.data_hora_inicio else "",
+        'status': "Concluído" if vol.data_hora_fim else "Em Andamento (Relógio Ativo)",
+    }
+
+
 # Sensor global que avisa o HTML (tela) se o relógio de um usuário está a contar
 @app.context_processor
 def verificar_relogio_voluntariado():
@@ -1922,43 +2043,402 @@ def verificar_relogio_voluntariado():
 def bater_ponto_voluntariado():
     from models import CheckinVoluntariado
     from datetime import datetime
-    
-    tipo = request.form.get('tipo_atividade', 'Avaliação de TCC / Mentoria Extra')
-    
+
     # Verifica se o voluntário já tem um relógio a contar
     ponto_aberto = CheckinVoluntariado.query.filter_by(
         usuario_id=current_user.id,
         data_hora_fim=None
     ).first()
-    
+
     if ponto_aberto:
         # DESLIGAR O RELÓGIO (Check-out)
         ponto_aberto.data_hora_fim = datetime.utcnow()
-        
+
         # Calcula os minutos exatos
         tempo_passado = ponto_aberto.data_hora_fim - ponto_aberto.data_hora_inicio
         minutos = int(tempo_passado.total_seconds() / 60)
         ponto_aberto.total_minutos = minutos
-        
+
         db.session.commit()
         flash(f"⏱️ Check-out concluído! Foram contabilizados {minutos} minutos para o relatório corporativo ESG.", "success")
     else:
-        # LIGAR O RELÓGIO (Check-in)
+        # LIGAR O RELÓGIO (Check-in): extras exigem grupo e motivo; leitura exige o TCC
+        tipo = request.form.get('tipo_atividade') or 'Apoio Institucional'
+        erro, grupo_id, projeto_id, motivo = validar_vinculos_voluntariado(current_user, tipo, request.form)
+        if erro:
+            flash(t(erro, current_user.idioma), "warning")
+            return redirect(request.referrer or url_for('dashboard'))
+
         novo_ponto = CheckinVoluntariado(
             usuario_id=current_user.id,
             tipo_atividade=tipo,
-            data_hora_inicio=datetime.utcnow()
+            data_hora_inicio=datetime.utcnow(),
+            grupo_id=grupo_id,
+            projeto_id=projeto_id,
+            categoria=classificar_categoria(tipo),
+            observacoes=motivo or None
         )
         db.session.add(novo_ponto)
         db.session.commit()
         flash("⏳ O relógio de voluntariado começou a contar! Não se esqueça de desligar quando terminar a leitura ou reunião.", "info")
-        
+
     return redirect(request.referrer or url_for('dashboard'))
 
 
 # ==============================================================================
 # ROTA: PORTAL DE DEMANDAS INSTITUCIONAIS (TICKETS ITM & AON)
 # ==============================================================================
+# ==============================================================================
+# ATIVIDADES EXTRAS DO GRUPO (fora do cronograma) — check-in/out de mentores e jovens
+# ==============================================================================
+PERFIS_CRIAM_ATIVIDADE_EXTRA = ['Mentor', 'Professor', 'Mentor Administrador', 'Administrador']
+
+
+def pode_ver_atividade_extra(usuario, atividade):
+    if usuario.tipo_usuario in ['Administrador', 'Mentor Administrador']:
+        return True
+    membros = {m.id for m in atividade.grupo.membros} if atividade.grupo else set()
+    if usuario.id in membros or usuario.id == atividade.criado_por_id:
+        return True
+    if usuario.tipo_usuario == 'Admin B2B':
+        return bool(membros & (ids_jovens_visiveis(usuario) or set()))
+    return False
+
+
+def pode_gerir_atividade_extra(usuario, atividade):
+    return usuario.id == atividade.criado_por_id or usuario.tipo_usuario in ['Administrador', 'Mentor Administrador']
+
+
+def pode_registrar_presenca(usuario, atividade):
+    """Só quem é do grupo (ou quem criou a atividade) faz check-in."""
+    membros = {m.id for m in atividade.grupo.membros} if atividade.grupo else set()
+    return usuario.id in membros or usuario.id == atividade.criado_por_id
+
+
+def atividades_extras_visiveis(usuario):
+    from models import AtividadeExtra
+    todas = AtividadeExtra.query.order_by(AtividadeExtra.data_hora_inicio_prevista.desc()).limit(200).all()
+    return [a for a in todas if pode_ver_atividade_extra(usuario, a)]
+
+
+def fechar_presenca(presenca, horario_saida, automatico=False):
+    """Calcula os minutos e, para quem não é Aluno, gera o lançamento ESG (categoria Extra) sem duplicar."""
+    from models import CheckinVoluntariado
+    presenca.check_out = max(horario_saida, presenca.check_in)
+    presenca.total_minutos = int((presenca.check_out - presenca.check_in).total_seconds() / 60)
+    presenca.checkout_automatico = automatico
+    pessoa = presenca.usuario
+    if pessoa and pessoa.tipo_usuario != 'Aluno' and not presenca.checkin_voluntariado_id:
+        # Relógio de voluntariado aberto já está contando este tempo: não lança de novo
+        relogio_aberto = CheckinVoluntariado.query.filter_by(usuario_id=pessoa.id, data_hora_fim=None).first()
+        if not relogio_aberto:
+            atividade = presenca.atividade
+            lancamento = CheckinVoluntariado(
+                usuario_id=pessoa.id, tipo_atividade='Mentoria Extraordinária', categoria='Extra',
+                grupo_id=atividade.grupo_id, data_hora_inicio=presenca.check_in, data_hora_fim=presenca.check_out,
+                total_minutos=presenca.total_minutos,
+                observacoes=f"Atividade extra #{atividade.id}: {atividade.titulo} — {atividade.motivo}"[:1000])
+            db.session.add(lancamento)
+            db.session.flush()
+            presenca.checkin_voluntariado_id = lancamento.id
+
+
+@app.route('/atividades-extras')
+@login_required
+def atividades_extras():
+    from models import AtividadeExtra
+    lista = atividades_extras_visiveis(current_user)
+    minhas = {p.atividade_id: p for a in lista for p in a.presencas if p.usuario_id == current_user.id}
+    pode_criar = current_user.tipo_usuario in PERFIS_CRIAM_ATIVIDADE_EXTRA
+    return render_template('atividades_extras.html', atividades=lista, minhas=minhas, pode_criar=pode_criar,
+                           grupos=grupos_do_usuario(current_user) if pode_criar else [],
+                           agora=datetime.now(), pode_gerir=lambda a: pode_gerir_atividade_extra(current_user, a),
+                           pode_registrar=lambda a: pode_registrar_presenca(current_user, a))
+
+
+@app.route('/atividades-extras/nova', methods=['POST'])
+@login_required
+def nova_atividade_extra():
+    from models import AtividadeExtra
+    if current_user.tipo_usuario not in PERFIS_CRIAM_ATIVIDADE_EXTRA:
+        flash("Acesso negado.", "danger")
+        return redirect(url_for('atividades_extras'))
+
+    grupo_id = request.form.get('grupo_id', type=int)
+    titulo = (request.form.get('titulo') or '').strip()
+    motivo = (request.form.get('motivo') or '').strip()
+    try:
+        inicio = datetime.strptime(request.form.get('data_hora_inicio', ''), "%Y-%m-%dT%H:%M")
+    except ValueError:
+        inicio = None
+    duracao = request.form.get('duracao_prevista_min', type=int) or 60
+
+    if grupo_id not in {g.id for g in grupos_do_usuario(current_user)}:
+        flash(t('vol_erro_grupo', current_user.idioma), "warning")
+    elif not titulo or len(motivo) < 10 or not inicio:
+        flash(t('extra_erro_campos', current_user.idioma), "warning")
+    elif not 10 <= duracao <= 12 * 60:
+        flash(t('vol_erro_duracao', current_user.idioma), "warning")
+    else:
+        atividade = AtividadeExtra(grupo_id=grupo_id, titulo=titulo, motivo=motivo, data_hora_inicio_prevista=inicio,
+                                   duracao_prevista_min=duracao, modalidade=request.form.get('modalidade') or 'Presencial',
+                                   link_sala=(request.form.get('link_sala') or '').strip() or None, criado_por_id=current_user.id)
+        db.session.add(atividade)
+        db.session.commit()
+        notificar([m for m in atividade.grupo.membros if m.id != current_user.id],
+                  ('notif_extra_titulo', {'titulo': titulo}),
+                  ('notif_extra_msg', {'autor': current_user.nome, 'grupo': atividade.grupo.nome,
+                                       'inicio': inicio.strftime('%d/%m/%Y %H:%M'), 'motivo': motivo}),
+                  link=url_for('atividades_extras'), tipo='atividade_extra', referencia=f"extra-nova:{atividade.id}")
+        flash(t('extra_criada', current_user.idioma), "success")
+    return redirect(url_for('atividades_extras'))
+
+
+@app.route('/atividades-extras/<int:id>/<acao>', methods=['POST'])
+@login_required
+def acao_atividade_extra(id, acao):
+    from models import AtividadeExtra, PresencaAtividadeExtra
+    atividade = db.session.get(AtividadeExtra, id)
+    if not atividade or not pode_ver_atividade_extra(current_user, atividade):
+        flash("Acesso negado.", "danger")
+        return redirect(url_for('atividades_extras'))
+    agora = datetime.now()
+    aberta = atividade.status in ['Agendada', 'Em andamento']
+    presenca = PresencaAtividadeExtra.query.filter_by(atividade_id=atividade.id, usuario_id=current_user.id).first()
+
+    if acao == 'checkin':
+        if not pode_registrar_presenca(current_user, atividade):
+            flash(t('extra_so_membros', current_user.idioma), "danger")
+        elif not aberta:
+            flash(t('extra_fechada', current_user.idioma), "warning")
+        elif agora < atividade.data_hora_inicio_prevista - timedelta(minutes=30):
+            flash(t('extra_cedo', current_user.idioma), "warning")
+        elif presenca:
+            flash(t('extra_ja_registrado', current_user.idioma), "info")
+        else:
+            db.session.add(PresencaAtividadeExtra(atividade_id=atividade.id, usuario_id=current_user.id, check_in=agora,
+                                                  modalidade=request.form.get('modalidade') or atividade.modalidade))
+            if atividade.status == 'Agendada':
+                atividade.status = 'Em andamento'
+            db.session.commit()
+            flash(t('extra_checkin_ok', current_user.idioma), "success")
+
+    elif acao == 'checkout':
+        if not presenca or presenca.check_out:
+            flash(t('extra_sem_checkin', current_user.idioma), "warning")
+        else:
+            fechar_presenca(presenca, agora)
+            db.session.commit()
+            flash(t('extra_checkout_ok', current_user.idioma).format(minutos=presenca.total_minutos), "success")
+
+    elif acao in ['encerrar', 'cancelar']:
+        if not pode_gerir_atividade_extra(current_user, atividade) or not aberta:
+            flash("Acesso negado.", "danger")
+        elif acao == 'cancelar':
+            atividade.status = 'Cancelada'
+            db.session.commit()
+            flash(t('extra_cancelada', current_user.idioma), "info")
+        else:
+            # Quem esqueceu o check-out recebe o horário de fim previsto (ou agora, se já passou do check-in)
+            for p in atividade.presencas:
+                if not p.check_out:
+                    fechar_presenca(p, min(agora, max(atividade.fim_previsto, p.check_in)), automatico=True)
+            atividade.status = 'Encerrada'
+            atividade.data_encerramento = agora
+            db.session.commit()
+            flash(t('extra_encerrada', current_user.idioma), "success")
+    return redirect(url_for('atividades_extras') + f"#extra-{atividade.id}")
+
+
+@app.route('/atividades-extras/<int:id>/relatorio.csv')
+@login_required
+def relatorio_atividade_extra(id):
+    import csv
+    import io
+    from flask import Response
+    from models import AtividadeExtra
+    atividade = db.session.get(AtividadeExtra, id)
+    if not atividade or not (pode_gerir_atividade_extra(current_user, atividade) or current_user.tipo_usuario == 'Admin B2B'
+                             and pode_ver_atividade_extra(current_user, atividade)):
+        flash("Acesso negado.", "danger")
+        return redirect(url_for('atividades_extras'))
+    saida = io.StringIO()
+    escritor = csv.writer(saida, delimiter=';')
+    escritor.writerow(['Atividade', 'Grupo', 'Participante', 'Perfil', 'Entrada', 'Saída', 'Minutos', 'Modalidade', 'Check-out automático'])
+    for p in sorted(atividade.presencas, key=lambda x: x.check_in):
+        escritor.writerow([atividade.titulo, atividade.grupo.nome if atividade.grupo else '', p.usuario.nome if p.usuario else '',
+                           p.usuario.tipo_usuario if p.usuario else '', p.check_in.strftime('%d/%m/%Y %H:%M'),
+                           p.check_out.strftime('%d/%m/%Y %H:%M') if p.check_out else '', p.total_minutos or 0,
+                           p.modalidade or '', 'Sim' if p.checkout_automatico else 'Não'])
+    return Response(saida.getvalue().encode('utf-8-sig'), mimetype="text/csv",
+                    headers={"Content-Disposition": f"attachment;filename=Atividade_Extra_{atividade.id}.csv"})
+
+
+# ==============================================================================
+# REUNIÕES INSTITUCIONAIS ITM × AON (ata, participantes, encaminhamentos e horas)
+# ==============================================================================
+PERFIS_GESTAO_REUNIOES = ['Administrador', 'Mentor Administrador', 'Admin B2B']
+
+
+def pode_ver_reuniao(usuario, reuniao):
+    return usuario.tipo_usuario in PERFIS_GESTAO_REUNIOES or usuario in reuniao.participantes
+
+
+def sincronizar_voluntariado_reuniao(reuniao):
+    """Mantém um lançamento ESG (categoria Extra) por participante interno, sem duplicar ao editar."""
+    from models import CheckinVoluntariado
+    existentes = {c.usuario_id: c for c in CheckinVoluntariado.query.filter_by(reuniao_id=reuniao.id).all()}
+    contar = {p.id for p in reuniao.participantes if p.tipo_usuario != 'Aluno'} if reuniao.contar_voluntariado else set()
+    fim = reuniao.data_hora + timedelta(minutes=reuniao.duracao_minutos or 0)
+    for usuario_id in contar:
+        lancamento = existentes.pop(usuario_id, None) or CheckinVoluntariado(usuario_id=usuario_id, reuniao_id=reuniao.id)
+        lancamento.tipo_atividade = 'Reunião Institucional'
+        lancamento.categoria = 'Extra'
+        lancamento.data_hora_inicio = reuniao.data_hora
+        lancamento.data_hora_fim = fim
+        lancamento.total_minutos = reuniao.duracao_minutos or 0
+        lancamento.observacoes = f"Reunião #{reuniao.id}: {reuniao.titulo}"[:1000]
+        db.session.add(lancamento)
+    # Quem saiu da lista (ou "contar como voluntariado" desligado) perde o lançamento
+    for sobra in existentes.values():
+        db.session.delete(sobra)
+
+
+def salvar_reuniao_do_formulario(reuniao, formulario):
+    """Preenche a reunião com os dados do formulário. Devolve a chave do erro ou None."""
+    titulo = (formulario.get('titulo') or '').strip()
+    try:
+        data_hora = datetime.strptime(formulario.get('data_hora', ''), "%Y-%m-%dT%H:%M")
+    except ValueError:
+        data_hora = None
+    duracao = formulario.get('duracao_minutos', type=int) or 0
+    if not titulo or not data_hora:
+        return 'reuniao_erro_campos'
+    if not 5 <= duracao <= 12 * 60:
+        return 'vol_erro_duracao'
+    reuniao.titulo = titulo
+    reuniao.data_hora = data_hora
+    reuniao.duracao_minutos = duracao
+    reuniao.modalidade = formulario.get('modalidade') or 'Online'
+    reuniao.local_ou_link = (formulario.get('local_ou_link') or '').strip() or None
+    reuniao.pauta = (formulario.get('pauta') or '').strip() or None
+    reuniao.deliberacoes = (formulario.get('deliberacoes') or '').strip() or None
+    reuniao.participantes_externos = (formulario.get('participantes_externos') or '').strip() or None
+    reuniao.contar_voluntariado = bool(formulario.get('contar_voluntariado'))
+    reuniao.demanda_id = formulario.get('demanda_id', type=int) or None
+    ids = [int(i) for i in formulario.getlist('participantes') if i.isdigit()]
+    reuniao.participantes = Usuario.query.filter(Usuario.id.in_(ids or [-1]), Usuario.tipo_usuario != 'Aluno').all()
+
+    # Encaminhamentos novos (linhas preenchidas no formulário)
+    from models import EncaminhamentoReuniao
+    for descricao, responsavel, prazo in zip(formulario.getlist('enc_descricao'), formulario.getlist('enc_responsavel'),
+                                             formulario.getlist('enc_prazo')):
+        if descricao.strip():
+            try:
+                data_prazo = datetime.strptime(prazo, "%Y-%m-%d").date() if prazo else None
+            except ValueError:
+                data_prazo = None
+            reuniao.encaminhamentos.append(EncaminhamentoReuniao(
+                descricao=descricao.strip(), responsavel_id=int(responsavel) if responsavel.isdigit() else None, prazo=data_prazo))
+    return None
+
+
+def pessoas_internas_reuniao():
+    return Usuario.query.filter(Usuario.tipo_usuario != 'Aluno', Usuario.status == 'Ativo').order_by(Usuario.nome).all()
+
+
+@app.route('/reunioes')
+@login_required
+def reunioes():
+    from models import ReuniaoInstitucional
+    consulta = ReuniaoInstitucional.query
+    inicio = request.args.get('data_inicio')
+    fim = request.args.get('data_fim')
+    if inicio:
+        consulta = consulta.filter(db.func.date(ReuniaoInstitucional.data_hora) >= inicio)
+    if fim:
+        consulta = consulta.filter(db.func.date(ReuniaoInstitucional.data_hora) <= fim)
+    lista = [r for r in consulta.order_by(ReuniaoInstitucional.data_hora.desc()).all() if pode_ver_reuniao(current_user, r)]
+    if current_user.tipo_usuario not in PERFIS_GESTAO_REUNIOES and not lista:
+        flash("Acesso negado.", "danger")
+        return redirect(url_for('dashboard'))
+    return render_template('reunioes.html', reunioes=lista, filtro_inicio=inicio, filtro_fim=fim,
+                           pode_criar=current_user.tipo_usuario in PERFIS_GESTAO_REUNIOES, hoje=datetime.now().date())
+
+
+@app.route('/reunioes/nova', methods=['GET', 'POST'])
+@app.route('/reunioes/<int:id>/editar', methods=['GET', 'POST'])
+@login_required
+def editar_reuniao(id=None):
+    from models import ReuniaoInstitucional, DemandaInstitucional
+    if current_user.tipo_usuario not in PERFIS_GESTAO_REUNIOES:
+        flash("Acesso negado.", "danger")
+        return redirect(url_for('dashboard'))
+    reuniao = db.session.get(ReuniaoInstitucional, id) if id else None
+    if id and not reuniao:
+        return redirect(url_for('reunioes'))
+
+    if request.method == 'POST':
+        nova = reuniao is None
+        if nova:
+            reuniao = ReuniaoInstitucional(criado_por_id=current_user.id)
+        erro = salvar_reuniao_do_formulario(reuniao, request.form)
+        if erro:
+            flash(t(erro, current_user.idioma), "warning")
+            return redirect(request.url)
+        db.session.add(reuniao)
+        db.session.flush()
+        sincronizar_voluntariado_reuniao(reuniao)
+        db.session.commit()
+        if nova:
+            notificar([p for p in reuniao.participantes if p.id != current_user.id],
+                      ('notif_reuniao_titulo', {'titulo': reuniao.titulo}),
+                      ('notif_reuniao_msg', {'autor': current_user.nome, 'data': reuniao.data_hora.strftime('%d/%m/%Y %H:%M')}),
+                      link=url_for('detalhe_reuniao', id=reuniao.id), tipo='reuniao', referencia=f"reuniao:{reuniao.id}")
+        flash(t('reuniao_salva', current_user.idioma), "success")
+        return redirect(url_for('detalhe_reuniao', id=reuniao.id))
+
+    demanda = db.session.get(DemandaInstitucional, request.args.get('demanda_id', type=int) or 0)
+    demandas = DemandaInstitucional.query.order_by(DemandaInstitucional.data_criacao.desc()).limit(100).all()
+    return render_template('reuniao_form.html', reuniao=reuniao, pessoas=pessoas_internas_reuniao(),
+                           demandas=demandas, demanda_inicial=demanda)
+
+
+@app.route('/reunioes/<int:id>', methods=['GET', 'POST'])
+@login_required
+def detalhe_reuniao(id):
+    from models import ReuniaoInstitucional, EncaminhamentoReuniao
+    reuniao = db.session.get(ReuniaoInstitucional, id)
+    if not reuniao or not pode_ver_reuniao(current_user, reuniao):
+        flash("Acesso negado.", "danger")
+        return redirect(url_for('dashboard'))
+
+    if request.method == 'POST':
+        # Responsável pelo encaminhamento ou gestão marcam como concluído / reabrem
+        enc = db.session.get(EncaminhamentoReuniao, request.form.get('encaminhamento_id', type=int) or 0)
+        if enc and enc.reuniao_id == reuniao.id and (current_user.tipo_usuario in PERFIS_GESTAO_REUNIOES or enc.responsavel_id == current_user.id):
+            concluir = enc.status != 'Concluído'
+            enc.status = 'Concluído' if concluir else 'Pendente'
+            enc.data_conclusao = datetime.utcnow() if concluir else None
+            db.session.commit()
+            flash(t('reuniao_enc_atualizado', current_user.idioma), "success")
+        return redirect(url_for('detalhe_reuniao', id=reuniao.id))
+
+    imprimir = request.args.get('imprimir') == '1'
+    return render_template('reuniao_ata.html' if imprimir else 'reuniao_detalhe.html', reuniao=reuniao, hoje=datetime.now().date(),
+                           pode_editar=current_user.tipo_usuario in PERFIS_GESTAO_REUNIOES)
+
+
+def encaminhamentos_atrasados(usuario):
+    """Encaminhamentos pendentes com prazo vencido que a pessoa deve acompanhar."""
+    from models import EncaminhamentoReuniao
+    consulta = EncaminhamentoReuniao.query.filter(EncaminhamentoReuniao.status == 'Pendente',
+                                                  EncaminhamentoReuniao.prazo < datetime.now().date())
+    if usuario.tipo_usuario not in PERFIS_GESTAO_REUNIOES:
+        consulta = consulta.filter(EncaminhamentoReuniao.responsavel_id == usuario.id)
+    return consulta.all()
+
+
 # ==============================================================================
 # ROTAS: NOTIFICAÇÕES DO USUÁRIO (histórico do sino e preferência de e-mail)
 # ==============================================================================
@@ -2104,45 +2584,59 @@ def portal_demandas():
 @login_required
 def lancamento_manual_voluntariado():
     from models import CheckinVoluntariado
-    from datetime import datetime
-    
+    from datetime import datetime, timedelta
+
     tipo = request.form.get('tipo_atividade')
     data_str = request.form.get('data')
     hora_inicio_str = request.form.get('hora_inicio')
     hora_fim_str = request.form.get('hora_fim')
-    observacoes = request.form.get('observacoes')
-    
-    if data_str and hora_inicio_str and hora_fim_str:
-        try:
-            # Junta a data com as horas para criar o formato completo
-            inicio_dt = datetime.strptime(f"{data_str} {hora_inicio_str}", "%Y-%m-%d %H:%M")
-            fim_dt = datetime.strptime(f"{data_str} {hora_fim_str}", "%Y-%m-%d %H:%M")
-            
-            # Trata o caso de virar a noite (ex: 23:00 até 01:00)
-            if fim_dt < inicio_dt:
-                from datetime import timedelta
-                fim_dt += timedelta(days=1)
-                
-            minutos = int((fim_dt - inicio_dt).total_seconds() / 60)
-            
-            novo_ponto = CheckinVoluntariado(
-                usuario_id=current_user.id,
-                tipo_atividade=f"{tipo} (Lançamento Manual)",
-                data_hora_inicio=inicio_dt,
-                data_hora_fim=fim_dt,
-                total_minutos=minutos,
-                observacoes=observacoes
-            )
-            db.session.add(novo_ponto)
-            db.session.commit()
-            
-            # Alerta limpo e genérico para qualquer parceiro B2B
-            flash(f"✅ Lançamento manual gravado! {minutos} minutos adicionados ao relatório corporativo ESG.", "success")
-        except Exception as e:
-            flash(f"Erro ao processar as datas. Tente novamente.", "danger")
-    else:
+
+    if not (tipo and data_str and hora_inicio_str and hora_fim_str):
         flash("Preencha todos os campos obrigatórios para o lançamento manual.", "warning")
-        
+        return redirect(request.referrer or url_for('dashboard'))
+
+    erro, grupo_id, projeto_id, motivo = validar_vinculos_voluntariado(current_user, tipo, request.form)
+    if erro:
+        flash(t(erro, current_user.idioma), "warning")
+        return redirect(request.referrer or url_for('dashboard'))
+
+    try:
+        # Junta a data com as horas para criar o formato completo
+        inicio_dt = datetime.strptime(f"{data_str} {hora_inicio_str}", "%Y-%m-%d %H:%M")
+        fim_dt = datetime.strptime(f"{data_str} {hora_fim_str}", "%Y-%m-%d %H:%M")
+    except ValueError:
+        flash("Erro ao processar as datas. Tente novamente.", "danger")
+        return redirect(request.referrer or url_for('dashboard'))
+
+    # Trata o caso de virar a noite (ex: 23:00 até 01:00)
+    if fim_dt < inicio_dt:
+        fim_dt += timedelta(days=1)
+    minutos = int((fim_dt - inicio_dt).total_seconds() / 60)
+
+    # Regras: nada no futuro, nada com duração zero e no máximo 12 h por lançamento
+    if inicio_dt > datetime.now():
+        flash(t('vol_erro_futuro', current_user.idioma), "warning")
+        return redirect(request.referrer or url_for('dashboard'))
+    if minutos <= 0 or minutos > 12 * 60:
+        flash(t('vol_erro_duracao', current_user.idioma), "warning")
+        return redirect(request.referrer or url_for('dashboard'))
+
+    novo_ponto = CheckinVoluntariado(
+        usuario_id=current_user.id,
+        tipo_atividade=f"{tipo} (Lançamento Manual)",
+        data_hora_inicio=inicio_dt,
+        data_hora_fim=fim_dt,
+        total_minutos=minutos,
+        observacoes=motivo or None,
+        grupo_id=grupo_id,
+        projeto_id=projeto_id,
+        categoria=classificar_categoria(tipo)
+    )
+    db.session.add(novo_ponto)
+    db.session.commit()
+
+    # Alerta limpo e genérico para qualquer parceiro B2B
+    flash(f"✅ Lançamento manual gravado! {minutos} minutos adicionados ao relatório corporativo ESG.", "success")
     return redirect(request.referrer or url_for('dashboard'))
 
 # ==============================================================================
@@ -2154,57 +2648,30 @@ def exportar_relatorio_esg():
     import csv
     import io
     from flask import Response
-    from models import CheckinVoluntariado, Empresa
-    
+
     # 1. Trava de segurança: Apenas Admins e Gestores B2B podem baixar o relatório
     if current_user.tipo_usuario not in ['Administrador', 'Mentor Administrador', 'Admin B2B']:
         flash('Acesso negado. Apenas gestores podem exportar o relatório ESG.', 'danger')
         return redirect(url_for('dashboard'))
-        
+
     # 2. Cria o arquivo na memória
     output = io.StringIO()
     # Usamos ponto e vírgula para abrir corretamente no Excel em português
-    writer = csv.writer(output, delimiter=';') 
-    
+    writer = csv.writer(output, delimiter=';')
+
     # 3. Cabeçalho das colunas do Excel
-    writer.writerow(['Nome do Colaborador', 'Perfil', 'Empresa Associada', 'Tipo de Atividade (ESG)', 'Minutos de Voluntariado', 'Data do Registo', 'Status'])
-    
-    # 4. Lógica de Isolamento B2B na exportação
-    if current_user.tipo_usuario == 'Admin B2B':
-        empresas_geridas = Empresa.query.filter_by(gestor_id=current_user.id).all()
-        mentores_da_empresa_ids = []
-        for emp in empresas_geridas:
-            mentores_da_empresa_ids.extend([m.id for m in emp.mentores])
-            
-        if not mentores_da_empresa_ids:
-            voluntariados = []
-        else:
-            voluntariados = CheckinVoluntariado.query.filter(CheckinVoluntariado.usuario_id.in_(mentores_da_empresa_ids)).order_by(CheckinVoluntariado.data_hora_inicio.desc()).all()
-    else:
-        # Administrador Geral vê tudo
-        voluntariados = CheckinVoluntariado.query.order_by(CheckinVoluntariado.data_hora_inicio.desc()).all()
-        
-    # 5. Preenche as linhas do Excel
-    for vol in voluntariados:
-        usuario = db.session.get(Usuario, vol.usuario_id)
-        nome_usuario = usuario.nome if usuario else 'Desconhecido'
-        perfil = usuario.tipo_usuario if usuario else 'N/A'
-        
-        # Puxa o nome da empresa se existir
-        empresa_nome = "Institucional (Hub)"
-        if usuario and hasattr(usuario, 'empresas') and usuario.empresas:
-            empresa_nome = ", ".join([e.nome for e in usuario.empresas])
-            
-        horas_str = str(vol.total_minutos) if vol.total_minutos else "0"
-        data_str = vol.data_hora_inicio.strftime('%d/%m/%Y %H:%M') if vol.data_hora_inicio else ""
-        status_str = "Concluído" if vol.data_hora_fim else "Em Andamento (Relógio Ativo)"
-        
-        writer.writerow([nome_usuario, perfil, empresa_nome, vol.tipo_atividade, horas_str, data_str, status_str])
-        
+    writer.writerow(['Nome do Colaborador', 'Perfil', 'Empresa Associada', 'Tipo de Atividade (ESG)', 'Categoria',
+                     'Grupo', 'Projeto (TCC)', 'Motivo / Observações', 'Minutos de Voluntariado', 'Data do Registo', 'Status'])
+
+    # 4. Linhas no escopo do perfil (Gestor B2B só vê os mentores das suas empresas)
+    for linha in [linha_relatorio_esg(vol) for vol in registros_esg_do_perfil(current_user)]:
+        writer.writerow([linha['nome'], linha['perfil'], linha['empresa'], linha['atividade'], linha['categoria'],
+                         linha['grupo'], linha['projeto'], linha['motivo'], linha['minutos'], linha['data'], linha['status']])
+
     # Retorna para o início do arquivo
     output.seek(0)
-    
-    # 6. Devolve o arquivo pronto para download (utf-8-sig evita que os acentos fiquem desconfigurados no Windows)
+
+    # 5. Devolve o arquivo pronto para download (utf-8-sig evita que os acentos fiquem desconfigurados no Windows)
     return Response(
         output.getvalue().encode('utf-8-sig'),
         mimetype="text/csv",
@@ -2217,32 +2684,22 @@ def exportar_relatorio_esg():
 @app.route('/admin/exportar-relatorio-esg-pdf')
 @login_required
 def exportar_relatorio_esg_pdf():
-    from models import CheckinVoluntariado, Empresa
     from flask import render_template_string
-    
+
     if current_user.tipo_usuario not in ['Administrador', 'Mentor Administrador', 'Admin B2B']:
+        flash('Acesso negado. Apenas gestores podem exportar o relatório ESG.', 'danger')
         return redirect(url_for('dashboard'))
-        
-    if current_user.tipo_usuario == 'Admin B2B':
-        empresas = Empresa.query.filter_by(gestor_id=current_user.id).all()
-        mentores_ids = [m.id for emp in empresas for m in emp.mentores]
-        vols = CheckinVoluntariado.query.filter(CheckinVoluntariado.usuario_id.in_(mentores_ids)).order_by(CheckinVoluntariado.data_hora_inicio.desc()).all() if mentores_ids else []
-    else:
-        vols = CheckinVoluntariado.query.order_by(CheckinVoluntariado.data_hora_inicio.desc()).all()
-        
-    dados_formatados = []
-    for vol in vols:
-        usuario = db.session.get(Usuario, vol.usuario_id)
-        emp_nome = ", ".join([e.nome for e in usuario.empresas]) if usuario and hasattr(usuario, 'empresas') and usuario.empresas else "Hub Institucional"
-        dados_formatados.append({
-            'nome': usuario.nome if usuario else 'Desconhecido',
-            'perfil': usuario.tipo_usuario if usuario else 'N/A',
-            'empresa': emp_nome,
-            'atividade': vol.tipo_atividade,
-            'horas': vol.total_minutos or 0,
-            'data': vol.data_hora_inicio.strftime('%d/%m/%Y %H:%M') if vol.data_hora_inicio else "",
-            'status': "Concluído" if vol.data_hora_fim else "Em Andamento"
-        })
+
+    dados_formatados = [linha_relatorio_esg(vol) for vol in registros_esg_do_perfil(current_user)]
+
+    # Totais por colaborador: horas regulamentares × extraordinárias (só registros concluídos)
+    totais = {}
+    for d in dados_formatados:
+        if d['status'] != 'Concluído':
+            continue
+        pessoa = totais.setdefault(d['nome'], {'nome': d['nome'], 'empresa': d['empresa'], 'Regular': 0, 'Extra': 0})
+        pessoa['Extra' if d['categoria'] == 'Extra' else 'Regular'] += d['minutos']
+    resumo = sorted(totais.values(), key=lambda p: -(p['Regular'] + p['Extra']))
 
     # Gera um HTML limpo otimizado para salvar como PDF
     html_pdf = """
@@ -2256,11 +2713,14 @@ def exportar_relatorio_esg_pdf():
             .header { text-align: center; border-bottom: 2px solid #198754; padding-bottom: 10px; margin-bottom: 20px; }
             .header h1 { color: #198754; margin: 0; }
             .header p { color: #666; font-size: 0.9em; }
+            h2 { color: #198754; font-size: 1.1em; margin-top: 28px; }
             table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 0.85em; }
-            th, td { border: 1px solid #ddd; padding: 10px; text-align: left; }
+            th, td { border: 1px solid #ddd; padding: 8px 10px; text-align: left; }
             th { background-color: #f8f9fa; color: #198754; }
+            td.num { text-align: right; font-variant-numeric: tabular-nums; }
             tr:nth-child(even) { background-color: #f9f9f9; }
             .badge { background-color: #e9ecef; padding: 4px 8px; border-radius: 4px; font-size: 0.8em; }
+            .extra { background-color: #fff3cd; }
             @media print {
                 .no-print { display: none; }
                 body { padding: 0; }
@@ -2276,12 +2736,33 @@ def exportar_relatorio_esg_pdf():
             <h1>Relatório Executivo ESG</h1>
             <p>Horas de Voluntariado Corporativo e Impacto Social | Emitido em: {{ data_emissao }}</p>
         </div>
+
+        <h2>Horas por colaborador (regulamentares × extraordinárias)</h2>
+        <table>
+            <thead><tr><th>Colaborador</th><th>Empresa</th><th>Regulares</th><th>Extras</th><th>Total</th></tr></thead>
+            <tbody>
+                {% for p in resumo %}
+                <tr>
+                    <td><strong>{{ p.nome }}</strong></td>
+                    <td>{{ p.empresa }}</td>
+                    <td class="num">{{ '%.1f'|format(p.Regular / 60) }} h</td>
+                    <td class="num">{{ '%.1f'|format(p.Extra / 60) }} h</td>
+                    <td class="num"><strong>{{ '%.1f'|format((p.Regular + p.Extra) / 60) }} h</strong></td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <h2>Lançamentos</h2>
         <table>
             <thead>
                 <tr>
                     <th>Colaborador</th>
                     <th>Empresa</th>
                     <th>Atividade Executada</th>
+                    <th>Categoria</th>
+                    <th>Grupo / Projeto</th>
+                    <th>Motivo</th>
                     <th>Minutos</th>
                     <th>Data</th>
                     <th>Status</th>
@@ -2289,11 +2770,14 @@ def exportar_relatorio_esg_pdf():
             </thead>
             <tbody>
                 {% for d in dados %}
-                <tr>
+                <tr class="{{ 'extra' if d.categoria == 'Extra' else '' }}">
                     <td><strong>{{ d.nome }}</strong><br><span class="badge">{{ d.perfil }}</span></td>
                     <td>{{ d.empresa }}</td>
                     <td>{{ d.atividade }}</td>
-                    <td><strong>{{ d.horas }} min</strong></td>
+                    <td>{{ d.categoria }}</td>
+                    <td>{{ d.grupo }}{% if d.projeto %}<br><small>{{ d.projeto }}</small>{% endif %}</td>
+                    <td>{{ d.motivo }}</td>
+                    <td class="num"><strong>{{ d.minutos }} min</strong></td>
                     <td>{{ d.data }}</td>
                     <td>{{ d.status }}</td>
                 </tr>
@@ -2303,7 +2787,7 @@ def exportar_relatorio_esg_pdf():
     </body>
     </html>
     """
-    return render_template_string(html_pdf, dados=dados_formatados, data_emissao=datetime.now().strftime('%d/%m/%Y %H:%M'))
+    return render_template_string(html_pdf, dados=dados_formatados, resumo=resumo, data_emissao=datetime.now().strftime('%d/%m/%Y %H:%M'))
 
 # ==============================================================================
 # MOTOR DO ONBOARDING B2B E TRAVA DE COMPLIANCE
@@ -4000,7 +4484,12 @@ with app.app_context():
         "ALTER TABLE empresa ADD COLUMN contato_sec_email VARCHAR(150)",
         # Adequações Aon/ITM
         "ALTER TABLE usuario ADD COLUMN modalidade_participacao VARCHAR(20) DEFAULT 'Presencial'",
-        "ALTER TABLE usuario ADD COLUMN receber_email BOOLEAN DEFAULT 1"
+        "ALTER TABLE usuario ADD COLUMN receber_email BOOLEAN DEFAULT 1",
+        "ALTER TABLE checkin_voluntariado ADD COLUMN grupo_id INTEGER REFERENCES grupo(id)",
+        "ALTER TABLE checkin_voluntariado ADD COLUMN categoria VARCHAR(20) DEFAULT 'Regular'",
+        # Correção idempotente: lançamentos antigos de mentoria extraordinária são horas EXTRAS
+        "UPDATE checkin_voluntariado SET categoria = 'Extra' WHERE tipo_atividade LIKE 'Mentoria Extraordin%' AND (categoria IS NULL OR categoria = 'Regular')",
+        "ALTER TABLE checkin_voluntariado ADD COLUMN reuniao_id INTEGER REFERENCES reuniao_institucional(id)"
     ]
     
     for comando in colunas_novas:

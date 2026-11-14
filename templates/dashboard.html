@@ -1,7 +1,37 @@
 {% extends "base.html" %}
 {% block title %}{{ t('titulo_dashboard') }} Mentoria{% endblock %}
 {% block content %}
-    
+
+<!-- ENCAMINHAMENTOS DE REUNIÕES ITM × AON COM PRAZO VENCIDO -->
+{% if encaminhamentos_vencidos %}
+<div class="alert alert-danger shadow-sm border-start border-4 border-danger">
+    <strong><i class="bi bi-exclamation-octagon"></i> {{ encaminhamentos_vencidos|length }} {{ t('reuniao_alerta_atrasados') }}</strong>
+    <ul class="mb-0 small mt-1">
+        {% for e in encaminhamentos_vencidos[:5] %}
+        <li><a href="{{ url_for('detalhe_reuniao', id=e.reuniao_id) }}" class="alert-link">{{ e.descricao[:90] }}</a> · {{ e.responsavel.nome if e.responsavel else '—' }} · {{ e.prazo.strftime('%d/%m/%Y') }}</li>
+        {% endfor %}
+    </ul>
+</div>
+{% endif %}
+
+<!-- ATIVIDADE EXTRA DO GRUPO ACONTECENDO AGORA (check-in/out de jovens e mentores) -->
+{% for a in atividades_agora or [] %}
+{% set minha = (minhas_presencas_agora or {}).get(a.id) %}
+<div class="alert alert-info d-flex justify-content-between align-items-center flex-wrap gap-2 shadow-sm border-start border-4 border-info">
+    <span><i class="bi bi-people-fill"></i> <strong>{{ t('extra_agora') }}:</strong> {{ a.titulo }} · {{ a.grupo.nome if a.grupo else '' }} · {{ a.data_hora_inicio_prevista.strftime('%H:%M') }}</span>
+    {% if minha and not minha.check_out %}
+    <form method="POST" action="{{ url_for('acao_atividade_extra', id=a.id, acao='checkout') }}" class="m-0">
+        <button type="submit" class="btn btn-sm btn-outline-danger fw-bold rounded-pill px-3">Check-out</button>
+    </form>
+    {% elif not minha %}
+    <form method="POST" action="{{ url_for('acao_atividade_extra', id=a.id, acao='checkin') }}" class="m-0">
+        <button type="submit" class="btn btn-sm btn-success fw-bold rounded-pill px-3">Check-in</button>
+    </form>
+    {% else %}
+    <span class="badge bg-success">{{ minha.total_minutos }} min</span>
+    {% endif %}
+</div>
+{% endfor %}
 
 <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-3">
 
@@ -15,6 +45,29 @@
 
 <!-- INÍCIO DO MÓDULO DE VOLUNTARIADO CORPORATIVO (B2B / ITM) -->
 {% if current_user.tipo_usuario != 'Aluno' %}
+{% macro campos_vinculo(sufixo) %}
+    {# Campos que dependem do tipo: grupo + motivo para extras, TCC para leitura #}
+    <div class="mb-3 campo-grupo" data-sufixo="{{ sufixo }}">
+        <label class="form-label fw-bold text-dark" for="grupo{{ sufixo }}">{{ t('vol_campo_grupo') }}</label>
+        <select name="grupo_id" id="grupo{{ sufixo }}" class="form-select shadow-sm border-secondary">
+            <option value="">{{ t('vol_selecione') }}</option>
+            {% for g in grupos_voluntariado or [] %}<option value="{{ g.id }}">{{ g.nome }}</option>{% endfor %}
+        </select>
+        {% if not grupos_voluntariado %}<div class="form-text text-danger">{{ t('vol_sem_grupos') }}</div>{% endif %}
+    </div>
+    <div class="mb-3 campo-projeto" data-sufixo="{{ sufixo }}">
+        <label class="form-label fw-bold text-dark" for="projeto{{ sufixo }}">{{ t('vol_campo_projeto') }}</label>
+        <select name="projeto_id" id="projeto{{ sufixo }}" class="form-select shadow-sm border-secondary">
+            <option value="">{{ t('vol_selecione') }}</option>
+            {% for p in projetos_voluntariado or [] %}<option value="{{ p.id }}">{{ p.nome }}</option>{% endfor %}
+        </select>
+    </div>
+    <div class="mb-2">
+        <label class="form-label fw-bold text-dark" for="motivo{{ sufixo }}">{{ t('vol_campo_motivo') }} <span class="text-muted fw-normal small rotulo-motivo-opcional">({{ t('vol_opcional') }})</span></label>
+        <textarea name="observacoes" id="motivo{{ sufixo }}" class="form-control shadow-sm border-secondary" rows="2" placeholder="{{ t('vol_motivo_placeholder') }}"></textarea>
+    </div>
+{% endmacro %}
+
 <div class="card shadow-sm border-0 mb-4 bg-white border-start border-4 border-success">
     <div class="card-body d-flex flex-column flex-md-row justify-content-between align-items-center">
         <div class="mb-3 mb-md-0">
@@ -22,35 +75,30 @@
                 <i class="bi bi-stopwatch"></i> Relógio de Voluntariado Corporativo
             </h5>
             <p class="card-text small text-muted mb-0">
-                Vai ler um TCC, analisar projetos ou fazer uma reunião extra? Registre o seu tempo exato para o relatório ESG.
+                {{ t('vol_subtitulo') }}
             </p>
         </div>
-        
+
         <div class="d-flex flex-wrap gap-2 align-items-center">
+            {% if not relogio_aberto %}
+                <button type="button" class="btn btn-success fw-bold rounded-pill px-3 shadow-sm" data-bs-toggle="modal" data-bs-target="#modalIniciarRelogio" title="{{ t('vol_iniciar_titulo') }}">
+                    <i class="bi bi-play-circle"></i> Iniciar Contagem
+                </button>
+            {% else %}
             <form action="{{ url_for('bater_ponto_voluntariado') }}" method="POST" class="m-0 d-flex gap-2 align-items-center">
-                {% if not relogio_aberto %}
-                    <select name="tipo_atividade" class="form-select form-select-sm shadow-sm" required style="width: auto;">
-                        <option value="Leitura Assíncrona de TCC">Leitura de TCC</option>
-                        <option value="Mentoria Extraordinária">Reunião Extra</option>
-                        <option value="Avaliação de Banca Ao Vivo">Banca Ao Vivo</option>
-                    </select>
-                    <button type="submit" class="btn btn-success fw-bold rounded-pill px-3 shadow-sm" title="Clique para iniciar o tempo agora">
-                        <i class="bi bi-play-circle"></i> Iniciar Contagem
-                    </button>
-                {% else %}
-                    <span class="badge bg-danger pulse-animation me-2 p-2">Tempo a contar...</span>
-                    <button type="submit" class="btn btn-outline-danger fw-bold rounded-pill px-4 shadow-sm" title="Clique para parar o relógio">
-                        <i class="bi bi-stop-circle"></i> Encerrar Voluntariado
-                    </button>
-                {% endif %}
+                <span class="badge bg-danger pulse-animation me-2 p-2">Tempo a contar...</span>
+                <button type="submit" class="btn btn-outline-danger fw-bold rounded-pill px-4 shadow-sm" title="Clique para parar o relógio">
+                    <i class="bi bi-stop-circle"></i> Encerrar Voluntariado
+                </button>
             </form>
-            
+            {% endif %}
+
             <!-- NOVO BOTÃO DE LANÇAMENTO MANUAL -->
             {% if not relogio_aberto %}
             <button type="button" class="btn btn-outline-secondary fw-bold rounded-pill px-3 shadow-sm" data-bs-toggle="modal" data-bs-target="#modalVoluntariadoManual" title="Inserir horas de uma atividade que já passou">
                 <i class="bi bi-pencil-square"></i> Inserir Manual
             </button>
-            
+
             <!-- MENU DE EXPORTAÇÃO ESG (EXCEL E PDF) -->
             {% if current_user.tipo_usuario in ['Administrador', 'Mentor Administrador', 'Admin B2B'] %}
             <div class="dropdown">
@@ -64,15 +112,70 @@
                         </a>
                     </li>
                     <li>
-                        <!-- Esta função abre nativamente a janela de Salvar em PDF do navegador -->
-                        <a class="dropdown-item fw-bold text-danger" href="javascript:window.print()">
-                            <i class="bi bi-file-earmark-pdf"></i> Salvar Painel em PDF
+                        <a class="dropdown-item fw-bold text-danger" href="{{ url_for('exportar_relatorio_esg_pdf') }}" target="_blank">
+                            <i class="bi bi-file-earmark-pdf"></i> {{ t('vol_relatorio_pdf') }}
                         </a>
                     </li>
                 </ul>
             </div>
             {% endif %}
             {% endif %}
+        </div>
+    </div>
+
+    <!-- MINHAS HORAS: histórico pessoal com grupo, categoria e duração -->
+    <div class="card-footer bg-transparent border-0 pt-0">
+        <details>
+            <summary class="fw-bold text-success small">
+                {{ t('vol_minhas_horas') }} ·
+                {{ t('vol_regulares') }} {{ '%.1f'|format((minutos_regulares or 0) / 60) }} h ·
+                {{ t('vol_extras') }} {{ '%.1f'|format((minutos_extras or 0) / 60) }} h
+            </summary>
+            <div class="table-responsive mt-2">
+                <table class="table table-sm align-middle mb-0 small">
+                    <thead><tr><th>{{ t('vol_col_data') }}</th><th>{{ t('vol_col_atividade') }}</th><th>{{ t('vol_col_categoria') }}</th><th>{{ t('vol_campo_grupo') }}</th><th class="text-end">{{ t('vol_col_duracao') }}</th></tr></thead>
+                    <tbody>
+                        {% for h in minhas_horas or [] %}
+                        <tr>
+                            <td class="text-nowrap">{{ h.data_hora_inicio.strftime('%d/%m/%Y %H:%M') }}</td>
+                            <td>{{ h.tipo_atividade }}{% if h.projeto %}<br><span class="text-muted">{{ h.projeto.nome }}</span>{% endif %}</td>
+                            <td>{% if (h.categoria or 'Regular') == 'Extra' %}<span class="badge bg-warning text-dark">{{ t('vol_extra') }}</span>{% else %}<span class="badge bg-secondary">{{ t('vol_regular') }}</span>{% endif %}</td>
+                            <td>{{ h.grupo.nome if h.grupo else '—' }}</td>
+                            <td class="text-end text-nowrap">{% if h.data_hora_fim %}{{ h.total_minutos or 0 }} min{% else %}<span class="badge bg-danger">{{ t('vol_em_andamento') }}</span>{% endif %}</td>
+                        </tr>
+                        {% else %}
+                        <tr><td colspan="5" class="text-muted text-center py-3">{{ t('vol_sem_lancamentos') }}</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </details>
+    </div>
+</div>
+
+<!-- MODAL: INICIAR O RELÓGIO (tipo + vínculos exigidos) -->
+<div class="modal fade text-start" id="modalIniciarRelogio" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content shadow-lg border-0">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title fw-bold"><i class="bi bi-play-circle"></i> {{ t('vol_iniciar_titulo') }}</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="{{ t('fechar') }}"></button>
+            </div>
+            <form action="{{ url_for('bater_ponto_voluntariado') }}" method="POST" class="form-voluntariado">
+                <div class="modal-body bg-light">
+                    <div class="mb-3">
+                        <label class="form-label fw-bold text-dark" for="tipoIniciar">{{ t('vol_campo_tipo') }}</label>
+                        <select name="tipo_atividade" id="tipoIniciar" class="form-select shadow-sm border-secondary seletor-tipo-vol" required>
+                            {% for valor, chave in tipos_voluntariado or [] %}<option value="{{ valor }}">{{ t(chave) }}</option>{% endfor %}
+                        </select>
+                    </div>
+                    {{ campos_vinculo('Iniciar') }}
+                </div>
+                <div class="modal-footer bg-white border-0">
+                    <button type="button" class="btn btn-outline-secondary fw-bold" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-success fw-bold px-4 shadow"><i class="bi bi-play-circle"></i> Iniciar Contagem</button>
+                </div>
+            </form>
         </div>
     </div>
 </div>
@@ -83,44 +186,38 @@
         <div class="modal-content shadow-lg border-0">
             <div class="modal-header bg-secondary text-white">
                 <h5 class="modal-title fw-bold"><i class="bi bi-pencil-square"></i> Lançamento Manual de Horas</h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="{{ t('fechar') }}"></button>
             </div>
-            <form action="{{ url_for('lancamento_manual_voluntariado') }}" method="POST">
+            <form action="{{ url_for('lancamento_manual_voluntariado') }}" method="POST" class="form-voluntariado">
                 <div class="modal-body bg-light">
                     <div class="alert alert-warning small border-0 bg-warning-subtle text-warning-emphasis mb-4">
                         <i class="bi bi-exclamation-triangle-fill"></i> Use esta opção <strong>apenas</strong> se realizou uma ajuda extra fora da plataforma e esqueceu de ligar o cronômetro oficial.
                     </div>
-                    
+
                     <div class="mb-3">
-                        <label class="form-label fw-bold text-dark">Qual foi a atividade?</label>
-                        <select name="tipo_atividade" class="form-select shadow-sm border-secondary" required>
-                            <option value="Leitura Assíncrona de TCC">Leitura de TCC em Offline</option>
-                            <option value="Mentoria Extraordinária">Reunião Extra (Teams / Presencial)</option>
-                            <option value="Avaliação de Banca Ao Vivo">Banca Ao Vivo (Atrasada)</option>
-                            <option value="Apoio Institucional">Outras Ajudas corporativas</option>
+                        <label class="form-label fw-bold text-dark" for="tipoManual">Qual foi a atividade?</label>
+                        <select name="tipo_atividade" id="tipoManual" class="form-select shadow-sm border-secondary seletor-tipo-vol" required>
+                            {% for valor, chave in tipos_voluntariado or [] %}<option value="{{ valor }}">{{ t(chave) }}</option>{% endfor %}
                         </select>
                     </div>
-                    
+
                     <div class="mb-3">
-                        <label class="form-label fw-bold text-dark">Data da Atividade</label>
-                        <input type="date" name="data" class="form-control shadow-sm border-secondary" required>
+                        <label class="form-label fw-bold text-dark" for="dataManual">Data da Atividade</label>
+                        <input type="date" name="data" id="dataManual" class="form-control shadow-sm border-secondary" max="{{ data_hoje_iso }}" required>
                     </div>
-                    
+
                     <div class="row mb-3">
                         <div class="col-6">
-                            <label class="form-label fw-bold text-dark">Hora de Início</label>
-                            <input type="time" name="hora_inicio" class="form-control shadow-sm border-secondary" required>
+                            <label class="form-label fw-bold text-dark" for="inicioManual">Hora de Início</label>
+                            <input type="time" name="hora_inicio" id="inicioManual" class="form-control shadow-sm border-secondary" required>
                         </div>
                         <div class="col-6">
-                            <label class="form-label fw-bold text-dark">Hora de Fim</label>
-                            <input type="time" name="hora_fim" class="form-control shadow-sm border-secondary" required>
+                            <label class="form-label fw-bold text-dark" for="fimManual">Hora de Fim</label>
+                            <input type="time" name="hora_fim" id="fimManual" class="form-control shadow-sm border-secondary" required>
                         </div>
                     </div>
-                    
-                    <div class="mb-2">
-                        <label class="form-label fw-bold text-dark">Observações / Detalhes (Opcional)</label>
-                        <textarea name="observacoes" class="form-control shadow-sm border-secondary" rows="2" placeholder="Ex: Ajudei o grupo 4 na formatação da apresentação..."></textarea>
-                    </div>
+
+                    {{ campos_vinculo('Manual') }}
                 </div>
                 <div class="modal-footer bg-white border-0">
                     <button type="button" class="btn btn-outline-secondary fw-bold" data-bs-dismiss="modal">Cancelar</button>
@@ -130,6 +227,31 @@
         </div>
     </div>
 </div>
+
+<script>
+    // Mostra e exige os campos certos para cada tipo de atividade do relógio
+    document.querySelectorAll('.form-voluntariado').forEach(function (form) {
+        const tipo = form.querySelector('.seletor-tipo-vol');
+        const grupo = form.querySelector('.campo-grupo');
+        const projeto = form.querySelector('.campo-projeto');
+        const motivo = form.querySelector('textarea[name="observacoes"]');
+        const opcional = form.querySelector('.rotulo-motivo-opcional');
+        function atualizar() {
+            const base = tipo.value;
+            const extra = base === 'Mentoria Extraordinária';
+            const leitura = base === 'Leitura Assíncrona de TCC';
+            grupo.hidden = !extra;
+            grupo.querySelector('select').required = extra;
+            projeto.hidden = extra;
+            projeto.querySelector('select').required = leitura;
+            motivo.required = extra;
+            motivo.minLength = extra ? 10 : 0;
+            opcional.hidden = extra;
+        }
+        tipo.addEventListener('change', atualizar);
+        atualizar();
+    });
+</script>
 
 <style>
     .pulse-animation {

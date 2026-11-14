@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+    <meta charset="UTF-8">
+    <title>Ata - {{ reuniao.titulo }}</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color: #333; padding: 24px; max-width: 900px; margin: 0 auto; }
+        .header { border-bottom: 2px solid #0d6efd; padding-bottom: 10px; margin-bottom: 20px; }
+        .header h1 { color: #0d6efd; margin: 0 0 4px; font-size: 1.5em; }
+        .header p { color: #666; margin: 0; font-size: 0.9em; }
+        h2 { color: #0d6efd; font-size: 1.05em; margin-top: 22px; }
+        p, li { font-size: 0.92em; line-height: 1.5; }
+        .pre { white-space: pre-line; }
+        table { width: 100%; border-collapse: collapse; font-size: 0.85em; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+        th { background: #f1f5fb; }
+        @media print { .no-print { display: none; } body { padding: 0; } }
+    </style>
+</head>
+<body onload="window.print()">
+    <div class="no-print" style="text-align: right; margin-bottom: 16px;">
+        <button onclick="window.print()" style="background:#0d6efd;color:#fff;border:0;border-radius:5px;padding:8px 14px;font-weight:bold;cursor:pointer;">Salvar como PDF</button>
+        <a href="{{ url_for('detalhe_reuniao', id=reuniao.id) }}" style="margin-left: 12px; color: #666;">Voltar</a>
+    </div>
+    <div class="header">
+        <h1>Ata de reunião — {{ reuniao.titulo }}</h1>
+        <p>{{ reuniao.data_hora.strftime('%d/%m/%Y às %H:%M') }} · {{ reuniao.duracao_minutos }} min · {{ reuniao.modalidade }}{% if reuniao.local_ou_link %} · {{ reuniao.local_ou_link }}{% endif %}</p>
+        {% if reuniao.demanda %}<p>Ticket relacionado: #{{ reuniao.demanda.id }} · {{ reuniao.demanda.titulo }}</p>{% endif %}
+    </div>
+
+    <h2>Participantes</h2>
+    <ul>
+        {% for p in reuniao.participantes %}<li>{{ p.nome }} ({{ p.tipo_usuario }})</li>{% endfor %}
+        {% for linha in (reuniao.participantes_externos or '').split('\n') if linha.strip() %}<li>{{ linha.strip() }}</li>{% endfor %}
+    </ul>
+
+    <h2>Pauta</h2>
+    <p class="pre">{{ reuniao.pauta or '—' }}</p>
+
+    <h2>Deliberações</h2>
+    <p class="pre">{{ reuniao.deliberacoes or '—' }}</p>
+
+    <h2>Encaminhamentos</h2>
+    <table>
+        <thead><tr><th>Ação</th><th>Responsável</th><th>Prazo</th><th>Status</th></tr></thead>
+        <tbody>
+            {% for e in reuniao.encaminhamentos %}
+            <tr><td>{{ e.descricao }}</td><td>{{ e.responsavel.nome if e.responsavel else '—' }}</td><td>{{ e.prazo.strftime('%d/%m/%Y') if e.prazo else '—' }}</td><td>{{ e.status }}</td></tr>
+            {% else %}
+            <tr><td colspan="4">Sem encaminhamentos.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    <p style="margin-top: 28px; color: #888; font-size: 0.8em;">Registrada na plataforma Jovem Seguro 2026 por {{ reuniao.criado_por.nome if reuniao.criado_por else '—' }}.</p>
+</body>
+</html>

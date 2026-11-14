@@ -450,6 +450,15 @@ class CheckinVoluntariado(db.Model):
     total_minutos = db.Column(db.Integer, default=0)
     
     observacoes = db.Column(db.Text)
+    # Adequações Aon/ITM: com qual grupo foi o extra e se a hora é Regular ou Extra (fora do cronograma)
+    grupo_id = db.Column(db.Integer, db.ForeignKey('grupo.id'), nullable=True)
+    categoria = db.Column(db.String(20), default='Regular')
+    # Lançamento gerado por uma reunião institucional (atualizado quando a reunião é editada)
+    reuniao_id = db.Column(db.Integer, db.ForeignKey('reuniao_institucional.id'), nullable=True)
+
+    usuario = db.relationship('Usuario', backref=db.backref('lancamentos_voluntariado', lazy='dynamic'))
+    grupo = db.relationship('Grupo')
+    projeto = db.relationship('Projeto')
 
 class QABanca(db.Model):
     __tablename__ = 'qa_banca'
@@ -571,3 +580,95 @@ class Notificacao(db.Model):
 
     usuario = db.relationship('Usuario', backref=db.backref('notificacoes', lazy='dynamic'))
 
+
+# ==============================================================================
+# TABELAS: Atividades extras do grupo (fora do cronograma) com check-in/out
+# de mentores E jovens. Horários em hora local, como o lançamento manual.
+# ==============================================================================
+class AtividadeExtra(db.Model):
+    __tablename__ = 'atividade_extra'
+    id = db.Column(db.Integer, primary_key=True)
+    grupo_id = db.Column(db.Integer, db.ForeignKey('grupo.id'), nullable=False)
+    titulo = db.Column(db.String(200), nullable=False)
+    motivo = db.Column(db.Text, nullable=False)
+    data_hora_inicio_prevista = db.Column(db.DateTime, nullable=False)
+    duracao_prevista_min = db.Column(db.Integer, default=60)
+    modalidade = db.Column(db.String(20), default='Presencial')  # Presencial / Online
+    link_sala = db.Column(db.String(500), nullable=True)
+    criado_por_id = db.Column(db.Integer, db.ForeignKey('usuario.id'), nullable=False)
+    status = db.Column(db.String(20), default='Agendada')  # Agendada / Em andamento / Encerrada / Cancelada
+    data_criacao = db.Column(db.DateTime, default=datetime.utcnow)
+    data_encerramento = db.Column(db.DateTime, nullable=True)
+
+    grupo = db.relationship('Grupo')
+    criado_por = db.relationship('Usuario')
+    presencas = db.relationship('PresencaAtividadeExtra', backref='atividade', lazy=True, cascade="all, delete-orphan")
+
+    @property
+    def fim_previsto(self):
+        from datetime import timedelta
+        return self.data_hora_inicio_prevista + timedelta(minutes=self.duracao_prevista_min or 60)
+
+
+class PresencaAtividadeExtra(db.Model):
+    __tablename__ = 'presenca_atividade_extra'
+    id = db.Column(db.Integer, primary_key=True)
+    atividade_id = db.Column(db.Integer, db.ForeignKey('atividade_extra.id'), nullable=False)
+    usuario_id = db.Column(db.Integer, db.ForeignKey('usuario.id'), nullable=False)
+    check_in = db.Column(db.DateTime, nullable=False)
+    check_out = db.Column(db.DateTime, nullable=True)
+    total_minutos = db.Column(db.Integer, default=0)
+    modalidade = db.Column(db.String(20), nullable=True)
+    checkout_automatico = db.Column(db.Boolean, default=False)
+    # Lançamento ESG gerado para quem não é Aluno (evita contar duas vezes)
+    checkin_voluntariado_id = db.Column(db.Integer, db.ForeignKey('checkin_voluntariado.id'), nullable=True)
+
+    usuario = db.relationship('Usuario')
+    __table_args__ = (db.UniqueConstraint('atividade_id', 'usuario_id', name='uq_presenca_atividade_usuario'),)
+
+
+# ==============================================================================
+# TABELAS: Reuniões institucionais ITM × Aon (ata, participantes e encaminhamentos)
+# Objetivo: nada corre por fora; todo alinhamento fica registrado na plataforma.
+# ==============================================================================
+reuniao_participante = db.Table('reuniao_participante',
+    db.Column('reuniao_id', db.Integer, db.ForeignKey('reuniao_institucional.id'), primary_key=True),
+    db.Column('usuario_id', db.Integer, db.ForeignKey('usuario.id'), primary_key=True)
+)
+
+
+class ReuniaoInstitucional(db.Model):
+    __tablename__ = 'reuniao_institucional'
+    id = db.Column(db.Integer, primary_key=True)
+    titulo = db.Column(db.String(200), nullable=False)
+    data_hora = db.Column(db.DateTime, nullable=False)  # hora local
+    duracao_minutos = db.Column(db.Integer, default=60)
+    modalidade = db.Column(db.String(20), default='Online')
+    local_ou_link = db.Column(db.String(500), nullable=True)
+    pauta = db.Column(db.Text, nullable=True)
+    deliberacoes = db.Column(db.Text, nullable=True)
+    participantes_externos = db.Column(db.Text, nullable=True)  # "Nome – Instituição", um por linha
+    contar_voluntariado = db.Column(db.Boolean, default=True)
+    demanda_id = db.Column(db.Integer, db.ForeignKey('demanda_institucional.id'), nullable=True)
+    criado_por_id = db.Column(db.Integer, db.ForeignKey('usuario.id'), nullable=False)
+    data_criacao = db.Column(db.DateTime, default=datetime.utcnow)
+    data_atualizacao = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    participantes = db.relationship('Usuario', secondary=reuniao_participante, lazy='subquery')
+    criado_por = db.relationship('Usuario', foreign_keys=[criado_por_id])
+    demanda = db.relationship('DemandaInstitucional')
+    encaminhamentos = db.relationship('EncaminhamentoReuniao', backref='reuniao', lazy=True,
+                                      cascade="all, delete-orphan", order_by='EncaminhamentoReuniao.prazo')
+
+
+class EncaminhamentoReuniao(db.Model):
+    __tablename__ = 'encaminhamento_reuniao'
+    id = db.Column(db.Integer, primary_key=True)
+    reuniao_id = db.Column(db.Integer, db.ForeignKey('reuniao_institucional.id'), nullable=False)
+    descricao = db.Column(db.Text, nullable=False)
+    responsavel_id = db.Column(db.Integer, db.ForeignKey('usuario.id'), nullable=True)
+    prazo = db.Column(db.Date, nullable=True)
+    status = db.Column(db.String(20), default='Pendente')  # Pendente / Concluído
+    data_conclusao = db.Column(db.DateTime, nullable=True)
+
+    responsavel = db.relationship('Usuario')

@@ -627,6 +627,15 @@
         </li>
         {% endif %}
 
+        <!-- Atividades extras do grupo (fora do cronograma) com check-in/out -->
+        {% if current_user.is_authenticated %}
+        <li class="nav-item">
+          <a class="nav-link fw-bold {% if request.endpoint == 'atividades_extras' %}{{ ativo }}{% endif %}" href="{{ url_for('atividades_extras') }}">
+            <i class="bi bi-people-fill"></i> {{ t('menu_extras') }}
+          </a>
+        </li>
+        {% endif %}
+
         <!-- ============================================================================== -->
         <!-- MENU SUSPENSO: DIÁRIO DE CLASSE (Oculto para Alunos)                           -->
         <!-- ============================================================================== -->
@@ -654,14 +663,17 @@
         <!-- ÁREA RESTRITA: Gerenciamento Administrativo (Menu Suspenso)                    -->
         <!-- Cada item aparece só para os perfis que a rota correspondente aceita.          -->
         <!-- ============================================================================== -->
-        {% if current_user.is_authenticated and current_user.tipo_usuario in ['Administrador', 'Mentor Administrador'] %}
+        {% if current_user.is_authenticated and current_user.tipo_usuario in perfis_gestao %}
         <li class="nav-item dropdown">
             <a class="nav-link dropdown-toggle fw-bold text-danger" href="#" id="adminDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
                 <i class="bi bi-gear-fill"></i> {{ t('menu_administracao') }}
             </a>
             <ul class="dropdown-menu shadow" aria-labelledby="adminDropdown">
+                {% if current_user.tipo_usuario in ['Administrador', 'Mentor Administrador'] %}
                 <li><a class="dropdown-item fw-bold" href="{{ url_for('gerenciar_usuarios') }}"><i class="bi bi-people-fill"></i> {{ t('menu_cadastros') }}</a></li>
                 <li><a class="dropdown-item fw-bold" href="{{ url_for('gestao_trilha_tcc') }}"><i class="bi bi-mortarboard"></i> {{ t('menu_trilha_tcc') }}</a></li>
+                {% endif %}
+                <li><a class="dropdown-item fw-bold" href="{{ url_for('reunioes') }}"><i class="bi bi-journal-text"></i> {{ t('menu_reunioes') }}</a></li>
 
                 {% if current_user.tipo_usuario == 'Mentor Administrador' %}
                 <li><a class="dropdown-item fw-bold" href="{{ url_for('gerenciar_solicitacoes') }}"><i class="bi bi-envelope-paper-fill"></i> {{ t('menu_solicitacoes') }}</a></li>

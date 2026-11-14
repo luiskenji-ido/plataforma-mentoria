@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% block title %}{{ reuniao.titulo }}{% endblock %}
+
+{% block content %}
+<div class="container mt-2 mb-5" style="max-width: 900px;">
+    <div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-3">
+        <div>
+            <a href="{{ url_for('reunioes') }}" class="small fw-bold text-decoration-none"><i class="bi bi-arrow-left"></i> {{ t('reuniao_titulo') }}</a>
+            <h2 class="text-primary fw-bold mb-1 mt-1">{{ reuniao.titulo }}</h2>
+            <div class="text-muted small">
+                {{ reuniao.data_hora.strftime('%d/%m/%Y %H:%M') }} · {{ reuniao.duracao_minutos }} min · {{ reuniao.modalidade }}
+                {% if reuniao.local_ou_link %} · {% if reuniao.local_ou_link.startswith('http') %}<a href="{{ reuniao.local_ou_link }}" target="_blank" rel="noopener">{{ t('extra_link_sala') }}</a>{% else %}{{ reuniao.local_ou_link }}{% endif %}{% endif %}
+                · {{ t('extra_criada_por') }} {{ reuniao.criado_por.nome if reuniao.criado_por else '—' }}
+            </div>
+        </div>
+        <div class="d-flex gap-2">
+            <a href="{{ url_for('detalhe_reuniao', id=reuniao.id, imprimir=1) }}" target="_blank" class="btn btn-outline-secondary fw-bold rounded-pill px-3"><i class="bi bi-printer"></i> {{ t('reuniao_imprimir') }}</a>
+            {% if pode_editar %}<a href="{{ url_for('editar_reuniao', id=reuniao.id) }}" class="btn btn-primary fw-bold rounded-pill px-3"><i class="bi bi-pencil"></i> {{ t('trilha_editar') }}</a>{% endif %}
+        </div>
+    </div>
+
+    {% if reuniao.demanda %}
+    <div class="alert alert-light border small"><i class="bi bi-ticket-detailed"></i> {{ t('reuniao_campo_ticket') }}: <a href="{{ url_for('portal_demandas') }}">#{{ reuniao.demanda.id }} · {{ reuniao.demanda.titulo }}</a></div>
+    {% endif %}
+
+    <div class="row g-3">
+        <div class="col-md-6">
+            <div class="card shadow-sm border-0 h-100"><div class="card-body">
+                <h6 class="fw-bold text-primary">{{ t('reuniao_participantes_internos') }}</h6>
+                <ul class="mb-0 small">{% for p in reuniao.participantes %}<li>{{ p.nome }} <span class="text-muted">· {{ p.tipo_usuario }}</span></li>{% else %}<li class="text-muted">—</li>{% endfor %}</ul>
+            </div></div>
+        </div>
+        <div class="col-md-6">
+            <div class="card shadow-sm border-0 h-100"><div class="card-body">
+                <h6 class="fw-bold text-primary">{{ t('reuniao_participantes_externos') }}</h6>
+                <p class="mb-0 small" style="white-space: pre-line;">{{ reuniao.participantes_externos or '—' }}</p>
+            </div></div>
+        </div>
+        <div class="col-12">
+            <div class="card shadow-sm border-0"><div class="card-body">
+                <h6 class="fw-bold text-primary">{{ t('reuniao_campo_pauta') }}</h6>
+                <p class="small" style="white-space: pre-line;">{{ reuniao.pauta or '—' }}</p>
+                <h6 class="fw-bold text-primary">{{ t('reuniao_campo_deliberacoes') }}</h6>
+                <p class="small mb-0" style="white-space: pre-line;">{{ reuniao.deliberacoes or '—' }}</p>
+            </div></div>
+        </div>
+        <div class="col-12">
+            <div class="card shadow-sm border-0">
+                <div class="card-header bg-white fw-bold text-primary">{{ t('reuniao_encaminhamentos') }}</div>
+                <ul class="list-group list-group-flush">
+                    {% for e in reuniao.encaminhamentos %}
+                    {% set atrasado = e.status == 'Pendente' and e.prazo and e.prazo < hoje %}
+                    <li class="list-group-item d-flex justify-content-between align-items-center gap-2 flex-wrap">
+                        <div>
+                            <span class="{% if e.status == 'Concluído' %}text-decoration-line-through text-muted{% endif %}">{{ e.descricao }}</span>
+                            <div class="small text-muted">{{ e.responsavel.nome if e.responsavel else '—' }} · {{ t('reuniao_enc_prazo') }} {{ e.prazo.strftime('%d/%m/%Y') if e.prazo else '—' }}</div>
+                        </div>
+                        <div class="d-flex align-items-center gap-2">
+                            {% if e.status == 'Concluído' %}<span class="badge bg-success">{{ t('reuniao_concluido') }}</span>
+                            {% elif atrasado %}<span class="badge bg-danger">{{ t('reuniao_atrasado') }}</span>
+                            {% else %}<span class="badge bg-warning text-dark">{{ t('reuniao_pendente') }}</span>{% endif %}
+                            {% if pode_editar or e.responsavel_id == current_user.id %}
+                            <form method="POST" class="m-0">
+                                <input type="hidden" name="encaminhamento_id" value="{{ e.id }}">
+                                <button class="btn btn-sm btn-outline-primary rounded-pill fw-bold" type="submit">{{ t('reuniao_reabrir') if e.status == 'Concluído' else t('reuniao_concluir') }}</button>
+                            </form>
+                            {% endif %}
+                        </div>
+                    </li>
+                    {% else %}
+                    <li class="list-group-item text-muted small">{{ t('reuniao_sem_encaminhamentos') }}</li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

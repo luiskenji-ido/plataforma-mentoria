@@ -12,7 +12,7 @@ No computador:
 from datetime import datetime, timedelta
 
 from app import app
-from models import db, CheckinVoluntariado, Usuario
+from models import db, CheckinVoluntariado, Usuario, EncaminhamentoReuniao
 from notificacoes import notificar
 
 # Relógio de voluntariado aberto há mais tempo que isto recebe o lembrete de check-out
@@ -36,8 +36,24 @@ def lembrar_checkout_esquecido(agora):
     return enviados
 
 
+def lembrar_encaminhamentos_vencidos(agora):
+    """Encaminhamento de reunião ITM × Aon com prazo vencido: avisa o responsável uma vez."""
+    vencidos = EncaminhamentoReuniao.query.filter(EncaminhamentoReuniao.status == 'Pendente',
+                                                  EncaminhamentoReuniao.prazo < agora.date(),
+                                                  EncaminhamentoReuniao.responsavel_id.isnot(None)).all()
+    enviados = 0
+    for enc in vencidos:
+        enviados += notificar(
+            [enc.responsavel],
+            ('notif_enc_titulo', {}),
+            ('notif_enc_msg', {'descricao': enc.descricao[:200], 'prazo': enc.prazo.strftime('%d/%m/%Y'),
+                               'reuniao': enc.reuniao.titulo}),
+            link=f"/reunioes/{enc.reuniao_id}", tipo='lembrete', referencia=f"enc-atraso:{enc.id}")
+    return enviados
+
+
 # As próximas adequações acrescentam aqui os lembretes delas (prazos do TCC, formulário da banca...)
-TAREFAS = [lembrar_checkout_esquecido]
+TAREFAS = [lembrar_checkout_esquecido, lembrar_encaminhamentos_vencidos]
 
 
 def executar_tarefas():

@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% block title %}{{ t('reuniao_titulo') }}{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-4 border-bottom pb-3">
+    <div>
+        <h2 class="text-primary fw-bold mb-1"><i class="bi bi-journal-text"></i> {{ t('reuniao_titulo') }}</h2>
+        <p class="text-muted mb-0">{{ t('reuniao_subtitulo') }}</p>
+    </div>
+    {% if pode_criar %}
+    <a href="{{ url_for('editar_reuniao') }}" class="btn btn-primary fw-bold rounded-pill px-4 shadow-sm"><i class="bi bi-plus-circle"></i> {{ t('reuniao_nova') }}</a>
+    {% endif %}
+</div>
+
+<form method="GET" class="card shadow-sm border-0 mb-4">
+    <div class="card-body row g-2 align-items-end">
+        <div class="col-sm-4">
+            <label class="form-label small fw-bold" for="filtroInicio">{{ t('reuniao_de') }}</label>
+            <input type="date" class="form-control form-control-sm" id="filtroInicio" name="data_inicio" value="{{ filtro_inicio or '' }}">
+        </div>
+        <div class="col-sm-4">
+            <label class="form-label small fw-bold" for="filtroFim">{{ t('reuniao_ate') }}</label>
+            <input type="date" class="form-control form-control-sm" id="filtroFim" name="data_fim" value="{{ filtro_fim or '' }}">
+        </div>
+        <div class="col-sm-4 d-flex gap-2">
+            <button class="btn btn-sm btn-primary fw-bold px-3" type="submit">{{ t('reuniao_filtrar') }}</button>
+            <a class="btn btn-sm btn-outline-secondary fw-bold px-3" href="{{ url_for('reunioes') }}">{{ t('reuniao_limpar') }}</a>
+        </div>
+    </div>
+</form>
+
+<div class="card shadow-sm border-0">
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+            <thead class="table-light">
+                <tr><th>{{ t('vol_col_data') }}</th><th>{{ t('reuniao_campo_titulo') }}</th><th>{{ t('reuniao_participantes') }}</th><th class="text-center">{{ t('reuniao_encaminhamentos') }}</th><th></th></tr>
+            </thead>
+            <tbody>
+                {% for r in reunioes %}
+                {% set pendentes = r.encaminhamentos | selectattr('status', 'equalto', 'Pendente') | list %}
+                {% set atrasados = pendentes | selectattr('prazo') | selectattr('prazo', 'lt', hoje) | list %}
+                <tr>
+                    <td class="text-nowrap">{{ r.data_hora.strftime('%d/%m/%Y %H:%M') }}<br><span class="small text-muted">{{ r.duracao_minutos }} min · {{ r.modalidade }}</span></td>
+                    <td class="fw-bold">{{ r.titulo }}{% if r.demanda %}<br><span class="small text-muted fw-normal">Ticket #{{ r.demanda.id }}</span>{% endif %}</td>
+                    <td class="small">{{ r.participantes | length }} {{ t('reuniao_internos') }}{% if r.participantes_externos %} · {{ r.participantes_externos.strip().split('\n') | length }} {{ t('reuniao_externos') }}{% endif %}</td>
+                    <td class="text-center">
+                        {% if atrasados %}<span class="badge bg-danger">{{ atrasados|length }} {{ t('reuniao_atrasados') }}</span>
+                        {% elif pendentes %}<span class="badge bg-warning text-dark">{{ pendentes|length }} {{ t('reuniao_pendentes') }}</span>
+                        {% elif r.encaminhamentos %}<span class="badge bg-success">{{ t('reuniao_todos_concluidos') }}</span>
+                        {% else %}<span class="text-muted small">—</span>{% endif %}
+                    </td>
+                    <td class="text-end"><a href="{{ url_for('detalhe_reuniao', id=r.id) }}" class="btn btn-sm btn-outline-primary fw-bold rounded-pill px-3">{{ t('reuniao_abrir') }}</a></td>
+                </tr>
+                {% else %}
+                <tr><td colspan="5" class="text-muted text-center py-5">{{ t('reuniao_vazio') }}</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
