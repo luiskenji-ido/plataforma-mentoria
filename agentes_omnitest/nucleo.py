@@ -16,7 +16,7 @@ import re
 import sys
 import json
 import argparse
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 from urllib.parse import urlparse
 
 # O agente vive em agentes_omnitest/, mas o app Flask está na raiz do projeto
@@ -63,6 +63,8 @@ PERFIS = {
     "mentor": {"nome": "Mentor OmniTest", "email": "mentor_ominitest@local.com", "tipo": "Mentor"},
     "mentor_administrador": {"nome": "Mentor Admin OmniTest", "email": "mentoradministrador_ominitest@local.com", "tipo": "Mentor Administrador"},
     "gestor_b2b": {"nome": "Gestor B2B OmniTest", "email": "gestorparceirob2b@local.com", "tipo": "Admin B2B"},
+    # Executivo convidado para as bancas: só enxerga as bancas em que está escalado
+    "avaliador": {"nome": "Avaliador OmniTest", "email": "avaliador_ominitest@local.com", "tipo": "Avaliador Banca"},
 }
 
 # ==============================================================================
@@ -122,7 +124,7 @@ ARQUIVOS_POR_MODULO = {
     "Atividades extras": "app.py (atividades_extras, nova_atividade_extra, acao_atividade_extra, fechar_presenca), templates/atividades_extras.html",
     "Agenda de bancas": "app.py (agenda_bancas, publicar_resultado_banca), templates/agenda_bancas.html",
     "Avaliadores da banca": "app.py (avaliadores_banca, curriculo_avaliador), templates/avaliadores_banca.html",
-    "Minhas bancas": "app.py (minhas_bancas, relogio_banca), templates/minhas_bancas.html",
+    "Minhas bancas": "app.py (minhas_bancas, relogio_banca, restringir_avaliador_banca, ENDPOINTS_AVALIADOR), templates/minhas_bancas.html",
     "Indicadores de voluntariado": "app.py (indicadores_voluntariado, calcular_indicadores, registros_indicadores), templates/indicadores_voluntariado.html",
     "Certificados": "app.py (meus_certificados, emitir_certificado, registrar_certificado, verificar_certificado), templates/meus_certificados.html, certificado.html",
     "Repositório público": "app.py (repositorio_publico, baixar_repositorio_publico, aprovar_versao_final), templates/repositorio_publico.html",
@@ -243,6 +245,14 @@ def limpar_dados_de_teste(chave_perfil):
                                                     DemandaInstitucional.titulo.like("[OmniTest]%")).delete(synchronize_session=False)
         horas = CheckinVoluntariado.query.filter(CheckinVoluntariado.usuario_id == user.id,
                                                  CheckinVoluntariado.observacoes.like("[OmniTest]%")).delete(synchronize_session=False)
+        # Avaliador: relógio da banca e notas lançadas na banca em andamento da massa de dados
+        from models import Projeto, AvaliacaoBanca
+        from massa_dados import PROJETO_ABERTO
+        aberto = Projeto.query.filter_by(nome=PROJETO_ABERTO).first()
+        if aberto:
+            horas += CheckinVoluntariado.query.filter(CheckinVoluntariado.usuario_id == user.id,
+                                                      CheckinVoluntariado.projeto_id == aberto.id).delete(synchronize_session=False)
+            AvaliacaoBanca.query.filter_by(projeto_id=aberto.id, avaliador_id=user.id).delete(synchronize_session=False)
         # Avisos gerados pelos tickets de teste (no sino de quem os recebeu)
         from models import Notificacao
         Notificacao.query.filter(Notificacao.titulo.like("%[OmniTest]%")).delete(synchronize_session=False)
@@ -291,6 +301,8 @@ class AgenteOmniTest:
     exige_onboarding = True    # Todos menos o Aluno assinam o termo LGPD/voluntariado
     TOUR_ESPERADO = None       # sequência de páginas do tour guiado, ex.: ["/dashboard", "/sessoes", ...]
     TESTAR_RECUPERACAO = True  # recuperação de senha antes do login (troca a senha e depois a restaura)
+    PAGINA_INICIAL = "/dashboard"  # para onde o login leva este perfil
+    CHAVES_MENU_IDIOMA = ("painel_geral", "sessoes", "acompanhamento")  # itens do menu conferidos em cada idioma
 
     def __init__(self, headless=False, lento=400, escrita=False, preparar=True, primeiro_acesso=False):
         self.perfil = PERFIS[self.chave_perfil]
@@ -493,12 +505,16 @@ class AgenteOmniTest:
     def resolver_caminho(self, chave):
         caminho = ROTAS[chave]["caminho"]
         if "{projeto_id}" in caminho:
-            from models import Projeto
-            projeto_id = consultar_banco(lambda: (Projeto.query.with_entities(Projeto.id).first() or [None])[0])
+            projeto_id = self.projeto_da_banca()
             if projeto_id is None:
                 return None
             caminho = caminho.format(projeto_id=projeto_id)
         return caminho
+
+    def projeto_da_banca(self):
+        """Projeto usado na rota da Sala da Banca (padrão: o primeiro do banco)."""
+        from models import Projeto
+        return consultar_banco(lambda: (Projeto.query.with_entities(Projeto.id).first() or [None])[0])
 
     def visitar(self, caminho):
         """Abre a página e devolve (resposta_http, bloqueado)."""
@@ -907,7 +923,7 @@ class AgenteOmniTest:
                     if not menu_conferido:
                         menu_conferido = True
                         menu = self.page.inner_text("#menuPrincipal") if self.page.locator("#menuPrincipal").count() else ""
-                        faltando = [alvo[k] for k in ("painel_geral", "sessoes", "acompanhamento") if alvo.get(k) and alvo[k] not in menu]
+                        faltando = [alvo[k] for k in self.CHAVES_MENU_IDIOMA if alvo.get(k) and alvo[k] not in menu]
                         sobras_menu = self.textos_em_portugues(self.page.evaluate(self.JS_TEXTO_INTERFACE, "menu"),
                                                                termos_pt, palavras_pt, dados_banco)
                         if faltando or sobras_menu:
@@ -976,7 +992,8 @@ class AgenteOmniTest:
             return
         modal = self.page.locator("#modalVoluntariadoManual")
         modal.locator('select[name="tipo_atividade"]').select_option(value="Apoio Institucional")
-        modal.locator('input[name="data"]').fill(date.today().isoformat())
+        # Ontem: o app recusa horários no futuro, e 09:00 de hoje ainda não passou se o teste rodar de madrugada
+        modal.locator('input[name="data"]').fill((date.today() - timedelta(days=1)).isoformat())
         modal.locator('input[name="hora_inicio"]').fill("09:00")
         modal.locator('input[name="hora_fim"]').fill("10:00")
         # O perfil no texto evita confundir com os lançamentos dos outros agentes que rodam em paralelo
@@ -1590,8 +1607,8 @@ class AgenteOmniTest:
         self.page.locator('form[action$="/trocar-senha"] button[type="submit"]').click()
         self.page.wait_for_load_state("domcontentloaded")
         self.lidar_com_bloqueios_de_fluxo()
-        if self.caminho_atual() == "/dashboard":
-            self.registrar("Recuperação de Senha", "Nova senha forte aceita", APROVADO, "Entrou no Painel Geral.", evidencia=False)
+        if self.caminho_atual() == self.PAGINA_INICIAL:
+            self.registrar("Recuperação de Senha", "Nova senha forte aceita", APROVADO, f"Entrou em {self.PAGINA_INICIAL}.", evidencia=False)
         else:
             self.registrar("Recuperação de Senha", "Nova senha forte aceita", FALHA, f"Ficou em {self.caminho_atual()}.",
                            esperado="Gravar a nova senha e abrir o /dashboard")

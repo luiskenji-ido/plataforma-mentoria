@@ -4,6 +4,35 @@
     "version": "0.2.0",
     "configurations": [
         {
+            "name": "OmniTest · Avaliador Banca",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/agentes_omnitest/agente_avaliador.py",
+            "args": ["--pausar"],
+            "python": "${workspaceFolder}/.venv/Scripts/python.exe",
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "OmniTest · Massa de dados (criar)",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/agentes_omnitest/massa_dados.py",
+            "python": "${workspaceFolder}/.venv/Scripts/python.exe",
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "OmniTest · Massa de dados (remover)",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/agentes_omnitest/massa_dados.py",
+            "args": ["--remover"],
+            "python": "${workspaceFolder}/.venv/Scripts/python.exe",
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal"
+        },
+        {
             "name": "OmniTest · Aluno",
             "type": "debugpy",
             "request": "launch",

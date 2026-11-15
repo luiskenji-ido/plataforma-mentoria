@@ -6,7 +6,7 @@ Prepara os utilizadores de teste uma única vez, dispara um agente por perfil
 tudo num relatório consolidado.
 
 Uso:
-    python agentes_omnitest/executar_todos.py                 # 6 agentes em paralelo, sem janela
+    python agentes_omnitest/executar_todos.py                 # 7 agentes em paralelo, sem janela
     python agentes_omnitest/executar_todos.py --sequencial --visual
     python agentes_omnitest/executar_todos.py --perfis aluno mentor --escrita
     python agentes_omnitest/executar_todos.py --primeiro-acesso       # refaz onboarding e presença do zero
@@ -39,7 +39,7 @@ def gerar_prompt_consolidado(relatorios, inicio):
         return None
 
     itens = sorted(grupos.values(), key=lambda g: (g["r"]["status"] != FALHA, -len(g["perfis"])))
-    linhas = cabecalho_prompt_gemini("Todos os perfis", "os 6 perfis da plataforma",
+    linhas = cabecalho_prompt_gemini("Todos os perfis", f"os {len(relatorios)} perfis da plataforma",
                                      [g["r"] for g in itens], "python agentes_omnitest/executar_todos.py")
     for i, g in enumerate(itens, 1):
         r = g["r"]
@@ -78,6 +78,12 @@ def main():
         except Exception as e:
             notas_preparo[chave] = [f"Falha ao preparar: {e}"]
         print(f"   🛠️ {PERFIS[chave]['tipo']}: " + ("; ".join(notas_preparo[chave]) or "pronto"))
+    # Cenário [OmniTest] (grupo, TCCs, bancas, horas) para os testes de banca, certificados e indicadores
+    try:
+        from massa_dados import garantir_massa
+        print(f"   🌱 Massa de dados: {garantir_massa()}")
+    except Exception as e:
+        print(f"   ⚠️ Massa de dados não preparada: {e}")
 
     # 2. Dispara os agentes
     comandos = {}
