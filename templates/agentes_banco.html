@@ -1,0 +1,652 @@
+{% extends "base.html" %}
+{% block title %}{{ tt('Agentes de Banco de Dados') }}{% endblock %}
+{% block content %}
+<style>
+    /* Título: cor do tema (contraste garantido nos 4 temas); só o ícone leva a cor do banco de dados */
+    .titulo-banco i { color: #0891b2; }
+    /* ---------- Centro de operações do banco de dados (sempre escuro, em qualquer tema) ---------- */
+    .db-hub { position: relative; height: 700px; border-radius: 16px; overflow: hidden; color: #e2e8f0; background-color: #04121a;
+               background-image: radial-gradient(ellipse at 50% 40%, #083344 0%, #03141b 52%, #02080c 100%); box-shadow: inset 0 0 90px rgba(0,0,0,.7); }
+    .db-hub::before { content: ""; position: absolute; inset: 0; pointer-events: none; opacity: .35;
+                       background-image: radial-gradient(rgba(34,211,238,.35) 1px, transparent 1.4px); background-size: 22px 22px; }
+    .db-hub::after { content: ""; position: absolute; left: -20%; right: -20%; bottom: -10%; height: 50%; pointer-events: none;
+                      background-image: linear-gradient(rgba(6,182,212,.12) 1px, transparent 1px), linear-gradient(90deg, rgba(6,182,212,.12) 1px, transparent 1px);
+                      background-size: 46px 46px; transform: perspective(520px) rotateX(62deg); transform-origin: bottom; }
+    .db-varredura { position: absolute; left: 0; right: 0; height: 2px; top: 0; z-index: 1; pointer-events: none; opacity: 0;
+                     background: linear-gradient(90deg, transparent, rgba(34,211,238,.9), transparent); box-shadow: 0 0 14px rgba(6,182,212,.8); }
+    .db-hub.ativo .db-varredura { opacity: 1; animation: segVarrer 3.2s linear infinite; }
+    @keyframes segVarrer { from { top: 0; } to { top: 100%; } }
+
+    .db-linhas { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 1; }
+    .db-linhas path { fill: none; stroke: rgba(34,211,238,.28); stroke-width: 1.6; stroke-dasharray: 4 10; animation: segTracejado 1.8s linear infinite; }
+    .db-linhas path.ativa { stroke: #f59e0b; stroke-width: 3; filter: drop-shadow(0 0 6px #f59e0b); animation-duration: .5s; }
+    .db-linhas path.concluido { stroke: rgba(34,197,94,.75); }
+    .db-linhas path.atencao, .db-linhas path.erro { stroke: rgba(245,158,11,.9); }
+    @keyframes segTracejado { to { stroke-dashoffset: -28; } }
+
+    /* Console de varredura no centro */
+    .db-console { position: absolute; left: 50%; top: 46px; width: 46%; height: 300px; transform: translateX(-50%); z-index: 3; display: flex; flex-direction: column;
+                   border: 2px solid #06b6d4; border-radius: 10px; background: rgba(3,12,16,.94); box-shadow: 0 0 30px rgba(6,182,212,.45); overflow: hidden; }
+    .db-barra { display: flex; align-items: center; gap: 6px; padding: 5px 9px; background: #0c1b22; font-size: .72rem; color: #67e8f9; }
+    .db-barra i.ponto { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
+    .db-titulo { flex: 1; font-family: Consolas, 'Courier New', monospace; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .db-etapa { padding: 4px 10px; font-size: .72rem; color: #fde68a; background: rgba(245,158,11,.08); border-bottom: 1px solid rgba(245,158,11,.2);
+                 white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .db-saida { flex: 1; overflow-y: auto; padding: 6px 10px; font-family: Consolas, 'Courier New', monospace; font-size: .72rem; line-height: 1.45; color: #cbd5e1; }
+    .db-saida div { white-space: pre-wrap; word-break: break-word; }
+    .db-saida .ok { color: #4ade80; } .db-saida .passo { color: #fbbf24; font-weight: 700; } .db-saida .tempo { color: #64748b; }
+    .db-saida .sev-Crítica { color: #fff; background: #155e75; } .db-saida .sev-Alta { color: #22d3ee; font-weight: 700; }
+    .db-saida .sev-Média { color: #fbbf24; } .db-saida .sev-Baixa { color: #93c5fd; } .db-saida .sev-Informativa { color: #94a3b8; }
+    .db-cursor::after { content: "▌"; color: #22d3ee; animation: segPiscar 1s steps(2) infinite; }
+    @keyframes segPiscar { 50% { opacity: 0; } }
+    .db-vazio { margin: auto; text-align: center; color: #94a3b8; font-size: .85rem; padding: 0 16px; font-family: inherit; }
+    .db-vazio i { font-size: 2.2rem; display: block; margin-bottom: 6px; color: #164e63; }
+
+    /* Radar central */
+    .db-radar { position: absolute; left: 50%; top: 65%; width: 150px; height: 150px; transform: translate(-50%, -50%); z-index: 2; border-radius: 50%;
+                 background: radial-gradient(circle, rgba(22,78,99,.35) 0 30%, transparent 31%), repeating-radial-gradient(circle, transparent 0 22px, rgba(34,211,238,.28) 23px 24px);
+                 border: 1px solid rgba(34,211,238,.5); box-shadow: 0 0 28px rgba(6,182,212,.35); display: flex; align-items: center; justify-content: center; }
+    .db-radar::before { content: ""; position: absolute; inset: 0; border-radius: 50%; opacity: .25;
+                         background: conic-gradient(from 0deg, rgba(34,211,238,.0), rgba(34,211,238,.65) 60deg, transparent 61deg); }
+    .db-hub.ativo .db-radar::before { opacity: 1; animation: segGirar 2.6s linear infinite; }
+    @keyframes segGirar { to { transform: rotate(360deg); } }
+    .db-radar i { font-size: 2.6rem; color: #cffafe; text-shadow: 0 0 14px rgba(6,182,212,.9); position: relative; }
+
+    /* Gerente de Banco de Dados e nota de saúde */
+    .db-gerente { position: absolute; left: 18px; top: 16px; z-index: 4; display: flex; align-items: center; gap: 10px; }
+    .db-gerente .circulo { width: 80px; height: 80px; border-radius: 50%; background-color: #155e75; background-image: radial-gradient(circle at 35% 30%, #22d3ee, #164e63);
+                            display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: .64rem; line-height: 1.1;
+                            text-align: center; font-weight: 700; color: #fff; box-shadow: 0 0 22px rgba(6,182,212,.6); position: relative; }
+    .db-gerente .circulo i { font-size: 1.35rem; }
+    .db-gerente .contador { position: absolute; top: -4px; right: -4px; background: #0f172a; color: #fff; border-radius: 50%; width: 25px; height: 25px;
+                             display: flex; align-items: center; justify-content: center; font-size: .75rem; border: 2px solid #06b6d4; }
+    .db-gerente .texto { font-size: .78rem; color: #cffafe; max-width: 170px; }
+    .db-risco { position: absolute; right: 18px; top: 12px; z-index: 4; width: 150px; text-align: center; }
+    .db-risco svg { width: 150px; height: 84px; }
+    .db-risco .valor { margin-top: -38px; font-size: 1.45rem; font-weight: 800; color: #fff; line-height: 1; }
+    .db-risco .legenda { font-size: .68rem; color: #67e8f9; text-transform: uppercase; letter-spacing: .06em; }
+    .db-severidades { display: flex; justify-content: center; gap: 4px; margin-top: 6px; }
+    .db-severidades span { min-width: 26px; padding: 1px 5px; border-radius: 4px; font-size: .7rem; font-weight: 700; color: #fff; }
+
+    /* Agentes especialistas (escudos) */
+    .db-agente { position: absolute; width: 150px; transform: translate(-50%, -50%); z-index: 3; text-align: center; transition: opacity .3s; }
+    .db-agente .escudo { position: relative; margin: 0 auto; width: 76px; height: 84px; display: flex; align-items: center; justify-content: center;
+                          clip-path: polygon(50% 0, 100% 16%, 100% 58%, 50% 100%, 0 58%, 0 16%); background: linear-gradient(160deg, #475569, #0b1a20);
+                          padding: 2px; }
+    .db-agente .escudo .miolo { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center;
+                                 clip-path: polygon(50% 0, 100% 16%, 100% 58%, 50% 100%, 0 58%, 0 16%); background: linear-gradient(160deg, #0f2a33, #071318); }
+    .db-agente .escudo i { font-size: 1.9rem; color: #ecfeff; margin-top: -8px; text-shadow: 0 0 10px rgba(34,211,238,.7); }
+    .db-agente .halo { position: absolute; left: 50%; top: 42px; width: 96px; height: 96px; transform: translate(-50%, -50%); border-radius: 50%; pointer-events: none; }
+    .db-agente .selo { position: absolute; left: calc(50% + 26px); top: -6px; width: 26px; height: 26px; border-radius: 50%; display: none; z-index: 2;
+                        align-items: center; justify-content: center; font-size: .85rem; color: #fff; border: 2px solid #02080c; }
+    .db-agente .nome { margin-top: 6px; font-size: .74rem; font-weight: 700; color: #f8fafc; line-height: 1.15; }
+    .db-agente .situacao { font-size: .68rem; color: #94a3b8; }
+    .db-agente .pontos { display: flex; justify-content: center; gap: 3px; margin-top: 3px; min-height: 16px; }
+    .db-agente .pontos span { font-size: .62rem; font-weight: 700; color: #fff; border-radius: 3px; padding: 0 4px; }
+    .db-agente .mini { height: 4px; margin: 4px auto 0; width: 80px; border-radius: 2px; background: rgba(148,163,184,.25); overflow: hidden; display: none; }
+    .db-agente .mini span { display: block; height: 100%; width: 0; background: #f59e0b; transition: width .6s; }
+    .db-agente.aguardando { opacity: .55; }
+    .db-agente.executando .escudo { background: linear-gradient(160deg, #fbbf24, #b45309); }
+    .db-agente.executando .halo { border: 2px solid rgba(245,158,11,.8); animation: segPulso 1.3s ease-out infinite; }
+    .db-agente.executando .situacao { color: #fbbf24; font-weight: 700; } .db-agente.executando .mini { display: block; }
+    .db-agente.concluido .escudo { background: linear-gradient(160deg, #4ade80, #15803d); } .db-agente.concluido .situacao { color: #4ade80; }
+    .db-agente.concluido .selo { display: flex; background: #16a34a; }
+    .db-agente.atencao .escudo, .db-agente.erro .escudo { background: linear-gradient(160deg, #fb923c, #c2410c); }
+    .db-agente.atencao .situacao, .db-agente.erro .situacao { color: #fb923c; }
+    .db-agente.atencao .selo, .db-agente.erro .selo { display: flex; background: #dc2626; }
+    @keyframes segPulso { from { transform: translate(-50%, -50%) scale(.75); opacity: 1; } to { transform: translate(-50%, -50%) scale(1.35); opacity: 0; } }
+
+    .db-log { font-family: Consolas, 'Courier New', monospace; font-size: .76rem; background: #04121a; color: #cbd5e1; border-radius: 8px;
+               padding: 10px 12px; height: 220px; overflow-y: auto; white-space: pre-wrap; }
+    .sev-pill { display: inline-block; color: #fff; border-radius: 4px; padding: 0 6px; font-size: .72rem; font-weight: 700; white-space: nowrap; }
+    .arvore-ia summary { cursor: pointer; font-weight: 700; padding: 3px 0; }
+    .arvore-ia .bi-folder-fill { color: #dc2626; }
+    .arvore-ia ul { list-style: none; padding-left: 16px; margin: 0; border-left: 1px solid #94a3b8; }
+    .arvore-ia li { padding: 2px 0; font-size: .85rem; word-break: break-word; }
+    .lista-especialistas li { font-size: .82rem; margin-bottom: 6px; }
+
+    @media (max-width: 991.98px) {
+        .db-hub { height: auto; padding: 120px 10px 16px; }
+        .db-console { position: relative; left: auto; top: auto; transform: none; width: 100%; }
+        .db-radar, .db-linhas, .db-varredura { display: none !important; }
+        .db-risco { right: 10px; top: 8px; width: 120px; } .db-risco svg { width: 120px; height: 68px; } .db-risco .valor { margin-top: -30px; font-size: 1.2rem; }
+        .db-gerente .texto { display: none; }
+        .db-agentes { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 14px; margin-top: 18px; }
+        .db-agente { position: static; transform: none; width: auto; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+        .db-hub *, .db-hub *::before, .db-hub *::after, .db-hub.ativo .db-varredura { animation: none !important; }
+    }
+</style>
+
+{% set cores = {'Crítica': '#7f1d1d', 'Alta': '#dc2626', 'Média': '#d97706', 'Baixa': '#2563eb', 'Informativa': '#64748b'} %}
+<div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-3">
+    <div>
+        <h2 class="fw-bold mb-1 titulo-banco"><i class="bi bi-database-fill-check"></i> {{ tt('Agentes de Banco de Dados') }}</h2>
+        <a href="{{ url_for('agentes_ia') }}" class="small fw-bold me-3"><i class="bi bi-robot"></i> {{ tt('Agentes de testes fim a fim') }}</a>
+        <a href="{{ url_for('agentes_seguranca') }}" class="small fw-bold me-3 text-danger"><i class="bi bi-shield-lock-fill"></i> {{ tt('Agentes de Segurança') }}</a>
+        <a href="{{ url_for('manutencao_banco') }}" class="small fw-bold me-3"><i class="bi bi-database-fill-gear"></i> {{ t('menu_manutencao') }}</a>
+        <a href="{{ url_for('governanca_aprendizados') }}" class="small fw-bold"><i class="bi bi-mortarboard"></i> {{ tt('Governança de aprendizados') }}</a>
+        <p class="text-muted mb-0">{{ tt('O Gerente de Banco de Dados coordena 5 especialistas: revisam as consultas e o desempenho, o esquema e os índices, os backups e a restauração, a manutenção e os logs, e a migração para outros bancos. No fim, gera relatórios em PDF e prompts de melhoria para qualquer LLM.') }}</p>
+    </div>
+</div>
+{% if motores is defined and aprendizado and aprendizado.motor %}
+<div class="alert alert-light border small py-2"><i class="bi bi-database"></i> {{ tt('Banco em uso') }}: <b>{{ aprendizado.motor.nome }} {{ aprendizado.motor.versao }}</b>.
+    {{ tt('Os agentes só leem o banco; as ações do DBA que alteram o banco fazem um backup validado antes.') }}</div>
+{% endif %}
+{% if not playwright_ok %}
+<div class="alert alert-warning small"><i class="bi bi-exclamation-triangle"></i> {{ tt('Sem o Playwright neste servidor, os relatórios saem só como prompt (.md), sem o PDF.') }}</div>
+{% endif %}
+
+<div class="row g-3">
+    <!-- Pastas e especialistas -->
+    <div class="col-xl-3">
+        <div class="card shadow-sm border-0 mb-3" id="cardArvoreBanco">
+            <div class="card-body arvore-ia">
+                <h6 class="fw-bold mb-2">{{ tt('Estrutura') }}</h6>
+                <details open><summary><i class="bi bi-gear-fill"></i> {{ t('menu_administracao') }}</summary>
+                <ul><li><details open><summary><i class="bi bi-robot"></i> {{ tt('Agentes de IA') }}</summary>
+                    <ul><li><details open><summary><i class="bi bi-database-fill-check text-info-emphasis"></i> {{ tt(grupo.nome) }}</summary>
+                        <ul>
+                        {% for pasta in grupo.pastas %}
+                            {% set total = pasta.subpastas | map(attribute='arquivos') | map('length') | sum %}
+                            <li><details {% if loop.first %}open{% endif %}><summary><i class="bi bi-folder-fill"></i> {{ tt(pasta.nome) }} <span class="text-muted fw-normal">({{ total }})</span></summary>
+                                <ul>
+                                {% for sub in pasta.subpastas %}
+                                    <li><details><summary><i class="bi bi-folder-fill"></i> {{ tt(sub.nome) }} <span class="text-muted fw-normal">({{ sub.arquivos|length }})</span></summary>
+                                        <ul>{% for a in sub.arquivos[:15] %}
+                                            <li><a href="{{ url_for('arquivo_agentes_ia', f=a.relativo) }}" {% if a.nome.endswith('.pdf') %}target="_blank" rel="noopener"{% endif %}>
+                                                <i class="bi {{ 'bi-file-earmark-pdf text-danger' if a.nome.endswith('.pdf') else 'bi-file-earmark-text' }}"></i> {{ a.data.strftime('%d/%m %H:%M') }}</a></li>
+                                        {% else %}<li class="text-muted">{{ tt('vazia') }}</li>{% endfor %}</ul>
+                                    </details></li>
+                                {% endfor %}
+                                </ul>
+                            </details></li>
+                        {% endfor %}
+                        </ul>
+                    </details></li></ul>
+                </details></li></ul>
+                </details>
+            </div>
+        </div>
+        <div class="card shadow-sm border-0">
+            <div class="card-body">
+                <h6 class="fw-bold mb-2">{{ tt('Especialistas') }}</h6>
+                <ol class="lista-especialistas ps-3 mb-2">
+                    {% for chave, nome, icone, descricao in ordem %}
+                    <li><b><i class="bi {{ icone }} text-info-emphasis"></i> {{ tt(nome) }}</b><br><span class="text-muted">{{ tt(descricao) }}</span></li>
+                    {% endfor %}
+                </ol>
+                <small class="text-muted"><i class="bi bi-patch-check"></i> {{ tt('Referências: documentação oficial do SQLite, PostgreSQL, MySQL, SQL Server e MongoDB, lida só se o domínio estiver nas Fontes confiáveis.') }}</small>
+            </div>
+        </div>
+        <!-- Aprendizado autônomo do Gerente de Banco de Dados -->
+        <div class="card shadow-sm border-0 mt-3" id="cardAprendizadoBanco">
+            <div class="card-body">
+                <h6 class="fw-bold mb-1"><i class="bi bi-mortarboard text-info-emphasis"></i> {{ tt('Aprendizado do Gerente de Banco de Dados') }}</h6>
+                <small class="text-muted d-block mb-2">{{ tt('Ele aprende sozinho o motor, as tabelas, os índices, os agendamentos de backup e os drivers instalados e ensina cada agente. Quando precisa conhecer um banco, lê só a documentação oficial, que espera a sua aprovação.') }}</small>
+                {% if aprendizado %}
+                {% set nomes_seg = {'banco': tt('Todos os agentes de banco de dados'), 'db_consultas': tt('Consultas e Desempenho'),
+                                    'db_esquema': tt('Esquema e Índices'), 'db_backup': tt('Backup e Recuperação'),
+                                    'db_dba': tt('DBA (Manutenção e Logs)'), 'db_portabilidade': tt('Multi-banco')} %}
+                <table class="table table-sm small mb-2">
+                    <thead><tr><th>{{ tt('Agente') }}</th><th class="text-center" title="{{ tt('Aplicados') }}"><i class="bi bi-check2-circle text-success"></i></th>
+                        <th class="text-center" title="{{ tt('Pendentes de aprovação') }}"><i class="bi bi-hourglass-split text-warning"></i></th></tr></thead>
+                    <tbody>
+                    {% for chave, n in aprendizado.contagem.items() %}
+                        <tr><td><a href="{{ url_for('governanca_aprendizados', agente=chave) }}">{{ nomes_seg.get(chave, chave) }}</a></td>
+                            <td class="text-center fw-bold text-success">{{ n['Aplicado'] }}</td><td class="text-center fw-bold text-warning-emphasis">{{ n['Pendente'] }}</td></tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+                <div class="small text-muted mb-2" data-conteudo-dinamico>
+                    {% if aprendizado.ultima %}<div><i class="bi bi-clock-history"></i> {{ tt('Última detecção') }}: {{ aprendizado.ultima.em.replace('T', ' ')[:16] }} · {{ aprendizado.ultima.novos }} {{ tt('novo(s)') }}</div>{% endif %}
+                </div>
+                {% endif %}
+                <div class="d-flex gap-2 flex-wrap mb-3">
+                    <form method="POST" action="{{ url_for('aprender_agentes_banco') }}" class="m-0">
+                        <button class="btn btn-sm btn-info fw-bold" type="submit" id="btnAprenderBanco"><i class="bi bi-lightning-charge"></i> {{ tt('Aprender agora') }}</button></form>
+                    <a href="{{ url_for('governanca_aprendizados', agente='banco') }}" class="btn btn-sm btn-outline-secondary fw-bold"><i class="bi bi-mortarboard"></i> {{ tt('Governança de aprendizados') }}</a>
+                </div>
+                <form method="POST" action="{{ url_for('aprender_agentes_banco') }}" class="border-top pt-2" id="formAprenderOutroBanco">
+                    <label class="form-label small fw-bold mb-1" for="motorAprender">{{ tt('Aprender sobre outro banco') }}</label>
+                    <div class="input-group input-group-sm">
+                        <select class="form-select" id="motorAprender" name="motor">
+                            {% for chave, nome in motores.items() %}<option value="{{ chave }}">{{ nome }}</option>{% endfor %}
+                        </select>
+                        <button class="btn btn-outline-info fw-bold" type="submit"><i class="bi bi-cloud-download"></i> {{ tt('Buscar documentação oficial') }}</button>
+                    </div>
+                    <small class="text-muted">{{ tt('O Gerente lê as páginas oficiais desse banco e envia para aprovação na Governança.') }}</small>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-xl-9">
+        <!-- Comandos -->
+        <form method="POST" action="{{ url_for('iniciar_agentes_banco') }}" class="card shadow-sm border-0 mb-3" id="cardComandosBanco">
+            <div class="card-body d-flex flex-wrap gap-3 align-items-center">
+                <div class="d-flex flex-wrap gap-2">
+                    {% for chave, nome, icone, descricao in ordem %}
+                    <input type="checkbox" class="btn-check" name="agentes" value="{{ chave }}" id="db_{{ chave }}" checked autocomplete="off">
+                    <label class="btn btn-sm btn-outline-info rounded-pill" for="db_{{ chave }}" title="{{ tt(descricao) }}"><i class="bi {{ icone }}"></i> {{ tt(nome) }}</label>
+                    {% endfor %}
+                </div>
+                <div class="ms-auto d-flex gap-2">
+                    <button class="btn btn-info fw-bold px-3" type="submit" id="btnIniciarBanco"><i class="bi bi-play-fill"></i> {{ tt('Iniciar análise do banco') }}</button>
+                    <button class="btn btn-outline-secondary fw-bold" type="submit" form="formPararBanco" id="btnPararBanco" disabled><i class="bi bi-stop-fill"></i> {{ tt('Parar') }}</button>
+                </div>
+            </div>
+        </form>
+        <form method="POST" action="{{ url_for('parar_agentes_banco') }}" id="formPararBanco" class="d-none"></form>
+
+        <!-- Centro de operações: console ao centro, especialistas ao redor -->
+        <div class="db-hub mb-3" id="dbHub" aria-label="{{ tt('Painel ao vivo dos agentes de banco de dados') }}">
+            <div class="db-varredura"></div>
+            <svg class="db-linhas" id="dbLinhas" aria-hidden="true"></svg>
+
+            <div class="db-gerente">
+                <div class="circulo"><i class="bi bi-database-fill-gear"></i>{{ tt('Gerente de Banco de Dados') }}<span class="contador" id="gerenteContadorBanco">0</span></div>
+                <div class="texto" id="gerenteTexto">{{ tt('Aguardando o início da análise.') }}</div>
+            </div>
+
+            <div class="db-risco" title="{{ tt('Saúde do banco: 100 menos a soma ponderada dos pontos encontrados (Crítica 25, Alta 10, Média 4, Baixa 1).') }}">
+                <svg viewBox="0 0 150 84" aria-hidden="true">
+                    <path d="M12 78 A63 63 0 0 1 138 78" fill="none" stroke="rgba(148,163,184,.25)" stroke-width="12" stroke-linecap="round"/>
+                    <path id="riscoArco" d="M12 78 A63 63 0 0 1 138 78" fill="none" stroke="#22c55e" stroke-width="12" stroke-linecap="round" pathLength="100" stroke-dasharray="0 100"/>
+                </svg>
+                <div class="valor" id="riscoValor">—</div>
+                <div class="legenda">{{ tt('Saúde') }}</div>
+                <div class="db-severidades" id="riscoSeveridades">
+                    {% for s in ['Crítica', 'Alta', 'Média', 'Baixa'] %}<span style="background: {{ cores[s] }}" title="{{ tt(s) }}" data-sev="{{ s }}">0</span>{% endfor %}
+                </div>
+            </div>
+
+            <div class="db-console">
+                <div class="db-barra"><i class="ponto" style="background:#06b6d4"></i><i class="ponto" style="background:#f59e0b"></i><i class="ponto" style="background:#22c55e"></i>
+                    <span class="db-titulo" id="consoleTitulo" data-conteudo-dinamico>dba@mentoria:~$</span></div>
+                <div class="db-etapa" id="consoleEtapa" data-conteudo-dinamico>—</div>
+                <div class="db-saida" id="consoleSaida" aria-live="polite" data-conteudo-dinamico>
+                    <div class="db-vazio" id="consoleVazio"><i class="bi bi-database"></i>{{ tt('Nenhuma análise em execução. As verificações e os pontos de melhoria aparecem aqui ao vivo.') }}</div>
+                </div>
+            </div>
+            <div class="db-radar" aria-hidden="true"><i class="bi bi-database-fill-check"></i></div>
+
+            <div class="db-agentes">
+                {% set posicoes = {'consultas': (13, 32), 'esquema': (87, 40), 'backup': (13, 66), 'dba': (87, 74), 'portabilidade': (50, 89)} %}
+                {% for chave, nome, icone, descricao in ordem %}
+                <div class="db-agente aguardando" id="db_agente_{{ chave }}" data-chave="{{ chave }}" title="{{ tt(descricao) }}"
+                     style="left: {{ posicoes[chave][0] }}%; top: {{ posicoes[chave][1] }}%;">
+                    <span class="halo"></span>
+                    <div class="escudo"><div class="miolo"><i class="bi {{ icone }}"></i></div></div><span class="selo"></span>
+                    <div class="nome">{{ tt('Agente') }} {{ tt(nome) }}</div>
+                    <div class="situacao">{{ tt('aguardando') }}</div>
+                    <div class="pontos"></div>
+                    <div class="mini"><span></span></div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- Progresso por agente, com tempo estimado -->
+        <div class="card shadow-sm border-0 mb-3" id="cardProgressoBanco">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-end flex-wrap gap-2 mb-1">
+                    <h6 class="fw-bold mb-0">{{ tt('Progresso por agente') }}</h6>
+                    <small class="text-muted">{{ tt('Tempo estimado pelas execuções anteriores de cada agente.') }}</small>
+                </div>
+                <div class="d-flex justify-content-between small fw-bold mt-2"><span>{{ tt('Execução total') }} <span id="totalContagem" data-conteudo-dinamico></span></span><span id="totalRestante" data-conteudo-dinamico></span></div>
+                <div class="progress mb-3" style="height: 14px;" role="progressbar" aria-label="{{ tt('Execução total') }}">
+                    <div class="progress-bar bg-info" id="totalBarra" style="width: 0%"></div>
+                </div>
+                <div class="d-flex flex-column gap-2">
+                    {% for chave, nome, icone, descricao in ordem %}
+                    <div class="linha-progresso" data-chave="{{ chave }}">
+                        <div class="d-flex justify-content-between align-items-center small gap-2">
+                            <span class="fw-bold text-nowrap"><i class="bi {{ icone }} text-info-emphasis"></i> {{ tt(nome) }}</span>
+                            <span class="text-muted text-end tempo" data-conteudo-dinamico>—</span>
+                        </div>
+                        <div class="d-flex align-items-center gap-2">
+                            <div class="progress flex-grow-1" style="height: 10px;" role="progressbar" aria-label="{{ tt(nome) }}">
+                                <div class="progress-bar bg-secondary" style="width: 0%"></div>
+                            </div>
+                            <span class="small fw-bold pct" style="width: 38px; text-align: right; font-variant-numeric: tabular-nums;">0%</span>
+                            <span class="small contagem text-nowrap" style="min-width: 150px;" data-conteudo-dinamico></span>
+                            <span class="small links text-nowrap" style="min-width: 40px;"></span>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <div class="row g-3">
+            <!-- Resultado consolidado -->
+            <div class="col-lg-6">
+                <div class="card shadow-sm border-0 h-100" id="cardConsolidadoBanco"><div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start gap-2 mb-2">
+                        <h6 class="fw-bold mb-0">{{ tt('Resultado consolidado') }}</h6>
+                        <span id="consolidadoLinks" class="text-nowrap"></span>
+                    </div>
+                    <div id="consolidadoCorpo" class="small text-muted" data-conteudo-dinamico>{{ tt('O resultado aparece ao final da análise.') }}</div>
+                </div></div>
+            </div>
+            <!-- Log do Gerente -->
+            <div class="col-lg-6">
+                <div class="card shadow-sm border-0 h-100"><div class="card-body">
+                    <h6 class="fw-bold mb-2">{{ tt('Registro do Gerente de Banco de Dados') }}</h6>
+                    <div class="db-log" id="logBanco" aria-live="polite" data-conteudo-dinamico></div>
+                </div></div>
+            </div>
+        </div>
+
+        <div class="row g-3 mt-0">
+            <!-- Ações do DBA -->
+            <div class="col-lg-7">
+                <div class="card shadow-sm border-0 h-100" id="cardAcoesDba"><div class="card-body">
+                    <h6 class="fw-bold mb-1"><i class="bi bi-tools text-info-emphasis"></i> {{ tt('Ações do DBA') }}</h6>
+                    <small class="text-muted d-block mb-2">{{ tt('Antes de alterar o banco, é feito um backup validado (pasta pre_manutencao). Se o backup falhar, nada é alterado. Prefira horários de pouco uso.') }}</small>
+                    <div class="d-flex flex-wrap gap-2 mb-3">
+                        <form method="POST" action="{{ url_for('manutencao_agentes_banco') }}" class="m-0"><input type="hidden" name="acao" value="integridade">
+                            <button class="btn btn-sm btn-outline-secondary fw-bold" type="submit"><i class="bi bi-clipboard-check"></i> {{ tt('Verificar integridade') }}</button></form>
+                        <form method="POST" action="{{ url_for('manutencao_agentes_banco') }}" class="m-0"><input type="hidden" name="acao" value="otimizar">
+                            <button class="btn btn-sm btn-outline-info fw-bold" type="submit" id="btnOtimizar"><i class="bi bi-graph-up"></i> {{ tt('Atualizar estatísticas (ANALYZE + optimize)') }}</button></form>
+                    </div>
+                    <form method="POST" action="{{ url_for('manutencao_agentes_banco') }}" id="formIndices">
+                        <input type="hidden" name="acao" value="indices">
+                        <div class="d-flex justify-content-between align-items-end flex-wrap gap-2 mb-1">
+                            <span class="small fw-bold">{{ tt('Índices sugeridos') }} ({{ indices|length }})</span>
+                            <small class="text-muted">{{ tt('Pré-selecionados: os de prioridade alta (usados nas consultas).') }}</small>
+                        </div>
+                        <div class="border rounded p-2 mb-2 small" style="max-height: 220px; overflow-y: auto;">
+                            {% for i in indices %}
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" name="indices" value="{{ i.nome }}" id="idx_{{ loop.index }}" {% if i.prioridade == 'alta' %}checked{% endif %}>
+                                <label class="form-check-label" for="idx_{{ loop.index }}"><code>{{ i.tabela }}({{ i.colunas|join(', ') }})</code>
+                                    {% if i.prioridade == 'alta' %}<span class="badge bg-info text-dark">{{ tt('alta') }}</span>{% endif %}
+                                    <span class="text-muted">— {{ i.motivo }}</span></label>
+                            </div>
+                            {% else %}<span class="text-muted">{{ tt('Nenhum índice sugerido no momento.') }}</span>{% endfor %}
+                        </div>
+                        <div class="row g-2 align-items-end">
+                            <div class="col-sm-5"><label class="form-label small mb-0" for="confirmacaoIndices">{{ tt('Digite CONFIRMAR') }}</label>
+                                <input class="form-control form-control-sm" id="confirmacaoIndices" name="confirmacao" autocomplete="off" placeholder="CONFIRMAR"></div>
+                            <div class="col-sm-7 d-flex gap-2 flex-wrap">
+                                <button class="btn btn-sm btn-info fw-bold" type="submit" {% if not indices %}disabled{% endif %}><i class="bi bi-lightning-charge"></i> {{ tt('Criar índices selecionados') }}</button>
+                                <button class="btn btn-sm btn-outline-warning fw-bold" type="submit" form="formVacuum"><i class="bi bi-arrows-collapse"></i> {{ tt('Compactar (VACUUM)') }}</button>
+                            </div>
+                        </div>
+                    </form>
+                    <form method="POST" action="{{ url_for('manutencao_agentes_banco') }}" id="formVacuum" class="d-none"
+                          onsubmit="this.confirmacao.value = document.getElementById('confirmacaoIndices').value;">
+                        <input type="hidden" name="acao" value="vacuum"><input type="hidden" name="confirmacao" value="">
+                    </form>
+                    <h6 class="fw-bold mt-3 mb-1 small">{{ tt('Histórico de manutenção') }}</h6>
+                    <div class="table-responsive" style="max-height: 200px;">
+                        <table class="table table-sm small mb-0">
+                            <thead><tr><th>{{ tt('Data') }}</th><th>{{ tt('Ação') }}</th><th>{{ tt('Situação') }}</th><th>{{ tt('Detalhes') }}</th></tr></thead>
+                            <tbody>
+                            {% for m in manutencoes %}
+                                <tr><td class="text-nowrap">{{ m.data.strftime('%d/%m %H:%M') }}</td><td>{{ tt(acoes.get(m.acao, m.acao)) }}</td>
+                                    <td><span class="badge {{ 'bg-success' if m.status == 'Concluída' else 'bg-danger' }}">{{ tt(m.status) }}</span></td>
+                                    <td data-conteudo-dinamico>{{ (m.detalhes or '')[:160] }}{% if m.backup_arquivo %}<br><small class="text-muted"><i class="bi bi-cloud-check"></i> {{ m.backup_arquivo }}</small>{% endif %}</td></tr>
+                            {% else %}<tr><td colspan="4" class="text-muted">{{ tt('Nenhuma manutenção registrada.') }}</td></tr>{% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div></div>
+            </div>
+            <!-- Situação dos backups -->
+            <div class="col-lg-5">
+                <div class="card shadow-sm border-0 h-100" id="cardBackupBanco"><div class="card-body">
+                    <h6 class="fw-bold mb-2"><i class="bi bi-cloud-check text-info-emphasis"></i> {{ tt('Situação dos backups') }}</h6>
+                    {% if saude_backup %}
+                    {% set cor_backup = {'Saudável': 'success', 'Atenção': 'warning', 'Crítica': 'danger'}.get(saude_backup.situacao, 'secondary') %}
+                    <div class="mb-2"><span class="badge bg-{{ cor_backup }} fs-6">{{ tt(saude_backup.situacao) }}</span>
+                        {% if saude_backup.motivo %}<span class="small text-muted ms-1">{{ tt(saude_backup.motivo) }}</span>{% endif %}</div>
+                    <ul class="list-unstyled small mb-3">
+                        <li><i class="bi bi-calendar-check"></i> {{ tt('Agendamentos ativos') }}: <b>{{ saude_backup.ativos }}</b>{% if saude_backup.pausados %} · {{ tt('pausados') }}: {{ saude_backup.pausados }}{% endif %}</li>
+                        <li><i class="bi bi-clock-history"></i> {{ tt('Último backup bem-sucedido') }}: <b>{{ saude_backup.ultimo.strftime('%d/%m/%Y %H:%M') if saude_backup.ultimo else '—' }}</b></li>
+                        <li><i class="bi bi-alarm"></i> {{ tt('Próximo agendado') }}: <b>{{ saude_backup.proximo.strftime('%d/%m/%Y %H:%M') if saude_backup.proximo else '—' }}</b></li>
+                        <li><i class="bi bi-x-octagon"></i> {{ tt('Falhas registradas') }}: <b>{{ saude_backup.falhas }}</b></li>
+                    </ul>
+                    {% endif %}
+                    <a href="{{ url_for('manutencao_banco') }}" class="btn btn-sm btn-outline-info fw-bold"><i class="bi bi-database-fill-gear"></i> {{ tt('Gerenciar backups e agendamentos') }}</a>
+                    <small class="text-muted d-block mt-2">{{ tt('O Agente Backup e Recuperação confere tudo isso a cada análise e faz um teste de restauração numa cópia temporária.') }}</small>
+                </div></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+(function () {
+    const URL_ESTADO = "{{ url_for('estado_agentes_banco_json') }}";
+    const URL_ARQUIVO = "{{ url_for('arquivo_agentes_ia') }}?f=";
+    const CORES = {{ cores | tojson }};
+    const SEVERIDADES = ['Crítica', 'Alta', 'Média', 'Baixa'];
+    const TXT = {
+        aguardando: {{ tt('aguardando')|tojson }}, executando: {{ tt('analisando…')|tojson }}, concluido: {{ tt('sem pontos graves')|tojson }},
+        atencao: {{ tt('atenção')|tojson }}, erro: {{ tt('erro')|tojson }}, agente: {{ tt('Agente')|tojson }},
+        aguardandoInicio: {{ tt('Aguardando o início da análise.')|tojson }}, executandoGerente: {{ tt('Analisando')|tojson }},
+        concluidoGerente: {{ tt('Análise concluída.')|tojson }}, parado: {{ tt('Execução interrompida.')|tojson }},
+        verificacoes: {{ tt('verificações')|tojson }}, restantes: {{ tt('restantes')|tojson }}, estimado: {{ tt('estimado')|tojson }},
+        concluidoEm: {{ tt('concluído em')|tojson }}, foraExecucao: {{ tt('fora desta execução')|tojson }},
+        preparando: {{ tt('Preparando o agente…')|tojson }}, risco: {{ tt('Saúde')|tojson }}, prioridades: {{ tt('Corrigir primeiro')|tojson }},
+        nenhumaGrave: {{ tt('Nenhum ponto crítico, alto ou médio.')|tojson }}, aoFinal: {{ tt('O resultado aparece ao final da análise.')|tojson }},
+        sevs: { 'Crítica': {{ tt('Crítica')|tojson }}, 'Alta': {{ tt('Alta')|tojson }}, 'Média': {{ tt('Média')|tojson }}, 'Baixa': {{ tt('Baixa')|tojson }} }
+    };
+    {% set nomes_js = {} %}{% for chave, nome, icone, descricao in ordem %}{% set _ = nomes_js.update({chave: tt(nome)}) %}{% endfor %}
+    const NOMES_AGENTES = {{ nomes_js | tojson }};
+    const hub = document.getElementById('dbHub');
+    const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+    function desenharLinhas(agentes) {
+        const svg = document.getElementById('dbLinhas');
+        const caixa = hub.getBoundingClientRect();
+        const radar = hub.querySelector('.db-radar').getBoundingClientRect();
+        if (!radar.width) { svg.innerHTML = ''; return; }
+        const rx = radar.left + radar.width / 2 - caixa.left, ry = radar.top + radar.height / 2 - caixa.top;
+        svg.setAttribute('viewBox', `0 0 ${caixa.width} ${caixa.height}`);
+        svg.innerHTML = '';
+        hub.querySelectorAll('.db-agente').forEach(no => {
+            const r = no.querySelector('.escudo').getBoundingClientRect();
+            const x = r.left + r.width / 2 - caixa.left, y = r.top + r.height / 2 - caixa.top;
+            const caminho = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+            caminho.setAttribute('d', `M${x},${y} Q${(x + rx) / 2},${y} ${rx},${ry}`);
+            const st = agentes && agentes[no.dataset.chave] ? agentes[no.dataset.chave].status : '';
+            caminho.setAttribute('class', st === 'executando' ? 'ativa' : st);
+            svg.appendChild(caminho);
+        });
+    }
+
+    function link(rel, icone, titulo) {
+        return rel ? `<a href="${URL_ARQUIVO}${encodeURIComponent(rel.replace(/\\/g, '/'))}" target="_blank" rel="noopener" title="${titulo}" class="me-2"><i class="bi ${icone}"></i></a>` : '';
+    }
+
+    function pontos(contagem) {
+        return contagem ? SEVERIDADES.filter(s => contagem[s]).map(s => `<span style="background:${CORES[s]}" title="${esc(TXT.sevs[s])}">${contagem[s]}</span>`).join('') : '';
+    }
+
+    function linhaConsole(texto) {
+        const m = texto.match(/^(\d\d:\d\d:\d\d)\s+(.*)$/);
+        const hora = m ? m[1] : '', corpo = m ? m[2] : texto;
+        let classe = '';
+        const sev = corpo.match(/^⚠ \[(Crítica|Alta|Média|Baixa|Informativa)\]/);
+        if (sev) classe = 'sev-' + sev[1];
+        else if (corpo.startsWith('✓')) classe = 'ok';
+        else if (corpo.startsWith('▶')) classe = 'passo';
+        return `<div><span class="tempo">${hora}</span> <span class="${classe}">${esc(corpo)}</span></div>`;
+    }
+
+    // No banco de dados o medidor mostra a SAÚDE (100 − risco): quanto maior, melhor
+    function desenharRisco(risco, contagem) {
+        const arco = document.getElementById('riscoArco');
+        const valor = typeof risco === 'number' ? 100 - risco : null;
+        arco.setAttribute('stroke-dasharray', `${valor === null ? 0 : valor} 100`);
+        arco.setAttribute('stroke', valor === null ? '#22c55e' : valor >= 75 ? '#22c55e' : valor >= 40 ? '#f59e0b' : '#ef4444');
+        document.getElementById('riscoValor').textContent = valor === null ? '—' : valor;
+        document.querySelectorAll('#riscoSeveridades span').forEach(s => { s.textContent = contagem ? (contagem[s.dataset.sev] || 0) : 0; });
+    }
+
+    function atualizar(dados) {
+        const estado = dados.estado, agente = dados.agente;
+        const agentes = estado ? estado.agentes : {};
+        const rodando = estado && estado.status === 'executando';
+        hub.classList.toggle('ativo', !!rodando);
+        document.getElementById('btnIniciarBanco').disabled = !!rodando;
+        document.getElementById('btnPararBanco').disabled = !rodando;
+
+        // Especialistas ao redor
+        hub.querySelectorAll('.db-agente').forEach(no => {
+            const a = agentes[no.dataset.chave];
+            const st = a ? a.status : 'aguardando';
+            no.className = 'db-agente ' + st;
+            no.style.opacity = a || !estado ? '' : '.3';
+            const vivo = st === 'executando' && agente && agente.chave === no.dataset.chave;
+            no.querySelector('.situacao').textContent = a ? (TXT[st] || st) + (vivo ? ` · ${agente.verificacoes} ${TXT.verificacoes}` : '') : (estado ? '—' : TXT.aguardando);
+            no.querySelector('.pontos').innerHTML = pontos(vivo ? agente.contagem : (a && st !== 'aguardando' ? a.contagem : null));
+            no.querySelector('.selo').innerHTML = st === 'concluido' ? '<i class="bi bi-check-lg"></i>' : (st === 'atencao' || st === 'erro') ? '<i class="bi bi-exclamation-lg"></i>' : '';
+        });
+
+        // Gerente de Segurança
+        const chaves = Object.keys(agentes);
+        const feitos = chaves.filter(c => !['aguardando', 'executando'].includes(agentes[c].status)).length;
+        document.getElementById('gerenteContadorBanco').textContent = feitos;
+        let texto = TXT.aguardandoInicio;
+        if (rodando) texto = `${TXT.executandoGerente} ${Math.min(feitos + 1, chaves.length)}/${chaves.length}` + (estado.atual ? ` · ${TXT.agente} ${NOMES_AGENTES[estado.atual]}` : '');
+        else if (estado && estado.status === 'concluido') texto = `${TXT.concluidoGerente} ${feitos}/${chaves.length}`;
+        else if (estado && ['parado', 'interrompido', 'erro'].includes(estado.status)) texto = TXT.parado;
+        document.getElementById('gerenteTexto').textContent = texto;
+
+        // Nota de risco: consolidada no fim; durante a execução, a soma do que já foi encontrado
+        if (estado && estado.consolidado) {
+            desenharRisco(estado.consolidado.risco, estado.consolidado.contagem);
+        } else if (estado) {
+            const soma = {};
+            SEVERIDADES.forEach(s => soma[s] = 0);
+            chaves.forEach(c => {
+                const cont = (rodando && agente && agente.chave === c) ? agente.contagem : (agentes[c].status !== 'aguardando' ? agentes[c].contagem : null);
+                if (cont) SEVERIDADES.forEach(s => soma[s] += cont[s] || 0);
+            });
+            desenharRisco(Math.min(100, soma['Crítica'] * 25 + soma['Alta'] * 10 + soma['Média'] * 4 + soma['Baixa']), soma);
+        } else {
+            desenharRisco(null, null);
+        }
+
+        // Console central
+        const vivo = rodando && agente && estado.atual === agente.chave;
+        document.getElementById('consoleTitulo').textContent = vivo ? `dba@mentoria:~$ agente_${agente.chave}.py — ${NOMES_AGENTES[agente.chave]}` : 'dba@mentoria:~$';
+        document.getElementById('consoleEtapa').textContent = vivo ? `▶ ${agente.etapa || '…'}` : (rodando ? TXT.preparando : '—');
+        const saida = document.getElementById('consoleSaida');
+        const linhas = vivo ? agente.feed : (!rodando && agente ? agente.feed : null);
+        if (linhas && linhas.length) {
+            const html = linhas.map(linhaConsole).join('') + (vivo ? '<div class="db-cursor"></div>' : '');
+            if (saida.dataset.ultimo !== html) { saida.innerHTML = html; saida.dataset.ultimo = html; saida.scrollTop = saida.scrollHeight; }
+        } else if (saida.dataset.ultimo !== 'vazio') {
+            saida.innerHTML = `<div class="db-vazio"><i class="bi bi-database"></i>${esc(rodando ? TXT.preparando : {{ tt('Nenhuma análise em execução. As verificações e os pontos de melhoria aparecem aqui ao vivo.')|tojson }})}</div>`;
+            saida.dataset.ultimo = 'vazio';
+        }
+
+        // Consolidado
+        const corpo = document.getElementById('consolidadoCorpo');
+        const cons = estado && estado.consolidado;
+        if (cons) {
+            const lista = cons.principais.length
+                ? cons.principais.map(p => `<li class="mb-1"><span class="sev-pill" style="background:${CORES[p.severidade]}">${esc(TXT.sevs[p.severidade] || p.severidade)}</span> ${esc(p.titulo)} <span class="text-muted">· ${esc(p.agente)}</span></li>`).join('')
+                : `<li class="text-success">${esc(TXT.nenhumaGrave)}</li>`;
+            corpo.className = 'small';
+            corpo.innerHTML = `<div class="mb-2"><b>${esc(TXT.risco)}: ${100 - cons.risco}/100</b> · ${SEVERIDADES.map(s => `<span class="sev-pill" style="background:${CORES[s]}">${cons.contagem[s]} ${esc(TXT.sevs[s])}</span>`).join(' ')}</div>`
+                + `<div class="fw-bold mb-1">${esc(TXT.prioridades)}</div><ul class="ps-3 mb-0">${lista}</ul>`;
+            document.getElementById('consolidadoLinks').innerHTML = link(cons.pdf, 'bi-file-earmark-pdf text-danger fs-5', 'PDF') + link(cons.prompt, 'bi-file-earmark-text fs-5', 'Prompt');
+        } else {
+            corpo.className = 'small text-muted';
+            corpo.textContent = TXT.aoFinal;
+            document.getElementById('consolidadoLinks').innerHTML = '';
+        }
+
+        const log = document.getElementById('logBanco');
+        const novoLog = estado ? estado.log.slice(-20).join('\n') : '';
+        if (log.textContent !== novoLog) { log.textContent = novoLog; log.scrollTop = log.scrollHeight; }
+
+        atualizarProgresso(estado, agente, dados.agora);
+        desenharLinhas(agentes);
+        return rodando;
+    }
+
+    function formatar(segundos) {
+        segundos = Math.max(0, Math.round(segundos));
+        const m = Math.floor(segundos / 60), s = segundos % 60;
+        return m ? `${m} min ${String(s).padStart(2, '0')} s` : `${s} s`;
+    }
+
+    function atualizarProgresso(estado, agente, agoraIso) {
+        const agentes = estado ? estado.agentes : {};
+        const estimativas = (estado && estado.estimativas) || {};
+        const agora = Date.parse(agoraIso);
+        let totalPrevisto = 0, totalFeito = 0, totalRestante = 0, terminados = 0;
+        document.querySelectorAll('.linha-progresso').forEach(linha => {
+            const chave = linha.dataset.chave, a = agentes[chave];
+            const est = estimativas[chave] || 15;
+            const barra = linha.querySelector('.progress-bar');
+            let pct = 0, texto = '—', cor = 'bg-secondary', restante = 0, cont = null;
+            if (!a) {
+                texto = estado ? TXT.foraExecucao : '—';
+            } else if (a.status === 'executando') {
+                const decorrido = Math.max(0, (agora - Date.parse(a.inicio)) / 1000);
+                pct = Math.min(0.97, decorrido / est);
+                restante = Math.max(est - decorrido, 2);
+                texto = `≈ ${formatar(restante)} ${TXT.restantes}`;
+                cor = 'bg-warning progress-bar-striped progress-bar-animated';
+                const mini = document.querySelector(`#db_agente_${chave} .mini span`);
+                if (mini) mini.style.width = Math.round(pct * 100) + '%';
+                if (agente && agente.chave === chave) cont = agente;
+            } else if (a.status === 'aguardando') {
+                restante = est;
+                texto = `${TXT.estimado} ≈ ${formatar(est)}`;
+            } else {
+                pct = 1; terminados++;
+                texto = `${TXT.concluidoEm} ${a.duracao || ''}`;
+                cor = a.status === 'concluido' ? 'bg-success' : 'bg-info';
+                cont = a;
+            }
+            if (a) { totalPrevisto += est; totalFeito += pct * est; totalRestante += restante; }
+            barra.className = 'progress-bar ' + cor;
+            barra.style.width = Math.round(pct * 100) + '%';
+            linha.querySelector('.pct').textContent = Math.round(pct * 100) + '%';
+            linha.querySelector('.tempo').textContent = texto;
+            linha.querySelector('.contagem').innerHTML = cont ? `${cont.verificacoes} ✓ · ` + SEVERIDADES.map(s => `<span class="sev-pill" style="background:${CORES[s]}" title="${esc(TXT.sevs[s])}">${cont.contagem[s]}</span>`).join(' ') : '';
+            linha.querySelector('.links').innerHTML = a ? link(a.pdf, 'bi-file-earmark-pdf text-danger', 'PDF') + link(a.prompt, 'bi-file-earmark-text', 'Prompt') : '';
+            linha.style.opacity = a || !estado ? '' : '.5';
+        });
+        const chaves = Object.keys(agentes);
+        const pctTotal = totalPrevisto ? totalFeito / totalPrevisto : 0;
+        const rodando = estado && estado.status === 'executando';
+        document.getElementById('totalBarra').style.width = Math.round(pctTotal * 100) + '%';
+        document.getElementById('totalBarra').className = 'progress-bar ' + (rodando ? 'bg-info progress-bar-striped progress-bar-animated' : 'bg-info');
+        document.getElementById('totalContagem').textContent = chaves.length ? `· ${terminados}/${chaves.length} · ${Math.round(pctTotal * 100)}%` : '';
+        document.getElementById('totalRestante').textContent = rodando ? `≈ ${formatar(totalRestante)} ${TXT.restantes}` : '';
+    }
+
+    let intervalo = null, ultimoEstado = null, falhasSeguidas = 0;
+    function consultar() {
+        fetch(URL_ESTADO, { cache: 'no-store' }).then(r => { if (!r.ok) throw new Error(r.status); return r.json(); }).then(dados => {
+            if (!dados.estado && ultimoEstado && ultimoEstado.status === 'executando' && ++falhasSeguidas < 5) {
+                dados.estado = ultimoEstado;
+            } else {
+                falhasSeguidas = 0;
+            }
+            if (dados.estado) ultimoEstado = dados.estado;
+            const rodando = atualizar(dados);
+            const desejado = rodando ? 800 : 5000;
+            if (intervalo === null || intervalo.ms !== desejado) {
+                if (intervalo) clearInterval(intervalo.id);
+                intervalo = { ms: desejado, id: setInterval(consultar, desejado) };
+            }
+        }).catch(() => {});
+    }
+    window.addEventListener('resize', () => desenharLinhas(ultimoEstado ? ultimoEstado.agentes : null));
+    consultar();
+})();
+</script>
+{% endblock %}

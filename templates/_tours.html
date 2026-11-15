@@ -91,6 +91,15 @@
             { sel: '.hub-agente', texto: {{ tt('Cada robô é o agente de um perfil: brilha enquanto testa e recebe ✓ ou ✗ ao terminar.')|tojson }} },
             { sel: '#cardArvoreIa', texto: {{ tt('Os relatórios em PDF com as evidências e os prompts de correção ficam nestas pastas, separados por perfil.')|tojson }} },
         ],
+        'agentes_banco': [
+            { texto: {{ tt('Agentes de Banco de Dados: o Gerente de Banco de Dados coordena 5 especialistas e mostra a análise ao vivo.')|tojson }} },
+            { sel: '#cardComandosBanco', texto: {{ tt('Escolha os agentes e inicie a análise: eles só leem o banco e medem as páginas sem alterar dados.')|tojson }} },
+            { sel: '.db-console', texto: {{ tt('No centro, o console mostra cada verificação e cada ponto de melhoria encontrado.')|tojson }} },
+            { sel: '#cardConsolidadoBanco', texto: {{ tt('O resultado consolidado traz a saúde do banco, as prioridades, o PDF e o prompt de melhoria para qualquer LLM.')|tojson }} },
+            { sel: '#cardAcoesDba', texto: {{ tt('Ações do DBA: estatísticas, compactação e índices sugeridos, sempre com backup validado antes.')|tojson }} },
+            { sel: '#cardBackupBanco', texto: {{ tt('A situação dos backups e o atalho para gerenciar os agendamentos.')|tojson }} },
+            { sel: '#cardAprendizadoBanco', texto: {{ tt('O Gerente aprende as mudanças do banco sozinho e busca a documentação oficial de outros bancos quando precisa.')|tojson }} },
+        ],
         'agentes_seguranca': [
             { texto: {{ tt('Agentes de Segurança: o Gerente de Segurança coordena 5 especialistas em cibersegurança e mostra a auditoria ao vivo.')|tojson }} },
             { sel: '#cardComandosSeg', texto: {{ tt('Escolha os agentes e inicie a auditoria: o pentest só ataca a própria plataforma em ambiente local ou de teste.')|tojson }} },

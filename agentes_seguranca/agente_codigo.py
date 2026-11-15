@@ -70,7 +70,7 @@ class AgenteCodigo(AgenteSeguranca):
             return
         funcoes = {}
         for caminho, rel in self.arquivos((".py",)):
-            if rel.startswith(("agentes_omnitest/", "agentes_seguranca/")):
+            if rel.startswith(("agentes_omnitest/", "agentes_seguranca/", "agentes_banco/")):
                 continue
             try:
                 fonte = open(caminho, encoding="utf-8").read()
@@ -100,7 +100,7 @@ class AgenteCodigo(AgenteSeguranca):
                     "revisados": []}
         total = 0
         for caminho, rel in self.arquivos((".py",)):
-            if rel.startswith(("agentes_omnitest/", "agentes_seguranca/")):
+            if rel.startswith(("agentes_omnitest/", "agentes_seguranca/", "agentes_banco/")):
                 continue  # ferramentas de teste: fora do escopo da aplicação
             try:
                 fonte = open(caminho, encoding="utf-8").read()
@@ -237,7 +237,7 @@ class AgenteCodigo(AgenteSeguranca):
         import io
         indefinidos, outros = [], 0
         for caminho, rel in self.arquivos((".py",)):
-            if rel.startswith(("agentes_omnitest/", "agentes_seguranca/")):
+            if rel.startswith(("agentes_omnitest/", "agentes_seguranca/", "agentes_banco/")):
                 continue
             saida = io.StringIO()
             check(open(caminho, encoding="utf-8").read(), rel, Reporter(saida, saida))

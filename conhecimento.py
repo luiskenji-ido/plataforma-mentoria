@@ -31,7 +31,9 @@ AGENTE_GERENTE = 'Agente Gerente Técnico'
 TODOS = 'todos'
 AGENTES = ['administrador', 'aluno', 'professor', 'mentor', 'mentor_administrador', 'gestor_b2b', 'avaliador', 'perfis_personalizados',
            # Agentes de Segurança (ensinados pelo Gerente de Segurança, conhecimento_seguranca.py)
-           'seguranca', 'seg_configuracao', 'seg_dados', 'seg_codigo', 'seg_dependencias', 'seg_pentest']
+           'seguranca', 'seg_configuracao', 'seg_dados', 'seg_codigo', 'seg_dependencias', 'seg_pentest',
+           # Agentes de Banco de Dados (ensinados pelo Gerente de Banco de Dados, conhecimento_banco.py)
+           'banco', 'db_consultas', 'db_esquema', 'db_backup', 'db_dba', 'db_portabilidade']
 FONTES_PADRAO = [
     ('docs.python.org', 'Documentação oficial do Python'), ('flask.palletsprojects.com', 'Documentação oficial do Flask'),
     ('jinja.palletsprojects.com', 'Documentação oficial do Jinja'), ('docs.sqlalchemy.org', 'Documentação oficial do SQLAlchemy'),
@@ -43,6 +45,10 @@ FONTES_PADRAO = [
     # Bases oficiais de vulnerabilidades (usadas pelos Agentes de Segurança)
     ('osv.dev', 'OSV — base oficial de vulnerabilidades open source (Google/OpenSSF)'), ('pypi.org', 'PyPI — índice oficial de pacotes Python'),
     ('nvd.nist.gov', 'NVD — National Vulnerability Database (NIST)'), ('cwe.mitre.org', 'CWE — catálogo de fraquezas (MITRE)'),
+    # Documentação oficial dos bancos de dados (usada pelo Gerente de Banco de Dados)
+    ('sqlite.org', 'SQLite — documentação oficial'), ('postgresql.org', 'PostgreSQL — documentação oficial'),
+    ('dev.mysql.com', 'MySQL — documentação oficial (Oracle)'), ('learn.microsoft.com', 'Microsoft Learn — SQL Server'),
+    ('mongodb.com', 'MongoDB — documentação oficial'),
 ]
 LIMITE_DOWNLOAD = 2 * 1024 * 1024
 

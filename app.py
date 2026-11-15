@@ -5517,6 +5517,9 @@ PASTAS_PERFIS_IA = ['Perfil administrador', 'Perfil aluno', 'Perfil professor', 
 # Agentes de Segurança: uma subpasta por agente especialista (mesmos nomes que o agentes_seguranca/gestor_seguranca.py usa)
 PASTAS_SEGURANCA_IA = ['Agente Configuração e Segredos', 'Agente Inconsistências de Dados', 'Agente Análise de Código',
                        'Agente Dependências e Tecnologias', 'Agente Pentest', 'Consolidado']
+# Agentes de Banco de Dados (mesmos nomes que o agentes_banco/gestor_banco.py usa)
+PASTAS_BANCO_IA = ['Agente Consultas e Desempenho', 'Agente Esquema e Índices', 'Agente Backup e Recuperação',
+                   'Agente DBA Manutenção e Logs', 'Agente Multi-banco', 'Consolidado']
 
 
 def _ler_json_ia(nome):
@@ -5552,6 +5555,7 @@ def arvore_agentes_ia():
 
     e2e = os.path.join(PASTA_AGENTES_IA, 'Agentes Teste Fim a Fim')
     seg = os.path.join(PASTA_AGENTES_IA, 'Agentes Teste de Segurança')
+    bd = os.path.join(PASTA_AGENTES_IA, 'Agentes Banco de Dados')
     return [
         {'nome': 'Agentes Teste Fim a Fim', 'pastas': [
             {'nome': 'Relatórios de Testes Fim a Fim e Evidencias', 'subpastas': subpastas(os.path.join(e2e, 'Relatórios de Testes Fim a Fim e Evidencias'))},
@@ -5559,6 +5563,9 @@ def arvore_agentes_ia():
         {'nome': 'Agentes Teste de Segurança', 'pagina': 'agentes_seguranca', 'pastas': [
             {'nome': 'Relatórios de Testes de Segurança', 'subpastas': subpastas(os.path.join(seg, 'Relatórios de Testes de Segurança'), PASTAS_SEGURANCA_IA)},
             {'nome': 'Prompt de correção LLM', 'subpastas': subpastas(os.path.join(seg, 'Prompt de correção LLM'), PASTAS_SEGURANCA_IA)}]},
+        {'nome': 'Agentes Banco de Dados', 'pagina': 'agentes_banco', 'pastas': [
+            {'nome': 'Relatórios de Banco de Dados', 'subpastas': subpastas(os.path.join(bd, 'Relatórios de Banco de Dados'), PASTAS_BANCO_IA)},
+            {'nome': 'Prompt de melhoria LLM', 'subpastas': subpastas(os.path.join(bd, 'Prompt de melhoria LLM'), PASTAS_BANCO_IA)}]},
     ]
 
 
@@ -5830,6 +5837,178 @@ def estado_agentes_seguranca_json():
 
 
 # ==============================================================================
+# ADMINISTRAÇÃO › AGENTES DE BANCO DE DADOS: Gerente de Banco de Dados + 5 especialistas e as ações do DBA
+# ==============================================================================
+PASTA_AO_VIVO_BANCO = os.path.join(PASTA_AGENTES_IA, '.ao_vivo_banco')
+# (chave, nome, ícone, o que verifica)
+ORDEM_AGENTES_BANCO = [
+    ('consultas', 'Consultas e Desempenho', 'bi-speedometer',
+     'Mede as páginas de verdade (consultas, tempo, repetições), lê o plano de execução e acha consultas lentas e padrões N+1 no código.'),
+    ('esquema', 'Esquema e Índices', 'bi-diagram-3',
+     'Compara o modelo com o banco, prioriza índices pelas consultas reais, acha registros órfãos e tipos inadequados.'),
+    ('backup', 'Backup e Recuperação', 'bi-cloud-check',
+     'Confere agendamentos, execuções, integridade dos arquivos e faz um teste de restauração numa cópia temporária.'),
+    ('dba', 'DBA (Manutenção e Logs)', 'bi-tools',
+     'Integridade, estatísticas (ANALYZE), espaço livre (VACUUM), configuração, crescimento e retenção dos logs.'),
+    ('portabilidade', 'Multi-banco', 'bi-database-gear',
+     'Especialista em SQLite, PostgreSQL, MySQL, SQL Server e MongoDB: mede a prontidão e o roteiro de migração.'),
+]
+
+
+def _ler_json_banco(nome):
+    try:
+        with open(os.path.join(PASTA_AO_VIVO_BANCO, nome), encoding='utf-8') as f:
+            return json.load(f)
+    except (OSError, ValueError):
+        return None
+
+
+def estado_agentes_banco():
+    estado = _ler_json_banco('estado.json')
+    if estado and estado.get('status') == 'executando' and time.time() - estado.get('batimento', 0) > 30:
+        estado['status'] = 'interrompido'
+    return estado
+
+
+@app.route('/admin/agentes-banco')
+@login_required
+def agentes_banco():
+    import importlib.util
+    import backup_servico
+    import banco_manutencao
+    import conhecimento_banco
+    bloqueio = _somente_administrador()
+    if bloqueio:
+        return bloqueio
+    grupo = next(g for g in arvore_agentes_ia() if g['nome'] == 'Agentes Banco de Dados')
+    try:
+        aprendizado = conhecimento_banco.resumo_para_tela()
+        indices = banco_manutencao.indices_sugeridos() if banco_manutencao.suportado() else []
+        saude_backup = backup_servico.saude()
+    except Exception as e:
+        db.session.rollback()
+        app.logger.warning(f"Agentes de Banco de Dados: {e}")
+        aprendizado, indices, saude_backup = None, [], None
+    return render_template('agentes_banco.html', ordem=ORDEM_AGENTES_BANCO, estado=estado_agentes_banco(), grupo=grupo, aprendizado=aprendizado,
+                           indices=indices, manutencoes=banco_manutencao.historico(15), acoes=banco_manutencao.ACOES, saude_backup=saude_backup,
+                           motores=conhecimento_banco.MOTORES, playwright_ok=importlib.util.find_spec('playwright') is not None)
+
+
+@app.route('/admin/agentes-banco/iniciar', methods=['POST'])
+@login_required
+def iniciar_agentes_banco():
+    """O Gerente de Banco de Dados roda em segundo plano e chama os especialistas um a um."""
+    import subprocess
+    import sys as _sys
+    bloqueio = _somente_administrador()
+    if bloqueio:
+        return bloqueio
+    estado = estado_agentes_banco()
+    if estado and estado.get('status') == 'executando':
+        flash(tt('Já existe uma execução em andamento.', current_user.idioma), "warning")
+        return redirect(url_for('agentes_banco'))
+    validos = [c for c, *_ in ORDEM_AGENTES_BANCO]
+    agentes = [a for a in request.form.getlist('agentes') if a in validos] or validos
+    raiz = os.path.dirname(os.path.abspath(__file__))
+    cmd = [_sys.executable, os.path.join(raiz, 'agentes_banco', 'gestor_banco.py'), '--agentes', *agentes]
+    os.makedirs(PASTA_AO_VIVO_BANCO, exist_ok=True)
+    for nome in ('estado.json', 'agente.json'):
+        try:
+            os.remove(os.path.join(PASTA_AO_VIVO_BANCO, nome))
+        except OSError:
+            pass
+    opcoes = {'creationflags': subprocess.CREATE_NEW_PROCESS_GROUP | subprocess.CREATE_NO_WINDOW} if os.name == 'nt' else {'start_new_session': True}
+    log = open(os.path.join(PASTA_AO_VIVO_BANCO, 'gestor.log'), 'w', encoding='utf-8')
+    subprocess.Popen(cmd, cwd=raiz, stdout=log, stderr=subprocess.STDOUT, env={**os.environ, 'PYTHONIOENCODING': 'utf-8'}, **opcoes)
+    flash(tt('Gerente de Banco de Dados iniciado: a análise começa pelas consultas.', current_user.idioma), "success")
+    return redirect(url_for('agentes_banco'))
+
+
+@app.route('/admin/agentes-banco/parar', methods=['POST'])
+@login_required
+def parar_agentes_banco():
+    import subprocess
+    import signal
+    bloqueio = _somente_administrador()
+    if bloqueio:
+        return bloqueio
+    estado = _ler_json_banco('estado.json')
+    if estado and estado.get('pid'):
+        try:
+            if os.name == 'nt':
+                subprocess.run(['taskkill', '/PID', str(estado['pid']), '/T', '/F'], capture_output=True, timeout=20)
+            else:
+                os.killpg(os.getpgid(estado['pid']), signal.SIGTERM)
+        except Exception:
+            pass
+        estado.update(status='parado', fim=datetime.now().isoformat(timespec='seconds'))
+        estado['log'] = (estado.get('log') or []) + [f"{datetime.now().strftime('%H:%M:%S')}  ■ {current_user.nome} parou a execução"]
+        with open(os.path.join(PASTA_AO_VIVO_BANCO, 'estado.json'), 'w', encoding='utf-8') as f:
+            json.dump(estado, f, ensure_ascii=False)
+        flash(tt('Execução interrompida.', current_user.idioma), "info")
+    return redirect(url_for('agentes_banco'))
+
+
+@app.route('/admin/agentes-banco/estado')
+@login_required
+def estado_agentes_banco_json():
+    if current_user.tipo_usuario != 'Administrador':
+        return jsonify({'erro': 'acesso negado'}), 403
+    return jsonify({'estado': estado_agentes_banco(), 'agente': _ler_json_banco('agente.json'), 'agora': datetime.now().isoformat(timespec='seconds')})
+
+
+@app.route('/admin/agentes-banco/aprender', methods=['POST'])
+@login_required
+def aprender_agentes_banco():
+    """'Aprender agora' (mudanças do banco) ou 'Aprender sobre outro banco' (documentação oficial, pendente de aprovação)."""
+    import conhecimento_banco
+    bloqueio = _somente_administrador()
+    if bloqueio:
+        return bloqueio
+    idioma = current_user.idioma
+    motor = request.form.get('motor')
+    try:
+        if motor:
+            if motor not in conhecimento_banco.MOTORES:
+                raise ValueError(tt('banco desconhecido', idioma))
+            novos = conhecimento_banco.aprender_sobre_banco(motor, current_user.id, f"Solicitado por {current_user.nome}")
+            flash(tt('{banco}: {n} página(s) oficial(is) lida(s) e enviada(s) para aprovação na Governança.', idioma)
+                  .format(banco=conhecimento_banco.MOTORES[motor], n=len(novos)), 'success' if novos else 'info')
+        else:
+            novos = conhecimento_banco.detectar_mudancas(f"Solicitado por {current_user.nome}")
+            flash(tt('Gerente de Banco de Dados: {n} aprendizado(s) novo(s) aplicado(s) aos agentes.', idioma).format(n=len(novos)), 'success')
+    except Exception as e:
+        db.session.rollback()
+        flash(tt('Detecção falhou: {erro}', idioma).format(erro=e), 'danger')
+    return redirect(url_for('agentes_banco'))
+
+
+@app.route('/admin/agentes-banco/manutencao', methods=['POST'])
+@login_required
+def manutencao_agentes_banco():
+    """Ações do DBA: sempre com backup validado antes de alterar o banco (banco_manutencao.py)."""
+    import banco_manutencao
+    bloqueio = _somente_administrador()
+    if bloqueio:
+        return bloqueio
+    idioma = current_user.idioma
+    acao = request.form.get('acao')
+    if acao not in banco_manutencao.ACOES:
+        flash(tt('Ação desconhecida.', idioma), 'warning')
+        return redirect(url_for('agentes_banco'))
+    if acao in ('vacuum', 'indices') and (request.form.get('confirmacao') or '').strip().upper() != 'CONFIRMAR':
+        flash(tt('Para alterar o banco, digite CONFIRMAR no campo de confirmação.', idioma), 'warning')
+        return redirect(url_for('agentes_banco'))
+    registro = banco_manutencao.executar(acao, current_user.id, request.form.getlist('indices'))
+    nome = tt(banco_manutencao.ACOES[acao], idioma)
+    if registro.status == 'Concluída':
+        flash(tt('{acao}: concluída. {detalhes}', idioma).format(acao=nome, detalhes=registro.detalhes or ''), 'success')
+    else:
+        flash(tt('{acao}: falhou. {detalhes}', idioma).format(acao=nome, detalhes=registro.detalhes or ''), 'danger')
+    return redirect(url_for('agentes_banco'))
+
+
+# ==============================================================================
 # PAINEL GERAL: GRÁFICOS PERSONALIZÁVEIS POR UTILIZADOR
 # Cada perfil vê um catálogo de dados; cada utilizador escolhe até 4 gráficos (dado, tipo e cor).
 # ==============================================================================
@@ -5980,6 +6159,12 @@ def aprender_mudancas(origem):
     except Exception as e:
         db.session.rollback()
         app.logger.warning(f"Detecção de aprendizados de segurança falhou: {e}")
+    try:
+        import conhecimento_banco
+        criados += conhecimento_banco.detectar_mudancas(origem)
+    except Exception as e:
+        db.session.rollback()
+        app.logger.warning(f"Detecção de aprendizados de banco de dados falhou: {e}")
     return criados
 
 
@@ -6134,7 +6319,7 @@ def governanca_aprendizados():
             total, arquivo = conhecimento.limpar(consulta.all(), current_user.id, current_user.nome, escopo)
             if escopo == 'todos':
                 # Recomeça do zero: o próximo retrato vira a nova linha de base (dos dois gerentes)
-                EstadoConhecimento.query.filter(EstadoConhecimento.chave.in_(['retrato', 'retrato_seguranca'])).delete(synchronize_session=False)
+                EstadoConhecimento.query.filter(EstadoConhecimento.chave.in_(['retrato', 'retrato_seguranca', 'retrato_banco'])).delete(synchronize_session=False)
                 db.session.commit()
             flash(tt('{n} aprendizado(s) removido(s). Cópia de auditoria: {arquivo}', idioma).format(n=total, arquivo=arquivo or '—'), 'success')
         return redirect(url_for('governanca_aprendizados'))
@@ -6148,6 +6333,10 @@ def governanca_aprendizados():
     if filtro_agente == 'seguranca':
         # Grupo de segurança: aprendizados do grupo e de cada um dos 5 agentes de segurança (seg_*)
         consulta = consulta.filter(AprendizadoAgente.agentes_destino.like('%"seg%') | AprendizadoAgente.agentes_destino.like('%"todos"%'))
+    elif filtro_agente == 'banco':
+        # Grupo de banco de dados: aprendizados do grupo e de cada um dos 5 agentes de banco (db_*)
+        consulta = consulta.filter(AprendizadoAgente.agentes_destino.like('%"db_%') | AprendizadoAgente.agentes_destino.like('%"banco"%')
+                                   | AprendizadoAgente.agentes_destino.like('%"todos"%'))
     elif filtro_agente:
         consulta = consulta.filter(AprendizadoAgente.agentes_destino.like(f'%"{filtro_agente}"%') | AprendizadoAgente.agentes_destino.like('%"todos"%'))
     itens = consulta.order_by(AprendizadoAgente.id.desc()).all()

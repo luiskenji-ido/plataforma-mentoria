@@ -47,7 +47,9 @@ MODULOS = {
     'agentes_ia': ('Agentes IA e governança de aprendizados', 'bi-robot',
                    ['agentes_ia', 'iniciar_agentes_ia', 'parar_agentes_ia', 'estado_agentes_ia_json', 'quadro_agentes_ia',
                     'arquivo_agentes_ia', 'governanca_aprendizados', 'governanca_aprendizados_csv', 'agentes_seguranca',
-                    'iniciar_agentes_seguranca', 'parar_agentes_seguranca', 'estado_agentes_seguranca_json', 'aprender_agentes_seguranca'], False),
+                    'iniciar_agentes_seguranca', 'parar_agentes_seguranca', 'estado_agentes_seguranca_json', 'aprender_agentes_seguranca',
+                    'agentes_banco', 'iniciar_agentes_banco', 'parar_agentes_banco', 'estado_agentes_banco_json', 'aprender_agentes_banco',
+                    'manutencao_agentes_banco'], False),
     'manutencao': ('Manutenção do banco de dados', 'bi-database-fill-gear', ['manutencao_banco', 'baixar_backup', 'relatorio_auditoria_backup'], False),
 }
 

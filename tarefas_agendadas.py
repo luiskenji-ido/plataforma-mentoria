@@ -126,8 +126,15 @@ def aprender_seguranca(agora):
     return novos
 
 
+def aprender_banco_de_dados(agora):
+    """Gerente de Banco de Dados: aprende motor, esquema, índices, agendamentos de backup e drivers (aplicados na hora),
+    guarda a foto diária de crescimento e busca a documentação oficial dos bancos que passarem a ser necessários (pendente)."""
+    import conhecimento_banco
+    return len(conhecimento_banco.detectar_mudancas('Gerente de Banco de Dados (tarefa de hora em hora)'))
+
+
 TAREFAS = [lembrar_checkout_esquecido, lembrar_encaminhamentos_vencidos, enviar_formulario_banca, fechar_checkin_banca_esquecido,
-           executar_backups_agendados, aprender_mudancas_da_plataforma, aprender_seguranca]
+           executar_backups_agendados, aprender_mudancas_da_plataforma, aprender_seguranca, aprender_banco_de_dados]
 
 
 def executar_tarefas():

@@ -626,7 +626,7 @@
       {% set grupo_aprendizagem = ['sessoes', 'acompanhamento', 'atividades_extras', 'gerenciar_turmas', 'gerenciar_frequencia', 'gerenciar_notas'] %}
       {% set grupo_projetos = ['projetos', 'minhas_bancas', 'biblioteca_tccs', 'meus_certificados', 'painel_banca'] %}
       {% set grupo_admin = ['gerenciar_usuarios', 'gestao_trilha_tcc', 'reunioes', 'agenda_bancas', 'avaliadores_banca', 'indicadores_voluntariado',
-                            'gerenciar_solicitacoes', 'agentes_ia', 'agentes_seguranca', 'manutencao_banco', 'gerenciar_grupos'] %}
+                            'gerenciar_solicitacoes', 'agentes_ia', 'agentes_seguranca', 'agentes_banco', 'manutencao_banco', 'gerenciar_grupos'] %}
 
       <ul class="navbar-nav me-auto mb-2 mb-xl-0 gap-xl-1">
         <!-- Painel Geral -->
@@ -730,6 +730,7 @@
             {% if pode_modulo('agentes_ia') %}
             <li><a class="dropdown-item fw-bold" href="{{ url_for('agentes_ia') }}"><i class="bi bi-robot"></i> {{ tt('Agentes IA') }}</a></li>
             <li><a class="dropdown-item fw-bold" href="{{ url_for('agentes_seguranca') }}"><i class="bi bi-shield-lock-fill"></i> {{ tt('Agentes de Segurança') }}</a></li>
+            <li><a class="dropdown-item fw-bold" href="{{ url_for('agentes_banco') }}"><i class="bi bi-database-fill-check"></i> {{ tt('Agentes de Banco de Dados') }}</a></li>
             <li><a class="dropdown-item fw-bold" href="{{ url_for('governanca_aprendizados') }}"><i class="bi bi-mortarboard"></i> {{ tt('Governança de aprendizados') }}</a></li>
             {% endif %}
             {% if pode_modulo('manutencao') %}<li><a class="dropdown-item fw-bold text-danger" href="{{ url_for('manutencao_banco') }}"><i class="bi bi-database-fill-gear"></i> {{ t('menu_manutencao') }}</a></li>{% endif %}

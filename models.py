@@ -923,6 +923,20 @@ class AlteracaoAgendamentoBackup(db.Model):
     usuario = db.relationship('Usuario')
 
 
+class ManutencaoBanco(db.Model):
+    """Histórico das ações do DBA (ANALYZE, VACUUM, índices, integridade), sempre com backup antes das alterações."""
+    __tablename__ = 'manutencao_banco_dados'
+    id = db.Column(db.Integer, primary_key=True)
+    acao = db.Column(db.String(30), nullable=False)          # otimizar / vacuum / indices / integridade
+    status = db.Column(db.String(20), nullable=False)        # Concluída / Falha
+    detalhes = db.Column(db.Text, nullable=True)
+    duracao_seg = db.Column(db.Float, nullable=True)
+    backup_arquivo = db.Column(db.String(255), nullable=True)
+    usuario_id = db.Column(db.Integer, db.ForeignKey('usuario.id'), nullable=True)
+    data = db.Column(db.DateTime, default=datetime.now)
+
+    usuario = db.relationship('Usuario')
+
 
 # ==============================================================================
 # PERFIS PERSONALIZADOS (Administração › Perfis de acesso)
