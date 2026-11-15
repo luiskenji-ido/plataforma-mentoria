@@ -211,6 +211,11 @@ class RegistroBackup(db.Model):
     destino = db.Column(db.String(255))
     detalhes = db.Column(db.Text)
     usuario_id = db.Column(db.Integer, db.ForeignKey('usuario.id'))
+    # Execução: arquivo gerado, tamanho, duração e o agendamento que a disparou (vazio = manual)
+    arquivo = db.Column(db.String(255), nullable=True)
+    tamanho_bytes = db.Column(db.Integer, nullable=True)
+    duracao_seg = db.Column(db.Float, nullable=True)
+    agendamento_id = db.Column(db.Integer, nullable=True)
     autor = db.relationship('Usuario', backref='backups_registrados')
 
 
@@ -860,3 +865,37 @@ class MaterialApoio(db.Model):
     downloads = db.Column(db.Integer, default=0)
 
     enviado_por = db.relationship('Usuario')
+
+
+# ==============================================================================
+# MANUTENÇÃO (DB): agendamentos de backup e trilha de auditoria das alterações
+# ==============================================================================
+class AgendamentoBackup(db.Model):
+    """Backup automático. Roda pelo tarefas_agendadas.py (de hora em hora) e também quando o app está em uso."""
+    __tablename__ = 'agendamento_backup'
+    id = db.Column(db.Integer, primary_key=True)
+    frequencia = db.Column(db.String(20), nullable=False, default='Diário')  # Diário / Semanal / Mensal
+    horario = db.Column(db.String(5), nullable=False, default='03:00')       # HH:MM (hora local do servidor)
+    data_inicio = db.Column(db.Date, nullable=False)
+    status = db.Column(db.String(20), nullable=False, default='Ativo')       # Ativo / Pausado
+    retencao = db.Column(db.Integer, nullable=False, default=7)              # quantos arquivos deste agendamento manter
+    pasta = db.Column(db.String(80), nullable=False, default='agendados')    # subpasta dentro de instance/backups
+    ultima_execucao = db.Column(db.DateTime, nullable=True)
+    proxima_execucao = db.Column(db.DateTime, nullable=True)
+    criado_por_id = db.Column(db.Integer, db.ForeignKey('usuario.id'), nullable=True)
+    data_criacao = db.Column(db.DateTime, default=datetime.now)
+
+    criado_por = db.relationship('Usuario')
+
+
+class AlteracaoAgendamentoBackup(db.Model):
+    """Quem criou, editou, pausou, retomou, executou ou excluiu cada agendamento (fica mesmo após a exclusão)."""
+    __tablename__ = 'alteracao_agendamento_backup'
+    id = db.Column(db.Integer, primary_key=True)
+    agendamento_id = db.Column(db.Integer, nullable=False)  # sem FK: o registro sobrevive à exclusão do agendamento
+    acao = db.Column(db.String(30), nullable=False)
+    detalhes = db.Column(db.Text, nullable=True)
+    usuario_id = db.Column(db.Integer, db.ForeignKey('usuario.id'), nullable=True)
+    data = db.Column(db.DateTime, default=datetime.now)
+
+    usuario = db.relationship('Usuario')

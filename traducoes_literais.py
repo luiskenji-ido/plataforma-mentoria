@@ -367,6 +367,104 @@ LITERAIS = {
     'Veja quem já concluiu a trilha e quem ainda está pendente.': ('See who has completed the track and who is still pending.', 'Vea quién ya completó la ruta y quién sigue pendiente.'),
     'Cadastre ou edite os módulos da trilha.': ('Add or edit the track modules.', 'Registre o edite los módulos de la ruta.'),
 
+    # ---------------- Manutenção (DB): backups, agendamentos e auditoria
+    'Acompanhe a saúde dos backups, mantenha vários agendamentos em paralelo e restaure o banco quando precisar.': (
+        'Track backup health, keep several schedules running in parallel and restore the database when needed.',
+        'Siga la salud de los respaldos, mantenga varias programaciones en paralelo y restaure la base cuando lo necesite.'),
+    'Saúde dos Backups': ('Backup Health', 'Salud de los Respaldos'), 'Atualizar': ('Refresh', 'Actualizar'),
+    'Agendamentos ativos': ('Active schedules', 'Programaciones activas'), 'Pausados': ('Paused', 'Pausadas'),
+    'Último backup': ('Last backup', 'Último respaldo'), 'Próximo backup': ('Next backup', 'Siguiente respaldo'),
+    'Falhas registradas': ('Failures logged', 'Fallas registradas'), 'Situação': ('Status', 'Situación'),
+    'Saudável': ('Healthy', 'Saludable'), 'Atenção': ('Warning', 'Atención'), 'Crítica': ('Critical', 'Crítica'),
+    'O último backup falhou.': ('The last backup failed.', 'El último respaldo falló.'),
+    'Nenhum agendamento ativo.': ('No active schedule.', 'Ninguna programación activa.'),
+    'Nenhum backup bem-sucedido nos últimos 8 dias.': ('No successful backup in the last 8 days.', 'Ningún respaldo exitoso en los últimos 8 días.'),
+    'Agendamentos': ('Schedules', 'Programaciones'), 'Agendamento': ('Schedule', 'Programación'),
+    'Clique em uma linha para editar, executar, pausar ou excluir.': ('Click a row to edit, run, pause or delete.', 'Haga clic en una fila para editar, ejecutar, pausar o eliminar.'),
+    '+ Novo agendamento': ('+ New schedule', '+ Nueva programación'), 'Novo agendamento': ('New schedule', 'Nueva programación'),
+    'Criar agendamento': ('Create schedule', 'Crear programación'), 'Frequência': ('Frequency', 'Frecuencia'),
+    'Diário': ('Daily', 'Diario'), 'Semanal': ('Weekly', 'Semanal'), 'Mensal': ('Monthly', 'Mensual'),
+    'Última execução': ('Last run', 'Última ejecución'), 'Próxima execução': ('Next run', 'Próxima ejecución'),
+    'Ainda não executado': ('Not run yet', 'Aún no ejecutado'), 'Retenção': ('Retention', 'Retención'), 'Últimos': ('Last', 'Últimos'),
+    'Retenção (arquivos)': ('Retention (files)', 'Retención (archivos)'), 'Pasta': ('Folder', 'Carpeta'),
+    'Os mais antigos deste agendamento são apagados.': ("This schedule's oldest files are deleted.", 'Se borran los más antiguos de esta programación.'),
+    'Data de início': ('Start date', 'Fecha de inicio'), 'Horário': ('Time', 'Horario'),
+    'Nenhum agendamento. Crie um para os backups rodarem sozinhos.': ('No schedules. Create one so backups run on their own.', 'Ninguna programación. Cree una para que los respaldos se ejecuten solos.'),
+    'No PythonAnywhere os agendamentos rodam pela tarefa de hora em hora (tarefas_agendadas.py); com o app aberto no computador, rodam no horário.': (
+        'On PythonAnywhere, schedules run through the hourly task (tarefas_agendadas.py); with the app open on a computer, they run on time.',
+        'En PythonAnywhere las programaciones se ejecutan con la tarea de cada hora (tarefas_agendadas.py); con la app abierta en la computadora, a la hora indicada.'),
+    'Ver registro de alterações dos agendamentos': ('See the schedule change log', 'Ver el registro de cambios de las programaciones'),
+    'Relatório de alterações (CSV)': ('Change report (CSV)', 'Informe de cambios (CSV)'), 'Nenhuma alteração registrada.': ('No changes logged.', 'Ningún cambio registrado.'),
+    'Data/Hora': ('Date/Time', 'Fecha/Hora'), 'Detalhes': ('Details', 'Detalles'), 'sistema': ('system', 'sistema'),
+    'Criado por': ('Created by', 'Creado por'), 'Executar agora': ('Run now', 'Ejecutar ahora'), 'Pausar': ('Pause', 'Pausar'), 'Retomar': ('Resume', 'Reanudar'),
+    'Criado': ('Created', 'Creado'), 'Editado': ('Edited', 'Editado'), 'Pausado': ('Paused', 'Pausado'), 'Retomado': ('Resumed', 'Reanudado'),
+    'Excluído': ('Deleted', 'Eliminado'), 'Executado manualmente': ('Run manually', 'Ejecutado manualmente'), 'Migrado': ('Migrated', 'Migrado'),
+    'Excluir este agendamento? Os arquivos já gerados continuam na pasta.': ('Delete this schedule? Files already created stay in the folder.', '¿Eliminar esta programación? Los archivos ya generados siguen en la carpeta.'),
+    'Backup imediato': ('Immediate backup', 'Respaldo inmediato'), 'Fazer backup': ('Back up now', 'Hacer respaldo'),
+    'Gera uma cópia agora e verifica a integridade do arquivo.': ("Creates a copy now and checks the file's integrity.", 'Genera una copia ahora y verifica la integridad del archivo.'),
+    'Restaurar backup': ('Restore backup', 'Restaurar respaldo'), 'Restaurar': ('Restore', 'Restaurar'),
+    'Escolha um arquivo da lista ou envie um. Uma cópia do banco atual é guardada antes da restauração; agendamentos e histórico de backups são preservados.': (
+        'Pick a file from the list or upload one. A copy of the current database is saved before restoring; schedules and backup history are kept.',
+        'Elija un archivo de la lista o suba uno. Se guarda una copia de la base actual antes de restaurar; las programaciones y el historial se conservan.'),
+    'Restaurar o banco? Os dados atuais serão substituídos pelos do backup (uma cópia de segurança é feita antes).': (
+        'Restore the database? Current data will be replaced by the backup (a safety copy is made first).',
+        '¿Restaurar la base? Los datos actuales se reemplazarán por los del respaldo (antes se hace una copia de seguridad).'),
+    'Backups encontrados': ('Backups found', 'Respaldos encontrados'), 'Ou envie um arquivo .db': ('Or upload a .db file', 'O suba un archivo .db'),
+    'Arquivos de backup no servidor': ('Backup files on the server', 'Archivos de respaldo en el servidor'), 'Arquivo': ('File', 'Archivo'),
+    'Tamanho': ('Size', 'Tamaño'), 'Duração': ('Duration', 'Duración'), 'Baixar': ('Download', 'Descargar'),
+    'Histórico de execuções': ('Run history', 'Historial de ejecuciones'),
+    'Backups manuais e automáticos, restaurações, downloads e limpezas. As alterações de configuração ficam no cartão Agendamentos.': (
+        'Manual and automatic backups, restores, downloads and clean-ups. Configuration changes are in the Schedules card.',
+        'Respaldos manuales y automáticos, restauraciones, descargas y limpiezas. Los cambios de configuración están en la tarjeta Programaciones.'),
+    'Limpar filtro': ('Clear filter', 'Limpiar filtro'), 'Relatório para auditoria (CSV)': ('Audit report (CSV)', 'Informe para auditoría (CSV)'),
+    'Apagar o histórico? Uma cópia em CSV é guardada no servidor e a limpeza fica registrada.': (
+        'Delete the history? A CSV copy is saved on the server and the clean-up is logged.', '¿Borrar el historial? Se guarda una copia en CSV en el servidor y la limpieza queda registrada.'),
+    'Nenhum registro no período.': ('No records in this period.', 'Ningún registro en el período.'),
+    'Imediato': ('Immediate', 'Inmediato'), 'Agendado': ('Scheduled', 'Programado'), 'Agendado (manual)': ('Scheduled (manual)', 'Programado (manual)'),
+    'Restauração': ('Restore', 'Restauración'), 'Segurança (pré-restauração)': ('Safety (before restore)', 'Seguridad (antes de restaurar)'),
+    'Segurança (pré-limpeza)': ('Safety (before wipe)', 'Seguridad (antes de borrar)'), 'Limpeza de dados': ('Data wipe', 'Borrado de datos'),
+    'Limpeza do histórico': ('History clean-up', 'Limpieza del historial'), 'Download': ('Download', 'Descarga'),
+    'Falha': ('Failed', 'Falla'), 'Sucesso': ('Success', 'Éxito'),
+    'Atenção: apaga sessões, acompanhamentos, cursos, solicitações e todos os usuários (menos a sua conta). Um backup de segurança é feito antes, e a auditoria é preservada.': (
+        'Warning: deletes sessions, tracking, courses, requests and all users (except your account). A safety backup is made first, and the audit trail is kept.',
+        'Atención: borra sesiones, seguimientos, cursos, solicitudes y todos los usuarios (menos su cuenta). Antes se hace un respaldo de seguridad y la auditoría se conserva.'),
+    'Para liberar, digite APAGAR': ('To unlock, type APAGAR', 'Para habilitar, escriba APAGAR'),
+    'Apagar todos os dados': ('Delete all data', 'Borrar todos los datos'), 'Autenticado como:': ('Signed in as:', 'Autenticado como:'),
+    'Clique para ordenar': ('Click to sort', 'Haga clic para ordenar'),
+    'Saúde dos backups: agendamentos ativos, último e próximo backup, falhas e a situação geral.': (
+        'Backup health: active schedules, last and next backup, failures and the overall status.', 'Salud de los respaldos: programaciones activas, último y próximo respaldo, fallas y la situación general.'),
+    'Agendamentos: crie vários backups automáticos; clique numa linha para editar, executar, pausar ou excluir. Toda alteração fica registrada.': (
+        'Schedules: create several automatic backups; click a row to edit, run, pause or delete. Every change is logged.',
+        'Programaciones: cree varios respaldos automáticos; haga clic en una fila para editar, ejecutar, pausar o eliminar. Todo cambio queda registrado.'),
+    'Backup imediato: gera uma cópia agora e confere a integridade do arquivo.': ("Immediate backup: creates a copy now and checks the file's integrity.", 'Respaldo inmediato: genera una copia ahora y verifica la integridad del archivo.'),
+    'Restaurar: volta o banco a um backup, guardando antes uma cópia do banco atual.': (
+        'Restore: returns the database to a backup, saving a copy of the current one first.', 'Restaurar: vuelve la base a un respaldo, guardando antes una copia de la actual.'),
+    'Histórico: tudo o que foi executado, com filtro por data e relatório em CSV para auditoria.': (
+        'History: everything that ran, with a date filter and a CSV audit report.', 'Historial: todo lo ejecutado, con filtro por fecha e informe en CSV para auditoría.'),
+    'Zona de perigo: apagar os dados exige digitar APAGAR e sempre faz um backup de segurança antes.': (
+        'Danger zone: deleting data requires typing APAGAR and always makes a safety backup first.', 'Zona de peligro: borrar los datos exige escribir APAGAR y siempre hace un respaldo de seguridad antes.'),
+    # Mensagens (flash)
+    'Backup concluído e validado: {arquivo}': ('Backup completed and validated: {arquivo}', 'Respaldo concluido y validado: {arquivo}'),
+    'O backup falhou: {erro}': ('The backup failed: {erro}', 'El respaldo falló: {erro}'),
+    'Confira a frequência, o horário (HH:MM), a data de início e a retenção (1 a 365).': (
+        'Check the frequency, time (HH:MM), start date and retention (1 to 365).', 'Revise la frecuencia, el horario (HH:MM), la fecha de inicio y la retención (1 a 365).'),
+    'Agendamento criado. Próxima execução: {data}': ('Schedule created. Next run: {data}', 'Programación creada. Próxima ejecución: {data}'),
+    'Agendamento atualizado.': ('Schedule updated.', 'Programación actualizada.'), 'Agendamento pausado.': ('Schedule paused.', 'Programación pausada.'),
+    'Agendamento retomado.': ('Schedule resumed.', 'Programación reanudada.'),
+    'Agendamento excluído. Os arquivos já gerados continuam na pasta.': ('Schedule deleted. Files already created stay in the folder.', 'Programación eliminada. Los archivos ya generados siguen en la carpeta.'),
+    'Envie um arquivo .db gerado pelo backup da plataforma.': ("Upload a .db file created by the platform's backup.", 'Suba un archivo .db generado por el respaldo de la plataforma.'),
+    'Escolha um backup da lista ou envie um arquivo.': ('Pick a backup from the list or upload a file.', 'Elija un respaldo de la lista o suba un archivo.'),
+    'Banco restaurado. A cópia do banco anterior foi guardada em: {arquivo}': ('Database restored. The previous database was saved as: {arquivo}', 'Base restaurada. La copia de la base anterior se guardó en: {arquivo}'),
+    'Sua conta não existe no backup restaurado: entre com uma conta desse backup.': (
+        'Your account does not exist in the restored backup: sign in with an account from that backup.', 'Su cuenta no existe en el respaldo restaurado: ingrese con una cuenta de ese respaldo.'),
+    'Restauração cancelada: {erro}': ('Restore cancelled: {erro}', 'Restauración cancelada: {erro}'),
+    'Para apagar os dados, digite APAGAR no campo de confirmação.': ('To delete the data, type APAGAR in the confirmation field.', 'Para borrar los datos, escriba APAGAR en el campo de confirmación.'),
+    'Limpeza cancelada: não foi possível fazer o backup de segurança.': ('Wipe cancelled: the safety backup could not be made.', 'Borrado cancelado: no se pudo hacer el respaldo de seguridad.'),
+    'Dados apagados. Backup de segurança guardado em: {arquivo}': ('Data deleted. Safety backup saved as: {arquivo}', 'Datos borrados. Respaldo de seguridad guardado en: {arquivo}'),
+    'Erro ao apagar os dados: {erro}': ('Error deleting the data: {erro}', 'Error al borrar los datos: {erro}'),
+    '{total} registro(s) apagado(s). Cópia em CSV guardada em: auditoria/{arquivo}': ('{total} record(s) deleted. CSV copy saved in: auditoria/{arquivo}', '{total} registro(s) borrado(s). Copia en CSV guardada en: auditoria/{arquivo}'),
+    'Arquivo de backup não encontrado.': ('Backup file not found.', 'Archivo de respaldo no encontrado.'),
+
     # ---------------- Manutenção (DB)
     'Padrão: Backup_repository': ('Default: Backup_repository', 'Predeterminado: Backup_repository'),
 }

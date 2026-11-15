@@ -115,7 +115,7 @@ ARQUIVOS_POR_MODULO = {
     "Grupos": "app.py (rota gerenciar_grupos), templates/admin_grupos.html",
     "Portal de Demandas": "app.py (rota portal_demandas), templates/demandas.html",
     "Solicitações de Mentoria": "app.py (rota gerenciar_solicitacoes), templates/admin_solicitacoes.html",
-    "Manutenção (DB)": "app.py (rota manutencao_banco), templates/admin_banco.html",
+    "Manutenção (DB)": "app.py (manutencao_banco, baixar_backup, relatorio_auditoria_backup), backup_servico.py, templates/admin_banco.html",
     "Recuperação de Senha": "app.py (rotas recuperar_senha e trocar_senha_obrigatoria), templates/index.html, templates/perguntas_seguranca.html, templates/trocar_senha.html",
     "Autenticação": "app.py (rotas login e logout), templates/index.html",
     "Regras de Entrada": "app.py (verificar_onboarding, verificar_frequencia_diaria, registrar_frequencia), templates/base.html, templates/onboarding.html",

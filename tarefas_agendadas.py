@@ -1,5 +1,5 @@
 """
-TAREFAS AGENDADAS DA PLATAFORMA (lembretes automáticos)
+TAREFAS AGENDADAS DA PLATAFORMA (lembretes automáticos e backups agendados)
 =======================================================
 Rode de hora em hora. Cada tarefa usa uma 'referencia' na notificação,
 por isso rodar várias vezes não repete o mesmo aviso.
@@ -101,7 +101,14 @@ def fechar_checkin_banca_esquecido(agora):
 
 
 # As próximas adequações acrescentam aqui os lembretes delas
-TAREFAS = [lembrar_checkout_esquecido, lembrar_encaminhamentos_vencidos, enviar_formulario_banca, fechar_checkin_banca_esquecido]
+def executar_backups_agendados(agora):
+    """Manutenção (DB): roda os agendamentos de backup vencidos (Diário, Semanal ou Mensal)."""
+    import backup_servico
+    return backup_servico.executar_vencidos(agora)
+
+
+TAREFAS = [lembrar_checkout_esquecido, lembrar_encaminhamentos_vencidos, enviar_formulario_banca, fechar_checkin_banca_esquecido,
+           executar_backups_agendados]
 
 
 def executar_tarefas():

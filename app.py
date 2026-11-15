@@ -3102,185 +3102,232 @@ from datetime import datetime
 @app.route('/admin/banco', methods=['GET', 'POST'])
 @login_required
 def manutencao_banco():
+    """Manutenção (DB): saúde dos backups, agendamentos, backup imediato, restauração, histórico e zona de perigo."""
+    import backup_servico as bs
+    from models import AgendamentoBackup, AlteracaoAgendamentoBackup
     # Backup, restauração e limpeza de histórico: só o Administrador (o menu também só mostra a ele)
     if current_user.tipo_usuario != 'Administrador':
         flash("Acesso Negado.", "danger")
         return redirect(url_for('dashboard'))
-
-    caminho_banco = os.path.join(app.instance_path, 'mentoria.db')
+    idioma = current_user.idioma
 
     if request.method == 'POST':
         acao = request.form.get('acao')
-        
-        # 1. BACKUP IMEDIATO (Registra a intervenção manual)
+
+        # 1. Backup imediato (fica no servidor, em instance/backups/<pasta>, e pode ser baixado depois)
         if acao == 'backup':
-            if os.path.exists(caminho_banco):
-                data_atual = datetime.now().strftime('%m-%d-%Y_%Hh%M')
-                nome_arquivo = f"mentory_{data_atual}.db"
-                
-                # Registra no banco a intervenção manual
-                log = RegistroBackup(tipo='Imediato', status='Sucesso', destino='Download Local', 
-                                     detalhes='Backup manual gerado pelo admin.', 
-                                     usuario_id=current_user.id, data_registro=datetime.now())
-                db.session.add(log)
-                db.session.commit()
-                
-                return send_file(caminho_banco, as_attachment=True, download_name=nome_arquivo)
+            registro = bs.fazer_backup('Imediato', request.form.get('pasta'), current_user.id)
+            if registro.status == 'Concluído':
+                flash(tt('Backup concluído e validado: {arquivo}', idioma).format(arquivo=registro.arquivo), "success")
             else:
-                flash("Arquivo não encontrado.", "danger")
+                flash(tt('O backup falhou: {erro}', idioma).format(erro=registro.detalhes), "danger")
 
-        # 2. SALVAR AGENDAMENTO
-        elif acao == 'agendar':
-            frequencia = request.form.get('frequencia', 'Não definida')
-            hora = request.form.get('horario', '00:00')
-            data_inicio = request.form.get('data_inicio', 'Não definida')
-            destino = request.form.get('destino_interno', '').strip() or 'Backup_repository'
-
-            os.makedirs(destino, exist_ok=True)
-            
-            # Registra no banco o agendamento
-            detalhes = f"Frequência: {frequencia}"
-            log = RegistroBackup(tipo='Agendado', status='Pendente', destino=destino, 
-                                 data_agendada=f"{data_inicio} às {hora}", detalhes=detalhes, 
-                                 usuario_id=current_user.id, data_registro=datetime.now())
-            db.session.add(log)
-            db.session.commit()
-            
-            flash(f"Configuração salva! Backups a partir de {data_inicio} na pasta: {destino}", "info")
-
-        # 3. RESTAURAR BANCO DE DADOS
-        elif acao == 'restaurar':
-            arquivo = request.files.get('arquivo_db')
-            if arquivo and arquivo.filename != '':
-                try:
-                    # 1. Fecha as conexões do banco para não dar erro de arquivo em uso
-                    db.session.remove()
-                    db.engine.dispose()
-                    time.sleep(1)
-                    
-                    # 2. Mira na pasta correta do Flask (instance)
-                    caminho_real = os.path.join(app.instance_path, 'mentoria.db')
-                    
-                    # 3. Salva o arquivo enviado por cima do banco vazio
-                    arquivo.save(caminho_real)
-                    
-                    # 4. EXTREMAMENTE IMPORTANTE: Destruir a "memória fantasma" do apagão
-                    caminho_wal = caminho_real + '-wal'
-                    caminho_shm = caminho_real + '-shm'
-                    if os.path.exists(caminho_wal): os.remove(caminho_wal)
-                    if os.path.exists(caminho_shm): os.remove(caminho_shm)
-                    
-                    # 5. Reconecta ao banco restaurado e salva a auditoria
-                    novo_log = RegistroBackup(
-                        tipo='Imediato',
-                        status='Sucesso',
-                        destino='Restaurado (Upload)',
-                        detalhes=f"Banco restaurado com sucesso a partir de: {arquivo.filename}.",
-                        usuario_id=current_user.id,
-                        data_registro=datetime.now()
-                    )
-                    db.session.add(novo_log)
-                    db.session.commit()
-                    
-                    flash("Backup restaurado com sucesso! Seus dados voltaram.", "success")
-                except Exception as e:
-                    flash(f"Erro ao restaurar: {str(e)}", "danger")
-            else:
-                flash("Por favor, selecione um arquivo válido.", "warning")
-
-        # 4. LIMPAR BANCO DE DADOS (ZONA DE PERIGO)
-        elif acao == 'limpar':
+        # 2. Criar ou editar agendamento
+        elif acao in ('novo_agendamento', 'editar_agendamento'):
+            frequencia = request.form.get('frequencia')
+            horario = (request.form.get('horario') or '').strip()
             try:
-                # Exclui as tabelas dependentes primeiro
+                data_inicio = datetime.strptime(request.form.get('data_inicio') or '', '%Y-%m-%d').date()
+                retencao = int(request.form.get('retencao') or 7)
+                valido = frequencia in bs.FREQUENCIAS and re.fullmatch(r'([01]\d|2[0-3]):[0-5]\d', horario) and 1 <= retencao <= 365
+            except ValueError:
+                valido = False
+            if not valido:
+                flash(tt('Confira a frequência, o horário (HH:MM), a data de início e a retenção (1 a 365).', idioma), "warning")
+                return redirect(url_for('manutencao_banco'))
+            if acao == 'novo_agendamento':
+                agendamento = AgendamentoBackup(criado_por_id=current_user.id, status='Ativo')
+                db.session.add(agendamento)
+                antes = None
+            else:
+                agendamento = db.session.get(AgendamentoBackup, request.form.get('agendamento_id', type=int))
+                if not agendamento:
+                    return redirect(url_for('manutencao_banco'))
+                antes = bs.descrever(agendamento)
+            agendamento.frequencia, agendamento.horario, agendamento.data_inicio = frequencia, horario, data_inicio
+            agendamento.retencao, agendamento.pasta = retencao, bs.nome_de_pasta(request.form.get('pasta') or 'agendados')
+            db.session.flush()
+            agendamento.proxima_execucao = bs.calcular_proxima(agendamento, datetime.now())
+            if antes is None:
+                bs.registrar_alteracao(agendamento.id, 'Criado', bs.descrever(agendamento), current_user.id)
+                flash(tt('Agendamento criado. Próxima execução: {data}', idioma).format(data=agendamento.proxima_execucao.strftime('%d/%m/%Y %H:%M')), "success")
+            else:
+                bs.registrar_alteracao(agendamento.id, 'Editado', f"De: {antes} | Para: {bs.descrever(agendamento)}", current_user.id)
+                flash(tt('Agendamento atualizado.', idioma), "success")
+            db.session.commit()
+
+        # 3. Pausar, retomar, executar agora ou excluir agendamento
+        elif acao in ('pausar', 'retomar', 'executar', 'excluir'):
+            agendamento = db.session.get(AgendamentoBackup, request.form.get('agendamento_id', type=int))
+            if agendamento:
+                if acao == 'pausar':
+                    agendamento.status = 'Pausado'
+                    bs.registrar_alteracao(agendamento.id, 'Pausado', bs.descrever(agendamento), current_user.id)
+                    flash(tt('Agendamento pausado.', idioma), "info")
+                elif acao == 'retomar':
+                    agendamento.status = 'Ativo'
+                    agendamento.proxima_execucao = bs.calcular_proxima(agendamento, datetime.now())
+                    bs.registrar_alteracao(agendamento.id, 'Retomado', bs.descrever(agendamento), current_user.id)
+                    flash(tt('Agendamento retomado.', idioma), "success")
+                elif acao == 'executar':
+                    bs.registrar_alteracao(agendamento.id, 'Executado manualmente', bs.descrever(agendamento), current_user.id)
+                    db.session.commit()
+                    registro = bs.executar_agendamento(agendamento, current_user.id)
+                    flash(tt('Backup concluído e validado: {arquivo}', idioma).format(arquivo=registro.arquivo) if registro.status == 'Concluído'
+                          else tt('O backup falhou: {erro}', idioma).format(erro=registro.detalhes),
+                          "success" if registro.status == 'Concluído' else "danger")
+                else:
+                    bs.registrar_alteracao(agendamento.id, 'Excluído', bs.descrever(agendamento), current_user.id)
+                    db.session.delete(agendamento)
+                    flash(tt('Agendamento excluído. Os arquivos já gerados continuam na pasta.', idioma), "info")
+                db.session.commit()
+
+        # 4. Restaurar (arquivo da lista ou enviado), com cópia de segurança do banco atual antes
+        elif acao == 'restaurar':
+            caminho = bs.caminho_seguro(request.form.get('arquivo_existente'))
+            enviado = request.files.get('arquivo_db')
+            if not caminho and enviado and enviado.filename:
+                if not enviado.filename.lower().endswith('.db'):
+                    flash(tt('Envie um arquivo .db gerado pelo backup da plataforma.', idioma), "warning")
+                    return redirect(url_for('manutencao_banco'))
+                caminho = os.path.join(bs.pasta_de('enviados'), f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_{secure_filename(enviado.filename)}")
+                enviado.save(caminho)
+            if not caminho:
+                flash(tt('Escolha um backup da lista ou envie um arquivo.', idioma), "warning")
+                return redirect(url_for('manutencao_banco'))
+            usuario_id = current_user.id
+            ok, info = bs.restaurar(caminho, usuario_id, atualizar_estrutura_banco)
+            if ok:
+                flash(tt('Banco restaurado. A cópia do banco anterior foi guardada em: {arquivo}', idioma).format(arquivo=info), "success")
+                if not db.session.get(Usuario, usuario_id):
+                    logout_user()
+                    flash(tt('Sua conta não existe no backup restaurado: entre com uma conta desse backup.', idioma), "warning")
+                    return redirect(url_for('login'))
+            else:
+                flash(tt('Restauração cancelada: {erro}', idioma).format(erro=info), "danger")
+
+        # 5. Zona de perigo: apaga os dados (exige digitar APAGAR e faz backup de segurança antes)
+        elif acao == 'limpar':
+            if (request.form.get('confirmacao') or '').strip().upper() != 'APAGAR':
+                flash(tt('Para apagar os dados, digite APAGAR no campo de confirmação.', idioma), "warning")
+                return redirect(url_for('manutencao_banco'))
+            seguranca = bs.fazer_backup('Segurança (pré-limpeza)', 'seguranca', current_user.id)
+            if seguranca.status != 'Concluído':
+                flash(tt('Limpeza cancelada: não foi possível fazer o backup de segurança.', idioma), "danger")
+                return redirect(url_for('manutencao_banco'))
+            try:
                 QADuvida.query.delete()
                 FeedbackSessao.query.delete()
                 SessaoMentoria.query.delete()
                 HistoricoProgresso.query.delete()
                 Acompanhamento.query.delete()
-                
-                # Exclui histórico e perguntas de segurança (EXCETO do Admin logado)
                 HistoricoSenha.query.filter(HistoricoSenha.usuario_id != current_user.id).delete()
                 SegurancaUsuario.query.filter(SegurancaUsuario.usuario_id != current_user.id).delete()
-                
-                # Exclui cursos e solicitações
                 Curso.query.delete()
                 SolicitacaoMentoria.query.delete()
-                
-                # Limpa a tabela invisível que liga o Aluno ao Mentor
                 db.session.execute(aluno_mentor.delete())
-                
-                # Exclui todos os usuários (EXCETO o Admin logado)
                 Usuario.query.filter(Usuario.id != current_user.id).delete()
-                
-                # Salva a auditoria obrigatória do apagão
-                log_limpeza = RegistroBackup(
-                    tipo='Imediato', 
-                    status='Sucesso', 
-                    destino='Destruição (Wipe)',
-                    detalhes='ZONA DE PERIGO: O banco de dados foi completamente limpo. Apenas o administrador logado foi preservado.',
-                    usuario_id=current_user.id,
-                    data_registro=datetime.now()
-                )
-                db.session.add(log_limpeza)
                 db.session.commit()
-                
-                flash("Banco de dados destruído com sucesso! Apenas a sua conta sobreviveu.", "success")
+                bs.registrar('Limpeza de dados', 'Concluído',
+                             f"Dados apagados; só a conta de {current_user.nome} foi preservada. Backup de segurança: {seguranca.arquivo}.",
+                             current_user.id, arquivo=seguranca.arquivo)
+                flash(tt('Dados apagados. Backup de segurança guardado em: {arquivo}', idioma).format(arquivo=seguranca.arquivo), "success")
             except Exception as e:
                 db.session.rollback()
-                flash(f"Erro crítico ao tentar limpar o banco: {str(e)}", "danger")
+                bs.registrar('Limpeza de dados', 'Falha', f"Erro: {e}", current_user.id)
+                flash(tt('Erro ao apagar os dados: {erro}', idioma).format(erro=e), "danger")
 
-        # 4. LIMPAR HISTÓRICO DE AUDITORIA (Exclusivo Admin)
+        # 6. Apagar o histórico de execuções (guarda um CSV de auditoria antes e registra quem apagou)
         elif acao == 'limpar_auditoria':
-            if current_user.tipo_usuario == 'Administrador':
-                try:
-                    # 1. Apaga todos os registros da tabela no banco de dados
-                    db.session.query(RegistroBackup).delete()
-                    db.session.commit()
-                    
-                    # 2. Localiza a pasta Log_auditoria_backup e garante que ela exista
-                    pasta_logs = os.path.join(os.getcwd(), 'Log_auditoria_backup')
-                    os.makedirs(pasta_logs, exist_ok=True)
-                    
-                    # 3. Cria o arquivo de log físico com a data e hora
-                    nome_arquivo = f"limpeza_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt"
-                    caminho_arquivo = os.path.join(pasta_logs, nome_arquivo)
-                    
-                    with open(caminho_arquivo, 'w', encoding='utf-8') as arquivo_log:
-                        arquivo_log.write("=== LOG DE SEGURANÇA: LIMPEZA DE AUDITORIA ===\n")
-                        arquivo_log.write(f"Data e Hora: {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}\n")
-                        arquivo_log.write(f"Autor da Ação: {current_user.nome} (E-mail: {current_user.email})\n")
-                        arquivo_log.write("Detalhes: Todo o histórico de auditoria e backups do banco de dados foi permanentemente apagado.\n")
-                        arquivo_log.write("=================================================\n")
-                        
-                    flash("Histórico de auditoria limpo com sucesso! Log físico gerado na pasta Log_auditoria_backup.", "success")
-                except Exception as e:
-                    db.session.rollback()
-                    flash(f"Erro ao limpar histórico: {str(e)}", "danger")
-            else:
-                flash("Acesso Negado: Apenas administradores podem apagar a auditoria.", "danger")
+            total, arquivo = bs.apagar_historico(current_user.id, current_user.nome)
+            flash(tt('{total} registro(s) apagado(s). Cópia em CSV guardada em: auditoria/{arquivo}', idioma).format(total=total, arquivo=arquivo), "success")
+
+        return redirect(url_for('manutencao_banco'))
+
+    # ---------------- Tela
+    data_inicio_filtro, data_fim_filtro = request.args.get('data_inicio'), request.args.get('data_fim')
+    logs_backup = historico_backup_filtrado(data_inicio_filtro, data_fim_filtro).all()
+    agendamentos = AgendamentoBackup.query.order_by(AgendamentoBackup.id.desc()).all()
+    alteracoes = AlteracaoAgendamentoBackup.query.order_by(AlteracaoAgendamentoBackup.data.desc()).limit(200).all()
+    return render_template('admin_banco.html', logs_backup=logs_backup, data_inicio=data_inicio_filtro, data_fim=data_fim_filtro,
+                           agendamentos=agendamentos, alteracoes=alteracoes, saude=bs.saude(), backups=bs.listar_backups(),
+                           subpastas=bs.subpastas(), frequencias=bs.FREQUENCIAS, tamanho_legivel=bs.tamanho_legivel,
+                           hoje=datetime.now().strftime('%Y-%m-%d'))
 
 
+def historico_backup_filtrado(data_inicio, data_fim):
+    consulta = RegistroBackup.query
+    try:
+        if data_inicio:
+            consulta = consulta.filter(RegistroBackup.data_registro >= datetime.strptime(data_inicio, '%Y-%m-%d'))
+        if data_fim:
+            consulta = consulta.filter(RegistroBackup.data_registro <= datetime.strptime(data_fim + ' 23:59:59', '%Y-%m-%d %H:%M:%S'))
+    except ValueError:
+        pass
+    return consulta.order_by(RegistroBackup.data_registro.desc())
 
-    # ==========================================
-    # LÓGICA DE FILTRAGEM PARA EXIBIÇÃO EM TELA
-    # ==========================================
-    data_inicio_filtro = request.args.get('data_inicio')
-    data_fim_filtro = request.args.get('data_fim')
-    
-    query = RegistroBackup.query
-    
-    if data_inicio_filtro:
-        dt_inicio = datetime.strptime(data_inicio_filtro, '%Y-%m-%d')
-        query = query.filter(RegistroBackup.data_registro >= dt_inicio)
-        
-    if data_fim_filtro:
-        dt_fim = datetime.strptime(data_fim_filtro + ' 23:59:59', '%Y-%m-%d %H:%M:%S')
-        query = query.filter(RegistroBackup.data_registro <= dt_fim)
-        
-    logs_backup = query.order_by(RegistroBackup.data_registro.desc()).all()
 
-    return render_template('admin_banco.html', logs_backup=logs_backup, 
-                           data_inicio=data_inicio_filtro, data_fim=data_fim_filtro)
+@app.route('/admin/banco/arquivo')
+@login_required
+def baixar_backup():
+    """Baixa um arquivo de backup do servidor (só os que estão em instance/backups)."""
+    import backup_servico as bs
+    if current_user.tipo_usuario != 'Administrador':
+        flash("Acesso Negado.", "danger")
+        return redirect(url_for('dashboard'))
+    caminho = bs.caminho_seguro(request.args.get('f'))
+    if not caminho:
+        flash(tt('Arquivo de backup não encontrado.', current_user.idioma), "warning")
+        return redirect(url_for('manutencao_banco'))
+    bs.registrar('Download', 'Concluído', f"Arquivo baixado: {request.args.get('f')}", current_user.id, arquivo=os.path.basename(caminho),
+                 tamanho=os.path.getsize(caminho))
+    return send_file(caminho, as_attachment=True, download_name=os.path.basename(caminho))
+
+
+@app.route('/admin/banco/relatorio/<tipo>.csv')
+@login_required
+def relatorio_auditoria_backup(tipo):
+    """Relatórios para auditoria: execuções (com o filtro de datas da tela) ou alterações dos agendamentos."""
+    import io
+    import csv as _csv
+    import backup_servico as bs
+    from flask import Response
+    from models import AlteracaoAgendamentoBackup
+    if current_user.tipo_usuario != 'Administrador':
+        flash("Acesso Negado.", "danger")
+        return redirect(url_for('dashboard'))
+    saida = io.StringIO()
+    escritor = _csv.writer(saida, delimiter=';')
+    if tipo == 'alteracoes':
+        escritor.writerow(['Data/Hora', 'Agendamento', 'Ação', 'Usuário', 'Detalhes'])
+        for a in AlteracaoAgendamentoBackup.query.order_by(AlteracaoAgendamentoBackup.data.desc()).all():
+            escritor.writerow([a.data.strftime('%d/%m/%Y %H:%M:%S'), a.agendamento_id, a.acao, a.usuario.nome if a.usuario else 'sistema', a.detalhes or ''])
+    else:
+        cabecalho, linhas = bs.exportar_historico_csv(historico_backup_filtrado(request.args.get('data_inicio'), request.args.get('data_fim')).all())
+        escritor.writerow(cabecalho)
+        escritor.writerows(linhas)
+    nome = f"auditoria_backup_{tipo}_{datetime.now().strftime('%Y%m%d_%H%M')}.csv"
+    return Response('﻿' + saida.getvalue(), mimetype='text/csv; charset=utf-8',
+                    headers={'Content-Disposition': f'attachment; filename={nome}'})
+
+
+# Agendamentos vencidos também rodam quando o app está em uso (no máximo uma verificação a cada 5 minutos);
+# no PythonAnywhere quem garante a execução é o tarefas_agendadas.py, de hora em hora.
+_ULTIMA_VERIFICACAO_BACKUP = [datetime.min]
+
+
+@app.before_request
+def verificar_backups_agendados():
+    agora = datetime.now()
+    if agora - _ULTIMA_VERIFICACAO_BACKUP[0] < timedelta(minutes=5):
+        return
+    _ULTIMA_VERIFICACAO_BACKUP[0] = agora
+    try:
+        import backup_servico
+        backup_servico.executar_vencidos(agora)
+    except Exception as e:
+        db.session.rollback()
+        app.logger.warning(f"Verificação de backups agendados falhou: {e}")
 
 
 # ==============================================================================
@@ -3733,65 +3780,15 @@ def sincronizar_agenda_acompanhamento(acomp_id):
 # MOTOR DE BACKUP EM SEGUNDO PLANO (WATCHER)
 # =========================================================================
 def rotina_de_backups(app_context):
+    """Com 'python app.py' no computador: confere os agendamentos de backup a cada minuto."""
+    import backup_servico
     with app_context:
         while True:
-            agora = datetime.now()
-            
-            # Busca todos os backups pendentes (criados pelo administrador)
-            pendentes = RegistroBackup.query.filter_by(status='Pendente', tipo='Agendado').all()
-            
-            for log in pendentes:
-                try:
-                    # Lê a data agendada que está em texto no banco (Ex: "2026-08-30 às 14:15")
-                    data_hora_str = log.data_agendada.replace(' às ', ' ')
-                    data_alvo = datetime.strptime(data_hora_str, '%Y-%m-%d %H:%M')
-                    
-                    # Se a hora atual for igual ou maior que a hora agendada, DISPARA O BACKUP!
-                    if agora >= data_alvo:
-                        caminho_origem = os.path.join(app.instance_path, 'mentoria.db')
-                        
-                        data_formatada = agora.strftime('%m-%d-%Y_%Hh%M')
-                        nome_arquivo = f"mentory_{data_formatada}.db"
-                        caminho_destino = os.path.join(log.destino, nome_arquivo)
-                        
-                        if os.path.exists(caminho_origem):
-                            # Faz a cópia física do arquivo
-                            shutil.copy2(caminho_origem, caminho_destino)
-                            log.status = 'Sucesso'
-                            log.detalhes += f" | Salvo em: {caminho_destino}"
-                        else:
-                            log.status = 'Falha'
-                            log.detalhes += " | Erro: Banco original não encontrado."
-                        
-                        # VERIFICA A FREQUÊNCIA E JÁ AGENDA O PRÓXIMO!
-                        proxima_data = None
-                        detalhes_lower = log.detalhes.lower()
-                        
-                        if "diario" in detalhes_lower or "diário" in detalhes_lower:
-                            proxima_data = data_alvo + timedelta(days=1)
-                        elif "semanal" in detalhes_lower:
-                            proxima_data = data_alvo + timedelta(weeks=1)
-                        elif "mensal" in detalhes_lower:
-                            proxima_data = data_alvo + timedelta(days=30)
-                            
-                        # Se tiver repetição e deu sucesso, cria o agendamento da próxima data
-                        if proxima_data and log.status == 'Sucesso':
-                            novo_agendamento = RegistroBackup(
-                                tipo='Agendado',
-                                status='Pendente',
-                                data_agendada=proxima_data.strftime('%Y-%m-%d às %H:%M'),
-                                destino=log.destino,
-                                detalhes=f"Frequência: {log.detalhes.split('Frequência: ')[-1].split(' |')[0]}",
-                                usuario_id=log.usuario_id,
-                                data_registro=agora
-                            )
-                            db.session.add(novo_agendamento)
-                        
-                        db.session.commit()
-                except Exception as e:
-                    print(f"Erro ao processar backup agendado: {e}")
-            
-            # A rotina dorme por 60 segundos e checa o relógio novamente
+            try:
+                backup_servico.executar_vencidos()
+            except Exception as e:
+                db.session.rollback()
+                print(f"Erro ao processar backup agendado: {e}")
             time.sleep(60)
 
 def iniciar_agendador(app):
@@ -5544,11 +5541,16 @@ def garantir_modulos_trilha_tcc():
 # ===========================================================================
 # ATUALIZAÇÃO DO BANCO DE DADOS (Garante que roda no PythonAnywhere)
 # ===========================================================================
-with app.app_context():
-    db.create_all()
+def atualizar_estrutura_banco():
+    """Cria tabelas e colunas novas. Roda ao iniciar e depois de restaurar um backup antigo."""
     from sqlalchemy import text
-    
+    db.create_all()
     colunas_novas = [
+        # Manutenção (DB): histórico de execuções com arquivo, tamanho, duração e agendamento de origem
+        "ALTER TABLE registro_backup ADD COLUMN arquivo VARCHAR(255)",
+        "ALTER TABLE registro_backup ADD COLUMN tamanho_bytes INTEGER",
+        "ALTER TABLE registro_backup ADD COLUMN duracao_seg FLOAT",
+        "ALTER TABLE registro_backup ADD COLUMN agendamento_id INTEGER",
         "ALTER TABLE acompanhamento ADD COLUMN planejamento_estudos TEXT",
         "ALTER TABLE tarefa ADD COLUMN planejamento_tarefa TEXT",
         "ALTER TABLE tarefa ADD COLUMN tempo_total_minutos INTEGER DEFAULT 0",
@@ -5583,10 +5585,16 @@ with app.app_context():
         try:
             db.session.execute(text(comando))
             db.session.commit()
-        except:
+        except Exception:
             db.session.rollback()
 
     garantir_modulos_trilha_tcc()
+    import backup_servico
+    backup_servico.migrar_agendamentos_antigos()
+
+
+with app.app_context():
+    atualizar_estrutura_banco()
 
 # ===========================================================================
 # EXECUÇÃO DO APLICATIVO

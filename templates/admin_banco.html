@@ -1,180 +1,238 @@
 {% extends "base.html" %}
 {% block title %}{{ t('manutencao_titulo') }}{% endblock %}
 {% block content %}
+{% macro data_hora(valor) %}{{ valor.strftime('%d/%m/%Y %H:%M') if valor else '—' }}{% endmacro %}
+{% macro selo_status(status) %}
+    {% set cor = {'Concluído': 'success', 'Sucesso': 'success', 'Falha': 'danger', 'Ativo': 'success', 'Pausado': 'secondary'}.get(status, 'secondary') %}
+    <span class="badge bg-{{ cor }}">{{ tt(status) }}</span>
+{% endmacro %}
 
+<h2 class="mb-2 text-primary fw-bold">{{ t('manutencao_titulo') }}</h2>
+<div class="alert alert-primary py-2 small">{{ tt('Acompanhe a saúde dos backups, mantenha vários agendamentos em paralelo e restaure o banco quando precisar.') }}</div>
 
-<h2 class="mb-4 text-primary fw-bold">{{ t('manutencao_titulo') }}</h2>
-<p class="text-muted mb-4">{{ t('manutencao_subtitulo') }}</p>
-
-<!-- 1. BACKUP IMEDIATO -->
-<div class="card shadow-sm border-0 mb-4 border-start border-primary border-4">
-    <div class="card-body d-flex justify-content-between align-items-center">
-        <div>
-            <h5 class="fw-bold text-dark mb-1">{{ t('backup_imediato_titulo') }}</h5>
-            <p class="text-muted small mb-0">{{ t('backup_imediato_desc') }}</p>
+<!-- 1. SAÚDE DOS BACKUPS -->
+<div class="card shadow-sm border-0 mb-4" id="cardSaude">
+    <div class="card-body">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h5 class="fw-bold mb-0">{{ tt('Saúde dos Backups') }}</h5>
+            <a href="{{ url_for('manutencao_banco') }}" class="btn btn-sm btn-outline-primary"><i class="bi bi-arrow-clockwise"></i> {{ tt('Atualizar') }}</a>
         </div>
-        <form method="POST" class="m-0">
-            <input type="hidden" name="acao" value="backup">
-            <button type="submit" class="btn btn-primary fw-bold px-4">
-                {{ t('btn_baixar_backup') }}
-            </button>
-        </form>
-    </div>
-</div>
-
-<!-- 2. BACKUP AGENDADO -->
-<div class="card shadow-sm border-0 mb-4 border-start border-info border-4">
-    <div class="card-body">
-        <h5 class="fw-bold text-dark mb-1">{{ t('backup_agendado_titulo') }}</h5>
-        <p class="text-muted small mb-3">{{ t('backup_agendado_desc') }}</p>
-        
-        <form method="POST" class="row align-items-end">
-            <input type="hidden" name="acao" value="agendar">
-            
-            <div class="col-md-2 mb-2">
-                <label class="form-label small text-muted fw-bold">{{ t('frequencia') }}</label>
-                <select class="form-select" name="frequencia">
-                    <option value="diario">{{ t('freq_diario') }}</option>
-                    <option value="semanal">{{ t('freq_semanal') }}</option>
-                    <option value="mensal">{{ t('freq_mensal') }}</option>
-                </select>
-            </div>
-
-            <!-- NOVO CAMPO: Calendário (Data de Início) -->
-            <div class="col-md-3 mb-2">
-                <label class="form-label small text-muted fw-bold">{{ tt('Data de Início') }}</label>
-                <input type="date" name="data_inicio" class="form-control" required>
-            </div>
-            
-            <div class="col-md-2 mb-2">
-                <label class="form-label small text-muted fw-bold">{{ t('horario_execucao') }}</label>
-                <input type="time" class="form-control" name="horario" value="03:00" required>
-            </div>
-
-            <div class="col-md-3 mb-2">
-                <label class="form-label small text-muted fw-bold">{{ t('destino_interno') }}</label>
-                <input type="text" name="destino_interno" class="form-control" placeholder="{{ tt('Padrão: Backup_repository') }}">
-            </div>
-            
-            <div class="col-md-2 mb-2">
-                <button type="submit" class="btn btn-info text-white fw-bold w-100">{{ t('btn_salvar_rotina') }}</button>
-            </div>
-        </form>
-    </div>
-</div>
-
-<!-- 3. RESTAURAR BANCO -->
-<div class="card shadow-sm border-0 border-start border-danger border-4">
-    <div class="card-body">
-        <h5 class="fw-bold text-danger mb-1">{{ t('restaurar_titulo') }}</h5>
-        <p class="text-muted small mb-3">{{ t('restaurar_desc') }}</p>
-        
-        <form method="POST" enctype="multipart/form-data" class="d-flex gap-3 align-items-center">
-            <input type="hidden" name="acao" value="restaurar">
-            <div class="d-flex align-items-center w-50 border rounded bg-white px-2 py-1">
-            <input type="file" id="uploadDb" name="arquivo_db" accept=".db" required class="d-none" onchange="document.getElementById('nomeArquivo').innerText = this.files[0] ? this.files[0].name : `{{ t('nenhum_arquivo') }}`">
-            <label for="uploadDb" class="btn btn-sm btn-secondary mb-0 me-2 cursor-pointer">{{ t('btn_escolher_arquivo') }}</label>
-            <span id="nomeArquivo" class="text-muted small text-truncate" style="max-width: 60%;">{{ t('nenhum_arquivo') }}</span>
-            </div>
-
-            <button type="submit" class="btn btn-danger fw-bold px-4" onclick="return confirm(`{{ t('alerta_restaurar') }}`);">
-                {{ t('btn_restaurar') }}
-            </button>
-        </form>
-    </div>
-</div>
-
-<!-- 4. LIMPAR BANCO DE DADOS (ZONA DE PERIGO) -->
-<div class="card shadow-sm border-0 border-start border-danger border-4 mt-5 mb-4" style="background-color: #fff5f5;">
-    <div class="card-body">
-        <h5 class="fw-bold text-danger mb-1">{{ t('zona_perigo_titulo') }}</h5>
-        <p class="text-danger small mb-3">
-            {{ t('zona_perigo_desc') }}
-        </p>
-        
-        <form method="POST" class="m-0 text-end">
-            <input type="hidden" name="acao" value="limpar">
-            <button type="submit" class="btn btn-outline-danger fw-bold px-4" 
-                    onclick="return confirm(`{{ t('alerta_limpar') }}`);">
-                {{ t('btn_apagar_tudo') }}
-            </button>
-        </form>
-    </div>
-</div>
-
-<!-- 5. RELATÓRIO DE AUDITORIA E HISTÓRICO DE BACKUPS -->
-<div class="card shadow-sm border-0 border-start border-secondary border-4 mt-5 mb-4">
-    <div class="card-body">
-        <h5 class="fw-bold text-dark mb-3">{{ t('historico_auditoria_titulo') }}</h5>
-        
-        <!-- Formulário de Filtro de Datas e Botão de Apagar -->
-                <div class="d-flex justify-content-between align-items-end mb-4">
-                    
-                    <!-- Lado Esquerdo: Filtros -->
-                    <form method="GET" class="row align-items-end m-0">
-                        <div class="col-auto">
-                            <label class="form-label small text-muted">{{ t('data_inicial_filtro') }}</label>
-                            <input type="date" name="data_inicio" class="form-control" value="{{ data_inicio or '' }}">
-                        </div>
-                        <div class="col-auto">
-                            <label class="form-label small text-muted">{{ t('data_final_filtro') }}</label>
-                            <input type="date" name="data_fim" class="form-control" value="{{ data_fim or '' }}">
-                        </div>
-                        <div class="col-auto d-flex gap-2">
-                            <button type="submit" class="btn btn-secondary px-4">{{ t('btn_filtrar') }}</button>
-                            <a href="{{ url_for('manutencao_banco') }}" class="btn btn-outline-secondary px-4">{{ t('btn_limpar_filtro') }}</a>
-                        </div>
-                    </form>
-
-                    <!-- Lado Direito: Botão Vermelho -->
-                    {% if current_user.tipo_usuario == 'Administrador' %}
-                    <form method="POST" action="{{ url_for('manutencao_banco') }}" onsubmit="return confirm('⚠️ ZONA DE PERIGO: Tem certeza que deseja apagar permanentemente todo o histórico de auditoria? Esta ação irá gerar um log no servidor.');" class="m-0">
-                        <input type="hidden" name="acao" value="limpar_auditoria">
-                        <button type="submit" class="btn btn-outline-danger fw-bold shadow-sm">
-                            {{ tt('🗑️ Apagar Todo o Histórico') }}
-                        </button>
-                    </form>
-                    {% endif %}
-                    
+        {% set cor_situacao = {'Saudável': 'success', 'Atenção': 'warning', 'Crítica': 'danger'}[saude.situacao] %}
+        <div class="row g-2">
+            {% for rotulo, valor, cor in [(tt('Agendamentos ativos'), saude.ativos, 'success'), (tt('Pausados'), saude.pausados, 'secondary'),
+                                          (tt('Último backup'), data_hora(saude.ultimo), 'primary'), (tt('Próximo backup'), data_hora(saude.proximo), 'primary'),
+                                          (tt('Falhas registradas'), saude.falhas, 'danger' if saude.falhas else 'secondary')] %}
+            <div class="col-6 col-lg-2 flex-lg-fill">
+                <div class="border rounded p-2 h-100">
+                    <small class="text-muted d-block">{{ rotulo }}</small>
+                    <span class="fw-bold fs-6 text-{{ cor }}" style="font-variant-numeric: tabular-nums;">{{ valor }}</span>
                 </div>
+            </div>
+            {% endfor %}
+            <div class="col-6 col-lg-2 flex-lg-fill">
+                <div class="border rounded p-2 h-100 border-{{ cor_situacao }}">
+                    <small class="text-muted d-block">{{ tt('Situação') }}</small>
+                    <span class="fw-bold fs-6 text-{{ 'warning-emphasis' if cor_situacao == 'warning' else cor_situacao }}">{{ tt(saude.situacao) }}</span>
+                    {% if saude.motivo %}<small class="d-block text-muted">{{ tt(saude.motivo) }}</small>{% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
 
+<!-- 2. AGENDAMENTOS -->
+<div class="card shadow-sm border-0 mb-4" id="cardAgendamentos">
+    <div class="card-body">
+        <div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-2">
+            <div>
+                <h5 class="fw-bold mb-0">{{ tt('Agendamentos') }}</h5>
+                <small class="text-muted">{{ tt('Clique em uma linha para editar, executar, pausar ou excluir.') }}</small>
+            </div>
+            <button class="btn btn-success fw-bold" data-bs-toggle="modal" data-bs-target="#modalNovoAgendamento" id="btnNovoAgendamento">{{ tt('+ Novo agendamento') }}</button>
+        </div>
         <div class="table-responsive">
-            <table class="table table-hover align-middle small text-center">
-                <thead class="table-light">
-                    <tr>
-                        <th>{{ t('col_data_registro') }}</th>
-                        <th>{{ t('col_tipo') }}</th>
-                        <th>{{ t('col_data_hora_alvo') }}</th>
-                        <th>{{ t('col_status') }}</th>
-                        <th>{{ t('col_usuario_autor') }}</th>
-                        <th>{{ t('col_destino_detalhes') }}</th>
+            <table class="table table-hover align-middle small mb-2 tabela-ordenavel">
+                <thead>
+                    <tr><th>ID</th><th>{{ tt('Frequência') }}</th><th>{{ tt('Status') }}</th><th>{{ tt('Início') }}</th>
+                        <th>{{ tt('Última execução') }}</th><th>{{ tt('Próxima execução') }}</th><th>{{ tt('Retenção') }}</th><th>{{ tt('Pasta') }}</th></tr>
+                </thead>
+                <tbody>
+                    {% for a in agendamentos %}
+                    <tr role="button" data-bs-toggle="modal" data-bs-target="#modalAgendamento{{ a.id }}" class="linha-agendamento">
+                        <td>{{ a.id }}</td><td>{{ tt(a.frequencia) }}</td><td>{{ selo_status(a.status) }}</td>
+                        <td>{{ a.data_inicio.strftime('%d/%m/%Y') }} {{ a.horario }}</td>
+                        <td>{{ data_hora(a.ultima_execucao) if a.ultima_execucao else tt('Ainda não executado') }}</td>
+                        <td>{{ data_hora(a.proxima_execucao) if a.status == 'Ativo' else '—' }}</td>
+                        <td>{{ tt('Últimos') }} {{ a.retencao }}</td><td><code>backups/{{ a.pasta }}</code></td>
                     </tr>
+                    {% else %}
+                    <tr><td colspan="8" class="text-center text-muted py-3">{{ tt('Nenhum agendamento. Crie um para os backups rodarem sozinhos.') }}</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        <details>
+            <summary class="small text-primary fw-bold"><i class="bi bi-journal-text"></i> {{ tt('Ver registro de alterações dos agendamentos') }} ({{ alteracoes|length }})</summary>
+            <div class="d-flex justify-content-end my-2">
+                <a href="{{ url_for('relatorio_auditoria_backup', tipo='alteracoes') }}" class="btn btn-sm btn-outline-success"><i class="bi bi-file-earmark-spreadsheet"></i> {{ tt('Relatório de alterações (CSV)') }}</a>
+            </div>
+            <table class="table table-sm small align-middle">
+                <thead><tr><th>{{ tt('Data/Hora') }}</th><th>{{ tt('Agendamento') }}</th><th>{{ tt('Ação') }}</th><th>{{ tt('Usuário') }}</th><th>{{ tt('Detalhes') }}</th></tr></thead>
+                <tbody>
+                    {% for m in alteracoes %}
+                    <tr><td class="text-nowrap">{{ data_hora(m.data) }}</td><td>#{{ m.agendamento_id }}</td><td>{{ tt(m.acao) }}</td>
+                        <td>{{ m.usuario.nome if m.usuario else tt('sistema') }}</td><td>{{ m.detalhes }}</td></tr>
+                    {% else %}
+                    <tr><td colspan="5" class="text-muted text-center">{{ tt('Nenhuma alteração registrada.') }}</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </details>
+    </div>
+</div>
+
+{% macro campos_agendamento(a, sufixo) %}
+    <div class="col-md-4"><label class="form-label small fw-bold" for="freq{{ sufixo }}">{{ tt('Frequência') }}</label>
+        <select class="form-select" id="freq{{ sufixo }}" name="frequencia">{% for f in frequencias %}<option value="{{ f }}" {% if a and a.frequencia == f %}selected{% endif %}>{{ tt(f) }}</option>{% endfor %}</select></div>
+    <div class="col-md-4"><label class="form-label small fw-bold" for="ini{{ sufixo }}">{{ tt('Data de início') }}</label>
+        <input type="date" class="form-control" id="ini{{ sufixo }}" name="data_inicio" value="{{ a.data_inicio.strftime('%Y-%m-%d') if a else hoje }}" required></div>
+    <div class="col-md-4"><label class="form-label small fw-bold" for="hora{{ sufixo }}">{{ tt('Horário') }}</label>
+        <input type="time" class="form-control" id="hora{{ sufixo }}" name="horario" value="{{ a.horario if a else '03:00' }}" required></div>
+    <div class="col-md-4"><label class="form-label small fw-bold" for="ret{{ sufixo }}">{{ tt('Retenção (arquivos)') }}</label>
+        <input type="number" class="form-control" id="ret{{ sufixo }}" name="retencao" min="1" max="365" value="{{ a.retencao if a else 7 }}" required>
+        <small class="text-muted">{{ tt('Os mais antigos deste agendamento são apagados.') }}</small></div>
+    <div class="col-md-8"><label class="form-label small fw-bold" for="pasta{{ sufixo }}">{{ tt('Pasta') }} <span class="text-muted fw-normal">(instance/backups/…)</span></label>
+        <input class="form-control" id="pasta{{ sufixo }}" name="pasta" list="listaPastas" value="{{ a.pasta if a else 'agendados' }}" maxlength="60" required></div>
+{% endmacro %}
+<datalist id="listaPastas">{% for p in subpastas %}<option value="{{ p }}">{% endfor %}</datalist>
+
+<div class="modal fade" id="modalNovoAgendamento" tabindex="-1"><div class="modal-dialog modal-lg"><div class="modal-content">
+    <form method="POST">
+        <input type="hidden" name="acao" value="novo_agendamento">
+        <div class="modal-header bg-success text-white"><h5 class="modal-title fw-bold">{{ tt('Novo agendamento') }}</h5><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="{{ t('fechar') }}"></button></div>
+        <div class="modal-body row g-3">{{ campos_agendamento(None, 'Novo') }}
+            <div class="col-12"><small class="text-muted">{{ tt('No PythonAnywhere os agendamentos rodam pela tarefa de hora em hora (tarefas_agendadas.py); com o app aberto no computador, rodam no horário.') }}</small></div>
+        </div>
+        <div class="modal-footer"><button class="btn btn-success fw-bold px-4" type="submit">{{ tt('Criar agendamento') }}</button></div>
+    </form>
+</div></div></div>
+
+{% for a in agendamentos %}
+<div class="modal fade" id="modalAgendamento{{ a.id }}" tabindex="-1"><div class="modal-dialog modal-lg"><div class="modal-content">
+    <div class="modal-header bg-primary text-white"><h5 class="modal-title fw-bold">{{ tt('Agendamento') }} #{{ a.id }} · {{ selo_status(a.status) }}</h5><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="{{ t('fechar') }}"></button></div>
+    <form method="POST">
+        <input type="hidden" name="acao" value="editar_agendamento"><input type="hidden" name="agendamento_id" value="{{ a.id }}">
+        <div class="modal-body row g-3">{{ campos_agendamento(a, a.id) }}
+            <div class="col-12 small text-muted">{{ tt('Criado por') }} {{ a.criado_por.nome if a.criado_por else tt('sistema') }} · {{ data_hora(a.data_criacao) }}</div>
+        </div>
+        <div class="modal-footer justify-content-between">
+            <div class="d-flex gap-2 flex-wrap">
+                <button class="btn btn-outline-primary fw-bold" type="submit" form="acao{{ a.id }}executar"><i class="bi bi-play-fill"></i> {{ tt('Executar agora') }}</button>
+                {% if a.status == 'Ativo' %}
+                <button class="btn btn-outline-secondary fw-bold" type="submit" form="acao{{ a.id }}pausar"><i class="bi bi-pause-fill"></i> {{ tt('Pausar') }}</button>
+                {% else %}
+                <button class="btn btn-outline-success fw-bold" type="submit" form="acao{{ a.id }}retomar"><i class="bi bi-play-circle"></i> {{ tt('Retomar') }}</button>
+                {% endif %}
+                <button class="btn btn-outline-danger fw-bold" type="submit" form="acao{{ a.id }}excluir"><i class="bi bi-trash"></i> {{ tt('Excluir') }}</button>
+            </div>
+            <button class="btn btn-primary fw-bold px-4" type="submit">{{ tt('Salvar Alterações') }}</button>
+        </div>
+    </form>
+    {% for acao in ['executar', 'pausar', 'retomar', 'excluir'] %}
+    <form method="POST" id="acao{{ a.id }}{{ acao }}" class="d-none" {% if acao == 'excluir' %}onsubmit="return confirm({{ tt('Excluir este agendamento? Os arquivos já gerados continuam na pasta.')|tojson|forceescape }});"{% endif %}>
+        <input type="hidden" name="acao" value="{{ acao }}"><input type="hidden" name="agendamento_id" value="{{ a.id }}">
+    </form>
+    {% endfor %}
+</div></div></div>
+{% endfor %}
+
+<!-- 3. BACKUP IMEDIATO -->
+<div class="card shadow-sm border-0 mb-4" id="cardBackupImediato">
+    <div class="card-body">
+        <h5 class="fw-bold mb-0">{{ tt('Backup imediato') }}</h5>
+        <small class="text-muted d-block mb-3">{{ tt('Gera uma cópia agora e verifica a integridade do arquivo.') }}</small>
+        <form method="POST" class="row g-2 align-items-end">
+            <input type="hidden" name="acao" value="backup">
+            <div class="col-md-8"><label class="form-label small fw-bold" for="pastaImediato">{{ tt('Pasta') }} <span class="text-muted fw-normal">(instance/backups/…)</span></label>
+                <input class="form-control" id="pastaImediato" name="pasta" list="listaPastas" value="manuais" maxlength="60" required></div>
+            <div class="col-md-4 d-grid"><button class="btn btn-primary fw-bold" type="submit"><i class="bi bi-save"></i> {{ tt('Fazer backup') }}</button></div>
+        </form>
+    </div>
+</div>
+
+<!-- 4. RESTAURAR BACKUP -->
+<div class="card shadow-sm border-0 mb-4" id="cardRestaurar">
+    <div class="card-body">
+        <h5 class="fw-bold mb-0">{{ tt('Restaurar backup') }}</h5>
+        <small class="text-muted d-block mb-3">{{ tt('Escolha um arquivo da lista ou envie um. Uma cópia do banco atual é guardada antes da restauração; agendamentos e histórico de backups são preservados.') }}</small>
+        <form method="POST" enctype="multipart/form-data" class="row g-2 align-items-end"
+              onsubmit="return confirm({{ tt('Restaurar o banco? Os dados atuais serão substituídos pelos do backup (uma cópia de segurança é feita antes).')|tojson|forceescape }});">
+            <input type="hidden" name="acao" value="restaurar">
+            <div class="col-md-8"><label class="form-label small fw-bold" for="arquivoExistente">{{ tt('Backups encontrados') }} ({{ backups|length }})</label>
+                <select class="form-select" id="arquivoExistente" name="arquivo_existente">
+                    <option value="">{{ tt('Selecione...') }}</option>
+                    {% for b in backups %}<option value="{{ b.relativo }}">{{ b.relativo }} · {{ tamanho_legivel(b.tamanho) }} · {{ data_hora(b.data) }}</option>{% endfor %}
+                </select></div>
+            <div class="col-md-4 d-grid"><button class="btn btn-danger fw-bold" type="submit">{{ tt('Restaurar') }}</button></div>
+            <div class="col-md-8"><label class="form-label small fw-bold" for="arquivoDb">{{ tt('Ou envie um arquivo .db') }}</label>
+                <input type="file" class="form-control" id="arquivoDb" name="arquivo_db" accept=".db"></div>
+        </form>
+        {% if backups %}
+        <details class="mt-3">
+            <summary class="small text-primary fw-bold"><i class="bi bi-hdd"></i> {{ tt('Arquivos de backup no servidor') }} ({{ backups|length }})</summary>
+            <table class="table table-sm small align-middle mt-2">
+                <thead><tr><th>{{ tt('Arquivo') }}</th><th>{{ tt('Tamanho') }}</th><th>{{ tt('Data/Hora') }}</th><th></th></tr></thead>
+                <tbody>
+                    {% for b in backups %}
+                    <tr><td>{{ b.relativo }}</td><td>{{ tamanho_legivel(b.tamanho) }}</td><td class="text-nowrap">{{ data_hora(b.data) }}</td>
+                        <td class="text-end"><a href="{{ url_for('baixar_backup', f=b.relativo) }}" class="btn btn-sm btn-outline-primary"><i class="bi bi-download"></i> {{ tt('Baixar') }}</a></td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </details>
+        {% endif %}
+    </div>
+</div>
+
+<!-- 5. HISTÓRICO DE EXECUÇÕES -->
+<div class="card shadow-sm border-0 mb-4" id="cardHistorico">
+    <div class="card-body">
+        <h5 class="fw-bold mb-0">{{ tt('Histórico de execuções') }}</h5>
+        <small class="text-muted d-block mb-3">{{ tt('Backups manuais e automáticos, restaurações, downloads e limpezas. As alterações de configuração ficam no cartão Agendamentos.') }}</small>
+        <div class="d-flex justify-content-between align-items-end flex-wrap gap-2 mb-2">
+            <form method="GET" class="d-flex gap-2 align-items-end flex-wrap">
+                <div><label class="form-label small mb-0" for="hIni">{{ tt('Data Inicial') }}</label><input type="date" class="form-control form-control-sm" id="hIni" name="data_inicio" value="{{ data_inicio or '' }}"></div>
+                <div><label class="form-label small mb-0" for="hFim">{{ tt('Data Final') }}</label><input type="date" class="form-control form-control-sm" id="hFim" name="data_fim" value="{{ data_fim or '' }}"></div>
+                <button class="btn btn-sm btn-dark" type="submit">{{ tt('Filtrar') }}</button>
+                <a href="{{ url_for('manutencao_banco') }}" class="btn btn-sm btn-outline-secondary">{{ tt('Limpar filtro') }}</a>
+            </form>
+            <div class="d-flex gap-2">
+                <a href="{{ url_for('relatorio_auditoria_backup', tipo='execucoes', data_inicio=data_inicio or '', data_fim=data_fim or '') }}" class="btn btn-sm btn-outline-success" id="btnRelatorioAuditoria"><i class="bi bi-file-earmark-spreadsheet"></i> {{ tt('Relatório para auditoria (CSV)') }}</a>
+                <form method="POST" class="m-0" onsubmit="return confirm({{ tt('Apagar o histórico? Uma cópia em CSV é guardada no servidor e a limpeza fica registrada.')|tojson|forceescape }});">
+                    <input type="hidden" name="acao" value="limpar_auditoria">
+                    <button class="btn btn-sm btn-outline-danger" type="submit">{{ tt('🗑️ Apagar Todo o Histórico') }}</button>
+                </form>
+            </div>
+        </div>
+        <div class="table-responsive">
+            <table class="table table-hover align-middle small tabela-ordenavel">
+                <thead>
+                    <tr><th>{{ tt('Data/Hora') }}</th><th>{{ tt('Tipo') }}</th><th>{{ tt('Status') }}</th><th>{{ tt('Arquivo') }}</th><th>{{ tt('Tamanho') }}</th>
+                        <th>{{ tt('Duração') }}</th><th>{{ tt('Usuário') }}</th><th>{{ tt('Detalhes') }}</th></tr>
                 </thead>
                 <tbody>
                     {% for log in logs_backup %}
                     <tr>
-                        <td class="text-muted">{{ log.data_registro.strftime('%d/%m/%Y %H:%M') }}</td>
-                        <td class="fw-bold">{{ t('tipo_imediato') if log.tipo == 'Imediato' else t('tipo_agendado') }}</td>
-                        <td>{{ log.data_agendada or '--' }}</td>
-                        <td>
-                            {% if log.status == 'Sucesso' %}
-                                <span class="badge bg-success">{{ t('status_sucesso') }}</span>
-                            {% elif log.status == 'Falha' %}
-                                <span class="badge bg-danger">{{ t('status_falha') }}</span>
-                            {% else %}
-                                <span class="badge bg-warning text-dark">{{ t('status_pendente') }}</span>
-                            {% endif %}
-                        </td>
-                        <td>{{ log.autor.nome if log.autor else 'Sistema' }}</td>
-                        <td class="text-start">
-                            <strong>{{ log.destino }}</strong><br>
-                            <span class="text-muted">{{ log.detalhes }}</span>
-                        </td>
+                        <td class="text-nowrap" data-valor="{{ log.data_registro.strftime('%Y%m%d%H%M%S') if log.data_registro else '' }}">{{ log.data_registro.strftime('%d/%m/%Y %H:%M') if log.data_registro else '—' }}</td>
+                        <td>{{ tt(log.tipo) }}</td><td>{{ selo_status(log.status) }}</td>
+                        <td class="text-break">{{ log.arquivo or '—' }}</td>
+                        <td data-valor="{{ log.tamanho_bytes or 0 }}">{{ tamanho_legivel(log.tamanho_bytes) }}</td>
+                        <td data-valor="{{ log.duracao_seg or 0 }}">{{ '%.1fs'|format(log.duracao_seg) if log.duracao_seg is not none else '—' }}</td>
+                        <td>{{ log.autor.nome if log.autor else tt('sistema') }}</td>
+                        <td class="text-break">{{ log.detalhes or '' }}</td>
                     </tr>
                     {% else %}
-                    <tr>
-                        <td colspan="6" class="text-muted py-3">{{ t('nenhum_registro_backup') }}</td>
-                    </tr>
+                    <tr><td colspan="8" class="text-center text-muted py-3">{{ tt('Nenhum registro no período.') }}</td></tr>
                     {% endfor %}
                 </tbody>
             </table>
@@ -182,48 +240,73 @@
     </div>
 </div>
 
+<!-- 6. ZONA DE PERIGO -->
+<div class="card shadow-sm border-0 mb-4 border-start border-danger border-4" id="cardPerigo">
+    <div class="card-body">
+        <h5 class="fw-bold text-danger mb-0">{{ t('zona_perigo_titulo') }}</h5>
+        <small class="text-danger d-block mb-3">{{ tt('Atenção: apaga sessões, acompanhamentos, cursos, solicitações e todos os usuários (menos a sua conta). Um backup de segurança é feito antes, e a auditoria é preservada.') }}</small>
+        <form method="POST" class="row g-2 align-items-end">
+            <input type="hidden" name="acao" value="limpar">
+            <div class="col-md-4"><label class="form-label small" for="confirmacaoApagar">{{ tt('Para liberar, digite APAGAR') }}</label>
+                <input class="form-control" id="confirmacaoApagar" name="confirmacao" autocomplete="off" placeholder="APAGAR"></div>
+            <div class="col-md-4 d-grid"><button class="btn btn-danger fw-bold" type="submit" id="btnApagarDados" disabled><i class="bi bi-trash"></i> {{ tt('Apagar todos os dados') }}</button></div>
+            <div class="col-md-4 small text-muted">{{ tt('Autenticado como:') }} {{ current_user.nome }}</div>
+        </form>
+    </div>
+</div>
+
 <script>
+// Zona de perigo: o botão só libera depois de digitar APAGAR
+document.getElementById('confirmacaoApagar').addEventListener('input', function () {
+    document.getElementById('btnApagarDados').disabled = this.value.trim().toUpperCase() !== 'APAGAR';
+});
+
+// Ordenação ao clicar no cabeçalho das tabelas (usa data-valor quando existe: datas, tamanhos e durações)
+document.querySelectorAll('.tabela-ordenavel thead th').forEach(function (th, coluna) {
+    th.style.cursor = 'pointer';
+    th.title = {{ tt('Clique para ordenar')|tojson }};
+    th.addEventListener('click', function () {
+        const corpo = th.closest('table').tBodies[0];
+        const linhas = Array.from(corpo.rows).filter(l => l.cells.length > 1);
+        const crescente = th.dataset.ordem !== 'asc';
+        th.dataset.ordem = crescente ? 'asc' : 'desc';
+        const valor = l => { const c = l.cells[coluna]; return c.dataset.valor !== undefined ? c.dataset.valor : c.innerText.trim(); };
+        linhas.sort((a, b) => {
+            const x = valor(a), y = valor(b), nx = parseFloat(x), ny = parseFloat(y);
+            const r = (!isNaN(nx) && !isNaN(ny) && String(nx) === x && String(ny) === y) ? nx - ny : x.localeCompare(y, undefined, { numeric: true });
+            return crescente ? r : -r;
+        });
+        linhas.forEach(l => corpo.appendChild(l));
+    });
+});
+
 function iniciarTourDaPagina() {
-    let passos = [
-        { intro: "{{ t('tour_man_intro') | safe }}" }
-    ];
-
-    let cartoes = document.querySelectorAll('.card');
-    if (cartoes.length > 0) passos.push({ element: cartoes[0], intro: "{{ t('tour_man_func1') | safe }}" });
-    if (cartoes.length > 1) passos.push({ element: cartoes[1], intro: "{{ t('tour_man_func2') | safe }}" });
-    if (cartoes.length > 2) passos.push({ element: cartoes[2], intro: "{{ t('tour_man_func3') | safe }}" });
-    if (cartoes.length > 3) passos.push({ element: cartoes[3], intro: "{{ t('tour_man_func4') | safe }}" });
-
-    let filtroDatas = document.querySelector('form[method="GET"]');
-    if (filtroDatas) passos.push({ element: filtroDatas, intro: "{{ t('tour_man_filtro') | safe }}" });
-
-    // Busca pelas palavras do histórico nos 3 idiomas (Histórico, History, Historial)
-    let botoes = Array.from(document.querySelectorAll('a, button'));
-    let btnApagar = botoes.find(el => el.textContent.includes('Histórico') || el.textContent.includes('History') || el.textContent.includes('Historial'));
-    if (btnApagar) passos.push({ element: btnApagar, intro: "{{ t('tour_man_apagar') | safe }}" });
-
-    let tabelaAudit = document.querySelector('.table');
-    if (tabelaAudit) passos.push({ element: tabelaAudit, intro: "{{ t('tour_man_auditoria') | safe }}" });
-
+    const passos = [{ intro: "{{ t('tour_man_intro') | safe }}" }];
+    [['#cardSaude', {{ tt('Saúde dos backups: agendamentos ativos, último e próximo backup, falhas e a situação geral.')|tojson }}],
+     ['#cardAgendamentos', {{ tt('Agendamentos: crie vários backups automáticos; clique numa linha para editar, executar, pausar ou excluir. Toda alteração fica registrada.')|tojson }}],
+     ['#cardBackupImediato', {{ tt('Backup imediato: gera uma cópia agora e confere a integridade do arquivo.')|tojson }}],
+     ['#cardRestaurar', {{ tt('Restaurar: volta o banco a um backup, guardando antes uma cópia do banco atual.')|tojson }}],
+     ['#cardHistorico', {{ tt('Histórico: tudo o que foi executado, com filtro por data e relatório em CSV para auditoria.')|tojson }}],
+     ['#cardPerigo', {{ tt('Zona de perigo: apagar os dados exige digitar APAGAR e sempre faz um backup de segurança antes.')|tojson }}]
+    ].forEach(([sel, texto]) => { const el = document.querySelector(sel); if (el) passos.push({ element: el, intro: texto }); });
     introJs().setOptions({
-        steps: passos, 
-        nextLabel: "{{ t('tour_btn_proximo') }}", 
-        prevLabel: "{{ t('tour_btn_anterior') }}", 
+        steps: passos,
+        nextLabel: "{{ t('tour_btn_proximo') }}",
+        prevLabel: "{{ t('tour_btn_anterior') }}",
         doneLabel: "{{ t('tour_btn_voltar') }}",
-        showProgress: true, 
+        showProgress: true,
         showBullets: false
-    }).oncomplete(function() {
-        if(window.location.search.includes('tour_continuo=1')) {
+    }).oncomplete(function () {
+        if (window.location.search.includes('tour_continuo=1')) {
             window.location.href = "{{ url_for('dashboard') }}";
         }
     }).start();
 }
 
-document.addEventListener("DOMContentLoaded", function() {
-    if(window.location.search.includes('tour_continuo=1')) {
+document.addEventListener("DOMContentLoaded", function () {
+    if (window.location.search.includes('tour_continuo=1')) {
         setTimeout(iniciarTourDaPagina, 500);
     }
 });
 </script>
-
 {% endblock %}
