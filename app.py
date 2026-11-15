@@ -372,6 +372,7 @@ def desativar_tour():
 # ---------------------------------------------------------
 from datetime import datetime
 import re
+import json
 
 @app.route('/dashboard')
 @login_required
@@ -5480,6 +5481,185 @@ def baixar_repositorio_publico(id):
     item.downloads = (item.downloads or 0) + 1
     db.session.commit()
     return send_from_directory(PASTA_ACERVO, item.arquivo_pdf, as_attachment=True)
+
+
+# ==============================================================================
+# ADMINISTRAÇÃO › AGENTES IA: hub dos agentes de teste (Agente Gestor + agentes por perfil)
+# ==============================================================================
+PASTA_AGENTES_IA = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'Agent Reports', 'Agentes IA')
+PASTA_AO_VIVO_IA = os.path.join(PASTA_AGENTES_IA, '.ao_vivo')
+ORDEM_AGENTES_IA = [('administrador', 'Administrador'), ('aluno', 'Aluno'), ('professor', 'Professor'), ('mentor', 'Mentor'),
+                    ('mentor_administrador', 'Mentor Administrador'), ('gestor_b2b', 'Gestor B2B'), ('avaliador', 'Avaliador Banca')]
+# Uma subpasta por agente em cada pasta da área (mesmos nomes que o agentes_omnitest/agente_gestor.py usa)
+PASTAS_PERFIS_IA = ['Perfil administrador', 'Perfil aluno', 'Perfil professor', 'Perfil mentor',
+                    'Perfil mentor administrador', 'Perfil gestor B2B', 'Perfil avaliador banca']
+
+
+def _ler_json_ia(nome):
+    try:
+        with open(os.path.join(PASTA_AO_VIVO_IA, nome), encoding='utf-8') as f:
+            return json.load(f)
+    except (OSError, ValueError):
+        return None
+
+
+def estado_agentes_ia():
+    """Estado do Agente Gestor. Sem batimento há mais de 30 s, a execução é dada como interrompida."""
+    estado = _ler_json_ia('estado.json')
+    if estado and estado.get('status') == 'executando' and time.time() - estado.get('batimento', 0) > 30:
+        estado['status'] = 'interrompido'
+    return estado
+
+
+def arvore_agentes_ia():
+    """Pastas e arquivos da área (Relatórios e Prompts de cada tipo de agente), do mais novo para o mais antigo."""
+    def arquivos(pasta):
+        if not os.path.isdir(pasta):
+            return []
+        itens = [os.path.join(pasta, n) for n in os.listdir(pasta) if n.lower().endswith(('.pdf', '.md'))]
+        return [{'nome': os.path.basename(a), 'relativo': os.path.relpath(a, PASTA_AGENTES_IA).replace('\\', '/'),
+                 'data': datetime.fromtimestamp(os.path.getmtime(a))} for a in sorted(itens, key=os.path.getmtime, reverse=True)]
+
+    def subpastas(pasta):
+        # Sempre as 7 subpastas, na ordem dos agentes, mesmo antes da primeira execução
+        for nome in PASTAS_PERFIS_IA:
+            os.makedirs(os.path.join(pasta, nome), exist_ok=True)
+        return [{'nome': n, 'arquivos': arquivos(os.path.join(pasta, n))} for n in PASTAS_PERFIS_IA]
+
+    e2e = os.path.join(PASTA_AGENTES_IA, 'Agentes Teste Fim a Fim')
+    seg = os.path.join(PASTA_AGENTES_IA, 'Agentes Teste de Segurança')
+    return [
+        {'nome': 'Agentes Teste Fim a Fim', 'pastas': [
+            {'nome': 'Relatórios de Testes Fim a Fim e Evidencias', 'subpastas': subpastas(os.path.join(e2e, 'Relatórios de Testes Fim a Fim e Evidencias'))},
+            {'nome': 'Prompt de correção LLM', 'subpastas': subpastas(os.path.join(e2e, 'Prompt de correção LLM'))}]},
+        {'nome': 'Agentes Teste de Segurança', 'em_breve': True, 'pastas': [
+            {'nome': 'Relatórios de Testes de Segurança', 'subpastas': subpastas(os.path.join(seg, 'Relatórios de Testes de Segurança'))},
+            {'nome': 'Prompt de correção LLM', 'subpastas': subpastas(os.path.join(seg, 'Prompt de correção LLM'))}]},
+    ]
+
+
+def _somente_administrador():
+    if current_user.tipo_usuario != 'Administrador':
+        flash("Acesso Negado.", "danger")
+        return redirect(url_for('dashboard'))
+    return None
+
+
+@app.route('/admin/agentes-ia')
+@login_required
+def agentes_ia():
+    import importlib.util
+    bloqueio = _somente_administrador()
+    if bloqueio:
+        return bloqueio
+    return render_template('agentes_ia.html', ordem=ORDEM_AGENTES_IA, estado=estado_agentes_ia(), arvore=arvore_agentes_ia(),
+                           playwright_ok=importlib.util.find_spec('playwright') is not None)
+
+
+@app.route('/admin/agentes-ia/iniciar', methods=['POST'])
+@login_required
+def iniciar_agentes_ia():
+    """O Agente Gestor roda em segundo plano e dispara os agentes um a um, começando pelo Administrador."""
+    import importlib.util
+    import subprocess
+    import sys as _sys
+    bloqueio = _somente_administrador()
+    if bloqueio:
+        return bloqueio
+    estado = estado_agentes_ia()
+    if estado and estado.get('status') == 'executando':
+        flash(tt('Já existe uma execução em andamento.', current_user.idioma), "warning")
+        return redirect(url_for('agentes_ia'))
+    if importlib.util.find_spec('playwright') is None:
+        flash(tt('Este servidor não tem o Playwright instalado: rode os agentes num computador com o Playwright.', current_user.idioma), "danger")
+        return redirect(url_for('agentes_ia'))
+    validos = [c for c, _ in ORDEM_AGENTES_IA]
+    perfis = [p for p in request.form.getlist('perfis') if p in validos] or validos
+    raiz = os.path.dirname(os.path.abspath(__file__))
+    cmd = [_sys.executable, os.path.join(raiz, 'agentes_omnitest', 'agente_gestor.py'), '--perfis', *perfis,
+           '--url', request.host_url.rstrip('/'), '--lento', '150']
+    if request.form.get('escrita'):
+        cmd.append('--escrita')
+    os.makedirs(PASTA_AO_VIVO_IA, exist_ok=True)
+    for nome in ('estado.json', 'agente.json', 'frame.jpg'):
+        try:
+            os.remove(os.path.join(PASTA_AO_VIVO_IA, nome))
+        except OSError:
+            pass
+    opcoes = {'creationflags': subprocess.CREATE_NEW_PROCESS_GROUP | subprocess.CREATE_NO_WINDOW} if os.name == 'nt' else {'start_new_session': True}
+    log = open(os.path.join(PASTA_AO_VIVO_IA, 'gestor.log'), 'w', encoding='utf-8')
+    subprocess.Popen(cmd, cwd=raiz, stdout=log, stderr=subprocess.STDOUT, env={**os.environ, 'PYTHONIOENCODING': 'utf-8'}, **opcoes)
+    flash(tt('Agente Gestor iniciado: os testes começam pelo Administrador.', current_user.idioma), "success")
+    return redirect(url_for('agentes_ia'))
+
+
+@app.route('/admin/agentes-ia/parar', methods=['POST'])
+@login_required
+def parar_agentes_ia():
+    import subprocess
+    import signal
+    bloqueio = _somente_administrador()
+    if bloqueio:
+        return bloqueio
+    estado = _ler_json_ia('estado.json')
+    if estado and estado.get('pid'):
+        try:
+            if os.name == 'nt':
+                subprocess.run(['taskkill', '/PID', str(estado['pid']), '/T', '/F'], capture_output=True, timeout=20)
+            else:
+                os.killpg(os.getpgid(estado['pid']), signal.SIGTERM)
+        except Exception:
+            pass
+        estado.update(status='parado', fim=datetime.now().isoformat(timespec='seconds'))
+        estado['log'] = (estado.get('log') or []) + [f"{datetime.now().strftime('%H:%M:%S')}  ■ {current_user.nome} parou a execução"]
+        with open(os.path.join(PASTA_AO_VIVO_IA, 'estado.json'), 'w', encoding='utf-8') as f:
+            json.dump(estado, f, ensure_ascii=False)
+        flash(tt('Execução interrompida.', current_user.idioma), "info")
+    return redirect(url_for('agentes_ia'))
+
+
+@app.route('/admin/agentes-ia/estado')
+@login_required
+def estado_agentes_ia_json():
+    if current_user.tipo_usuario != 'Administrador':
+        return jsonify({'erro': 'acesso negado'}), 403
+    quadro = os.path.join(PASTA_AO_VIVO_IA, 'frame.jpg')
+    return jsonify({'estado': estado_agentes_ia(), 'agente': _ler_json_ia('agente.json'), 'agora': datetime.now().isoformat(timespec='seconds'),
+                    'quadro': os.path.getmtime(quadro) if os.path.exists(quadro) else None})
+
+
+@app.route('/admin/agentes-ia/quadro')
+@login_required
+def quadro_agentes_ia():
+    """Último quadro do navegador do agente em execução (o monitor central da página)."""
+    if current_user.tipo_usuario != 'Administrador':
+        return '', 403
+    quadro = os.path.join(PASTA_AO_VIVO_IA, 'frame.jpg')
+    if not os.path.exists(quadro):
+        return '', 204
+    try:
+        with open(quadro, 'rb') as f:
+            dados = f.read()
+    except OSError:
+        return '', 204
+    resposta = app.response_class(dados, mimetype='image/jpeg')
+    resposta.headers['Cache-Control'] = 'no-store'
+    return resposta
+
+
+@app.route('/admin/agentes-ia/arquivo')
+@login_required
+def arquivo_agentes_ia():
+    """Abre (PDF) ou baixa (prompt .md) um arquivo das pastas da área. Só dentro de Agent Reports/Agentes IA."""
+    bloqueio = _somente_administrador()
+    if bloqueio:
+        return bloqueio
+    base = os.path.realpath(PASTA_AGENTES_IA)
+    alvo = os.path.realpath(os.path.join(base, request.args.get('f', '')))
+    if not alvo.startswith(base + os.sep) or not os.path.isfile(alvo) or not alvo.lower().endswith(('.pdf', '.md')):
+        flash(tt('Arquivo não encontrado.', current_user.idioma), "warning")
+        return redirect(url_for('agentes_ia'))
+    return send_file(alvo, as_attachment=alvo.lower().endswith('.md'), download_name=os.path.basename(alvo))
 
 
 # ==============================================================================

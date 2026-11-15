@@ -28,7 +28,7 @@ class AgenteMentorAdministrador(AgenteOmniTest):
                         "frequencia", "notas", "usuarios", "grupos", "demandas", "solicitacoes", "banca",
                         "esg_csv", "esg_pdf", "atividades_extras", "reunioes", "agenda_bancas", "avaliadores_banca", "minhas_bancas", "indicadores", "certificados", "repositorio"]
     # Manutenção (DB) é exclusiva do Administrador (backup, restauração e limpeza)
-    ROTAS_BLOQUEADAS = ["banco"]
+    ROTAS_BLOQUEADAS = ["banco", "agentes_ia"]
     MENU_VISIVEL = ["indicadores", "agenda_bancas", "avaliadores_banca", "atividades_extras", "reunioes", "dashboard", "hub_educacional", "sessoes", "acompanhamento", "projetos", "frequencia", "notas",
                     "usuarios", "demandas", "biblioteca", "solicitacoes"]
     MENU_OCULTO = ["banco"]

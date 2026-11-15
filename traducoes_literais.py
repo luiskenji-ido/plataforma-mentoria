@@ -367,6 +367,53 @@ LITERAIS = {
     'Veja quem já concluiu a trilha e quem ainda está pendente.': ('See who has completed the track and who is still pending.', 'Vea quién ya completó la ruta y quién sigue pendiente.'),
     'Cadastre ou edite os módulos da trilha.': ('Add or edit the track modules.', 'Registre o edite los módulos de la ruta.'),
 
+    # ---------------- Administração › Agentes IA
+    'Agentes IA': ('AI Agents', 'Agentes IA'), 'Agentes de IA': ('AI agents', 'Agentes de IA'), 'Agente': ('Agent', 'Agente'),
+    'Agente Gestor': ('Manager Agent', 'Agente Gestor'), 'Gestor B2B': ('B2B Manager', 'Gestor B2B'),
+    'Agentes Teste Fim a Fim': ('End-to-end test agents', 'Agentes de prueba de punta a punta'),
+    'Agentes Teste de Segurança': ('Security test agents', 'Agentes de prueba de seguridad'),
+    'Relatórios de Testes Fim a Fim e Evidencias': ('End-to-end test reports and evidence', 'Informes de pruebas de punta a punta y evidencias'),
+    'Relatórios de Testes de Segurança': ('Security test reports', 'Informes de pruebas de seguridad'),
+    'Prompt de correção LLM': ('LLM fix prompt', 'Prompt de corrección LLM'),
+    'O Agente Gestor coordena os agentes de teste: cada perfil é testado de ponta a ponta, ao vivo, e o relatório em PDF com as evidências vai para a pasta do perfil.': (
+        "The Manager Agent coordinates the test agents: each profile is tested end to end, live, and the PDF report with the evidence goes to the profile's folder.",
+        'El Agente Gestor coordina los agentes de prueba: cada perfil se prueba de punta a punta, en vivo, y el informe en PDF con las evidencias va a la carpeta del perfil.'),
+    'Este servidor não tem o Playwright instalado: rode os agentes num computador com o Playwright.': (
+        'This server does not have Playwright installed: run the agents on a computer with Playwright.',
+        'Este servidor no tiene Playwright instalado: ejecute los agentes en una computadora con Playwright.'),
+    'Estrutura': ('Structure', 'Estructura'), 'em breve': ('coming soon', 'próximamente'), 'vazia': ('empty', 'vacía'),
+    'Modo escrita (cria e apaga dados de teste)': ('Write mode (creates and deletes test data)', 'Modo escritura (crea y borra datos de prueba)'),
+    'Iniciar testes fim a fim': ('Start end-to-end tests', 'Iniciar pruebas de punta a punta'), 'Parar': ('Stop', 'Detener'),
+    'Painel ao vivo dos agentes': ('Live agent panel', 'Panel en vivo de los agentes'),
+    'Aguardando o início dos testes.': ('Waiting for the tests to start.', 'Esperando el inicio de las pruebas.'),
+    'Navegador do agente em execução': ("Running agent's browser", 'Navegador del agente en ejecución'),
+    'Nenhum teste em execução. O navegador do agente aparece aqui ao vivo.': (
+        "No test running. The agent's browser shows up here live.", 'Ninguna prueba en ejecución. El navegador del agente aparece aquí en vivo.'),
+    'Etapa atual': ('Current step', 'Etapa actual'), 'Relatórios desta execução': ('Reports from this run', 'Informes de esta ejecución'),
+    'Perfil': ('Profile', 'Perfil'), 'Nenhuma execução ainda.': ('No runs yet.', 'Ninguna ejecución todavía.'),
+    'aguardando': ('waiting', 'esperando'), 'testando…': ('testing…', 'probando…'), 'concluído': ('done', 'concluido'),
+    'com falhas': ('with failures', 'con fallas'), 'erro': ('error', 'error'), 'Teste Fim a Fim': ('End-to-end test', 'Prueba de punta a punta'),
+    'Executando': ('Running', 'Ejecutando'), 'Testes concluídos.': ('Tests finished.', 'Pruebas concluidas.'),
+    'Execução interrompida.': ('Run stopped.', 'Ejecución interrumpida.'), 'aprovados': ('passed', 'aprobados'),
+    'falhas': ('failures', 'fallas'), 'alertas': ('warnings', 'alertas'),
+    'Agente Gestor iniciado: os testes começam pelo Administrador.': ('Manager Agent started: tests begin with the Administrator.', 'Agente Gestor iniciado: las pruebas empiezan por el Administrador.'),
+    'Já existe uma execução em andamento.': ('A run is already in progress.', 'Ya hay una ejecución en curso.'),
+    'Arquivo não encontrado.': ('File not found.', 'Archivo no encontrado.'),
+    'Preparando o navegador do agente…': ("Preparing the agent's browser…", 'Preparando el navegador del agente…'),
+    'Progresso por agente': ('Progress by agent', 'Progreso por agente'), 'Execução total': ('Whole run', 'Ejecución total'),
+    'Tempo estimado pelas execuções anteriores de cada agente.': ("Time estimated from each agent's previous runs.", 'Tiempo estimado por las ejecuciones anteriores de cada agente.'),
+    'restantes': ('left', 'restantes'), 'estimado': ('estimated', 'estimado'), 'concluído em': ('done in', 'concluido en'),
+    'fora desta execução': ('not in this run', 'fuera de esta ejecución'),
+    'Agentes IA: o Agente Gestor coordena os agentes de teste de cada perfil e mostra os testes ao vivo.': (
+        "AI Agents: the Manager Agent coordinates each profile's test agent and shows the tests live.", 'Agentes IA: el Agente Gestor coordina los agentes de prueba de cada perfil y muestra las pruebas en vivo.'),
+    'Escolha os perfis e inicie: os testes começam sempre pelo Administrador e seguem a ordem.': (
+        'Pick the profiles and start: tests always begin with the Administrator and follow the order.', 'Elija los perfiles e inicie: las pruebas siempre empiezan por el Administrador y siguen el orden.'),
+    'No centro aparece o navegador do agente em execução, ao vivo.': ("The running agent's browser shows up live in the center.", 'En el centro aparece el navegador del agente en ejecución, en vivo.'),
+    'Cada robô é o agente de um perfil: brilha enquanto testa e recebe ✓ ou ✗ ao terminar.': (
+        "Each robot is a profile's agent: it glows while testing and gets ✓ or ✗ when done.", 'Cada robot es el agente de un perfil: brilla mientras prueba y recibe ✓ o ✗ al terminar.'),
+    'Os relatórios em PDF com as evidências e os prompts de correção ficam nestas pastas, separados por perfil.': (
+        'The PDF reports with evidence and the fix prompts are in these folders, by profile.', 'Los informes en PDF con las evidencias y los prompts de corrección están en estas carpetas, por perfil.'),
+
     # ---------------- Manutenção (DB): backups, agendamentos e auditoria
     'Acompanhe a saúde dos backups, mantenha vários agendamentos em paralelo e restaure o banco quando precisar.': (
         'Track backup health, keep several schedules running in parallel and restore the database when needed.',

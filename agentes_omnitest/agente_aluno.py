@@ -15,7 +15,7 @@ O que este agente cobre:
 
 Este agente testa SOMENTE o perfil Aluno. Para rodar todos os perfis use executar_todos.py.
 Com --pausar o navegador fica aberto no fim até você pressionar Enter.
-Tudo o que falhar entra no prompt de correção para o Gemini (Agent Reports/OmniTest/Prompt_Gemini_aluno_*.md).
+Tudo o que falhar entra no prompt de correção para LLM (Agent Reports/OmniTest/Prompt_LLM_aluno_*.md).
 """
 import re
 from datetime import datetime
@@ -46,7 +46,7 @@ class AgenteAluno(AgenteOmniTest):
     # Regra 1 (revista com a coordenação Aon/ITM): o Aluno não acede ao Relógio de Voluntariado nem à Sala da Banca,
     # mas usa o Portal de Demandas para registar pedidos (nada por WhatsApp ou e-mail)
     ROTAS_BLOQUEADAS = ["hub_educacional", "frequencia", "notas", "usuarios", "grupos",
-                        "solicitacoes", "banco", "banca", "esg_csv", "esg_pdf", "reunioes", "agenda_bancas", "avaliadores_banca", "minhas_bancas", "indicadores"]
+                        "solicitacoes", "banco", "banca", "esg_csv", "esg_pdf", "reunioes", "agenda_bancas", "avaliadores_banca", "minhas_bancas", "indicadores", "agentes_ia"]
     MENU_VISIVEL = ["dashboard", "sessoes", "acompanhamento", "projetos", "biblioteca", "demandas", "atividades_extras"]
     MENU_OCULTO = ["hub_educacional", "frequencia", "notas", "usuarios", "solicitacoes", "banco", "reunioes"]
 

@@ -32,7 +32,10 @@ for _fluxo in (sys.stdout, sys.stderr):
 
 from playwright.sync_api import sync_playwright
 
-BASE_URL = os.environ.get("OMNITEST_URL", "http://127.0.0.1:5000")
+BASE_URL = os.environ.get("OMNITEST_URL", "http://127.0.0.1:5000").rstrip("/")
+# Quando o Agente Gestor (área Agentes IA) dispara o agente, ele informa esta pasta: o agente transmite ali
+# a tela do navegador (frame.jpg), a etapa atual (agente.json) e guarda uma captura de cada etapa para o PDF.
+PASTA_AO_VIVO = os.environ.get("OMNITEST_AO_VIVO", "")
 SENHA_PADRAO = "#Test-p0nt4-pOnt@"
 PASTA_RELATORIOS = os.path.join(RAIZ_PROJETO, "Agent Reports", "OmniTest")
 
@@ -92,6 +95,7 @@ ROTAS = {
     "avaliadores_banca": {"caminho": "/bancas/avaliadores", "nome": "Avaliadores da banca"},
     "minhas_bancas": {"caminho": "/minhas-bancas", "nome": "Minhas bancas"},
     "indicadores": {"caminho": "/indicadores-voluntariado", "nome": "Indicadores de voluntariado"},
+    "agentes_ia": {"caminho": "/admin/agentes-ia", "nome": "Agentes IA"},
     "certificados": {"caminho": "/certificados", "nome": "Certificados"},
     # Vitrine pública dos TCCs autorizados: página própria, sem login nem menu
     "repositorio": {"caminho": "/repositorio", "nome": "Repositório público", "independente": True},
@@ -101,7 +105,7 @@ ROTAS = {
     "esg_pdf": {"caminho": "/admin/exportar-relatorio-esg-pdf", "nome": "Exportar ESG (PDF/Impressão)", "independente": True},
 }
 
-# Onde o Gemini deve procurar a causa de cada módulo (vai no prompt de correção)
+# Onde o LLM deve procurar a causa de cada módulo (vai no prompt de correção)
 ARQUIVOS_POR_MODULO = {
     "Painel Geral": "app.py (rota dashboard), templates/dashboard.html",
     "Sessões": "app.py (rota sessoes), templates/sessoes.html",
@@ -126,6 +130,7 @@ ARQUIVOS_POR_MODULO = {
     "Avaliadores da banca": "app.py (avaliadores_banca, curriculo_avaliador), templates/avaliadores_banca.html",
     "Minhas bancas": "app.py (minhas_bancas, relogio_banca, restringir_avaliador_banca, ENDPOINTS_AVALIADOR), templates/minhas_bancas.html",
     "Indicadores de voluntariado": "app.py (indicadores_voluntariado, calcular_indicadores, registros_indicadores), templates/indicadores_voluntariado.html",
+    "Agentes IA": "app.py (agentes_ia, estado_agentes_ia_json, quadro_agentes_ia), agentes_omnitest/agente_gestor.py, templates/agentes_ia.html",
     "Certificados": "app.py (meus_certificados, emitir_certificado, registrar_certificado, verificar_certificado), templates/meus_certificados.html, certificado.html",
     "Repositório público": "app.py (repositorio_publico, baixar_repositorio_publico, aprovar_versao_final), templates/repositorio_publico.html",
     "Sala da Banca": "app.py (painel_banca, consolidar_banca, perguntas_banca, cronometro_banca), templates/banca_avaliacao.html, templates/banca_telao.html",
@@ -138,6 +143,16 @@ ARQUIVOS_POR_MODULO = {
 
 MARCAS_BLOQUEIO = ["acesso negado", "acesso restrito"]
 MARCAS_ERRO_SERVIDOR = ["Internal Server Error", "Traceback (most recent call last)", "jinja2.exceptions", "werkzeug.exceptions"]
+
+
+def _gravar_atomico(caminho, conteudo):
+    temporario = caminho + ".tmp"
+    try:
+        with open(temporario, "wb") as f:
+            f.write(conteudo)
+        os.replace(temporario, caminho)
+    except OSError:
+        pass  # o leitor estava com o arquivo aberto (Windows): o próximo quadro substitui
 
 
 def _celula(texto):
@@ -260,13 +275,15 @@ def limpar_dados_de_teste(chave_perfil):
         return f"{tickets} ticket(s) e {horas} lançamento(s) de voluntariado de teste apagados"
 
 
-def cabecalho_prompt_gemini(titulo, quem, problemas, comando):
-    """Instruções fixas do prompt de correção (usadas por cada agente e pelo consolidado do orquestrador)."""
+def cabecalho_prompt_llm(titulo, quem, problemas, comando):
+    """Instruções fixas do prompt de correção (usadas por cada agente e pelo consolidado do orquestrador).
+    Serve para qualquer LLM: ChatGPT, Claude, Gemini, Copilot etc."""
     arquivos = sorted({a.strip() for r in problemas for a in re.split(r";|,(?![^()]*\))", r.get("arquivos", "")) if a.strip()})
     return [
-        f"# 🤖 Prompt de Correção para o Gemini — {titulo}\n",
+        f"# 🤖 Prompt de Correção para LLM — {titulo}\n",
         f"> Gerado pelo OmniTest em {datetime.now().strftime('%d/%m/%Y às %H:%M')}. "
-        "Copie tudo a partir da linha abaixo e cole no Gemini, anexando os arquivos citados.\n",
+        "Copie tudo a partir da linha abaixo e cole no assistente de IA da sua preferência "
+        "(ChatGPT, Claude, Gemini, Copilot ou outro), anexando os arquivos citados.\n",
         "---\n",
         "Você é um engenheiro de software sênior especialista em Python, Flask, Flask-Login, SQLAlchemy, Jinja2 e Bootstrap 5.",
         "Trabalho numa plataforma de mentoria em Flask (app.py com todas as rotas, models.py, traducoes.py com o "
@@ -324,12 +341,15 @@ class AgenteOmniTest:
         self._dialogos = []
         self.tratar_tour = True   # o teste do Tour desliga o fechamento automático do convite
         self.pausar = False
+        self.capturas = []        # (módulo, ação, arquivo) de cada etapa, usadas no PDF do Agente Gestor
+        self.etapa_atual = ""
+        self._ultimo_quadro = 0.0
 
     # --------------------------------------------------------------------------
     # Registo de resultados
     # --------------------------------------------------------------------------
     def registrar(self, modulo, acao, status, detalhe="", evidencia=True, esperado="", dica="", arquivos=""):
-        """esperado/dica alimentam o prompt de correção para o Gemini."""
+        """esperado/dica alimentam o prompt de correção para o LLM."""
         arquivo = ""
         if evidencia and status in (FALHA, ALERTA) and getattr(self, "page", None):
             try:
@@ -350,15 +370,72 @@ class AgenteOmniTest:
                                 "url": url, "hora": datetime.now().strftime("%H:%M:%S"),
                                 "erros_js": list(self._erros_js[:3]) if status in (FALHA, ALERTA) else []})
         print(f"   {status.split()[0]} [{modulo}] {acao}" + (f" — {_celula(detalhe)}" if detalhe else ""))
+        self.publicar_ao_vivo()
 
     def etapa(self, modulo, acao, funcao):
         """Executa um teste isolado: uma exceção vira ❌ no relatório sem parar o agente."""
         print(f"\n🔎 {modulo} › {acao}")
         self.anunciar(f"{modulo} › {acao}")
+        self.etapa_atual = f"{modulo} › {acao}"
+        self.publicar_ao_vivo()
         try:
             funcao()
         except Exception as e:
             self.registrar(modulo, acao, FALHA, f"Exceção: {_celula(e)}")
+        self.capturar_etapa(modulo, acao)
+
+    # --------------------------------------------------------------------------
+    # Transmissão ao vivo para a área Agentes IA (só quando o Agente Gestor informa a pasta)
+    # --------------------------------------------------------------------------
+    def publicar_ao_vivo(self):
+        if not PASTA_AO_VIVO:
+            return
+        contagem = {s: sum(1 for r in self.resultados if r["status"] == s) for s in (APROVADO, FALHA, ALERTA, PULADO)}
+        try:
+            url = self.page.url if getattr(self, "page", None) else ""
+        except Exception:
+            url = ""
+        dados = {"chave": self.chave_perfil, "perfil": self.perfil["tipo"], "etapa": self.etapa_atual, "url": url,
+                 "aprovados": contagem[APROVADO], "falhas": contagem[FALHA], "alertas": contagem[ALERTA], "pulados": contagem[PULADO],
+                 "ultimos": [{"status": r["status"].split()[0], "texto": f"{r['modulo']} › {r['acao']}"} for r in self.resultados[-8:]],
+                 "atualizado": datetime.now().isoformat(timespec="seconds")}
+        _gravar_atomico(os.path.join(PASTA_AO_VIVO, "agente.json"), json.dumps(dados, ensure_ascii=False).encode("utf-8"))
+
+    def capturar_etapa(self, modulo, acao):
+        """Captura da tela no fim da etapa (evidência do que foi testado, aprovado ou não)."""
+        if not PASTA_AO_VIVO or not getattr(self, "page", None):
+            return
+        try:
+            os.makedirs(self.pasta_evidencias, exist_ok=True)
+            nome = re.sub(r"[^a-zA-Z0-9]+", "_", f"{modulo}_{acao}").strip("_")[:70]
+            arquivo = os.path.join(self.pasta_evidencias, f"etapa_{len(self.capturas):02d}_{nome}.jpg")
+            self.page.screenshot(path=arquivo, type="jpeg", quality=60)
+            self.capturas.append({"modulo": modulo, "acao": acao, "arquivo": arquivo})
+        except Exception:
+            pass
+
+    def ligar_transmissao(self):
+        """Screencast do Chromium: cada quadro vira frame.jpg, que a página Agentes IA mostra no monitor central."""
+        if not PASTA_AO_VIVO:
+            return
+        import base64
+        import time as _tempo
+        os.makedirs(PASTA_AO_VIVO, exist_ok=True)
+        cdp = self.context.new_cdp_session(self.page)
+
+        def quadro(evento):
+            try:
+                agora = _tempo.time()
+                if agora - self._ultimo_quadro >= 0.25:   # até 4 quadros por segundo
+                    self._ultimo_quadro = agora
+                    _gravar_atomico(os.path.join(PASTA_AO_VIVO, "frame.jpg"), base64.b64decode(evento["data"]))
+            finally:
+                try:
+                    cdp.send("Page.screencastFrameAck", {"sessionId": evento["sessionId"]})
+                except Exception:
+                    pass
+        cdp.on("Page.screencastFrame", quadro)
+        cdp.send("Page.startScreencast", {"format": "jpeg", "quality": 60, "maxWidth": 1280, "maxHeight": 800})
 
     # --------------------------------------------------------------------------
     # Navegador
@@ -853,7 +930,8 @@ class AgenteOmniTest:
     JS_TEXTO_INTERFACE = r"""(escopo) => {
         const raiz = escopo === 'menu' ? document.querySelector('nav') : document.body;
         if (!raiz) return '';
-        let ignorar = 'tbody, select, option, textarea, input, script, style, #chat-box, .modal:not(.show)';
+        // [data-conteudo-dinamico]: dados exibidos na tela (ex.: log dos agentes), não textos da interface
+        let ignorar = 'tbody, select, option, textarea, input, script, style, #chat-box, .modal:not(.show), [data-conteudo-dinamico]';
         if (escopo !== 'menu') ignorar += ', nav, .dropdown-menu:not(.show)';
         const partes = [];
         const caminhar = document.createTreeWalker(raiz, NodeFilter.SHOW_TEXT);
@@ -1677,6 +1755,10 @@ class AgenteOmniTest:
             if not self.headless:
                 self.context.add_init_script(self.JS_FAIXA)
             self._ligar_sensores()
+            try:
+                self.ligar_transmissao()
+            except Exception as e:
+                print(f"   (transmissão ao vivo indisponível: {e})")
 
             self.etapa("Pré-login", "Testes antes do login", self.testes_pre_login)
             print("\n🔎 Autenticação › Login com e-mail e senha")
@@ -1757,9 +1839,9 @@ class AgenteOmniTest:
         secao("🟢 Aprovado (O que funcionou)", APROVADO)
         secao("⏭️ Não testado (falta de dados ou pré-requisito)", PULADO)
 
-        caminho_prompt = self.gerar_prompt_gemini()
+        caminho_prompt = self.gerar_prompt_llm()
         if caminho_prompt:
-            linhas.append(f"\n---\n\n## 🤖 Prompt de correção para o Gemini\n\n[{os.path.basename(caminho_prompt)}]({os.path.basename(caminho_prompt)})")
+            linhas.append(f"\n---\n\n## 🤖 Prompt de correção para LLM\n\n[{os.path.basename(caminho_prompt)}]({os.path.basename(caminho_prompt)})")
 
         with open(caminho_md, "w", encoding="utf-8") as f:
             f.write("\n".join(linhas) + "\n")
@@ -1769,19 +1851,21 @@ class AgenteOmniTest:
                 r["detalhes"] = self.detalhes_do_problema(r)
         with open(os.path.join(PASTA_RELATORIOS, base_nome + ".json"), "w", encoding="utf-8") as f:
             json.dump({"perfil": self.perfil["tipo"], "chave": self.chave_perfil, "contagem": contagem,
-                       "relatorio": caminho_md, "prompt_gemini": caminho_prompt, "resultados": self.resultados},
+                       "relatorio": caminho_md, "prompt_llm": caminho_prompt, "resultados": self.resultados,
+                       "capturas": self.capturas, "email": self.perfil["email"], "ambiente": BASE_URL,
+                       "escrita": self.escrita, "roteiro": self.roteiro(), "carimbo": self.carimbo},
                       f, ensure_ascii=False, indent=2)
 
         print("\n==================================================")
         print(f"✅ Agente {self.perfil['tipo']} concluído: {contagem[APROVADO]} ✅  {contagem[FALHA]} ❌  {contagem[ALERTA]} ⚠️")
         print(f"   Relatório: {caminho_md}")
         if caminho_prompt:
-            print(f"   Prompt para o Gemini: {caminho_prompt}")
+            print(f"   Prompt de correção para LLM: {caminho_prompt}")
         print("==================================================\n")
         return contagem[FALHA] == 0
 
     def detalhes_do_problema(self, r):
-        """Linhas de detalhe de um ❌/⚠️: usadas no relatório e no prompt do Gemini."""
+        """Linhas de detalhe de um ❌/⚠️: usadas no relatório e no prompt para o LLM."""
         caminho = urlparse(r.get("url") or "").path or "—"
         linhas = [f"**Observado:** {r['detalhe'] or 'sem detalhe'}"]
         if r.get("esperado"):
@@ -1819,21 +1903,29 @@ class AgenteOmniTest:
         inicio = self.ROTEIRO_COMUM_INICIO if self.TESTAR_RECUPERACAO else self.ROTEIRO_COMUM_INICIO[1:]
         return inicio + self.ROTEIRO + self.ROTEIRO_COMUM_FIM
 
-    def gerar_prompt_gemini(self):
-        """Transforma cada ❌ e ⚠️ num pedido de correção pronto para colar no Gemini."""
+    def gerar_prompt_llm(self):
+        """Transforma cada ❌ e ⚠️ num pedido de correção pronto para colar em qualquer LLM.
+        Sem problemas, gera o mesmo arquivo dizendo que não há correções (cada execução deixa o seu prompt)."""
         problemas = [r for r in self.resultados if r["status"] in (FALHA, ALERTA) and r["modulo"] != "Preparação"]
-        if not problemas:
-            return None
-        problemas.sort(key=lambda r: r["status"] != FALHA)
-        linhas = cabecalho_prompt_gemini(f"Perfil {self.perfil['tipo']}", f"o perfil **{self.perfil['tipo']}**",
-                                         problemas, f"python agentes_omnitest/agente_{self.chave_perfil}.py")
-        for i, r in enumerate(problemas, 1):
-            tipo = "FALHA" if r["status"] == FALHA else "ALERTA (melhoria)"
-            linhas.append(f"### {i}. {tipo} — {r['modulo']} › {r['acao']}")
-            linhas += [f"- {linha}" for linha in self.detalhes_do_problema(r)]
-            linhas.append("")
+        if problemas:
+            problemas.sort(key=lambda r: r["status"] != FALHA)
+            linhas = cabecalho_prompt_llm(f"Perfil {self.perfil['tipo']}", f"o perfil **{self.perfil['tipo']}**",
+                                          problemas, f"python agentes_omnitest/agente_{self.chave_perfil}.py")
+            for i, r in enumerate(problemas, 1):
+                tipo = "FALHA" if r["status"] == FALHA else "ALERTA (melhoria)"
+                linhas.append(f"### {i}. {tipo} — {r['modulo']} › {r['acao']}")
+                linhas += [f"- {linha}" for linha in self.detalhes_do_problema(r)]
+                linhas.append("")
+        else:
+            aprovados = sum(1 for r in self.resultados if r["status"] == APROVADO)
+            linhas = [f"# 🤖 Prompt de Correção para LLM — Perfil {self.perfil['tipo']}\n",
+                      f"> Gerado pelo OmniTest em {datetime.now().strftime('%d/%m/%Y às %H:%M')}.\n",
+                      "---\n",
+                      f"✅ Nesta execução o agente do perfil **{self.perfil['tipo']}** não encontrou falhas nem alertas "
+                      f"({aprovados} verificações aprovadas). Não há correções para pedir ao LLM.\n",
+                      f"Para conferir de novo: `python agentes_omnitest/agente_{self.chave_perfil}.py`"]
 
-        caminho = os.path.join(PASTA_RELATORIOS, f"Prompt_Gemini_{self.chave_perfil}_{self.carimbo}.md")
+        caminho = os.path.join(PASTA_RELATORIOS, f"Prompt_LLM_{self.chave_perfil}_{self.carimbo}.md")
         with open(caminho, "w", encoding="utf-8") as f:
             f.write("\n".join(linhas) + "\n")
         return caminho

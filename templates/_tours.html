@@ -84,6 +84,13 @@
             { sel: 'form[method="GET"]', texto: {{ tt('Filtre as reuniões por período.')|tojson }} },
             { sel: 'table', texto: {{ tt('Abra uma reunião para ver a ata e acompanhar os encaminhamentos.')|tojson }} },
         ],
+        'agentes_ia': [
+            { texto: {{ tt('Agentes IA: o Agente Gestor coordena os agentes de teste de cada perfil e mostra os testes ao vivo.')|tojson }} },
+            { sel: '#cardComandosIa', texto: {{ tt('Escolha os perfis e inicie: os testes começam sempre pelo Administrador e seguem a ordem.')|tojson }} },
+            { sel: '.hub-monitor', texto: {{ tt('No centro aparece o navegador do agente em execução, ao vivo.')|tojson }} },
+            { sel: '.hub-agente', texto: {{ tt('Cada robô é o agente de um perfil: brilha enquanto testa e recebe ✓ ou ✗ ao terminar.')|tojson }} },
+            { sel: '#cardArvoreIa', texto: {{ tt('Os relatórios em PDF com as evidências e os prompts de correção ficam nestas pastas, separados por perfil.')|tojson }} },
+        ],
         'gestao_trilha_tcc': [
             { texto: {{ tt('Trilha do TCC: os módulos de orientação que mentores e professores concluem antes de orientar.')|tojson }} },
             { sel: 'table', texto: {{ tt('Veja quem já concluiu a trilha e quem ainda está pendente.')|tojson }} },

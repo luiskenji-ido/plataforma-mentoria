@@ -1,0 +1,440 @@
+{% extends "base.html" %}
+{% block title %}{{ tt('Agentes IA') }}{% endblock %}
+{% block content %}
+<style>
+    /* ---------- Sala de controle (sempre escura, em qualquer tema) ---------- */
+    .hub-ia { position: relative; height: 680px; border-radius: 16px; overflow: hidden; color: #e2e8f0; background-color: #0a1426;
+              background-image: radial-gradient(ellipse at 50% 38%, #13294b 0%, #0a1426 55%, #050a14 100%); box-shadow: inset 0 0 80px rgba(0,0,0,.6); }
+    .hub-ia::before { content: ""; position: absolute; left: -20%; right: -20%; bottom: -10%; height: 55%;
+                      background-image: linear-gradient(rgba(56,189,248,.10) 1px, transparent 1px), linear-gradient(90deg, rgba(56,189,248,.10) 1px, transparent 1px);
+                      background-size: 46px 46px; transform: perspective(520px) rotateX(62deg); transform-origin: bottom; pointer-events: none; }
+    .hub-fluxo { position: absolute; top: 0; width: 2px; height: 34%; background: linear-gradient(to bottom, transparent, rgba(56,189,248,.55));
+                 overflow: hidden; pointer-events: none; }
+    .hub-fluxo::after { content: ""; position: absolute; left: -1px; width: 4px; height: 26px; border-radius: 2px; background: #7dd3fc;
+                        box-shadow: 0 0 10px #38bdf8; animation: hubDescer 2.4s linear infinite; }
+    .hub-fluxo.laranja { background: linear-gradient(to bottom, transparent, rgba(245,158,11,.6)); }
+    .hub-fluxo.laranja::after { background: #fbbf24; box-shadow: 0 0 10px #f59e0b; }
+    @keyframes hubDescer { from { top: -30px; } to { top: 100%; } }
+
+    .hub-linhas { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+    .hub-linhas path { fill: none; stroke: rgba(56,189,248,.35); stroke-width: 1.6; stroke-dasharray: 5 9; animation: hubTracejado 1.6s linear infinite; }
+    .hub-linhas path.ativa { stroke: #f59e0b; stroke-width: 3; filter: drop-shadow(0 0 6px #f59e0b); animation-duration: .6s; }
+    .hub-linhas path.ok { stroke: rgba(34,197,94,.75); }
+    .hub-linhas path.erro { stroke: rgba(239,68,68,.8); }
+    @keyframes hubTracejado { to { stroke-dashoffset: -28; } }
+
+    .hub-monitor { position: absolute; left: 50%; top: 52px; width: 46%; transform: translateX(-50%); z-index: 3;
+                   border: 2px solid #38bdf8; border-radius: 10px; background: #0b1220; box-shadow: 0 0 28px rgba(56,189,248,.45); overflow: hidden; }
+    .hub-barra { display: flex; align-items: center; gap: 6px; padding: 5px 8px; background: #1e293b; font-size: .72rem; color: #cbd5e1; }
+    .hub-barra i.ponto { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
+    .hub-url { flex: 1; background: #0f172a; border-radius: 10px; padding: 2px 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .hub-tela { aspect-ratio: 16 / 10; display: flex; align-items: center; justify-content: center; background: #0f172a; }
+    .hub-tela img { width: 100%; height: 100%; object-fit: cover; object-position: top; display: none; }
+    .hub-vazio { text-align: center; color: #94a3b8; font-size: .85rem; padding: 0 16px; }
+    .hub-vazio i { font-size: 2.2rem; display: block; margin-bottom: 6px; color: #64748b; }
+
+    .hub-servidor { position: absolute; left: 50%; top: 66%; transform: translate(-50%, -50%); width: 120px; z-index: 2; }
+    .hub-servidor div { height: 18px; margin-top: 4px; border-radius: 4px; background: linear-gradient(#1e293b, #0f172a); border: 1px solid #334155;
+                        box-shadow: 0 0 12px rgba(56,189,248,.25); position: relative; }
+    .hub-servidor div::after { content: ""; position: absolute; right: 10px; top: 6px; width: 30px; height: 4px; border-radius: 2px;
+                               background: repeating-linear-gradient(90deg, #38bdf8 0 4px, transparent 4px 8px); animation: hubPiscar 1.2s steps(2) infinite; }
+    @keyframes hubPiscar { 50% { opacity: .3; } }
+
+    .hub-gestor { position: absolute; left: 18px; top: 16px; z-index: 4; display: flex; align-items: center; gap: 10px; }
+    .hub-gestor .circulo { width: 78px; height: 78px; border-radius: 50%; background-color: #1d4ed8; background-image: radial-gradient(circle at 35% 30%, #60a5fa, #1d4ed8);
+                           display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: .66rem; line-height: 1.1;
+                           text-align: center; font-weight: 700; color: #fff; box-shadow: 0 0 20px rgba(96,165,250,.6); position: relative; }
+    .hub-gestor .circulo i { font-size: 1.3rem; }
+    .hub-gestor .contador { position: absolute; top: -4px; right: -4px; background: #7c3aed; color: #fff; border-radius: 50%; width: 24px; height: 24px;
+                            display: flex; align-items: center; justify-content: center; font-size: .75rem; border: 2px solid #050a14; }
+    .hub-gestor .texto { font-size: .78rem; color: #cbd5e1; max-width: 190px; }
+
+    .hub-agente { position: absolute; width: 132px; transform: translate(-50%, -50%); z-index: 3; text-align: center; transition: filter .3s, opacity .3s; }
+    .hub-agente .base { position: relative; margin: 0 auto; width: 92px; height: 74px; border-radius: 14px; display: flex; align-items: center; justify-content: center;
+                        background-color: #16233a; background-image: linear-gradient(160deg, rgba(148,163,184,.22), rgba(15,23,42,.55)); border: 1px solid rgba(125,211,252,.35);
+                        box-shadow: 0 8px 22px rgba(0,0,0,.45), inset 0 0 18px rgba(56,189,248,.12); }
+    .hub-agente .base i { font-size: 2.4rem; color: #e0f2fe; text-shadow: 0 0 12px rgba(56,189,248,.8); }
+    .hub-agente .nome { margin-top: 6px; font-size: .74rem; font-weight: 700; color: #f1f5f9; line-height: 1.15; }
+    .hub-agente .situacao { font-size: .68rem; color: #94a3b8; }
+    .hub-agente .selo { position: absolute; top: -9px; right: -9px; width: 26px; height: 26px; border-radius: 50%; display: none;
+                        align-items: center; justify-content: center; font-size: .85rem; color: #fff; border: 2px solid #050a14; }
+    .hub-agente.aguardando { opacity: .55; }
+    .hub-agente .mini { height: 4px; margin: 4px auto 0; width: 80px; border-radius: 2px; background: rgba(148,163,184,.25); overflow: hidden; display: none; }
+    .hub-agente .mini span { display: block; height: 100%; width: 0; background: #f59e0b; transition: width .6s; }
+    .hub-agente.executando .mini { display: block; }
+    .hub-agente.executando .base { border-color: #f59e0b; box-shadow: 0 0 26px rgba(245,158,11,.75), inset 0 0 18px rgba(245,158,11,.25); }
+    .hub-agente.executando .base::after { content: ""; position: absolute; inset: -10px; border-radius: 50%; border: 2px solid rgba(245,158,11,.75);
+                                          animation: hubPulso 1.4s ease-out infinite; }
+    .hub-agente.executando .situacao { color: #fbbf24; font-weight: 700; }
+    .hub-agente.concluido .base { border-color: #22c55e; box-shadow: 0 0 22px rgba(34,197,94,.55); }
+    .hub-agente.concluido .selo { display: flex; background: #16a34a; }
+    .hub-agente.falhas .base, .hub-agente.erro .base { border-color: #ef4444; box-shadow: 0 0 22px rgba(239,68,68,.55); }
+    .hub-agente.falhas .selo, .hub-agente.erro .selo { display: flex; background: #dc2626; }
+    .hub-agente.concluido .situacao { color: #4ade80; } .hub-agente.falhas .situacao, .hub-agente.erro .situacao { color: #f87171; }
+    @keyframes hubPulso { from { transform: scale(.75); opacity: 1; } to { transform: scale(1.35); opacity: 0; } }
+
+    .hub-rotulo { position: absolute; z-index: 5; font-weight: 700; font-size: .95rem; color: #fff; text-shadow: 0 2px 8px #000; pointer-events: none;
+                  display: none; white-space: nowrap; }
+    .hub-rotulo i { color: #22c55e; }
+
+    .hub-log { font-family: Consolas, 'Courier New', monospace; font-size: .76rem; background: #0b1220; color: #cbd5e1; border-radius: 8px;
+               padding: 10px 12px; height: 210px; overflow-y: auto; white-space: pre-wrap; }
+    .arvore-ia summary { cursor: pointer; font-weight: 700; padding: 3px 0; }
+    .arvore-ia .bi-folder-fill { color: #3b82f6; }
+    .arvore-ia ul { list-style: none; padding-left: 16px; margin: 0; border-left: 1px solid #94a3b8; }
+    .arvore-ia li { padding: 2px 0; font-size: .85rem; word-break: break-word; }
+
+    @media (max-width: 991.98px) {
+        .hub-ia { height: auto; padding: 110px 10px 16px; }
+        .hub-monitor { position: relative; left: auto; top: auto; transform: none; width: 100%; }
+        .hub-servidor, .hub-linhas, .hub-fluxo, .hub-rotulo { display: none !important; }
+        .hub-agentes { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 14px; margin-top: 18px; }
+        .hub-agente { position: static; transform: none; width: auto; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+        .hub-ia *, .hub-ia *::before, .hub-ia *::after { animation: none !important; }
+    }
+</style>
+
+<div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-3">
+    <div>
+        <h2 class="text-primary fw-bold mb-1"><i class="bi bi-robot"></i> {{ tt('Agentes IA') }}</h2>
+        <p class="text-muted mb-0">{{ tt('O Agente Gestor coordena os agentes de teste: cada perfil é testado de ponta a ponta, ao vivo, e o relatório em PDF com as evidências vai para a pasta do perfil.') }}</p>
+    </div>
+</div>
+{% if not playwright_ok %}
+<div class="alert alert-warning small"><i class="bi bi-exclamation-triangle"></i> {{ tt('Este servidor não tem o Playwright instalado: rode os agentes num computador com o Playwright.') }}</div>
+{% endif %}
+
+<div class="row g-3">
+    <!-- Estrutura de pastas -->
+    <div class="col-xl-3">
+        <div class="card shadow-sm border-0 h-100" id="cardArvoreIa">
+            <div class="card-body arvore-ia">
+                <h6 class="fw-bold mb-2">{{ tt('Estrutura') }}</h6>
+                <details open><summary><i class="bi bi-gear-fill"></i> {{ t('menu_administracao') }}</summary>
+                <ul><li><details open><summary><i class="bi bi-robot"></i> {{ tt('Agentes de IA') }}</summary>
+                    <ul>
+                    {% for grupo in arvore %}
+                        <li><details {% if not grupo.em_breve %}open{% endif %}><summary>{{ tt(grupo.nome) }}{% if grupo.em_breve %} <span class="badge bg-secondary">{{ tt('em breve') }}</span>{% endif %}</summary>
+                            <ul>
+                            {% for pasta in grupo.pastas %}
+                                {% set total = pasta.subpastas | map(attribute='arquivos') | map('length') | sum %}
+                                <li><details><summary><i class="bi bi-folder-fill"></i> {{ tt(pasta.nome) }} <span class="text-muted fw-normal">({{ total }})</span></summary>
+                                    <ul>
+                                    {% for sub in pasta.subpastas %}
+                                        <li><details><summary><i class="bi bi-folder-fill"></i> <span data-conteudo-dinamico>{{ sub.nome }}</span> <span class="text-muted fw-normal">({{ sub.arquivos|length }})</span></summary>
+                                            <ul>{% for a in sub.arquivos[:15] %}
+                                                <li><a href="{{ url_for('arquivo_agentes_ia', f=a.relativo) }}" {% if a.nome.endswith('.pdf') %}target="_blank"{% endif %}>
+                                                    <i class="bi {{ 'bi-file-earmark-pdf text-danger' if a.nome.endswith('.pdf') else 'bi-file-earmark-text' }}"></i> {{ a.data.strftime('%d/%m %H:%M') }}</a></li>
+                                            {% else %}<li class="text-muted">{{ tt('vazia') }}</li>{% endfor %}</ul>
+                                        </details></li>
+                                    {% else %}<li class="text-muted">{{ tt('vazia') }}</li>{% endfor %}
+                                    </ul>
+                                </details></li>
+                            {% endfor %}
+                            </ul>
+                        </details></li>
+                    {% endfor %}
+                    </ul>
+                </details></li></ul>
+                </details>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-xl-9">
+        <!-- Comandos -->
+        <form method="POST" action="{{ url_for('iniciar_agentes_ia') }}" class="card shadow-sm border-0 mb-3" id="cardComandosIa">
+            <div class="card-body d-flex flex-wrap gap-3 align-items-center">
+                <div class="d-flex flex-wrap gap-2">
+                    {% for chave, nome in ordem %}
+                    <input type="checkbox" class="btn-check" name="perfis" value="{{ chave }}" id="perfil_{{ chave }}" checked autocomplete="off">
+                    <label class="btn btn-sm btn-outline-primary rounded-pill" for="perfil_{{ chave }}">{{ loop.index }}. {{ tt(nome) }}</label>
+                    {% endfor %}
+                </div>
+                <div class="form-check form-switch m-0">
+                    <input class="form-check-input" type="checkbox" role="switch" id="modoEscrita" name="escrita">
+                    <label class="form-check-label small" for="modoEscrita">{{ tt('Modo escrita (cria e apaga dados de teste)') }}</label>
+                </div>
+                <div class="ms-auto d-flex gap-2">
+                    <button class="btn btn-success fw-bold px-3" type="submit" id="btnIniciarIa" {% if not playwright_ok %}disabled{% endif %}><i class="bi bi-play-fill"></i> {{ tt('Iniciar testes fim a fim') }}</button>
+                    <button class="btn btn-outline-danger fw-bold" type="submit" form="formPararIa" id="btnPararIa" disabled><i class="bi bi-stop-fill"></i> {{ tt('Parar') }}</button>
+                </div>
+            </div>
+        </form>
+        <form method="POST" action="{{ url_for('parar_agentes_ia') }}" id="formPararIa" class="d-none"></form>
+
+        <!-- Hub: navegador ao centro, agentes ao redor -->
+        <div class="hub-ia mb-3" id="hubIa" aria-label="{{ tt('Painel ao vivo dos agentes') }}">
+            {% for x in [38, 44, 49, 51, 56, 62] %}<div class="hub-fluxo {{ 'laranja' if loop.index in [2, 5] else '' }}" style="left: {{ x }}%; animation-delay: {{ loop.index0 * 0.4 }}s"></div>{% endfor %}
+            <svg class="hub-linhas" id="hubLinhas" aria-hidden="true"></svg>
+
+            <div class="hub-gestor">
+                <div class="circulo"><i class="bi bi-diagram-3-fill"></i>{{ tt('Agente Gestor') }}<span class="contador" id="gestorContador">0</span></div>
+                <div class="texto" id="gestorTexto">{{ tt('Aguardando o início dos testes.') }}</div>
+            </div>
+
+            <div class="hub-monitor">
+                <div class="hub-barra"><i class="ponto" style="background:#ef4444"></i><i class="ponto" style="background:#f59e0b"></i><i class="ponto" style="background:#22c55e"></i>
+                    <span class="hub-url" id="monitorUrl" data-conteudo-dinamico>—</span></div>
+                <div class="hub-tela">
+                    <img id="monitorImagem" alt="{{ tt('Navegador do agente em execução') }}">
+                    <div class="hub-vazio" id="monitorVazio"><i class="bi bi-window"></i>{{ tt('Nenhum teste em execução. O navegador do agente aparece aqui ao vivo.') }}</div>
+                </div>
+            </div>
+            <div class="hub-servidor"><div></div><div></div><div></div></div>
+
+            <div class="hub-agentes">
+                {% set posicoes = {'administrador': (14, 30), 'aluno': (86, 30), 'professor': (10, 56), 'mentor': (90, 56),
+                                   'mentor_administrador': (17, 84), 'gestor_b2b': (83, 84), 'avaliador': (50, 90)} %}
+                {% for chave, nome in ordem %}
+                <div class="hub-agente aguardando" id="agente_{{ chave }}" data-chave="{{ chave }}" style="left: {{ posicoes[chave][0] }}%; top: {{ posicoes[chave][1] }}%;">
+                    <div class="base"><i class="bi bi-robot"></i><span class="selo"></span></div>
+                    <div class="nome">{{ tt('Agente') }} {{ tt(nome) }}</div>
+                    <div class="situacao">{{ tt('aguardando') }}</div>
+                    <div class="mini"><span></span></div>
+                </div>
+                {% endfor %}
+            </div>
+            <div class="hub-rotulo" id="hubRotulo"></div>
+        </div>
+
+        <!-- Progresso por agente, com tempo estimado -->
+        <div class="card shadow-sm border-0 mb-3" id="cardProgressoIa">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-end flex-wrap gap-2 mb-1">
+                    <h6 class="fw-bold mb-0">{{ tt('Progresso por agente') }}</h6>
+                    <small class="text-muted">{{ tt('Tempo estimado pelas execuções anteriores de cada agente.') }}</small>
+                </div>
+                <div class="d-flex justify-content-between small fw-bold mt-2"><span>{{ tt('Execução total') }} <span id="totalContagem" data-conteudo-dinamico></span></span><span id="totalRestante" data-conteudo-dinamico></span></div>
+                <div class="progress mb-3" style="height: 14px;" role="progressbar" aria-label="{{ tt('Execução total') }}">
+                    <div class="progress-bar bg-primary" id="totalBarra" style="width: 0%"></div>
+                </div>
+                <div id="listaProgresso" class="d-flex flex-column gap-2">
+                    {% for chave, nome in ordem %}
+                    <div class="linha-progresso" data-chave="{{ chave }}">
+                        <div class="d-flex justify-content-between align-items-center small gap-2">
+                            <span class="fw-bold text-nowrap">{{ loop.index }}. {{ tt(nome) }}</span>
+                            <span class="text-muted text-end tempo" data-conteudo-dinamico>—</span>
+                        </div>
+                        <div class="d-flex align-items-center gap-2">
+                            <div class="progress flex-grow-1" style="height: 10px;" role="progressbar" aria-label="{{ tt(nome) }}">
+                                <div class="progress-bar bg-secondary" style="width: 0%"></div>
+                            </div>
+                            <span class="small fw-bold pct" style="width: 38px; text-align: right; font-variant-numeric: tabular-nums;">0%</span>
+                            <span class="small contagem text-nowrap" style="min-width: 92px;" data-conteudo-dinamico></span>
+                            <span class="small links text-nowrap" style="min-width: 40px;"></span>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Etapa atual e log -->
+        <div class="row g-3">
+            <div class="col-12">
+                <div class="card shadow-sm border-0 h-100"><div class="card-body">
+                    <h6 class="fw-bold mb-1">{{ tt('Etapa atual') }}</h6>
+                    <div class="small mb-2" id="etapaAtual" data-conteudo-dinamico>—</div>
+                    <div class="d-flex gap-3 small mb-2" id="contagemAtual"></div>
+                    <div class="hub-log" id="logIa" aria-live="polite" data-conteudo-dinamico></div>
+                </div></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+(function () {
+    const URL_ESTADO = "{{ url_for('estado_agentes_ia_json') }}";
+    const URL_QUADRO = "{{ url_for('quadro_agentes_ia') }}";
+    const URL_ARQUIVO = "{{ url_for('arquivo_agentes_ia') }}?f=";
+    const NOMES = {{ dict(ordem) | tojson }};
+    const TXT = {
+        aguardando: {{ tt('aguardando')|tojson }}, executando: {{ tt('testando…')|tojson }}, concluido: {{ tt('concluído')|tojson }},
+        falhas: {{ tt('com falhas')|tojson }}, erro: {{ tt('erro')|tojson }}, agente: {{ tt('Agente')|tojson }},
+        fimAFim: {{ tt('Teste Fim a Fim')|tojson }}, aguardandoInicio: {{ tt('Aguardando o início dos testes.')|tojson }},
+        executandoGestor: {{ tt('Executando')|tojson }}, concluidoGestor: {{ tt('Testes concluídos.')|tojson }},
+        parado: {{ tt('Execução interrompida.')|tojson }}, nenhuma: {{ tt('Nenhuma execução ainda.')|tojson }},
+        aprovados: {{ tt('aprovados')|tojson }}, falhasTxt: {{ tt('falhas')|tojson }}, alertas: {{ tt('alertas')|tojson }},
+        preparando: {{ tt('Preparando o navegador do agente…')|tojson }},
+        restantes: {{ tt('restantes')|tojson }}, estimado: {{ tt('estimado')|tojson }}, concluidoEm: {{ tt('concluído em')|tojson }},
+        foraExecucao: {{ tt('fora desta execução')|tojson }}, ocioso: {{ tt('Nenhum teste em execução. O navegador do agente aparece aqui ao vivo.')|tojson }}
+    };
+    const hub = document.getElementById('hubIa');
+    let ultimoQuadro = null;
+
+    // Linhas animadas de cada agente até o servidor central
+    function desenharLinhas(estadoPerfis) {
+        const svg = document.getElementById('hubLinhas');
+        const caixa = hub.getBoundingClientRect();
+        const servidor = hub.querySelector('.hub-servidor').getBoundingClientRect();
+        const sx = servidor.left + servidor.width / 2 - caixa.left, sy = servidor.top + servidor.height / 2 - caixa.top;
+        svg.setAttribute('viewBox', `0 0 ${caixa.width} ${caixa.height}`);
+        svg.innerHTML = '';
+        hub.querySelectorAll('.hub-agente').forEach(no => {
+            const r = no.querySelector('.base').getBoundingClientRect();
+            const x = r.left + r.width / 2 - caixa.left, y = r.top + r.height / 2 - caixa.top;
+            const caminho = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+            caminho.setAttribute('d', `M${x},${y} Q${(x + sx) / 2},${y} ${sx},${sy}`);
+            const st = estadoPerfis && estadoPerfis[no.dataset.chave] ? estadoPerfis[no.dataset.chave].status : '';
+            caminho.setAttribute('class', st === 'executando' ? 'ativa' : st === 'concluido' ? 'ok' : (st === 'falhas' || st === 'erro') ? 'erro' : '');
+            svg.appendChild(caminho);
+        });
+    }
+
+    function link(rel, icone, titulo) {
+        return rel ? `<a href="${URL_ARQUIVO}${encodeURIComponent(rel.replace(/\\/g, '/'))}" target="_blank" title="${titulo}" class="me-2"><i class="bi ${icone}"></i></a>` : '';
+    }
+
+    function atualizar(dados) {
+        const estado = dados.estado, agente = dados.agente;
+        const perfis = estado ? estado.perfis : {};
+        const rodando = estado && estado.status === 'executando';
+        document.getElementById('btnIniciarIa').disabled = rodando || {{ 'false' if playwright_ok else 'true' }};
+        document.getElementById('btnPararIa').disabled = !rodando;
+
+        // Agentes ao redor do hub
+        hub.querySelectorAll('.hub-agente').forEach(no => {
+            const p = perfis[no.dataset.chave];
+            const st = p ? p.status : 'aguardando';
+            no.className = 'hub-agente ' + (p ? st : 'aguardando');
+            no.style.opacity = p ? '' : '.3';
+            no.querySelector('.situacao').textContent = p ? (TXT[st] || st) + ((st === 'concluido' || st === 'falhas') ? ` · ${p.aprovados}✓ ${p.falhas}✗` : '') : (estado ? '—' : TXT.aguardando);
+            no.querySelector('.selo').innerHTML = st === 'concluido' ? '<i class="bi bi-check-lg"></i>' : (st === 'falhas' || st === 'erro') ? '<i class="bi bi-x-lg"></i>' : '';
+        });
+
+        // Agente Gestor
+        const chaves = Object.keys(perfis);
+        const feitos = chaves.filter(c => !['aguardando', 'executando'].includes(perfis[c].status)).length;
+        document.getElementById('gestorContador').textContent = chaves.length ? `${feitos}` : '0';
+        let textoGestor = TXT.aguardandoInicio;
+        if (rodando) textoGestor = `${TXT.executandoGestor} ${Math.min(feitos + 1, chaves.length)}/${chaves.length}` + (estado.perfil_atual ? ` · ${TXT.agente} ${NOMES[estado.perfil_atual]}` : '');
+        else if (estado && estado.status === 'concluido') textoGestor = `${TXT.concluidoGestor} ${feitos}/${chaves.length}`;
+        else if (estado && ['parado', 'interrompido', 'erro'].includes(estado.status)) textoGestor = TXT.parado;
+        document.getElementById('gestorTexto').textContent = textoGestor;
+
+        // Rótulo flutuante no agente em execução
+        const rotulo = document.getElementById('hubRotulo');
+        const atual = rodando && estado.perfil_atual ? document.getElementById('agente_' + estado.perfil_atual) : null;
+        if (atual && window.innerWidth >= 992) {
+            rotulo.style.display = 'block';
+            rotulo.innerHTML = `${TXT.agente} ${NOMES[estado.perfil_atual]}<br><small>${TXT.fimAFim}</small>`;
+            const esquerda = parseFloat(atual.style.left);
+            rotulo.style.left = (esquerda < 50 ? esquerda + 8 : esquerda - 26) + '%';
+            rotulo.style.top = (parseFloat(atual.style.top) - 12) + '%';
+        } else {
+            rotulo.style.display = 'none';
+        }
+
+        // Monitor central: o navegador do agente
+        const img = document.getElementById('monitorImagem'), vazio = document.getElementById('monitorVazio');
+        if (dados.quadro && (rodando || ultimoQuadro !== null)) {
+            if (dados.quadro !== ultimoQuadro) { ultimoQuadro = dados.quadro; img.src = URL_QUADRO + '?t=' + dados.quadro; }
+            img.style.display = 'block'; vazio.style.display = 'none';
+        } else {
+            img.style.display = 'none'; vazio.style.display = 'block';
+        }
+        vazio.lastChild.textContent = rodando ? TXT.preparando : TXT.ocioso;
+        document.getElementById('monitorUrl').textContent = (rodando && agente && agente.url) ? agente.url : '—';
+
+        // Etapa atual, contagem e log
+        document.getElementById('etapaAtual').textContent = rodando && agente ? `${agente.perfil}: ${agente.etapa || '…'}` : '—';
+        document.getElementById('contagemAtual').innerHTML = rodando && agente
+            ? `<span class="text-success fw-bold">${agente.aprovados} ${TXT.aprovados}</span><span class="text-danger fw-bold">${agente.falhas} ${TXT.falhasTxt}</span><span class="text-warning-emphasis fw-bold">${agente.alertas} ${TXT.alertas}</span>` : '';
+        const log = document.getElementById('logIa');
+        const novoLog = estado ? estado.log.slice(-18).join('\n') : '';
+        if (log.textContent !== novoLog) { log.textContent = novoLog; log.scrollTop = log.scrollHeight; }
+
+        atualizarProgresso(estado, agente, dados.agora);
+
+        desenharLinhas(perfis);
+        return rodando;
+    }
+
+    function formatar(segundos) {
+        segundos = Math.max(0, Math.round(segundos));
+        const m = Math.floor(segundos / 60), s = segundos % 60;
+        return m ? `${m} min ${String(s).padStart(2, '0')} s` : `${s} s`;
+    }
+
+    function atualizarProgresso(estado, agente, agoraIso) {
+        const perfis = estado ? estado.perfis : {};
+        const estimativas = (estado && estado.estimativas) || {};
+        const agora = Date.parse(agoraIso);
+        let totalPrevisto = 0, totalFeito = 0, totalRestante = 0, terminados = 0;
+        document.querySelectorAll('.linha-progresso').forEach(linha => {
+            const chave = linha.dataset.chave, p = perfis[chave];
+            const est = estimativas[chave] || { duracao: 180, verificacoes: 60 };
+            const barra = linha.querySelector('.progress-bar');
+            let pct = 0, texto = '—', cor = 'bg-secondary', restante = 0;
+            if (!p) {
+                texto = estado ? TXT.foraExecucao : `${TXT.estimado} ≈ ${formatar(est.duracao)}`;
+            } else if (p.status === 'executando') {
+                const decorrido = Math.max(0, (agora - Date.parse(p.inicio)) / 1000);
+                const feitos = agente && agente.chave === chave ? agente.aprovados + agente.falhas + agente.alertas + agente.pulados : 0;
+                const porVerificacao = feitos / est.verificacoes, porTempo = decorrido / est.duracao;
+                pct = Math.min(0.99, feitos ? porVerificacao * 0.6 + porTempo * 0.4 : porTempo);
+                restante = pct > 0.15 ? decorrido * (1 - pct) / pct : Math.max(est.duracao - decorrido, 10);
+                texto = `≈ ${formatar(restante)} ${TXT.restantes}`;
+                cor = 'bg-warning progress-bar-striped progress-bar-animated';
+                const mini = document.querySelector(`#agente_${chave} .mini span`);
+                if (mini) mini.style.width = Math.round(pct * 100) + '%';
+            } else if (p.status === 'aguardando') {
+                restante = est.duracao;
+                texto = `${TXT.estimado} ≈ ${formatar(est.duracao)}`;
+            } else {
+                pct = 1; terminados++;
+                texto = `${TXT.concluidoEm} ${p.duracao || ''}`;
+                cor = p.status === 'concluido' ? 'bg-success' : 'bg-danger';
+            }
+            if (p) {
+                totalPrevisto += est.duracao;
+                totalFeito += pct * est.duracao;
+                totalRestante += restante;
+            }
+            barra.className = 'progress-bar ' + cor;
+            barra.style.width = Math.round(pct * 100) + '%';
+            linha.querySelector('.pct').textContent = Math.round(pct * 100) + '%';
+            linha.querySelector('.tempo').textContent = texto;
+            linha.querySelector('.contagem').innerHTML = p && p.status !== 'aguardando'
+                ? (p.status === 'executando' && agente && agente.chave === chave
+                    ? `<span class="text-success">${agente.aprovados}✓</span> <span class="text-danger">${agente.falhas}✗</span> <span class="text-warning-emphasis">${agente.alertas}⚠</span>`
+                    : `<span class="text-success">${p.aprovados}✓</span> <span class="text-danger">${p.falhas}✗</span> <span class="text-warning-emphasis">${p.alertas}⚠</span>`)
+                : '';
+            linha.querySelector('.links').innerHTML = p ? link(p.pdf, 'bi-file-earmark-pdf text-danger', 'PDF') + link(p.prompt, 'bi-file-earmark-text', 'Prompt') : '';
+            linha.style.opacity = p || !estado ? '' : '.5';
+        });
+        const chaves = Object.keys(perfis);
+        const pctTotal = totalPrevisto ? totalFeito / totalPrevisto : 0;
+        document.getElementById('totalBarra').style.width = Math.round(pctTotal * 100) + '%';
+        document.getElementById('totalBarra').className = 'progress-bar ' + (estado && estado.status === 'executando' ? 'bg-primary progress-bar-striped progress-bar-animated' : 'bg-primary');
+        document.getElementById('totalContagem').textContent = chaves.length ? `· ${terminados}/${chaves.length} · ${Math.round(pctTotal * 100)}%` : '';
+        document.getElementById('totalRestante').textContent = estado && estado.status === 'executando' ? `≈ ${formatar(totalRestante)} ${TXT.restantes}` : '';
+    }
+
+    let intervalo = null, ultimoEstado = null, falhasSeguidas = 0;
+    function consultar() {
+        fetch(URL_ESTADO, { cache: 'no-store' }).then(r => { if (!r.ok) throw new Error(r.status); return r.json(); }).then(dados => {
+            // Uma leitura vazia no meio da execução (arquivo sendo regravado) não pode "zerar" o painel
+            if (!dados.estado && ultimoEstado && ultimoEstado.status === 'executando' && ++falhasSeguidas < 5) {
+                dados.estado = ultimoEstado;
+            } else {
+                falhasSeguidas = 0;
+            }
+            if (dados.estado) ultimoEstado = dados.estado;
+            const rodando = atualizar(dados);
+            const desejado = rodando ? 800 : 5000;
+            if (intervalo === null || intervalo.ms !== desejado) {
+                if (intervalo) clearInterval(intervalo.id);
+                intervalo = { ms: desejado, id: setInterval(consultar, desejado) };
+            }
+        }).catch(() => {});
+    }
+    window.addEventListener('resize', () => desenharLinhas());
+    consultar();
+})();
+</script>
+{% endblock %}

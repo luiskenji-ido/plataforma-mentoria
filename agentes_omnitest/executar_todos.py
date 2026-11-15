@@ -19,7 +19,7 @@ import argparse
 import subprocess
 from datetime import datetime
 
-from nucleo import (PERFIS, PASTA_RELATORIOS, RAIZ_PROJETO, BASE_URL, preparar_usuario, cabecalho_prompt_gemini,
+from nucleo import (PERFIS, PASTA_RELATORIOS, RAIZ_PROJETO, BASE_URL, preparar_usuario, cabecalho_prompt_llm,
                     APROVADO, FALHA, ALERTA, PULADO)
 
 PASTA_AGENTES = os.path.dirname(os.path.abspath(__file__))
@@ -39,7 +39,7 @@ def gerar_prompt_consolidado(relatorios, inicio):
         return None
 
     itens = sorted(grupos.values(), key=lambda g: (g["r"]["status"] != FALHA, -len(g["perfis"])))
-    linhas = cabecalho_prompt_gemini("Todos os perfis", f"os {len(relatorios)} perfis da plataforma",
+    linhas = cabecalho_prompt_llm("Todos os perfis", f"os {len(relatorios)} perfis da plataforma",
                                      [g["r"] for g in itens], "python agentes_omnitest/executar_todos.py")
     for i, g in enumerate(itens, 1):
         r = g["r"]
@@ -49,7 +49,7 @@ def gerar_prompt_consolidado(relatorios, inicio):
         linhas += [f"- {linha}" for linha in r.get("detalhes", [f"**Observado:** {r['detalhe']}"])]
         linhas.append("")
 
-    caminho = os.path.join(PASTA_RELATORIOS, f"Prompt_Gemini_TODOS_{inicio.strftime('%Y%m%d_%H%M%S')}.md")
+    caminho = os.path.join(PASTA_RELATORIOS, f"Prompt_LLM_TODOS_{inicio.strftime('%Y%m%d_%H%M%S')}.md")
     with open(caminho, "w", encoding="utf-8") as f:
         f.write("\n".join(linhas) + "\n")
     return caminho
@@ -145,9 +145,9 @@ def main():
     linhas += falhas_gerais or ["- Nenhuma falha. 🎉"]
 
     consolidado = gerar_prompt_consolidado(relatorios, inicio)
-    prompts = [d["prompt_gemini"] for d in relatorios.values() if d.get("prompt_gemini")]
+    prompts = [d["prompt_llm"] for d in relatorios.values() if d.get("prompt_llm")]
     if consolidado:
-        linhas.append("\n## 🤖 Prompt de correção para o Gemini\n")
+        linhas.append("\n## 🤖 Prompt de correção para LLM\n")
         linhas.append(f"- **Todos os perfis, sem repetição (recomendado):** [{os.path.basename(consolidado)}]({os.path.basename(consolidado)})")
         linhas += [f"- {os.path.basename(p)}: [{os.path.basename(p)}]({os.path.basename(p)})" for p in prompts]
 
@@ -159,7 +159,7 @@ def main():
     print(f"✅ OMNITEST CONCLUÍDO em {(datetime.now() - inicio).seconds}s — {len(falhas_gerais)} falha(s) no total")
     print(f"   Consolidado: {caminho}")
     if consolidado:
-        print(f"   Prompt único para o Gemini: {consolidado}")
+        print(f"   Prompt único para LLM: {consolidado}")
     print("==================================================\n")
     sys.exit(0 if all(c == 0 for c in codigos.values()) else 1)
 
