@@ -62,6 +62,7 @@ app = Flask(__name__)
 # IMPORTAÇÃO DO MÓDULO DE TRADUÇÕES
 # ---------------------------------------------------------
 from traducoes import t
+from traducoes_literais import tt
 from notificacoes import notificar, usuarios_gestao
 
 # ---------------------------------------------------------
@@ -73,7 +74,8 @@ def utility_processor():
     def inject_traducao():
         # Verifica se o usuário está logado e pega o idioma dele, senão usa português ('pt')
         idioma_atual = current_user.idioma if current_user.is_authenticated else 'pt'
-        return {'t': lambda chave: t(chave, idioma_atual)}
+        # tt('Texto em português'): telas antigas traduzidas pelo próprio texto (traducoes_literais.py)
+        return {'t': lambda chave: t(chave, idioma_atual), 'tt': lambda texto: tt(texto, idioma_atual)}
     return inject_traducao()
 
 # =========================================================================

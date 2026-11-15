@@ -5,7 +5,7 @@
 <!-- BANCA DO GRUPO AGENDADA (jovens e mentores do grupo) -->
 {% for b in minhas_bancas_grupo or [] %}
 <div class="alert alert-primary d-flex justify-content-between align-items-center flex-wrap gap-2 shadow-sm border-start border-4 border-primary">
-    <span><i class="bi bi-person-video3"></i> <strong>{{ t('banca_sua') }}:</strong> {{ b.projeto.nome }} · {{ b.data_hora.strftime('%d/%m/%Y %H:%M') }}{% if b.local %} · {{ b.local }}{% endif %}{% if b.status == 'Remarcada' %} <span class="badge bg-warning text-dark">{{ b.status }}</span>{% endif %}</span>
+    <span><i class="bi bi-person-video3"></i> <strong>{{ t('banca_sua') }}:</strong> {{ b.projeto.nome }} · {{ b.data_hora.strftime('%d/%m/%Y %H:%M') }}{% if b.local %} · {{ b.local }}{% endif %}{% if b.status == 'Remarcada' %} <span class="badge bg-warning text-dark">{{ tt(b.status) }}</span>{% endif %}</span>
     <a href="{{ url_for('projetos') }}#projeto-{{ b.projeto_id }}" class="btn btn-sm btn-outline-primary fw-bold rounded-pill px-3">{{ t('banca_ver_projeto') }}</a>
 </div>
 {% endfor %}
@@ -46,7 +46,7 @@
 <!-- ALERTA DE SENHA -->
 {% if dias_restantes_senha <= 15 %}
 <div class="alert alert-warning alert-dismissible fade show border-start border-warning border-4 shadow-sm mb-4" role="alert">
-<strong> Alerta de Segurança:</strong> Sua senha expira em <strong>{{ dias_restantes_senha }} dias</strong>!
+<strong> {{ tt('Alerta de Segurança:') }}</strong> {{ tt('Sua senha expira em') }} <strong>{{ dias_restantes_senha }} {{ tt('dias') }}</strong>!
 <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
 </div>
 {% endif %}
@@ -80,7 +80,7 @@
     <div class="card-body d-flex flex-column flex-md-row justify-content-between align-items-center">
         <div class="mb-3 mb-md-0">
             <h5 class="card-title text-success fw-bold mb-1">
-                <i class="bi bi-stopwatch"></i> Relógio de Voluntariado Corporativo
+                <i class="bi bi-stopwatch"></i> {{ tt('Relógio de Voluntariado Corporativo') }}
             </h5>
             <p class="card-text small text-muted mb-0">
                 {{ t('vol_subtitulo') }}
@@ -90,33 +90,33 @@
         <div class="d-flex flex-wrap gap-2 align-items-center">
             {% if not relogio_aberto %}
                 <button type="button" class="btn btn-success fw-bold rounded-pill px-3 shadow-sm" data-bs-toggle="modal" data-bs-target="#modalIniciarRelogio" title="{{ t('vol_iniciar_titulo') }}">
-                    <i class="bi bi-play-circle"></i> Iniciar Contagem
+                    <i class="bi bi-play-circle"></i> {{ tt('Iniciar Contagem') }}
                 </button>
             {% else %}
             <form action="{{ url_for('bater_ponto_voluntariado') }}" method="POST" class="m-0 d-flex gap-2 align-items-center">
-                <span class="badge bg-danger pulse-animation me-2 p-2">Tempo a contar...</span>
-                <button type="submit" class="btn btn-outline-danger fw-bold rounded-pill px-4 shadow-sm" title="Clique para parar o relógio">
-                    <i class="bi bi-stop-circle"></i> Encerrar Voluntariado
+                <span class="badge bg-danger pulse-animation me-2 p-2">{{ tt('Tempo a contar...') }}</span>
+                <button type="submit" class="btn btn-outline-danger fw-bold rounded-pill px-4 shadow-sm" title="{{ tt('Clique para parar o relógio') }}">
+                    <i class="bi bi-stop-circle"></i> {{ tt('Encerrar Voluntariado') }}
                 </button>
             </form>
             {% endif %}
 
             <!-- NOVO BOTÃO DE LANÇAMENTO MANUAL -->
             {% if not relogio_aberto %}
-            <button type="button" class="btn btn-outline-secondary fw-bold rounded-pill px-3 shadow-sm" data-bs-toggle="modal" data-bs-target="#modalVoluntariadoManual" title="Inserir horas de uma atividade que já passou">
-                <i class="bi bi-pencil-square"></i> Inserir Manual
+            <button type="button" class="btn btn-outline-secondary fw-bold rounded-pill px-3 shadow-sm" data-bs-toggle="modal" data-bs-target="#modalVoluntariadoManual" title="{{ tt('Inserir horas de uma atividade que já passou') }}">
+                <i class="bi bi-pencil-square"></i> {{ tt('Inserir Manual') }}
             </button>
 
             <!-- MENU DE EXPORTAÇÃO ESG (EXCEL E PDF) -->
             {% if current_user.tipo_usuario in ['Administrador', 'Mentor Administrador', 'Admin B2B'] %}
             <div class="dropdown">
                 <button class="btn btn-outline-success fw-bold rounded-pill px-3 shadow-sm dropdown-toggle" type="button" data-bs-toggle="dropdown">
-                    <i class="bi bi-file-earmark-bar-graph"></i> Relatórios
+                    <i class="bi bi-file-earmark-bar-graph"></i> {{ tt('Relatórios') }}
                 </button>
                 <ul class="dropdown-menu shadow border-0">
                     <li>
                         <a class="dropdown-item fw-bold text-success" href="{{ url_for('exportar_relatorio_esg') }}">
-                            <i class="bi bi-file-earmark-excel"></i> Baixar em Excel
+                            <i class="bi bi-file-earmark-excel"></i> {{ tt('Baixar em Excel') }}
                         </a>
                     </li>
                     <li>
@@ -180,8 +180,8 @@
                     {{ campos_vinculo('Iniciar') }}
                 </div>
                 <div class="modal-footer bg-white border-0">
-                    <button type="button" class="btn btn-outline-secondary fw-bold" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="submit" class="btn btn-success fw-bold px-4 shadow"><i class="bi bi-play-circle"></i> Iniciar Contagem</button>
+                    <button type="button" class="btn btn-outline-secondary fw-bold" data-bs-dismiss="modal">{{ tt('Cancelar') }}</button>
+                    <button type="submit" class="btn btn-success fw-bold px-4 shadow"><i class="bi bi-play-circle"></i> {{ tt('Iniciar Contagem') }}</button>
                 </div>
             </form>
         </div>
@@ -193,34 +193,34 @@
     <div class="modal-dialog">
         <div class="modal-content shadow-lg border-0">
             <div class="modal-header bg-secondary text-white">
-                <h5 class="modal-title fw-bold"><i class="bi bi-pencil-square"></i> Lançamento Manual de Horas</h5>
+                <h5 class="modal-title fw-bold"><i class="bi bi-pencil-square"></i> {{ tt('Lançamento Manual de Horas') }}</h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="{{ t('fechar') }}"></button>
             </div>
             <form action="{{ url_for('lancamento_manual_voluntariado') }}" method="POST" class="form-voluntariado">
                 <div class="modal-body bg-light">
                     <div class="alert alert-warning small border-0 bg-warning-subtle text-warning-emphasis mb-4">
-                        <i class="bi bi-exclamation-triangle-fill"></i> Use esta opção <strong>apenas</strong> se realizou uma ajuda extra fora da plataforma e esqueceu de ligar o cronômetro oficial.
+                        <i class="bi bi-exclamation-triangle-fill"></i> {{ tt('Use esta opção') }} <strong>{{ tt('apenas') }}</strong> {{ tt('se realizou uma ajuda extra fora da plataforma e esqueceu de ligar o cronômetro oficial.') }}
                     </div>
 
                     <div class="mb-3">
-                        <label class="form-label fw-bold text-dark" for="tipoManual">Qual foi a atividade?</label>
+                        <label class="form-label fw-bold text-dark" for="tipoManual">{{ tt('Qual foi a atividade?') }}</label>
                         <select name="tipo_atividade" id="tipoManual" class="form-select shadow-sm border-secondary seletor-tipo-vol" required>
                             {% for valor, chave in tipos_voluntariado or [] %}<option value="{{ valor }}">{{ t(chave) }}</option>{% endfor %}
                         </select>
                     </div>
 
                     <div class="mb-3">
-                        <label class="form-label fw-bold text-dark" for="dataManual">Data da Atividade</label>
+                        <label class="form-label fw-bold text-dark" for="dataManual">{{ tt('Data da Atividade') }}</label>
                         <input type="date" name="data" id="dataManual" class="form-control shadow-sm border-secondary" max="{{ data_hoje_iso }}" required>
                     </div>
 
                     <div class="row mb-3">
                         <div class="col-6">
-                            <label class="form-label fw-bold text-dark" for="inicioManual">Hora de Início</label>
+                            <label class="form-label fw-bold text-dark" for="inicioManual">{{ tt('Hora de Início') }}</label>
                             <input type="time" name="hora_inicio" id="inicioManual" class="form-control shadow-sm border-secondary" required>
                         </div>
                         <div class="col-6">
-                            <label class="form-label fw-bold text-dark" for="fimManual">Hora de Fim</label>
+                            <label class="form-label fw-bold text-dark" for="fimManual">{{ tt('Hora de Fim') }}</label>
                             <input type="time" name="hora_fim" id="fimManual" class="form-control shadow-sm border-secondary" required>
                         </div>
                     </div>
@@ -228,8 +228,8 @@
                     {{ campos_vinculo('Manual') }}
                 </div>
                 <div class="modal-footer bg-white border-0">
-                    <button type="button" class="btn btn-outline-secondary fw-bold" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="submit" class="btn btn-success fw-bold px-4 shadow">Gravar Horas Manuais</button>
+                    <button type="button" class="btn btn-outline-secondary fw-bold" data-bs-dismiss="modal">{{ tt('Cancelar') }}</button>
+                    <button type="submit" class="btn btn-success fw-bold px-4 shadow">{{ tt('Gravar Horas Manuais') }}</button>
                 </div>
             </form>
         </div>
@@ -285,7 +285,7 @@
             {% if current_user.tipo_usuario == 'Aluno' %}
             {{ t('aluno') }}
             {% else %}
-            {{ current_user.tipo_usuario }}
+            {{ tt(current_user.tipo_usuario) }}
             {% endif %}
             </strong>
             <!-- A regrinha abaixo diz: Só mostre o mentor SE for um Aluno logado -->
@@ -386,11 +386,11 @@
 <!-- ========================================================================== -->
 <div class="col">
     <div class="card shadow-sm border-0 p-2 text-center h-100 border-start border-4 border-info">
-        <small class="text-muted d-block fw-bold" style="font-size: 0.8rem;">PROJETOS (TCC)</small>
+        <small class="text-muted d-block fw-bold" style="font-size: 0.8rem;">{{ tt('PROJETOS (TCC)') }}</small>
         <h3 class="fw-bold text-dark mb-0" style="font-size: 1.5rem;">{{ total_projetos }}</h3>
         <div class="mt-1" style="font-size: 0.75rem; line-height: 1.2;">
-            <span class="text-info fw-bold">{{ projetos_andamento }}</span> Andamento<br>
-            <span class="text-success fw-bold">{{ projetos_concluidos }}</span> Concluídos
+            <span class="text-info fw-bold">{{ projetos_andamento }}</span> {{ tt('Andamento') }}<br>
+            <span class="text-success fw-bold">{{ projetos_concluidos }}</span> {{ tt('Concluídos') }}
         </div>
     </div>
 </div>
@@ -479,7 +479,7 @@ data-progresso="{{ item.percentual }}">
 
 <td class="text-start">
 {% if item.url %}
-<a href="{{ item.url }}" target="_blank" class="text-decoration-none fw-bold text-primary" title="Acessar o curso">
+<a href="{{ item.url }}" target="_blank" class="text-decoration-none fw-bold text-primary" title="{{ tt('Acessar o curso') }}">
 {{ item.curso }} 🔗
 </a>
 {% else %}
@@ -487,7 +487,7 @@ data-progresso="{{ item.percentual }}">
 {% endif %}
 </td>
 
-<td><span class="badge bg-secondary">{{ item.carga_horaria }} horas</span></td>
+<td><span class="badge bg-secondary">{{ item.carga_horaria }} {{ tt('horas') }}</span></td>
 <td style="width: 20%;">
 <div class="d-flex align-items-center">
 <span class="me-2 small fw-bold">{{ item.percentual }}%</span>
@@ -517,7 +517,7 @@ data-progresso="{{ item.percentual }}">
 </tr>
 {% else %}
 <tr id="linhaVazia">
-<td colspan="6" class="text-muted py-4">Nenhum curso em andamento para análise de risco.</td>
+<td colspan="6" class="text-muted py-4">{{ tt('Nenhum curso em andamento para análise de risco.') }}</td>
 </tr>
 {% endfor %}
 </tbody>
@@ -684,15 +684,15 @@ if (selectOrdenacao) selectOrdenacao.addEventListener('change', atualizarTabela)
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content shadow-lg border-0">
             <div class="modal-header bg-primary text-white border-0">
-                <h5 class="modal-title fw-bold">Olá, {{ current_user.nome.split()[0] }}!</h5>
+                <h5 class="modal-title fw-bold">{{ tt('Olá,') }} {{ current_user.nome.split()[0] }}!</h5>
             </div>
             <div class="modal-body text-center p-4">
-                <p class="mb-0">Notamos que este é o seu primeiro acesso. Que tal um tour rápido para conhecer as principais ferramentas do seu perfil de <strong>{{ current_user.tipo_usuario }}</strong>?</p>
+                <p class="mb-0">{{ tt('Notamos que este é o seu primeiro acesso. Que tal um tour rápido para conhecer as principais ferramentas do seu perfil de') }} <strong>{{ tt(current_user.tipo_usuario) }}</strong>?</p>
             </div>
             <div class="modal-footer flex-column bg-light border-0">
-                <button type="button" class="btn btn-primary w-100 fw-bold shadow-sm" onclick="fecharModalEIniciarTour()">🚀 Fazer o Tour Agora</button>
-                <button type="button" class="btn btn-outline-secondary w-100 fw-bold" data-bs-dismiss="modal">⏳ Lembrar Depois</button>
-                <button type="button" class="btn btn-link text-danger w-100 small text-decoration-none" onclick="desativarTourBackend(true)">❌ Não mostrar novamente</button>
+                <button type="button" class="btn btn-primary w-100 fw-bold shadow-sm" onclick="fecharModalEIniciarTour()">{{ tt('🚀 Fazer o Tour Agora') }}</button>
+                <button type="button" class="btn btn-outline-secondary w-100 fw-bold" data-bs-dismiss="modal">{{ tt('⏳ Lembrar Depois') }}</button>
+                <button type="button" class="btn btn-link text-danger w-100 small text-decoration-none" onclick="desativarTourBackend(true)">{{ tt('❌ Não mostrar novamente') }}</button>
             </div>
         </div>
     </div>

@@ -867,7 +867,8 @@ class AgenteOmniTest:
     }"""
 
     def textos_em_portugues(self, texto, termos_pt, palavras_pt, dados_banco):
-        sobras = {t for t in termos_pt if t in texto}
+        # Palavra inteira: 'Interna' não pode casar com 'Internal' (falso positivo)
+        sobras = {t for t in termos_pt if re.search(rf"(?<!\w){re.escape(t)}(?!\w)", texto)}
         sobras |= {p for p in palavras_pt if re.search(rf"(?<!\w){re.escape(p)}(?!\w)", texto)}
         sobras |= set(re.findall(r"\w*[çãõâêô]\w*", texto, flags=re.IGNORECASE))
         return {s for s in sobras if s.lower() not in dados_banco}

@@ -22,9 +22,9 @@
 
 <div class="container-fluid mt-4 px-4">
     <div class="d-flex justify-content-between align-items-center mb-4 d-print-none">
-        <h2 class="text-primary fw-bold mb-0"><i class="bi bi-clock-history"></i> Gestão de Frequência</h2>
+        <h2 class="text-primary fw-bold mb-0"><i class="bi bi-clock-history"></i> {{ tt('Gestão de Frequência') }}</h2>
         <button class="btn btn-outline-dark fw-bold" onclick="window.print()">
-            <i class="bi bi-printer"></i> Imprimir Relatório
+            <i class="bi bi-printer"></i> {{ tt('Imprimir Relatório') }}
         </button>
     </div>
 
@@ -36,9 +36,9 @@
         <div class="col-md-3">
             <div class="card shadow-sm border-0 border-start border-primary border-4 h-100">
                 <div class="card-body py-3">
-                    <div class="text-muted small fw-bold text-uppercase">Média de Presença</div>
+                    <div class="text-muted small fw-bold text-uppercase">{{ tt('Média de Presença') }}</div>
                     <div class="fs-3 fw-bold text-dark">{{ kpi_taxa_presenca | default('0%') }}</div>
-                    <div class="small text-muted"><i class="bi bi-graph-up text-primary"></i> Visão global da turma</div>
+                    <div class="small text-muted"><i class="bi bi-graph-up text-primary"></i> {{ tt('Visão global da turma') }}</div>
                 </div>
             </div>
         </div>
@@ -47,9 +47,9 @@
         <div class="col-md-3">
             <div class="card shadow-sm border-0 border-start border-warning border-4 h-100 bg-warning-subtle">
                 <div class="card-body py-3">
-                    <div class="text-muted small fw-bold text-uppercase">Alerta (Em Risco)</div>
+                    <div class="text-muted small fw-bold text-uppercase">{{ tt('Alerta (Em Risco)') }}</div>
                     <div class="fs-3 fw-bold text-warning-emphasis">{{ kpi_alunos_risco | default('0') }}</div>
-                    <div class="small text-muted"><i class="bi bi-exclamation-triangle"></i> Próximos de 25% de faltas</div>
+                    <div class="small text-muted"><i class="bi bi-exclamation-triangle"></i> {{ tt('Próximos de 25% de faltas') }}</div>
                 </div>
             </div>
         </div>
@@ -58,9 +58,9 @@
         <div class="col-md-3">
             <div class="card shadow-sm border-0 border-start border-danger border-4 h-100 bg-danger-subtle">
                 <div class="card-body py-3">
-                    <div class="text-muted small fw-bold text-uppercase">Infrequência Crítica</div>
+                    <div class="text-muted small fw-bold text-uppercase">{{ tt('Infrequência Crítica') }}</div>
                     <div class="fs-3 fw-bold text-danger-emphasis">{{ kpi_alunos_reprovados | default('0') }}</div>
-                    <div class="small text-muted"><i class="bi bi-x-octagon"></i> Ultrapassaram limite de faltas</div>
+                    <div class="small text-muted"><i class="bi bi-x-octagon"></i> {{ tt('Ultrapassaram limite de faltas') }}</div>
                 </div>
             </div>
         </div>
@@ -69,9 +69,9 @@
         <div class="col-md-3">
             <div class="card shadow-sm border-0 border-start border-success border-4 h-100">
                 <div class="card-body py-3">
-                    <div class="text-muted small fw-bold text-uppercase">Faltas Abonadas</div>
+                    <div class="text-muted small fw-bold text-uppercase">{{ tt('Faltas Abonadas') }}</div>
                     <div class="fs-3 fw-bold text-success">{{ kpi_faltas_justificadas | default('0') }}</div>
-                    <div class="small text-muted"><i class="bi bi-shield-check text-success"></i> Justificadas pelos Mentores</div>
+                    <div class="small text-muted"><i class="bi bi-shield-check text-success"></i> {{ tt('Justificadas pelos Mentores') }}</div>
                 </div>
             </div>
         </div>
@@ -82,7 +82,7 @@
          ========================================== -->
     <div class="row mb-4 d-print-none">
         <div class="col-12">
-            <h6 class="text-danger fw-bold mb-3"><i class="bi bi-person-lines-fill"></i> Detalhamento de Ausências Pendentes</h6>
+            <h6 class="text-danger fw-bold mb-3"><i class="bi bi-person-lines-fill"></i> {{ tt('Detalhamento de Ausências Pendentes') }}</h6>
             <div class="d-flex gap-3 overflow-auto pb-2">
                 {% if ranking_faltas %}
                     {% for aluno, total in ranking_faltas %}
@@ -90,7 +90,7 @@
                         <div class="card-body py-2 px-3 d-flex justify-content-between align-items-center bg-white rounded">
                             <div>
                                 <strong class="text-danger d-block text-truncate" style="max-width: 160px;" title="{{ aluno }}">{{ aluno }}</strong>
-                                <small class="text-muted">Registo de faltas diretas</small>
+                                <small class="text-muted">{{ tt('Registo de faltas diretas') }}</small>
                             </div>
                             <span class="fs-4 fw-bold text-danger">{{ total }}</span>
                         </div>
@@ -98,7 +98,7 @@
                     {% endfor %}
                 {% else %}
                     <div class="alert alert-success py-2 mb-0 w-100 border-success shadow-sm">
-                        <i class="bi bi-check-circle-fill"></i> Excelente indicador! Não existem alunos com registo de faltas no sistema.
+                        <i class="bi bi-check-circle-fill"></i> {{ tt('Excelente indicador! Não existem alunos com registo de faltas no sistema.') }}
                     </div>
                 {% endif %}
             </div>
@@ -112,36 +112,36 @@
         <div class="card-body py-3">
             <form action="{{ url_for('gerenciar_frequencia') }}" method="GET" class="row g-2 align-items-end">
                 <div class="col-md-3">
-                    <label class="form-label small fw-bold text-muted mb-1">Filtrar por Aluno</label>
+                    <label class="form-label small fw-bold text-muted mb-1">{{ tt('Filtrar por Aluno') }}</label>
                     <select name="aluno_id" id="filtroAlunoBusca" class="form-select form-select-sm border-secondary">
-                        <option value="">Todos os Alunos</option>
+                        <option value="">{{ tt('Todos os Alunos') }}</option>
                         {% for a in alunos %}
                             <option value="{{ a.id }}" {% if filtro_aluno == a.id|string %}selected{% endif %}>{{ a.nome }}</option>
                         {% endfor %}
                     </select>
                 </div>
                 <div class="col-md-2">
-                    <label class="form-label small fw-bold text-muted mb-1">Status de Presença</label>
+                    <label class="form-label small fw-bold text-muted mb-1">{{ tt('Status de Presença') }}</label>
                     <select name="tipo_presenca" class="form-select form-select-sm border-secondary">
-                        <option value="">Todos</option>
-                        <option value="Presencas" {% if filtro_tipo == 'Presencas' %}selected{% endif %}>🟢 Apenas Presenças</option>
-                        <option value="Faltas" {% if filtro_tipo == 'Faltas' %}selected{% endif %}>🔴 Apenas Faltas</option>
-                        <option value="Justificadas" {% if filtro_tipo == 'Justificadas' %}selected{% endif %}>🛡️ Faltas Justificadas</option>
-                        <option value="Online" {% if filtro_tipo == 'Online' %}selected{% endif %}>💻 Online</option>
-                        <option value="Presencial" {% if filtro_tipo == 'Presencial' %}selected{% endif %}>🏢 Presencial</option>
+                        <option value="">{{ tt('Todos') }}</option>
+                        <option value="Presencas" {% if filtro_tipo == 'Presencas' %}selected{% endif %}>{{ tt('🟢 Apenas Presenças') }}</option>
+                        <option value="Faltas" {% if filtro_tipo == 'Faltas' %}selected{% endif %}>{{ tt('🔴 Apenas Faltas') }}</option>
+                        <option value="Justificadas" {% if filtro_tipo == 'Justificadas' %}selected{% endif %}>{{ tt('🛡️ Faltas Justificadas') }}</option>
+                        <option value="Online" {% if filtro_tipo == 'Online' %}selected{% endif %}>{{ tt('💻 Online') }}</option>
+                        <option value="Presencial" {% if filtro_tipo == 'Presencial' %}selected{% endif %}>{{ tt('🏢 Presencial') }}</option>
                     </select>
                 </div>
                 <div class="col-md-2">
-                    <label class="form-label small fw-bold text-muted mb-1">Data Inicial</label>
+                    <label class="form-label small fw-bold text-muted mb-1">{{ tt('Data Inicial') }}</label>
                     <input type="date" name="data_inicio" class="form-control form-control-sm border-secondary" value="{{ filtro_data_inicio or '' }}">
                 </div>
                 <div class="col-md-2">
-                    <label class="form-label small fw-bold text-muted mb-1">Data Final</label>
+                    <label class="form-label small fw-bold text-muted mb-1">{{ tt('Data Final') }}</label>
                     <input type="date" name="data_fim" class="form-control form-control-sm border-secondary" value="{{ filtro_data_fim or '' }}">
                 </div>
                 <div class="col-md-3 d-flex gap-2">
-                    <button type="submit" class="btn btn-sm btn-primary fw-bold w-100"><i class="bi bi-funnel"></i> Filtrar</button>
-                    <a href="{{ url_for('gerenciar_frequencia') }}" class="btn btn-sm btn-outline-secondary fw-bold w-100"><i class="bi bi-eraser"></i> Limpar</a>
+                    <button type="submit" class="btn btn-sm btn-primary fw-bold w-100"><i class="bi bi-funnel"></i> {{ tt('Filtrar') }}</button>
+                    <a href="{{ url_for('gerenciar_frequencia') }}" class="btn btn-sm btn-outline-secondary fw-bold w-100"><i class="bi bi-eraser"></i> {{ tt('Limpar') }}</a>
                 </div>
             </form>
         </div>
@@ -152,21 +152,21 @@
          ========================================== -->
     <div class="card shadow-sm border-0" id="areaRelatorio">
         <div class="card-header bg-dark text-white py-3 d-flex justify-content-between align-items-center">
-            <h6 class="mb-0 fw-bold">Relatório de Acessos e Frequência</h6>
-            <span class="badge bg-light text-dark d-print-none">{{ registros|length }} registo(s) encontrado(s)</span>
+            <h6 class="mb-0 fw-bold">{{ tt('Relatório de Acessos e Frequência') }}</h6>
+            <span class="badge bg-light text-dark d-print-none">{{ registros|length }} {{ tt('registo(s) encontrado(s)') }}</span>
         </div>
         <div class="card-body p-0">
             <div class="table-responsive">
                 <table class="table table-hover align-middle mb-0">
                     <thead class="table-light">
                         <tr>
-                            <th class="ps-4">Data e Hora</th>
-                            <th>Utilizador (Nome e E-mail)</th>
-                            <th>Modalidade</th>
+                            <th class="ps-4">{{ tt('Data e Hora') }}</th>
+                            <th>{{ tt('Utilizador (Nome e E-mail)') }}</th>
+                            <th>{{ tt('Modalidade') }}</th>
                             <th>{{ t('modalidade_cadastrada') }}</th>
-                            <th class="d-print-none">Anotações do Utilizador</th>
-                            <th class="text-center">Status de Validação</th>
-                            <th class="text-center pe-4 d-print-none">Ação</th>
+                            <th class="d-print-none">{{ tt('Anotações do Utilizador') }}</th>
+                            <th class="text-center">{{ tt('Status de Validação') }}</th>
+                            <th class="text-center pe-4 d-print-none">{{ tt('Ação') }}</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -182,13 +182,13 @@
                             </td>
                             <td>
                                 {% if r.tipo_presenca == 'Presencial' %}
-                                    <span class="badge bg-success"><i class="bi bi-building"></i> Presencial</span>
+                                    <span class="badge bg-success"><i class="bi bi-building"></i> {{ tt('Presencial') }}</span>
                                 {% elif r.tipo_presenca == 'Online' %}
-                                    <span class="badge bg-primary"><i class="bi bi-laptop"></i> Online</span>
+                                    <span class="badge bg-primary"><i class="bi bi-laptop"></i> {{ tt('Online') }}</span>
                                 {% elif r.tipo_presenca == 'Falta Justificada' %}
-                                    <span class="badge bg-secondary"><i class="bi bi-shield-check"></i> Falta Justificada</span>
+                                    <span class="badge bg-secondary"><i class="bi bi-shield-check"></i> {{ tt('Falta Justificada') }}</span>
                                 {% else %}
-                                    <span class="badge bg-danger"><i class="bi bi-x-circle"></i> Falta</span>
+                                    <span class="badge bg-danger"><i class="bi bi-x-circle"></i> {{ tt('Falta') }}</span>
                                 {% endif %}
                             </td>
                             <td>
@@ -207,15 +207,15 @@
                             </td>
                             <td class="text-center">
                                 {% if r.validado_admin %}
-                                    <span class="badge bg-success-subtle text-success border border-success"><i class="bi bi-check2-all"></i> Validado</span>
+                                    <span class="badge bg-success-subtle text-success border border-success"><i class="bi bi-check2-all"></i> {{ tt('Validado') }}</span>
                                 {% else %}
-                                    <span class="badge bg-warning text-dark"><i class="bi bi-hourglass-split"></i> Pendente</span>
+                                    <span class="badge bg-warning text-dark"><i class="bi bi-hourglass-split"></i> {{ tt('Pendente') }}</span>
                                 {% endif %}
                             </td>
                             <td class="text-center pe-4 d-print-none">
                                 {% if not r.validado_admin %}
                                     <button type="button" class="btn btn-sm btn-outline-primary fw-bold" data-bs-toggle="modal" data-bs-target="#modalValidar{{ r.id }}">
-                                        Gerir Falta/Presença
+                                        {{ tt('Gerir Falta/Presença') }}
                                     </button>
 
                                     <!-- Modal de Validação / Justificativa -->
@@ -224,39 +224,39 @@
                                             <div class="modal-content">
                                                 <form action="{{ url_for('gerenciar_frequencia') }}" method="POST">
                                                     <div class="modal-header bg-primary text-white">
-                                                        <h6 class="modal-title fw-bold">Gestão de Presença</h6>
+                                                        <h6 class="modal-title fw-bold">{{ tt('Gestão de Presença') }}</h6>
                                                         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                                                     </div>
                                                     <div class="modal-body">
-                                                        <p class="mb-3">A analisar o registo de <strong>{{ r.usuario.nome }}</strong> (Data: {{ r.data_registro.strftime('%d/%m/%Y') }}).</p>
+                                                        <p class="mb-3">{{ tt('A analisar o registo de') }} <strong>{{ r.usuario.nome }}</strong> {{ tt('(Data:') }} {{ r.data_registro.strftime('%d/%m/%Y') }}).</p>
                                                         <input type="hidden" name="frequencia_id" value="{{ r.id }}">
                                                         
                                                         <div class="mb-3">
-                                                            <label class="form-label small fw-bold text-muted">Ação de Correção (Opcional):</label>
+                                                            <label class="form-label small fw-bold text-muted">{{ tt('Ação de Correção (Opcional):') }}</label>
                                                             <select name="alterar_status" class="form-select form-select-sm border-secondary mb-2">
-                                                                <option value="">Manter estado atual ({{ r.tipo_presenca }})</option>
-                                                                <option value="Falta Justificada">Abonar (Converter em Falta Justificada)</option>
-                                                                <option value="Falta">Reprovar (Converter em Falta Injustificada)</option>
-                                                                <option value="Presencial">Converter para Presencial</option>
-                                                                <option value="Online">Converter para Online</option>
+                                                                <option value="">{{ tt('Manter estado atual (') }}{{ tt(r.tipo_presenca) }})</option>
+                                                                <option value="Falta Justificada">{{ tt('Abonar (Converter em Falta Justificada)') }}</option>
+                                                                <option value="Falta">{{ tt('Reprovar (Converter em Falta Injustificada)') }}</option>
+                                                                <option value="Presencial">{{ tt('Converter para Presencial') }}</option>
+                                                                <option value="Online">{{ tt('Converter para Online') }}</option>
                                                             </select>
                                                         </div>
 
                                                         <div class="mb-2">
-                                                            <label class="form-label small fw-bold text-muted">Anotações da Equipa (Visível no Diário):</label>
-                                                            <textarea name="observacoes_admin" class="form-control" rows="2" placeholder="Ex: Atestado médico entregue..."></textarea>
+                                                            <label class="form-label small fw-bold text-muted">{{ tt('Anotações da Equipa (Visível no Diário):') }}</label>
+                                                            <textarea name="observacoes_admin" class="form-control" rows="2" placeholder="{{ tt('Ex: Atestado médico entregue...') }}"></textarea>
                                                         </div>
                                                     </div>
                                                     <div class="modal-footer">
-                                                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                                                        <button type="submit" class="btn btn-success fw-bold">✔️ Gravar e Validar</button>
+                                                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{{ tt('Cancelar') }}</button>
+                                                        <button type="submit" class="btn btn-success fw-bold">{{ tt('✔️ Gravar e Validar') }}</button>
                                                     </div>
                                                 </form>
                                             </div>
                                         </div>
                                     </div>
                                 {% else %}
-                                    <button class="btn btn-sm btn-light text-muted" disabled><i class="bi bi-check-lg"></i> Validado</button>
+                                    <button class="btn btn-sm btn-light text-muted" disabled><i class="bi bi-check-lg"></i> {{ tt('Validado') }}</button>
                                 {% endif %}
                             </td>
                         </tr>
@@ -264,7 +264,7 @@
                         <tr>
                             <td colspan="6" class="text-center text-muted py-5">
                                 <i class="bi bi-inbox fs-2 d-block mb-2"></i>
-                                Nenhum registo encontrado com estes filtros.
+                                {{ tt('Nenhum registo encontrado com estes filtros.') }}
                             </td>
                         </tr>
                         {% endfor %}

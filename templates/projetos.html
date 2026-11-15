@@ -2,14 +2,14 @@
 
 {% block content %}
 <div class="container mt-4">
-    <h2 class="text-primary mb-4">Gestão de Projetos</h2>
+    <h2 class="text-primary mb-4">{{ tt('Gestão de Projetos') }}</h2>
 
     <!-- ========================================================================== -->
     <!-- SEÇÃO 1: FORMULÁRIO DE CADASTRO DE NOVO PROJETO (Layout Compacto)          -->
     <!-- ========================================================================== -->
     <div class="card shadow-sm mb-4">
         <div class="card-header bg-primary text-white py-2">
-            <h6 class="mb-0">Cadastrar Novo Projeto</h6>
+            <h6 class="mb-0">{{ tt('Cadastrar Novo Projeto') }}</h6>
         </div>
         <div class="card-body pb-2">
             <form action="{{ url_for('projetos') }}" method="POST">
@@ -17,13 +17,13 @@
                     
                     <!-- Bloco Superior: Nome e Seleção de Grupo -->
                     <div class="col-md-6 mb-3">
-                        <label class="form-label fw-bold mb-1 text-muted small">Nome do Projeto</label>
-                        <input type="text" name="nome" class="form-control" required placeholder="Ex: Laboratório Azure Cloud">
+                        <label class="form-label fw-bold mb-1 text-muted small">{{ tt('Nome do Projeto') }}</label>
+                        <input type="text" name="nome" class="form-control" required placeholder="{{ tt('Ex: Laboratório Azure Cloud') }}">
                     </div>
                     <div class="col-md-6 mb-3">
-                        <label class="form-label fw-bold text-primary mb-1 small">Grupo Responsável (Alunos e Mentores)</label>
+                        <label class="form-label fw-bold text-primary mb-1 small">{{ tt('Grupo Responsável (Alunos e Mentores)') }}</label>
                         <select name="grupo_id" class="form-select border-primary" required>
-                            <option value="">Selecione um grupo para este projeto...</option>
+                            <option value="">{{ tt('Selecione um grupo para este projeto...') }}</option>
                             {% for g in grupos %}
                                 <option value="{{ g.id }}">{{ g.nome }}</option>
                             {% endfor %}
@@ -32,11 +32,11 @@
 
                     <!-- Bloco Inferior: Descrição e Botão de Submissão -->
                     <div class="col-md-10 mb-3">
-                        <label class="form-label fw-bold mb-1 text-muted small">Descrição / Objetivo</label>
-                        <input type="text" name="descricao" class="form-control" placeholder="Descreva brevemente o objetivo deste projeto...">
+                        <label class="form-label fw-bold mb-1 text-muted small">{{ tt('Descrição / Objetivo') }}</label>
+                        <input type="text" name="descricao" class="form-control" placeholder="{{ tt('Descreva brevemente o objetivo deste projeto...') }}">
                     </div>
                     <div class="col-md-2 mb-3">
-                        <button type="submit" class="btn btn-success w-100 fw-bold">+ Criar</button>
+                        <button type="submit" class="btn btn-success w-100 fw-bold">{{ tt('+ Criar') }}</button>
                     </div>
                     
                 </div>
@@ -48,13 +48,13 @@
     <!-- SEÇÃO 2: LISTAGEM E FILTRO DE PROJETOS EM ANDAMENTO                        -->
     <!-- ========================================================================== -->
     <div class="d-flex justify-content-between align-items-end mb-3 mt-5">
-        <h4 class="text-secondary mb-0">Projetos em Andamento</h4>
+        <h4 class="text-secondary mb-0">{{ tt('Projetos em Andamento') }}</h4>
         
         <!-- Formulário de Filtro Automático por Grupo -->
         <form action="{{ url_for('projetos') }}" method="GET" class="d-flex gap-2 align-items-center m-0">
-            <label class="form-label mb-0 fw-bold text-muted small text-nowrap">Filtrar por Grupo:</label>
+            <label class="form-label mb-0 fw-bold text-muted small text-nowrap">{{ tt('Filtrar por Grupo:') }}</label>
             <select name="grupo_filtro" class="form-select form-select-sm border-secondary shadow-sm" style="min-width: 220px;" onchange="this.form.submit()">
-                <option value="">Mostrar Todos os Projetos</option>
+                <option value="">{{ tt('Mostrar Todos os Projetos') }}</option>
                 {% for g in grupos %}
                     <option value="{{ g.id }}" {% if grupo_filtro == g.id|string %}selected{% endif %}>{{ g.nome }}</option>
                 {% endfor %}
@@ -68,32 +68,32 @@
         <!-- ================= CABEÇALHO DO PROJETO E EXCLUSÃO ================= -->
         <div class="card-header bg-light d-flex justify-content-between align-items-center">
             <div>
-                <h5 class="mb-0 text-primary fw-bold">Projeto: {{ p.nome }}</h5>
-                <small class="text-muted">Grupo: {{ p.grupo.nome }} | Criado em: {{ p.data_criacao.strftime('%d/%m/%Y') if p.data_criacao else 'Data não registrada' }}</small>
+                <h5 class="mb-0 text-primary fw-bold">{{ tt('Projeto:') }} {{ p.nome }}</h5>
+                <small class="text-muted">{{ tt('Grupo:') }} {{ p.grupo.nome }} {{ tt('| Criado em:') }} {{ p.data_criacao.strftime('%d/%m/%Y') if p.data_criacao else 'Data não registrada' }}</small>
             </div>
             
             <div class="d-flex align-items-center gap-3">
                 <!-- Porcentagem Total do Projeto -->
-                <span class="badge bg-success fs-6">Concluído: {{ p.percentual_conclusao }}%</span>
+                <span class="badge bg-success fs-6">{{ tt('Concluído:') }} {{ p.percentual_conclusao }}%</span>
                 
                 <!-- BOTÃO PARA AVALIAR PROJETO (Aparece apenas quando chega a 100% / Concluído) -->
                 {% if p.status == 'Concluído' and current_user.tipo_usuario != 'Aluno' %}
                 <button class="btn btn-sm btn-warning fw-bold text-dark me-2" data-bs-toggle="modal" data-bs-target="#modalAvaliarProjeto{{ p.id }}">
-                    <i class="bi bi-star-fill"></i> Avaliar TCC
+                    <i class="bi bi-star-fill"></i> {{ tt('Avaliar TCC') }}
                 </button>
                 {% endif %}
 
                 <!-- Botão de Acesso à Sala da Banca: avaliadores escalados e gestão -->
                 {% if pode_gerir_bancas(current_user) or eh_avaliador_da_banca(current_user, p.banca) %}
-                    <a href="{{ url_for('painel_banca', id=p.id) }}" class="btn btn-sm btn-success fw-bold px-3 me-2 shadow-sm" title="Acessar a Sala da Banca">
-                        <i class="bi bi-person-video3"></i> Sala da Banca
+                    <a href="{{ url_for('painel_banca', id=p.id) }}" class="btn btn-sm btn-success fw-bold px-3 me-2 shadow-sm" title="{{ tt('Acessar a Sala da Banca') }}">
+                        <i class="bi bi-person-video3"></i> {{ tt('Sala da Banca') }}
                     </a>
                 {% endif %}
                 {% if current_user.tipo_usuario != 'Aluno' %}
                     <!-- Botão de Emitir Certificado (só depois que a coordenação publica o resultado) -->
                     {% if p.status == 'Concluído' and p.notas_publicadas %}
                     <a href="{{ url_for('emitir_certificado', projeto_id=p.id, usuario_id=current_user.id) }}" target="_blank" class="btn btn-primary fw-bold shadow-sm ms-2">
-                        <i class="bi bi-award-fill"></i> Certificado
+                        <i class="bi bi-award-fill"></i> {{ tt('Certificado') }}
                     </a>
                     {% endif %}
                 {% endif %}
@@ -102,8 +102,8 @@
                 {% if current_user.tipo_usuario in ['Mentor', 'Mentor Administrador', 'Administrador'] %}
                 
                 <form action="{{ url_for('deletar_projeto', id=p.id) }}" method="POST" class="m-0" onsubmit="return confirm('ATENÇÃO EXTREMA: Tem certeza que deseja excluir o projeto inteiro? Todas as tarefas, subtarefas e anexos serão apagados para sempre. Essa ação não pode ser desfeita.');">
-                    <button type="submit" class="btn btn-sm btn-danger fw-bold" title="Excluir Projeto Inteiro">
-                        Excluir Projeto
+                    <button type="submit" class="btn btn-sm btn-danger fw-bold" title="{{ tt('Excluir Projeto Inteiro') }}">
+                        {{ tt('Excluir Projeto') }}
                     </button>
                 </form>
                 {% endif %}
@@ -116,7 +116,7 @@
             <!-- Botão Superior: Criar Nova Tarefa Vinculada ao Projeto -->
             <div class="p-2 bg-white text-end border-bottom">
                 <button class="btn btn-sm btn-primary fw-bold" data-bs-toggle="modal" data-bs-target="#modalTarefa{{ p.id }}">
-                    <i class="bi bi-plus-lg"></i> + Criar Nova Tarefa
+                    <i class="bi bi-plus-lg"></i> {{ tt('+ Criar Nova Tarefa') }}
                 </button>
             </div>
 
@@ -126,15 +126,15 @@
                     <!-- Títulos das Colunas -->
                     <thead class="table-light">
                         <tr>
-                            <th class="text-start" style="width: 25%;">Descrição / Atividade</th>
-                            <th>Data Início</th>
-                            <th>Data Fim</th>
-                            <th>Responsáveis</th>
-                            <th>Status</th>
-                            <th style="width: 12%;">% Conclusão</th>
-                            <th>Tempo</th>
-                            <th>Anexos</th>
-                            <th style="width: 10%;">Ações</th> 
+                            <th class="text-start" style="width: 25%;">{{ tt('Descrição / Atividade') }}</th>
+                            <th>{{ tt('Data Início') }}</th>
+                            <th>{{ tt('Data Fim') }}</th>
+                            <th>{{ tt('Responsáveis') }}</th>
+                            <th>{{ tt('Status') }}</th>
+                            <th style="width: 12%;">{{ tt('% Conclusão') }}</th>
+                            <th>{{ tt('Tempo') }}</th>
+                            <th>{{ tt('Anexos') }}</th>
+                            <th style="width: 10%;">{{ tt('Ações') }}</th> 
                         </tr>
                     </thead>
                     <tbody>
@@ -148,12 +148,12 @@
                                 <td>
                                     <span class="d-block fw-bold text-primary">{{ t.responsavel }}</span>
                                     {% if t.equipe_apoio %}
-                                    <small class="text-muted">Apoio: {{ t.equipe_apoio }}</small>
+                                    <small class="text-muted">{{ tt('Apoio:') }} {{ t.equipe_apoio }}</small>
                                     {% endif %}
                                 </td>
                                 <td>
                                     <span class="badge {% if t.status == 'Concluído' %}bg-success{% elif t.status == 'Em Andamento' %}bg-info text-dark{% else %}bg-secondary{% endif %}">
-                                        {{ t.status }}
+                                        {{ tt(t.status) }}
                                     </span>
                                 </td>
                                 <td>
@@ -173,8 +173,8 @@
 
                                 <td>
                                     {% if t.arquivo_anexo %}
-                                        <button class="btn btn-sm btn-outline-secondary py-0" data-bs-toggle="modal" data-bs-target="#modalAtualizarTarefa{{ t.id }}" title="Gerenciar Anexos">
-                                            <i class="bi bi-paperclip"></i> Anexos <span class="badge bg-secondary rounded-pill ms-1">{{ t.arquivo_anexo.split('|')|length }}</span>
+                                        <button class="btn btn-sm btn-outline-secondary py-0" data-bs-toggle="modal" data-bs-target="#modalAtualizarTarefa{{ t.id }}" title="{{ tt('Gerenciar Anexos') }}">
+                                            <i class="bi bi-paperclip"></i> {{ tt('Anexos') }} <span class="badge bg-secondary rounded-pill ms-1">{{ t.arquivo_anexo.split('|')|length }}</span>
                                         </button>
                                     {% else %}
                                         <span class="text-muted small">-</span>
@@ -183,9 +183,9 @@
                                 <td>
                                     <!-- Ações da Tarefa Principal -->
                                     <div class="d-flex justify-content-center gap-2">
-                                        <button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#modalAtualizarTarefa{{ t.id }}">Editar</button>
+                                        <button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#modalAtualizarTarefa{{ t.id }}">{{ tt('Editar') }}</button>
                                         <form action="{{ url_for('deletar_tarefa', id=t.id) }}" method="POST" class="d-inline" onsubmit="return confirm('Deseja excluir esta tarefa principal e TODAS as suas subtarefas?');">
-                                            <button type="submit" class="btn btn-sm btn-danger">Excluir</button>
+                                            <button type="submit" class="btn btn-sm btn-danger">{{ tt('Excluir') }}</button>
                                         </form>
                                     </div>
                                 </td>
@@ -202,12 +202,12 @@
                                 <td>
                                     <span class="d-block fw-bold text-secondary">{{ sub.responsavel }}</span>
                                     {% if sub.equipe_apoio %}
-                                    <small class="text-muted">Apoio: {{ sub.equipe_apoio }}</small>
+                                    <small class="text-muted">{{ tt('Apoio:') }} {{ sub.equipe_apoio }}</small>
                                     {% endif %}
                                 </td>
                                 <td>
                                     <span class="badge {% if sub.status == 'Concluído' %}bg-success{% elif sub.status == 'Em Andamento' %}bg-info text-dark{% else %}bg-secondary{% endif %}">
-                                        {{ sub.status }}
+                                        {{ tt(sub.status) }}
                                     </span>
                                 </td>
                                 <td>
@@ -227,8 +227,8 @@
 
                                 <td>
                                     {% if sub.arquivo_anexo %}
-                                        <button class="btn btn-sm btn-outline-secondary py-0" data-bs-toggle="modal" data-bs-target="#modalAtualizarTarefa{{ sub.id }}" title="Gerenciar Anexos">
-                                            <i class="bi bi-paperclip"></i> Anexos <span class="badge bg-secondary rounded-pill ms-1">{{ sub.arquivo_anexo.split('|')|length }}</span>
+                                        <button class="btn btn-sm btn-outline-secondary py-0" data-bs-toggle="modal" data-bs-target="#modalAtualizarTarefa{{ sub.id }}" title="{{ tt('Gerenciar Anexos') }}">
+                                            <i class="bi bi-paperclip"></i> {{ tt('Anexos') }} <span class="badge bg-secondary rounded-pill ms-1">{{ sub.arquivo_anexo.split('|')|length }}</span>
                                         </button>
                                     {% else %}
                                         <span class="text-muted small">-</span>
@@ -237,9 +237,9 @@
                                 <td>
                                     <!-- Ações da Subtarefa -->
                                     <div class="d-flex justify-content-center gap-2">
-                                        <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#modalAtualizarTarefa{{ sub.id }}">Editar</button>
+                                        <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#modalAtualizarTarefa{{ sub.id }}">{{ tt('Editar') }}</button>
                                         <form action="{{ url_for('deletar_tarefa', id=sub.id) }}" method="POST" class="d-inline" onsubmit="return confirm('Deseja excluir esta subtarefa?');">
-                                            <button type="submit" class="btn btn-sm btn-outline-danger">Excluir</button>
+                                            <button type="submit" class="btn btn-sm btn-outline-danger">{{ tt('Excluir') }}</button>
                                         </form>
                                     </div>
                                 </td>
@@ -249,7 +249,7 @@
                             {% endif %}
                         {% else %}
                         <tr>
-                            <td colspan="8" class="text-muted py-3">Nenhuma tarefa cadastrada para este projeto.</td>
+                            <td colspan="8" class="text-muted py-3">{{ tt('Nenhuma tarefa cadastrada para este projeto.') }}</td>
                         </tr>
                         {% endfor %}
                     </tbody>
@@ -266,7 +266,7 @@
             <div class="modal-content">
                 <form action="{{ url_for('nova_tarefa') }}" method="POST">
                     <div class="modal-header bg-primary text-white">
-                        <h5 class="modal-title">Nova Tarefa - {{ p.nome }}</h5>
+                        <h5 class="modal-title">{{ tt('Nova Tarefa -') }} {{ p.nome }}</h5>
                         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                     </div>
                     <div class="modal-body">
@@ -275,14 +275,14 @@
                         
                         <div class="row">
                             <div class="col-md-7 mb-3">
-                                <label class="form-label fw-bold">Descrição da Atividade</label>
-                                <input type="text" name="descricao" class="form-control" required placeholder="Ex: Pesquisar materiais e requisitos">
+                                <label class="form-label fw-bold">{{ tt('Descrição da Atividade') }}</label>
+                                <input type="text" name="descricao" class="form-control" required placeholder="{{ tt('Ex: Pesquisar materiais e requisitos') }}">
                             </div>
                             <!-- Dropdown: Define se é uma Tarefa Principal ou Subtarefa de outra -->
                             <div class="col-md-5 mb-3">
-                                <label class="form-label fw-bold text-secondary">É uma subtarefa de?</label>
+                                <label class="form-label fw-bold text-secondary">{{ tt('É uma subtarefa de?') }}</label>
                                 <select name="tarefa_pai_id" class="form-select border-secondary">
-                                    <option value="">Não (É Tarefa Principal)</option>
+                                    <option value="">{{ tt('Não (É Tarefa Principal)') }}</option>
                                     {% for tp in p.tarefas %}
                                         <!-- Lista apenas tarefas principais no dropdown -->
                                         {% if not tp.tarefa_pai_id %}
@@ -295,9 +295,9 @@
                         
                         <div class="row">
                             <div class="col-md-4 mb-3">
-                                <label class="form-label fw-bold text-success">Líder (Responsável)</label>
+                                <label class="form-label fw-bold text-success">{{ tt('Líder (Responsável)') }}</label>
                                 <select name="responsavel" class="form-select border-success" required>
-                                    <option value="">Selecione...</option>
+                                    <option value="">{{ tt('Selecione...') }}</option>
                                     {% for membro in p.grupo.membros %}
                                         <option value="{{ membro.nome }}">{{ membro.nome }}</option>
                                     {% endfor %}
@@ -305,43 +305,43 @@
                             </div>
                             <!-- Seleção Múltipla para Equipe de Apoio (Com Checkboxes) -->
                             <div class="col-md-8 mb-3">
-                                <label class="form-label fw-bold text-info">Equipe de Apoio (Opcional)</label>
+                                <label class="form-label fw-bold text-info">{{ tt('Equipe de Apoio (Opcional)') }}</label>
                                 <div class="border border-info-subtle rounded p-2 bg-white shadow-sm" style="max-height: 100px; overflow-y: auto;">
                                     {% for membro in p.grupo.membros %}
                                     <div class="form-check m-0">
                                         <input class="form-check-input border-info" type="checkbox" name="equipe_apoio" value="{{ membro.nome }}" id="novo_apoio_{{ p.id }}_{{ loop.index }}" style="cursor: pointer;">
                                         <label class="form-check-label small" for="novo_apoio_{{ p.id }}_{{ loop.index }}" style="cursor: pointer;">
-                                            {{ membro.nome }} <span class="text-muted" style="font-size: 0.75rem;">({{ membro.tipo_usuario }})</span>
+                                            {{ membro.nome }} <span class="text-muted" style="font-size: 0.75rem;">({{ tt(membro.tipo_usuario) }})</span>
                                         </label>
                                     </div>
                                     {% endfor %}
                                 </div>
-                                <small class="text-muted" style="font-size: 0.75rem;">Marque as caixas para adicionar colegas ao apoio.</small>
+                                <small class="text-muted" style="font-size: 0.75rem;">{{ tt('Marque as caixas para adicionar colegas ao apoio.') }}</small>
                             </div>
                         </div>
 
                         <div class="row">
                             <div class="col-md-4 mb-3">
-                                <label class="form-label fw-bold">Data Início</label>
+                                <label class="form-label fw-bold">{{ tt('Data Início') }}</label>
                                 <input type="date" name="data_inicio" class="form-control">
                             </div>
                             <div class="col-md-4 mb-3">
-                                <label class="form-label fw-bold">Data Conclusão</label>
+                                <label class="form-label fw-bold">{{ tt('Data Conclusão') }}</label>
                                 <input type="date" name="data_fim" class="form-control">
                             </div>
                             <div class="col-md-4 mb-3">
-                                <label class="form-label fw-bold">Status Inicial</label>
+                                <label class="form-label fw-bold">{{ tt('Status Inicial') }}</label>
                                 <select name="status" class="form-select">
-                                    <option value="Pendente">Pendente</option>
-                                    <option value="Em Andamento">Em Andamento</option>
-                                    <option value="Concluído">Concluído</option>
+                                    <option value="Pendente">{{ tt('Pendente') }}</option>
+                                    <option value="Em Andamento">{{ tt('Em Andamento') }}</option>
+                                    <option value="Concluído">{{ tt('Concluído') }}</option>
                                 </select>
                             </div>
                         </div>
                     </div>
                     <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                        <button type="submit" class="btn btn-success">Salvar Tarefa</button>
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{{ tt('Cancelar') }}</button>
+                        <button type="submit" class="btn btn-success">{{ tt('Salvar Tarefa') }}</button>
                     </div>
                 </form>
             </div>
@@ -357,20 +357,20 @@
             <div class="modal-content">
                 <form action="{{ url_for('atualizar_tarefa') }}" method="POST" enctype="multipart/form-data">
                     <div class="modal-header bg-info">
-                        <h5 class="modal-title fw-bold text-dark">Atualizar: {{ t.descricao }}</h5>
+                        <h5 class="modal-title fw-bold text-dark">{{ tt('Atualizar:') }} {{ t.descricao }}</h5>
                         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                     </div>
                     <div class="modal-body">
                         <input type="hidden" name="tarefa_id" value="{{ t.id }}">
 
                         <div class="mb-3">
-                            <label class="form-label fw-bold">Descrição da Atividade</label>
+                            <label class="form-label fw-bold">{{ tt('Descrição da Atividade') }}</label>
                             <input type="text" name="descricao" class="form-control" value="{{ t.descricao }}" required>
                         </div>
 
                         <div class="row mb-3">
                             <div class="col-md-4 mb-3 mb-md-0">
-                                <label class="form-label fw-bold text-success">Líder (Responsável)</label>
+                                <label class="form-label fw-bold text-success">{{ tt('Líder (Responsável)') }}</label>
                                 <select name="responsavel" class="form-select border-success" required>
                                     {% for membro in p.grupo.membros %}
                                         <option value="{{ membro.nome }}" {% if t.responsavel == membro.nome %}selected{% endif %}>{{ membro.nome }}</option>
@@ -378,45 +378,45 @@
                                 </select>
                             </div>
                             <div class="col-md-8">
-                                <label class="form-label fw-bold text-info">Equipe de Apoio (Opcional)</label>
+                                <label class="form-label fw-bold text-info">{{ tt('Equipe de Apoio (Opcional)') }}</label>
                                 <select name="equipe_apoio" class="form-select border-info" multiple size="3">
                                     {% for membro in p.grupo.membros %}
                                         <option value="{{ membro.nome }}" {% if membro.nome in (t.equipe_apoio or '') %}selected{% endif %}>{{ membro.nome }}</option>
                                     {% endfor %}
                                 </select>
-                                <small class="text-muted">Segure CTRL para selecionar múltiplos ou remover seleções.</small>
+                                <small class="text-muted">{{ tt('Segure CTRL para selecionar múltiplos ou remover seleções.') }}</small>
                             </div>
                         </div>
                         
                         <div class="row mb-3">
                             <div class="col-md-3 mb-2">
-                                <label class="form-label fw-bold">Data de Início</label>
+                                <label class="form-label fw-bold">{{ tt('Data de Início') }}</label>
                                 <input type="date" name="data_inicio" id="dt_ini_tar_{{ t.id }}" class="form-control" value="{{ t.data_inicio.strftime('%Y-%m-%d') if t.data_inicio else '' }}" onchange="gerarGradeTar_{{ t.id }}()">
                             </div>
                             <div class="col-md-3 mb-2">
-                                <label class="form-label fw-bold">Data Conclusão</label>
+                                <label class="form-label fw-bold">{{ tt('Data Conclusão') }}</label>
                                 <input type="date" name="data_fim" id="dt_fim_tar_{{ t.id }}" class="form-control" value="{{ t.data_fim.strftime('%Y-%m-%d') if t.data_fim else '' }}" onchange="gerarGradeTar_{{ t.id }}()">
                             </div>
                             <div class="col-md-3 mb-2">
-                                <label class="form-label fw-bold">Status da Tarefa</label>
+                                <label class="form-label fw-bold">{{ tt('Status da Tarefa') }}</label>
                                 <select name="status" class="form-select">
-                                    <option value="Pendente" {% if t.status == 'Pendente' %}selected{% endif %}>Pendente</option>
-                                    <option value="Em Andamento" {% if t.status == 'Em Andamento' %}selected{% endif %}>Em Andamento</option>
-                                    <option value="Concluído" {% if t.status == 'Concluído' %}selected{% endif %}>Concluído</option>
+                                    <option value="Pendente" {% if t.status == 'Pendente' %}selected{% endif %}>{{ tt('Pendente') }}</option>
+                                    <option value="Em Andamento" {% if t.status == 'Em Andamento' %}selected{% endif %}>{{ tt('Em Andamento') }}</option>
+                                    <option value="Concluído" {% if t.status == 'Concluído' %}selected{% endif %}>{{ tt('Concluído') }}</option>
                                 </select>
                             </div>
                             <div class="col-md-3 mb-2">
-                                <label class="form-label fw-bold">% Conclusão</label>
+                                <label class="form-label fw-bold">{{ tt('% Conclusão') }}</label>
                                 <input type="number" name="percentual_conclusao" class="form-control" min="0" max="100" value="{{ t.percentual_conclusao }}" 
-                                {% if t.subtarefas %}readonly title="Calculado automaticamente pela média das subtarefas"{% else %}required{% endif %}>
-                                {% if t.subtarefas %}<small class="text-danger fw-bold" style="font-size: 0.70rem;">Travado (Automático)</small>{% endif %}
+                                {% if t.subtarefas %}readonly title="{{ tt('Calculado automaticamente pela média das subtarefas') }}"{% else %}required{% endif %}>
+                                {% if t.subtarefas %}<small class="text-danger fw-bold" style="font-size: 0.70rem;">{{ tt('Travado (Automático)') }}</small>{% endif %}
                             </div>
                         </div>
 
                         <!-- EXIBIÇÃO VISUAL DOS HORÁRIOS GUARDADOS -->
                         {% if t.planejamento_tarefa %}
                         <div class="mb-3 p-3 bg-white border border-success rounded shadow-sm">
-                            <label class="form-label fw-bold text-success small mb-2">📅 Horários Guardados para o Líder:</label>
+                            <label class="form-label fw-bold text-success small mb-2">{{ tt('📅 Horários Guardados para o Líder:') }}</label>
                             <div class="d-flex flex-wrap gap-2">
                                 {% set slots = t.planejamento_tarefa.split('|') %}
                                 {% for slot in slots %}
@@ -424,7 +424,7 @@
                                     {% if partes|length == 3 %}
                                     <div class="badge bg-light border border-success-subtle text-dark p-2 text-start shadow-sm" style="font-size: 0.85em;">
                                         <span class="text-success fw-bold"><i class="bi bi-calendar-event"></i> {{ partes[0] }}</span><br>
-                                        <i class="bi bi-clock text-muted"></i> {{ partes[1] }} às {{ partes[2] }}
+                                        <i class="bi bi-clock text-muted"></i> {{ partes[1] }} {{ tt('às') }} {{ partes[2] }}
                                     </div>
                                     {% endif %}
                                 {% endfor %}
@@ -434,8 +434,8 @@
 
                         <!-- Bloco Dinâmico para Novos Slots de Tempo -->
                         <div class="mb-3 p-3 bg-light border border-primary-subtle rounded d-none" id="box_grade_tar_{{ t.id }}">
-                            <label class="form-label fw-bold text-primary mb-2">🗓️ Definir Horários de Trabalho</label>
-                            <p class="small text-muted mb-2">Preencha <strong>apenas</strong> os dias que for trabalhar. Apenas a agenda do Líder Responsável será sincronizada.</p>
+                            <label class="form-label fw-bold text-primary mb-2">{{ tt('🗓️ Definir Horários de Trabalho') }}</label>
+                            <p class="small text-muted mb-2">{{ tt('Preencha') }} <strong>{{ tt('apenas') }}</strong> {{ tt('os dias que for trabalhar. Apenas a agenda do Líder Responsável será sincronizada.') }}</p>
                             <div id="lista_dias_tar_{{ t.id }}" class="d-flex flex-column gap-2 mb-3" style="max-height: 200px; overflow-y: auto;"></div>
                         </div>
 
@@ -483,7 +483,7 @@
 
                         <!-- NOVA CAIXA EXCLUSIVA PARA ANEXOS MÚLTIPLOS -->
                         <div class="p-3 bg-light border border-secondary-subtle rounded mb-3">
-                            <label class="form-label fw-bold text-primary mb-3"><i class="bi bi-paperclip"></i> Materiais de Apoio (Anexos da Tarefa)</label>
+                            <label class="form-label fw-bold text-primary mb-3"><i class="bi bi-paperclip"></i> {{ tt('Materiais de Apoio (Anexos da Tarefa)') }}</label>
                             
                             {% if t.arquivo_anexo %}
                                 <div class="d-flex flex-column gap-2 mb-2">
@@ -509,10 +509,10 @@
                                             {% if pode_excluir_anexo %}
                                                 <div class="form-check m-0 d-flex align-items-center gap-2">
                                                     <input class="form-check-input mt-0 border-danger" type="checkbox" name="materiais_excluir" value="{{ mat }}" id="remover_{{ t.id }}_{{ loop.index }}" style="cursor: pointer; width: 1.2rem; height: 1.2rem;">
-                                                    <label class="form-check-label text-danger fw-bold small mb-0" for="remover_{{ t.id }}_{{ loop.index }}" style="cursor: pointer;">Marcar p/ Excluir</label>
+                                                    <label class="form-check-label text-danger fw-bold small mb-0" for="remover_{{ t.id }}_{{ loop.index }}" style="cursor: pointer;">{{ tt('Marcar p/ Excluir') }}</label>
                                                 </div>
                                             {% else %}
-                                                <span class="badge bg-secondary" title="Apenas mentores podem apagar este arquivo">🔒 Protegido</span>
+                                                <span class="badge bg-secondary" title="{{ tt('Apenas mentores podem apagar este arquivo') }}">{{ tt('🔒 Protegido') }}</span>
                                             {% endif %}
                                         </div>
                                     {% endfor %}
@@ -520,33 +520,33 @@
                                 
                                 <div class="text-end mb-3 border-bottom pb-3">
                                     <button type="submit" name="acao_modal" value="manter_aberto" class="btn btn-sm btn-danger fw-bold px-3 shadow-sm">
-                                        🗑️ Confirmar Exclusão
+                                        {{ tt('🗑️ Confirmar Exclusão') }}
                                     </button>
                                 </div>
                             {% else %}
-                                <div class="alert alert-secondary py-2 small mb-3">Nenhum arquivo anexado a esta tarefa no momento.</div>
+                                <div class="alert alert-secondary py-2 small mb-3">{{ tt('Nenhum arquivo anexado a esta tarefa no momento.') }}</div>
                             {% endif %}
                             
                             <!-- Upload Area -->
-                            <label class="form-label small fw-bold text-muted mb-1">Anexar Novos Arquivos (Upload Múltiplo)</label>
+                            <label class="form-label small fw-bold text-muted mb-1">{{ tt('Anexar Novos Arquivos (Upload Múltiplo)') }}</label>
                             <div class="input-group mb-1">
                                 <label class="btn btn-light border mb-0 fw-bold text-primary" for="uploadAnexosMulti{{ t.id }}">
-                                    + Escolher Arquivos
+                                    {{ tt('+ Escolher Arquivos') }}
                                 </label>
                                 <input type="file" class="d-none" id="uploadAnexosMulti{{ t.id }}" name="arquivos_anexos" multiple onchange="document.getElementById('textAnexosMulti{{ t.id }}').value = this.files.length > 0 ? this.files.length + ' arquivo(s) selecionado(s)' : 'Nenhum arquivo selecionado'">
-                                <input type="text" class="form-control bg-white text-muted" id="textAnexosMulti{{ t.id }}" placeholder="Nenhum arquivo selecionado" readonly>
+                                <input type="text" class="form-control bg-white text-muted" id="textAnexosMulti{{ t.id }}" placeholder="{{ tt('Nenhum arquivo selecionado') }}" readonly>
                                 
                                 <button type="submit" name="acao_modal" value="manter_aberto" class="btn btn-primary fw-bold px-4 shadow-sm">
-                                    📤 Anexar
+                                    {{ tt('📤 Anexar') }}
                                 </button>
                             </div>
-                            <div class="form-text" style="font-size: 0.75rem;">Para enviar, selecione os arquivos e clique no botão <strong>"Anexar"</strong> azul ao lado.</div>
+                            <div class="form-text" style="font-size: 0.75rem;">{{ tt('Para enviar, selecione os arquivos e clique no botão') }} <strong>{{ tt('"Anexar"') }}</strong> {{ tt('azul ao lado.') }}</div>
                         </div>
 
                     </div>
                     <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                        <button type="submit" class="btn btn-info fw-bold text-dark">Salvar Alterações</button>
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{{ tt('Cancelar') }}</button>
+                        <button type="submit" class="btn btn-info fw-bold text-dark">{{ tt('Salvar Alterações') }}</button>
                     </div>
                 </form>
             </div>
@@ -561,7 +561,7 @@
         <div class="modal-dialog modal-xl modal-dialog-scrollable">
             <div class="modal-content shadow-lg">
                 <div class="modal-header bg-warning text-dark">
-                    <h5 class="modal-title fw-bold"><i class="bi bi-award-fill"></i> Avaliação do Projeto: {{ p.nome }}</h5>
+                    <h5 class="modal-title fw-bold"><i class="bi bi-award-fill"></i> {{ tt('Avaliação do Projeto:') }} {{ p.nome }}</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <form action="{{ url_for('avaliar_projeto', id=p.id) }}" method="POST">
@@ -575,8 +575,8 @@
                         
                         <!-- Painel Inteligente de Métricas da Equipa -->
                         <div class="alert alert-secondary border-secondary mb-4 d-flex justify-content-between align-items-center flex-wrap">
-                            <span><i class="bi bi-clock-history text-primary"></i> <strong>Tempo total investido pela equipa:</strong> {{ tempo.minutos // 60 }}h {{ tempo.minutos % 60 }}m</span>
-                            <span><i class="bi bi-check2-all text-success"></i> <strong>Tarefas concluídas:</strong> {{ p.tarefas|length }}</span>
+                            <span><i class="bi bi-clock-history text-primary"></i> <strong>{{ tt('Tempo total investido pela equipa:') }}</strong> {{ tempo.minutos // 60 }}h {{ tempo.minutos % 60 }}m</span>
+                            <span><i class="bi bi-check2-all text-success"></i> <strong>{{ tt('Tarefas concluídas:') }}</strong> {{ p.tarefas|length }}</span>
                         </div>
 
                         <div class="row">
@@ -584,17 +584,17 @@
                             <div class="col-md-12 mb-4">
                                 <div class="card border-warning shadow-sm">
                                     <div class="card-header bg-warning-subtle fw-bold text-dark">
-                                        1. Avaliação Coletiva (Nota do Grupo)
+                                        {{ tt('1. Avaliação Coletiva (Nota do Grupo)') }}
                                     </div>
                                     <div class="card-body">
                                         <div class="row">
                                             <div class="col-md-6 mb-3">
-                                                <label class="form-label fw-bold small text-dark">Nota de Conteúdo (0 a 10)</label>
-                                                <input type="number" step="0.1" min="0" max="10" name="nota_conteudo" class="form-control" value="{{ p.nota_conteudo or '' }}" placeholder="Qualidade técnica e pesquisa">
+                                                <label class="form-label fw-bold small text-dark">{{ tt('Nota de Conteúdo (0 a 10)') }}</label>
+                                                <input type="number" step="0.1" min="0" max="10" name="nota_conteudo" class="form-control" value="{{ p.nota_conteudo or '' }}" placeholder="{{ tt('Qualidade técnica e pesquisa') }}">
                                             </div>
                                             <div class="col-md-6 mb-3">
-                                                <label class="form-label fw-bold small text-dark">Nota de Apresentação (0 a 10)</label>
-                                                <input type="number" step="0.1" min="0" max="10" name="nota_apresentacao" class="form-control" value="{{ p.nota_apresentacao or '' }}" placeholder="Organização, clareza e design">
+                                                <label class="form-label fw-bold small text-dark">{{ tt('Nota de Apresentação (0 a 10)') }}</label>
+                                                <input type="number" step="0.1" min="0" max="10" name="nota_apresentacao" class="form-control" value="{{ p.nota_apresentacao or '' }}" placeholder="{{ tt('Organização, clareza e design') }}">
                                             </div>
                                         </div>
                                     </div>
@@ -605,17 +605,17 @@
                             <div class="col-md-12">
                                 <div class="card border-primary shadow-sm">
                                     <div class="card-header bg-primary-subtle text-primary fw-bold">
-                                        2. Avaliação Individual (Por Aluno)
+                                        {{ tt('2. Avaliação Individual (Por Aluno)') }}
                                     </div>
                                     <div class="card-body p-0">
                                         <div class="table-responsive">
                                             <table class="table table-hover align-middle mb-0">
                                                 <thead class="table-light">
                                                     <tr>
-                                                        <th class="ps-3 text-secondary">Aluno</th>
-                                                        <th width="15%" class="text-secondary">Postura</th>
-                                                        <th width="15%" class="text-secondary">Domínio</th>
-                                                        <th width="35%" class="text-secondary">Observações (Feedback)</th>
+                                                        <th class="ps-3 text-secondary">{{ tt('Aluno') }}</th>
+                                                        <th width="15%" class="text-secondary">{{ tt('Postura') }}</th>
+                                                        <th width="15%" class="text-secondary">{{ tt('Domínio') }}</th>
+                                                        <th width="35%" class="text-secondary">{{ tt('Observações (Feedback)') }}</th>
                                                     </tr>
                                                 </thead>
                                                 <tbody>
@@ -627,18 +627,18 @@
                                                             <tr>
                                                                 <td class="ps-3 fw-bold text-dark">{{ membro.nome }}</td>
                                                                 <td>
-                                                                    <input type="number" step="0.1" min="0" max="10" name="nota_postura_{{ membro.id }}" class="form-control form-control-sm border-primary" value="{{ av.nota_postura if av else '' }}" placeholder="0 a 10">
+                                                                    <input type="number" step="0.1" min="0" max="10" name="nota_postura_{{ membro.id }}" class="form-control form-control-sm border-primary" value="{{ av.nota_postura if av else '' }}" placeholder="{{ tt('0 a 10') }}">
                                                                 </td>
                                                                 <td>
-                                                                    <input type="number" step="0.1" min="0" max="10" name="nota_dominio_{{ membro.id }}" class="form-control form-control-sm border-primary" value="{{ av.nota_dominio if av else '' }}" placeholder="0 a 10">
+                                                                    <input type="number" step="0.1" min="0" max="10" name="nota_dominio_{{ membro.id }}" class="form-control form-control-sm border-primary" value="{{ av.nota_dominio if av else '' }}" placeholder="{{ tt('0 a 10') }}">
                                                                 </td>
                                                                 <td class="pe-3">
-                                                                    <input type="text" name="obs_mentor_{{ membro.id }}" class="form-control form-control-sm border-primary" value="{{ av.observacoes_mentor if av else '' }}" placeholder="Feedback individual...">
+                                                                    <input type="text" name="obs_mentor_{{ membro.id }}" class="form-control form-control-sm border-primary" value="{{ av.observacoes_mentor if av else '' }}" placeholder="{{ tt('Feedback individual...') }}">
                                                                 </td>
                                                             </tr>
                                                         {% endfor %}
                                                     {% else %}
-                                                        <tr><td colspan="4" class="text-center text-muted py-4">Este projeto não tem um grupo vinculado.</td></tr>
+                                                        <tr><td colspan="4" class="text-center text-muted py-4">{{ tt('Este projeto não tem um grupo vinculado.') }}</td></tr>
                                                     {% endif %}
                                                 </tbody>
                                             </table>
@@ -650,8 +650,8 @@
 
                     </div>
                     <div class="modal-footer bg-white">
-                        <button type="button" class="btn btn-secondary fw-bold" data-bs-dismiss="modal">Cancelar</button>
-                        <button type="submit" class="btn btn-warning fw-bold text-dark">Salvar Avaliação do TCC</button>
+                        <button type="button" class="btn btn-secondary fw-bold" data-bs-dismiss="modal">{{ tt('Cancelar') }}</button>
+                        <button type="submit" class="btn btn-warning fw-bold text-dark">{{ tt('Salvar Avaliação do TCC') }}</button>
                     </div>
                 </form>
             </div>

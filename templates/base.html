@@ -282,6 +282,24 @@
             color: #64748b !important; /* Placeholder suave para não chamar atenção excessiva */
         }
 
+        /* Campos de busca com Tom Select (ex.: filtro de aluno no Diário › Frequência) nos temas escuros */
+        [data-theme="escuro"] .ts-wrapper, [data-theme="escuro"] .ts-control, [data-theme="escuro"] .ts-control input,
+        [data-theme="escuro"] .ts-dropdown {
+            background-color: #18181b !important;
+            color: #f4f4f5 !important;
+            border-color: #3f3f46 !important;
+        }
+        [data-theme="futurista"] .ts-wrapper, [data-theme="futurista"] .ts-control, [data-theme="futurista"] .ts-control input,
+        [data-theme="futurista"] .ts-dropdown {
+            background-color: #1e293b !important;
+            color: #f1f5f9 !important;
+            border-color: #475569 !important;
+        }
+        [data-theme="escuro"] .ts-dropdown .active, [data-theme="futurista"] .ts-dropdown .active {
+            background-color: #334155 !important;
+            color: #ffffff !important;
+        }
+
         /* Botões secundários e principais no Tema Futurista */
         [data-theme="futurista"] .btn-info,
         [data-theme="futurista"] .btn-warning,

@@ -42,7 +42,7 @@
 
             <!-- NOVO CAMPO: Calendário (Data de Início) -->
             <div class="col-md-3 mb-2">
-                <label class="form-label small text-muted fw-bold">Data de Início</label>
+                <label class="form-label small text-muted fw-bold">{{ tt('Data de Início') }}</label>
                 <input type="date" name="data_inicio" class="form-control" required>
             </div>
             
@@ -53,7 +53,7 @@
 
             <div class="col-md-3 mb-2">
                 <label class="form-label small text-muted fw-bold">{{ t('destino_interno') }}</label>
-                <input type="text" name="destino_interno" class="form-control" placeholder="Padrão: Backup_repository">
+                <input type="text" name="destino_interno" class="form-control" placeholder="{{ tt('Padrão: Backup_repository') }}">
             </div>
             
             <div class="col-md-2 mb-2">
@@ -131,7 +131,7 @@
                     <form method="POST" action="{{ url_for('manutencao_banco') }}" onsubmit="return confirm('⚠️ ZONA DE PERIGO: Tem certeza que deseja apagar permanentemente todo o histórico de auditoria? Esta ação irá gerar um log no servidor.');" class="m-0">
                         <input type="hidden" name="acao" value="limpar_auditoria">
                         <button type="submit" class="btn btn-outline-danger fw-bold shadow-sm">
-                            🗑️ Apagar Todo o Histórico
+                            {{ tt('🗑️ Apagar Todo o Histórico') }}
                         </button>
                     </form>
                     {% endif %}

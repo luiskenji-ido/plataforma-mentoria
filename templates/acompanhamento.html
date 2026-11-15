@@ -250,13 +250,13 @@
         {% if session.get('google_token') %}
             <div class="d-flex gap-2">
                 <!-- Botão inativo que serve apenas como um selo de status -->
-                <button type="button" class="btn btn-success fw-bold shadow-sm" style="cursor: default;" title="Os prazos que você salvar serão enviados automaticamente para o Google Agenda.">
-                    <i class="bi bi-calendar-check"></i> Sincronização Automática Ativa
+                <button type="button" class="btn btn-success fw-bold shadow-sm" style="cursor: default;" title="{{ tt('Os prazos que você salvar serão enviados automaticamente para o Google Agenda.') }}">
+                    <i class="bi bi-calendar-check"></i> {{ tt('Sincronização Automática Ativa') }}
                 </button>
                 
                 <!-- Novo Botão de Desconectar -->
-                <a href="{{ url_for('desconectar_agenda') }}" class="btn btn-outline-danger fw-bold shadow-sm" title="Desconectar do Google">
-                    <i class="bi bi-x-circle"></i> Desconectar
+                <a href="{{ url_for('desconectar_agenda') }}" class="btn btn-outline-danger fw-bold shadow-sm" title="{{ tt('Desconectar do Google') }}">
+                    <i class="bi bi-x-circle"></i> {{ tt('Desconectar') }}
                 </a>
             </div>
         {% else %}
@@ -331,7 +331,7 @@
                         
                         <!-- PROGRESSO DO MENTOR -->
                         {% if current_user.tipo_usuario != 'Aluno' %}
-                        <label class="form-label text-primary small fw-bold mt-2">Validação do Mentor ({{ item.reg.percentual_mentor or 0 }}%)</label>
+                        <label class="form-label text-primary small fw-bold mt-2">{{ tt('Validação do Mentor (') }}{{ item.reg.percentual_mentor or 0 }}%)</label>
                         <div class="progress mb-2" style="height: 15px;">
                             <div class="progress-bar bg-primary progress-bar-striped" style="width: {{ item.reg.percentual_mentor or 0 }}%;"></div>
                         </div>
@@ -360,7 +360,7 @@
                                 🔍 {{ t('btn_expandir_parecer') }}
                             </button>
                         </div>
-                        <div class="fundo-caderno display-caderno mb-2 text-start">{% if item.reg.data_parecer_mentor %}<span class="badge bg-light text-primary border border-primary-subtle float-end ms-2" style="font-size: 0.65rem;">Atualizado: {{ item.reg.data_parecer_mentor.strftime('%d/%m/%Y %H:%M') }}</span>{% endif %}{{ item.reg.observacao if item.reg.observacao and item.reg.observacao != 'None' else t('nenhum_parecer') }}</div>
+                        <div class="fundo-caderno display-caderno mb-2 text-start">{% if item.reg.data_parecer_mentor %}<span class="badge bg-light text-primary border border-primary-subtle float-end ms-2" style="font-size: 0.65rem;">{{ tt('Atualizado:') }} {{ item.reg.data_parecer_mentor.strftime('%d/%m/%Y %H:%M') }}</span>{% endif %}{{ item.reg.observacao if item.reg.observacao and item.reg.observacao != 'None' else t('nenhum_parecer') }}</div>
                     </div>
                     
                     <div class="col-md-4 d-flex flex-column align-items-end gap-2">
@@ -371,7 +371,7 @@
                                 <!-- SE JÁ FEZ CHECK-IN: Libera o acesso -->
                                 <div class="w-100 mb-1 text-center">
                                     <span class="badge bg-success-subtle text-success border border-success mb-1 w-100 py-1">
-                                        <i class="bi bi-check-circle-fill"></i> Presença Registrada Hoje!
+                                        <i class="bi bi-check-circle-fill"></i> {{ tt('Presença Registrada Hoje!') }}
                                     </span>
                                     {% if item.curso.url %}
                                         <a href="{{ item.curso.url }}" target="_blank" class="btn btn-sm btn-acessar-curso w-100 text-center fw-bold">{{ t('acessar_curso') }}</a>
@@ -380,11 +380,11 @@
                             {% else %}
                                 <!-- SE AINDA NÃO FEZ CHECK-IN: Mostra o botão trancado -->
                                 <div class="w-100 mb-1 p-2 bg-light border border-warning rounded text-center shadow-sm">
-                                    <span class="d-block small text-warning-emphasis fw-bold mb-2">🔒 Aula Trancada</span>
+                                    <span class="d-block small text-warning-emphasis fw-bold mb-2">{{ tt('🔒 Aula Trancada') }}</span>
                                     <form action="{{ url_for('fazer_checkin_aula') }}" method="POST">
                                         <input type="hidden" name="curso_id" value="{{ item.curso.id }}">
                                         <button type="submit" class="btn btn-sm btn-warning w-100 text-dark fw-bold shadow-sm">
-                                            <i class="bi bi-fingerprint"></i> Marcar Presença e Iniciar
+                                            <i class="bi bi-fingerprint"></i> {{ tt('Marcar Presença e Iniciar') }}
                                         </button>
                                     </form>
                                 </div>
@@ -399,18 +399,18 @@
                         {% if item.reg.material_apoio %}
                             {% set materiais = item.reg.material_apoio.split('|') %}
                             <button type="button" class="btn btn-sm btn-material-apoio w-100 text-center fw-bold mb-1" data-bs-toggle="modal" data-bs-target="#modalListaMateriais{{ item.reg.id }}">
-                                📄 Acessar Materiais ({{ materiais|length }})
+                                {{ tt('📄 Acessar Materiais (') }}{{ materiais|length }})
                             </button>
                         {% endif %}
 
                         {% if item.reg.certificado %}
-                            <a href="{{ url_for('acessar_upload', nome_arquivo=item.reg.certificado) }}" target="_blank" class="btn btn-sm btn-outline-success w-100 text-center fw-bold mb-1">Ver Certificado</a>
+                            <a href="{{ url_for('acessar_upload', nome_arquivo=item.reg.certificado) }}" target="_blank" class="btn btn-sm btn-outline-success w-100 text-center fw-bold mb-1">{{ tt('Ver Certificado') }}</a>
                         {% endif %}
 
                         {% if item.reg.status != 'Desativado' %}
                             <button class="btn btn-sm btn-primary w-100 fw-bold" data-bs-toggle="modal" data-bs-target="#modalEditar{{ item.reg.id }}">{{ t('atualizar_progresso_anotacoes') }}</button>
                         {% else %}
-                            <button class="btn btn-sm btn-secondary w-100" disabled>Curso Desativado (Apenas Leitura)</button>
+                            <button class="btn btn-sm btn-secondary w-100" disabled>{{ tt('Curso Desativado (Apenas Leitura)') }}</button>
                         {% endif %}
                     </div>
                 </div>
@@ -432,7 +432,7 @@
                     <input type="hidden" name="acompanhamento_id" value="{{ item.reg.id }}">
                     
                     <div class="modal-body bg-light">
-                        <p class="text-muted small mb-3">Clique em "Abrir" para visualizar ou selecione as caixas laterais para excluir (conforme sua permissão de perfil).</p>
+                        <p class="text-muted small mb-3">{{ tt('Clique em "Abrir" para visualizar ou selecione as caixas laterais para excluir (conforme sua permissão de perfil).') }}</p>
                         
                         <div class="d-flex flex-column gap-2">
                             {% set materiais = item.reg.material_apoio.split('|') %}
@@ -452,7 +452,7 @@
                                     {% if pode_excluir %}
                                         <input class="form-check-input m-0" type="checkbox" name="materiais_excluir" value="{{ mat }}" style="width: 1.2rem; height: 1.2rem;">
                                     {% else %}
-                                        <input class="form-check-input m-0" type="checkbox" disabled title="Sem permissão para excluir material do Mentor" style="width: 1.2rem; height: 1.2rem;">
+                                        <input class="form-check-input m-0" type="checkbox" disabled title="{{ tt('Sem permissão para excluir material do Mentor') }}" style="width: 1.2rem; height: 1.2rem;">
                                     {% endif %}
                                     
                                     <div class="flex-grow-1 text-truncate">
@@ -473,7 +473,7 @@
                     </div>
                     
                     <div class="modal-footer bg-white d-flex justify-content-between">
-                        <button type="submit" class="btn btn-danger fw-bold shadow-sm" onclick="return confirm('Tem certeza que deseja excluir os materiais selecionados?')">🗑️ Excluir Selecionados</button>
+                        <button type="submit" class="btn btn-danger fw-bold shadow-sm" onclick="return confirm('Tem certeza que deseja excluir os materiais selecionados?')">{{ tt('🗑️ Excluir Selecionados') }}</button>
                         <button type="button" class="btn btn-secondary fw-bold shadow-sm" data-bs-dismiss="modal">{{ t('cancelar') }}</button>
                     </div>
                 </form>
@@ -536,7 +536,7 @@
                     <div class="modal-footer">
                         <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">{{ t('cancelar') }}</button>
                         {% if current_user.tipo_usuario != 'Aluno' %}
-                        <button type="submit" class="btn btn-primary fw-bold" style="background-color: #198754 !important; border-color: #198754 !important; color: white !important;">Salvar Parecer</button>
+                        <button type="submit" class="btn btn-primary fw-bold" style="background-color: #198754 !important; border-color: #198754 !important; color: white !important;">{{ tt('Salvar Parecer') }}</button>
                         {% endif %}
                     </div>
                 </form>
@@ -554,7 +554,7 @@
                     <div>
                         <button type="button" class="btn btn-sm text-white me-2 d-inline-flex align-items-center justify-content-center" 
                                 onclick="document.getElementById('dialogEditar{{ item.reg.id }}').classList.toggle('modal-fullscreen');" 
-                                title="Tela Cheia / Restaurar" style="background: rgba(255,255,255,0.2); border: none; width: 30px; height: 30px;">
+                                title="{{ tt('Tela Cheia / Restaurar') }}" style="background: rgba(255,255,255,0.2); border: none; width: 30px; height: 30px;">
                             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
                                 <path fill-rule="evenodd" d="M5.828 10.172a.5.5 0 0 0-.707 0l-4.096 4.096V11.5a.5.5 0 0 0-1 0v3.975a.5.5 0 0 0 .5.5H4.5a.5.5 0 0 0 0-1H1.732l4.096-4.096a.5.5 0 0 0 0-.707m4.344 0a.5.5 0 0 1 .707 0l4.096 4.096V11.5a.5.5 0 1 1 1 0v3.975a.5.5 0 0 1-.5.5H11.5a.5.5 0 0 1 0-1h2.768l-4.096-4.096a.5.5 0 0 1 0-.707m0-4.344a.5.5 0 0 0 .707 0l4.096-4.096V4.5a.5.5 0 1 0 1 0V.525a.5.5 0 0 0-.5-.5H11.5a.5.5 0 0 0 0 1h2.768l-4.096 4.096a.5.5 0 0 0 0 .707m-4.344 0a.5.5 0 0 1-.707 0L1.025 1.732V4.5a.5.5 0 0 1-1 0V.525a.5.5 0 0 1 .5-.5H4.5a.5.5 0 0 1 0 1H1.732l4.096 4.096a.5.5 0 0 1 0 .707"/>
                             </svg>
@@ -590,7 +590,7 @@
                         <div class="col-md-6 mb-3">
                             <label class="form-label">
                                 {{ t('data_inicio') }}
-                                {% if current_user.tipo_usuario == 'Aluno' %}<i class="bi bi-lock-fill text-muted small" title="Apenas professores podem mudar"></i>{% endif %}
+                                {% if current_user.tipo_usuario == 'Aluno' %}<i class="bi bi-lock-fill text-muted small" title="{{ tt('Apenas professores podem mudar') }}"></i>{% endif %}
                             </label>
                             <input type="date" name="data_inicio" id="dt_ini_{{ item.reg.id }}" 
                                    class="form-control {% if current_user.tipo_usuario == 'Aluno' %}bg-light text-muted{% endif %}" 
@@ -601,7 +601,7 @@
                         <div class="col-md-6 mb-3">
                             <label class="form-label">
                                 {{ t('data_termino_meta') }}
-                                {% if current_user.tipo_usuario == 'Aluno' %}<i class="bi bi-lock-fill text-muted small" title="Apenas professores podem mudar"></i>{% endif %}
+                                {% if current_user.tipo_usuario == 'Aluno' %}<i class="bi bi-lock-fill text-muted small" title="{{ tt('Apenas professores podem mudar') }}"></i>{% endif %}
                             </label>
                             <input type="date" name="data_termino" id="dt_fim_{{ item.reg.id }}" 
                                    class="form-control {% if current_user.tipo_usuario == 'Aluno' %}bg-light text-muted{% endif %}" 
@@ -620,14 +620,14 @@
                             <!-- 1. Cabeçalho com o Título e o Botão Amigável -->
                             <div class="d-flex justify-content-between align-items-center mb-3 border-bottom pb-2">
                                 <span class="text-success fw-bold">
-                                    <i class="bi bi-calendar-check"></i> Horários Guardados:
+                                    <i class="bi bi-calendar-check"></i> {{ tt('Horários Guardados:') }}
                                 </span>
                                 
                                 {% if 'google_token' in session %}
                                     <!-- Botão para forçar sincronização se já estiver conectado -->
                                     <form action="{{ url_for('sincronizar_agenda_acompanhamento', acomp_id=item.reg.id) }}" method="POST" class="m-0 p-0">
-                                        <button type="submit" class="btn btn-sm btn-outline-primary fw-bold rounded-pill shadow-sm px-3" title="Forçar o envio destes horários para o Google">
-                                            <i class="bi bi-calendar-plus"></i> Sincronizar na Agenda
+                                        <button type="submit" class="btn btn-sm btn-outline-primary fw-bold rounded-pill shadow-sm px-3" title="{{ tt('Forçar o envio destes horários para o Google') }}">
+                                            <i class="bi bi-calendar-plus"></i> {{ tt('Sincronizar na Agenda') }}
                                         </button>
                                     </form>
                                 {% endif %}
@@ -641,12 +641,12 @@
                                         {% if partes|length == 3 %}
                                             <div class="border border-success rounded p-2 text-center bg-white shadow-sm" style="min-width: 110px;">
                                                 <div class="text-success fw-bold small">{{ partes[0] }}</div>
-                                                <div class="fw-bold text-dark" style="font-size: 0.85rem;">{{ partes[1] }} às {{ partes[2] }}</div>
+                                                <div class="fw-bold text-dark" style="font-size: 0.85rem;">{{ partes[1] }} {{ tt('às') }} {{ partes[2] }}</div>
                                             </div>
                                         {% endif %}
                                     {% endfor %}
                                 {% else %}
-                                    <span class="text-muted small">Nenhum horário registado na plataforma.</span>
+                                    <span class="text-muted small">{{ tt('Nenhum horário registado na plataforma.') }}</span>
                                 {% endif %}
                             </div>
                             
@@ -656,8 +656,8 @@
 
                     <!-- Bloco Dinâmico para os Slots de Tempo -->
                     <div class="mb-3 p-3 bg-light border border-primary-subtle rounded d-none" id="box_grade_{{ item.reg.id }}">
-                        <label class="form-label fw-bold text-primary mb-2">🗓️ Planeamento de Horários (Google Agenda)</label>
-                        <p class="small text-muted mb-2">O sistema criou um slot para cada dia. Preencha a hora inicial e final <strong>apenas nos dias que for estudar</strong>.</p>
+                        <label class="form-label fw-bold text-primary mb-2">{{ tt('🗓️ Planeamento de Horários (Google Agenda)') }}</label>
+                        <p class="small text-muted mb-2">{{ tt('O sistema criou um slot para cada dia. Preencha a hora inicial e final') }} <strong>{{ tt('apenas nos dias que for estudar') }}</strong>.</p>
                         <div id="lista_dias_{{ item.reg.id }}" class="d-flex flex-column gap-2 mb-3" style="max-height: 250px; overflow-y: auto;">
                             <!-- O JavaScript vai injetar os dias aqui -->
                         </div>
@@ -665,7 +665,7 @@
                         <!-- O NOVO BOTÃO DEDICADO A GUARDAR O PLANEAMENTO -->
                         <div class="text-end border-top pt-2">
                             <button type="submit" name="acao_modal" value="manter_aberto" class="btn btn-sm btn-outline-primary fw-bold shadow-sm">
-                                Gravar Planeamento
+                                {{ tt('Gravar Planeamento') }}
                             </button>
                         </div>
                     </div>
@@ -728,13 +728,13 @@
                         </div>
                         
                         <div class="col-md-4 mb-3">
-                            <label class="form-label">{{ t('progresso_porcentagem') }} (Aluno)</label>
+                            <label class="form-label">{{ t('progresso_porcentagem') }} {{ tt('(Aluno)') }}</label>
                             <input type="number" name="percentual_conclusao" class="form-control" min="0" max="100" value="{{ item.reg.percentual_conclusao }}" required>
                         </div>
 
                         {% if current_user.tipo_usuario != 'Aluno' %}
                         <div class="col-md-4 mb-3">
-                            <label class="form-label text-primary fw-bold">Validação (Mentor)</label>
+                            <label class="form-label text-primary fw-bold">{{ tt('Validação (Mentor)') }}</label>
                             <input type="number" name="percentual_mentor" class="form-control border-primary text-primary fw-bold" min="0" max="100" value="{{ item.reg.percentual_mentor or 0 }}">
                         </div>
                         {% endif %}
@@ -742,7 +742,7 @@
                     
                     <div class="mb-3">
                         <label class="form-label">{{ t('anotacoes_duvidas') }}</label>
-                        <textarea name="observacao_aluno" class="form-control" rows="3" placeholder="Escreva suas anotações...">{{ item.reg.observacao_aluno if item.reg.observacao_aluno and item.reg.observacao_aluno != 'None' else '' }}</textarea>
+                        <textarea name="observacao_aluno" class="form-control" rows="3" placeholder="{{ tt('Escreva suas anotações...') }}">{{ item.reg.observacao_aluno if item.reg.observacao_aluno and item.reg.observacao_aluno != 'None' else '' }}</textarea>
                     </div>
                     
                     <div class="mb-3 border p-3 rounded bg-light">
@@ -809,7 +809,7 @@
                     
                     {% if item.curso.exige_certificado == 'Sim' %}
                     <div class="mb-3 p-3 bg-warning-subtle border border-warning rounded">
-                        <label class="form-label fw-bold text-danger">Este curso exige Certificado para 100%</label>
+                        <label class="form-label fw-bold text-danger">{{ tt('Este curso exige Certificado para 100%') }}</label>
                         <div class="input-group">
                             <label class="btn btn-light border mb-0" for="uploadCertificado{{ item.reg.id }}">
                                 {{ t('escolher_arquivo') }}
@@ -827,24 +827,24 @@
                 {% if current_user.tipo_usuario != 'Aluno' %}
                 <div class="card mt-4 border-primary bg-light shadow-sm">
                     <div class="card-header bg-primary text-white py-2 fw-bold">
-                        <i class="bi bi-award"></i> Avaliação do Mentor (Boletim Final)
+                        <i class="bi bi-award"></i> {{ tt('Avaliação do Mentor (Boletim Final)') }}
                     </div>
                     <div class="card-body">
                         
                         <!-- Métricas calculadas automaticamente pelo Python -->
                         <div class="alert alert-secondary border-secondary mb-3 py-2 small d-flex justify-content-between flex-wrap">
-                            <span><i class="bi bi-clock-history text-primary"></i> <strong>Tempo de Estudo (Agenda):</strong> {{ item.tempo_estudo }}</span>
-                            <span><i class="bi bi-person-video3 text-success"></i> <strong>Sessões Realizadas:</strong> {{ item.qtd_sessoes }}</span>
+                            <span><i class="bi bi-clock-history text-primary"></i> <strong>{{ tt('Tempo de Estudo (Agenda):') }}</strong> {{ item.tempo_estudo }}</span>
+                            <span><i class="bi bi-person-video3 text-success"></i> <strong>{{ tt('Sessões Realizadas:') }}</strong> {{ item.qtd_sessoes }}</span>
                         </div>
 
                         <div class="row">
                             <div class="col-md-6 mb-2">
-                                <label class="form-label fw-bold text-dark mb-1">Nota Técnica (0 a 10)</label>
-                                <input type="number" step="0.1" min="0" max="10" name="nota_tecnica" class="form-control border-primary" value="{{ item.reg.nota_tecnica or '' }}" placeholder="Ex: 8.5">
+                                <label class="form-label fw-bold text-dark mb-1">{{ tt('Nota Técnica (0 a 10)') }}</label>
+                                <input type="number" step="0.1" min="0" max="10" name="nota_tecnica" class="form-control border-primary" value="{{ item.reg.nota_tecnica or '' }}" placeholder="{{ tt('Ex: 8.5') }}">
                             </div>
                             <div class="col-md-6 mb-2">
-                                <label class="form-label fw-bold text-dark mb-1">Nota de Postura (0 a 10)</label>
-                                <input type="number" step="0.1" min="0" max="10" name="nota_postura" class="form-control border-primary" value="{{ item.reg.nota_postura or '' }}" placeholder="Ex: 9.0">
+                                <label class="form-label fw-bold text-dark mb-1">{{ tt('Nota de Postura (0 a 10)') }}</label>
+                                <input type="number" step="0.1" min="0" max="10" name="nota_postura" class="form-control border-primary" value="{{ item.reg.nota_postura or '' }}" placeholder="{{ tt('Ex: 9.0') }}">
                             </div>
                         </div>
                     </div>
@@ -932,7 +932,7 @@
                 <h5 class="modal-title fw-bold">{{ t('modal_gemini_title') }}</h5>
                 <div>
                     <!-- Botão de Maximizar/Tela Cheia com Ícone SVG nativo -->
-                    <button type="button" class="btn btn-sm text-white me-2 d-inline-flex align-items-center justify-content-center" id="btn-expand-gemini" title="Tela Cheia / Restaurar" style="background: rgba(255,255,255,0.2); border: none; width: 30px; height: 30px;">
+                    <button type="button" class="btn btn-sm text-white me-2 d-inline-flex align-items-center justify-content-center" id="btn-expand-gemini" title="{{ tt('Tela Cheia / Restaurar') }}" style="background: rgba(255,255,255,0.2); border: none; width: 30px; height: 30px;">
                         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
                           <path fill-rule="evenodd" d="M5.828 10.172a.5.5 0 0 0-.707 0l-4.096 4.096V11.5a.5.5 0 0 0-1 0v3.975a.5.5 0 0 0 .5.5H4.5a.5.5 0 0 0 0-1H1.732l4.096-4.096a.5.5 0 0 0 0-.707m4.344 0a.5.5 0 0 1 .707 0l4.096 4.096V11.5a.5.5 0 1 1 1 0v3.975a.5.5 0 0 1-.5.5H11.5a.5.5 0 0 1 0-1h2.768l-4.096-4.096a.5.5 0 0 1 0-.707m0-4.344a.5.5 0 0 0 .707 0l4.096-4.096V4.5a.5.5 0 1 0 1 0V.525a.5.5 0 0 0-.5-.5H11.5a.5.5 0 0 0 0 1h2.768l-4.096 4.096a.5.5 0 0 0 0 .707m-4.344 0a.5.5 0 0 1-.707 0L1.025 1.732V4.5a.5.5 0 0 1-1 0V.525a.5.5 0 0 1 .5-.5H4.5a.5.5 0 0 1 0 1H1.732l4.096 4.096a.5.5 0 0 1 0 .707"/>
                         </svg>

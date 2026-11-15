@@ -6,8 +6,8 @@
 {% block content %}
 <div class="container mt-4">
     <div class="d-flex justify-content-between align-items-center mb-4">
-        <h2 class="text-primary m-0">Gerenciamento de Grupos</h2>
-        <a href="{{ url_for('gerenciar_usuarios') }}" class="btn btn-secondary">Voltar para Usuários</a>
+        <h2 class="text-primary m-0">{{ tt('Gerenciamento de Grupos') }}</h2>
+        <a href="{{ url_for('gerenciar_usuarios') }}" class="btn btn-secondary">{{ tt('Voltar para Usuários') }}</a>
     </div>
 
     <!-- ========================================================================== -->
@@ -15,28 +15,28 @@
     <!-- ========================================================================== -->
     <div class="card shadow-sm mb-5">
         <div class="card-header bg-primary text-white">
-            <h5 class="mb-0">+ Cadastrar Novo Grupo</h5>
+            <h5 class="mb-0">{{ tt('+ Cadastrar Novo Grupo') }}</h5>
         </div>
         <div class="card-body">
             <form action="{{ url_for('gerenciar_grupos') }}" method="POST">
                 <div class="row">
                     <div class="col-md-12 mb-3">
-                        <label class="form-label fw-bold">Nome do Grupo</label>
-                        <input type="text" name="nome" class="form-control" required placeholder="Ex: Turma Azure 2026 - Noturno">
+                        <label class="form-label fw-bold">{{ tt('Nome do Grupo') }}</label>
+                        <input type="text" name="nome" class="form-control" required placeholder="{{ tt('Ex: Turma Azure 2026 - Noturno') }}">
                     </div>
                     
                     <div class="col-md-12 mb-3">
-                        <label class="form-label fw-bold">Descrição</label>
-                        <textarea name="descricao" class="form-control" rows="2" placeholder="Qual o objetivo desta turma?"></textarea>
+                        <label class="form-label fw-bold">{{ tt('Descrição') }}</label>
+                        <textarea name="descricao" class="form-control" rows="2" placeholder="{{ tt('Qual o objetivo desta turma?') }}"></textarea>
                     </div>
                     
                     <div class="col-md-12 mb-4">
-                        <label class="form-label fw-bold">Atribuir Membros ao Grupo</label>
-                        <input type="text" id="filtroMembros" class="form-control mb-3 border-primary" placeholder="🔍 Buscar por nome do aluno ou mentor...">
+                        <label class="form-label fw-bold">{{ tt('Atribuir Membros ao Grupo') }}</label>
+                        <input type="text" id="filtroMembros" class="form-control mb-3 border-primary" placeholder="{{ tt('🔍 Buscar por nome do aluno ou mentor...') }}">
 
                         <div class="row">
                             <div class="col-md-6 mb-3">
-                                <div class="p-2 bg-primary text-white rounded-top fw-bold">🎓 Alunos</div>
+                                <div class="p-2 bg-primary text-white rounded-top fw-bold">{{ tt('🎓 Alunos') }}</div>
                                 <div class="border p-2 rounded-bottom bg-light" style="max-height: 250px; overflow-y: auto;">
                                     {% for u in usuarios %}
                                         {% if u.tipo_usuario == 'Aluno' %}
@@ -52,7 +52,7 @@
                             </div>
 
                             <div class="col-md-6 mb-3">
-                                <div class="p-2 bg-secondary text-white rounded-top fw-bold">🧠 Mentores e Equipe</div>
+                                <div class="p-2 bg-secondary text-white rounded-top fw-bold">{{ tt('🧠 Mentores e Equipe') }}</div>
                                 <div class="border p-2 rounded-bottom bg-light" style="max-height: 250px; overflow-y: auto;">
                                     {% for u in usuarios %}
                                         {% if u.tipo_usuario != 'Aluno' %}
@@ -60,7 +60,7 @@
                                             <input class="form-check-input border-secondary" type="checkbox" name="membros" value="{{ u.id }}" id="user_{{ u.id }}">
                                             <label class="form-check-label d-flex justify-content-between w-100" for="user_{{ u.id }}">
                                                 <span class="nome-membro">{{ u.nome }}</span>
-                                                <span class="badge bg-dark" style="font-size: 0.65rem;">{{ u.tipo_usuario }}</span>
+                                                <span class="badge bg-dark" style="font-size: 0.65rem;">{{ tt(u.tipo_usuario) }}</span>
                                             </label>
                                         </div>
                                         {% endif %}
@@ -72,7 +72,7 @@
                 </div>
                 
                 <div class="text-end">
-                    <button type="submit" class="btn btn-success fw-bold px-4">Salvar Grupo</button>
+                    <button type="submit" class="btn btn-success fw-bold px-4">{{ tt('Salvar Grupo') }}</button>
                 </div>
             </form>
         </div>
@@ -81,17 +81,17 @@
     <!-- ========================================================================== -->
     <!-- TABELA: Listagem dos Grupos Cadastrados e Ações                            -->
     <!-- ========================================================================== -->
-    <h4 class="text-secondary mb-3">Grupos Existentes</h4>
+    <h4 class="text-secondary mb-3">{{ tt('Grupos Existentes') }}</h4>
     <div class="card shadow-sm border-dark">
         <div class="card-body p-0">
             <div class="table-responsive">
                 <table class="table table-hover mb-0 align-middle">
                     <thead class="table-light">
                         <tr>
-                            <th class="ps-4">Nome do Grupo</th>
-                            <th>Membros Associados</th>
-                            <th>Data de Criação</th>
-                            <th class="text-center">Ações</th>
+                            <th class="ps-4">{{ tt('Nome do Grupo') }}</th>
+                            <th>{{ tt('Membros Associados') }}</th>
+                            <th>{{ tt('Data de Criação') }}</th>
+                            <th class="text-center">{{ tt('Ações') }}</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -102,15 +102,15 @@
                                 {% for membro in g.membros %}
                                     <span class="badge bg-info text-dark mb-1">{{ membro.nome }}{% if membro.tipo_usuario == 'Aluno' and membro.modalidade_participacao in ['Online', 'Híbrido'] %} · 💻 {{ t('modalidade_' ~ ('online' if membro.modalidade_participacao == 'Online' else 'hibrido')) }}{% endif %}</span>
                                 {% else %}
-                                    <span class="text-muted small">Nenhum membro cadastrado.</span>
+                                    <span class="text-muted small">{{ tt('Nenhum membro cadastrado.') }}</span>
                                 {% endfor %}
                             </td>
                             <td>{{ g.data_criacao.strftime('%d/%m/%Y') }}</td>
                             
                             <td class="text-center">
-                                <button class="btn btn-sm btn-primary fw-bold px-3" data-bs-toggle="modal" data-bs-target="#modalEditarGrupo{{ g.id }}">Editar</button>
+                                <button class="btn btn-sm btn-primary fw-bold px-3" data-bs-toggle="modal" data-bs-target="#modalEditarGrupo{{ g.id }}">{{ tt('Editar') }}</button>
                                 <form action="{{ url_for('deletar_grupo', id=g.id) }}" method="POST" class="d-inline" onsubmit="return confirm('Tem certeza que deseja excluir o grupo {{ g.nome }}?');">
-                                    <button type="submit" class="btn btn-sm btn-danger fw-bold px-3">Excluir</button>
+                                    <button type="submit" class="btn btn-sm btn-danger fw-bold px-3">{{ tt('Excluir') }}</button>
                                 </form>
                             </td>
                         </tr>
@@ -123,29 +123,29 @@
                                 <div class="modal-content">
                                     <form action="{{ url_for('editar_grupo', id=g.id) }}" method="POST">
                                         <div class="modal-header bg-info">
-                                            <h5 class="modal-title fw-bold text-dark">Editar Grupo: {{ g.nome }}</h5>
+                                            <h5 class="modal-title fw-bold text-dark">{{ tt('Editar Grupo:') }} {{ g.nome }}</h5>
                                             <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                                         </div>
                                         <div class="modal-body">
                                             <div class="row">
                                                 <div class="col-md-12 mb-3">
-                                                    <label class="form-label fw-bold">Nome do Grupo</label>
+                                                    <label class="form-label fw-bold">{{ tt('Nome do Grupo') }}</label>
                                                     <input type="text" name="nome" class="form-control" value="{{ g.nome }}" required>
                                                 </div>
                                                 <div class="col-md-12 mb-3">
-                                                    <label class="form-label fw-bold">Descrição</label>
+                                                    <label class="form-label fw-bold">{{ tt('Descrição') }}</label>
                                                     <textarea name="descricao" class="form-control" rows="2">{{ g.descricao }}</textarea>
                                                 </div>
                                                 
                                                 <div class="col-md-12 mb-3">
-                                                    <label class="form-label fw-bold text-primary">Gerenciar Membros</label>
+                                                    <label class="form-label fw-bold text-primary">{{ tt('Gerenciar Membros') }}</label>
                                                     
                                                     <!-- NOVO: Barra de pesquisa exclusiva para o modal de edição -->
-                                                    <input type="text" class="form-control mb-3 filtro-modal border-info" data-target="lista-modal-{{ g.id }}" placeholder="🔍 Buscar por nome do aluno ou mentor...">
+                                                    <input type="text" class="form-control mb-3 filtro-modal border-info" data-target="lista-modal-{{ g.id }}" placeholder="{{ tt('🔍 Buscar por nome do aluno ou mentor...') }}">
 
                                                     <div class="row mt-2" id="lista-modal-{{ g.id }}">
                                                         <div class="col-md-6 mb-3">
-                                                            <div class="p-2 bg-primary text-white rounded-top fw-bold small">🎓 Alunos</div>
+                                                            <div class="p-2 bg-primary text-white rounded-top fw-bold small">{{ tt('🎓 Alunos') }}</div>
                                                             <div class="border p-2 rounded-bottom bg-light" style="max-height: 200px; overflow-y: auto;">
                                                                 {% for u in usuarios %}
                                                                     {% if u.tipo_usuario == 'Aluno' %}
@@ -161,7 +161,7 @@
                                                         </div>
 
                                                         <div class="col-md-6 mb-3">
-                                                            <div class="p-2 bg-secondary text-white rounded-top fw-bold small">🧠 Mentores</div>
+                                                            <div class="p-2 bg-secondary text-white rounded-top fw-bold small">{{ tt('🧠 Mentores') }}</div>
                                                             <div class="border p-2 rounded-bottom bg-light" style="max-height: 200px; overflow-y: auto;">
                                                                 {% for u in usuarios %}
                                                                     {% if u.tipo_usuario != 'Aluno' %}
@@ -176,13 +176,13 @@
                                                             </div>
                                                         </div>
                                                     </div>
-                                                    <small class="text-muted">Marque ou desmarque as caixas para adicionar/remover utilizadores deste grupo.</small>
+                                                    <small class="text-muted">{{ tt('Marque ou desmarque as caixas para adicionar/remover utilizadores deste grupo.') }}</small>
                                                 </div>
                                             </div>
                                         </div>
                                         <div class="modal-footer">
-                                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                                            <button type="submit" class="btn btn-info fw-bold text-dark">Salvar Alterações</button>
+                                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{{ tt('Cancelar') }}</button>
+                                            <button type="submit" class="btn btn-info fw-bold text-dark">{{ tt('Salvar Alterações') }}</button>
                                         </div>
                                     </form>
                                 </div>
@@ -190,7 +190,7 @@
                         </div>
                         {% else %}
                         <tr>
-                            <td colspan="4" class="text-center py-4 text-muted">Nenhum grupo cadastrado ainda.</td>
+                            <td colspan="4" class="text-center py-4 text-muted">{{ tt('Nenhum grupo cadastrado ainda.') }}</td>
                         </tr>
                         {% endfor %}
                     </tbody>

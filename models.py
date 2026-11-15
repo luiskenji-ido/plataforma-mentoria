@@ -94,6 +94,9 @@ class Acompanhamento(db.Model):
     nota_tecnica = db.Column(db.Float, nullable=True)
     nota_postura = db.Column(db.Float, nullable=True)
 
+    # Usado no Diário de Classe (admin_notas.html mostra o nome do curso de cada matrícula)
+    curso = db.relationship('Curso', lazy='joined')
+
 # ---------------------------------------------------------------------------
 # 4. TABELA DE SESSÕES DE MENTORIA
 # ---------------------------------------------------------------------------

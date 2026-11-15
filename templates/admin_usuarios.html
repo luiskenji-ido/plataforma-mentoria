@@ -37,14 +37,14 @@
                 <td>{{ u.id }}</td>
                 <td class="fw-bold">{{ u.nome }} {{ selo_modalidade(u) }}</td>
                 <td>{{ u.email }}</td>
-                {% if mostrar_nivel %}<td><span class="badge {{ badge_class }}">{{ u.tipo_usuario }}</span></td>{% endif %}
+                {% if mostrar_nivel %}<td><span class="badge {{ badge_class }}">{{ tt(u.tipo_usuario) }}</span></td>{% endif %}
                 <td>
                     {% if u.status == 'Ativo' %} <span class="badge bg-success">{{ t('ativo') }}</span>
-                    {% elif u.status == 'Bloqueado' %} <span class="badge bg-danger border border-dark">Bloqueado</span>
-                    {% else %} <span class="badge bg-secondary">{{ u.status }}</span> {% endif %}
+                    {% elif u.status == 'Bloqueado' %} <span class="badge bg-danger border border-dark">{{ tt('Bloqueado') }}</span>
+                    {% else %} <span class="badge bg-secondary">{{ tt(u.status) }}</span> {% endif %}
                 </td>
                 <td class="text-muted small">{{ u.data_criacao.strftime('%d/%m/%Y às %H:%M') if u.data_criacao else '-' }}</td>
-                <td class="text-muted small">Última troca: {{ u.data_ultima_troca_senha.strftime('%d/%m/%Y') if u.data_ultima_troca_senha else 'N/A' }}</td>
+                <td class="text-muted small">{{ tt('Última troca:') }} {{ u.data_ultima_troca_senha.strftime('%d/%m/%Y') if u.data_ultima_troca_senha else 'N/A' }}</td>
                 <td>
                     <button class="btn btn-sm btn-outline-primary fw-bold" data-bs-toggle="modal" data-bs-target="#modalEditar{{ u.id }}">
                         {{ t('editar') }}
@@ -62,7 +62,7 @@
         <div class="card-header bg-white fw-bold text-success d-flex justify-content-between align-items-center">
             <span>{{ t('cadastrar_novo_usuario') }}</span>
             <a href="{{ url_for('gerenciar_grupos') }}" class="btn btn-sm btn-outline-primary fw-bold">
-                <i class="bi bi-people"></i> + Cadastrar Novo Grupo
+                <i class="bi bi-people"></i> {{ tt('+ Cadastrar Novo Grupo') }}
             </a>
         </div>
 
@@ -80,13 +80,13 @@
                     <div class="col-md-2 mb-3">
                         <label class="form-label text-muted">{{ t('nivel') }}</label>
                         <select name="tipo_usuario" id="tipo_usuario_novo" class="form-select" required>
-                            <option value="Aluno">Aluno</option>
-                            <option value="Professor">Professor</option>
-                            <option value="Mentor">Mentor</option>
-                            <option value="Mentor Administrador">Mentor Administrador</option>
-                            <option value="Administrador">Administrador</option>
-                            <option value="Admin B2B">Gestor Parceiro (Admin B2B)</option>
-                            <option value="Avaliador Banca">Avaliador da Banca (executivo convidado)</option>
+                            <option value="Aluno">{{ tt('Aluno') }}</option>
+                            <option value="Professor">{{ tt('Professor') }}</option>
+                            <option value="Mentor">{{ tt('Mentor') }}</option>
+                            <option value="Mentor Administrador">{{ tt('Mentor Administrador') }}</option>
+                            <option value="Administrador">{{ tt('Administrador') }}</option>
+                            <option value="Admin B2B">{{ tt('Gestor Parceiro (Admin B2B)') }}</option>
+                            <option value="Avaliador Banca">{{ tt('Avaliador da Banca (executivo convidado)') }}</option>
                         </select>
                     </div>
                     <div class="col-md-2 mb-3" id="campoModalidadeNovo">
@@ -133,7 +133,7 @@
     <div class="d-flex justify-content-end mb-3">
         <div class="input-group w-50 shadow-sm" style="border: 1px solid #212529; border-radius: 6px; overflow: hidden;">
             <span class="input-group-text bg-light text-secondary border-0"><i class="bi bi-search"></i></span>
-            <input type="text" id="filtroUsuarios" class="form-control border-0 shadow-none" placeholder="Buscar qualquer usuário, e-mail ou mentor...">
+            <input type="text" id="filtroUsuarios" class="form-control border-0 shadow-none" placeholder="{{ tt('Buscar qualquer usuário, e-mail ou mentor...') }}">
         </div>
     </div>
 
@@ -141,17 +141,17 @@
     <ul class="nav nav-tabs fw-bold mb-3" id="usuariosTabs" role="tablist">
         <li class="nav-item" role="presentation">
             <button class="nav-link active" id="equipa-tab" data-bs-toggle="tab" data-bs-target="#equipa" type="button" role="tab">
-                <i class="bi bi-shield-lock-fill text-danger"></i> 01. Equipe Interna
+                <i class="bi bi-shield-lock-fill text-danger"></i> {{ tt('01. Equipe Interna') }}
             </button>
         </li>
         <li class="nav-item" role="presentation">
             <button class="nav-link" id="parceiros-tab" data-bs-toggle="tab" data-bs-target="#parceiros" type="button" role="tab">
-                <i class="bi bi-building text-primary"></i> 02. Parceiros B2B
+                <i class="bi bi-building text-primary"></i> {{ tt('02. Parceiros B2B') }}
             </button>
         </li>
         <li class="nav-item" role="presentation">
             <button class="nav-link" id="alunos-tab" data-bs-toggle="tab" data-bs-target="#alunos" type="button" role="tab">
-                <i class="bi bi-mortarboard-fill text-success"></i> 03. Corpo Discente
+                <i class="bi bi-mortarboard-fill text-success"></i> {{ tt('03. Corpo Discente') }}
             </button>
         </li>
     </ul>
@@ -189,8 +189,8 @@
 
                 {% if tem_sugestoes %}
                 <div class="alert alert-info border-info shadow-sm m-4">
-                    <h5 class="alert-heading fw-bold text-dark"><i class="bi bi-robot"></i> Inteligência Artificial: Match Disponível!</h5>
-                    <p class="mb-0 small text-muted">O sistema identificou alunos sem mentor cujos objetivos combinam com as especialidades da nossa equipe. Abra a edição do aluno para ver a sugestão da IA.</p>
+                    <h5 class="alert-heading fw-bold text-dark"><i class="bi bi-robot"></i> {{ tt('Inteligência Artificial: Match Disponível!') }}</h5>
+                    <p class="mb-0 small text-muted">{{ tt('O sistema identificou alunos sem mentor cujos objetivos combinam com as especialidades da nossa equipe. Abra a edição do aluno para ver a sugestão da IA.') }}</p>
                 </div>
                 {% endif %}
 
@@ -218,7 +218,7 @@
             <div>
                 <button type="button" class="btn btn-sm text-white me-2 d-inline-flex align-items-center justify-content-center" 
                         onclick="document.getElementById('dialogEditarUsuario{{ u.id }}').classList.toggle('modal-fullscreen');" 
-                        title="Tela Cheia / Restaurar" style="background: rgba(255,255,255,0.2); border: none; width: 30px; height: 30px;">
+                        title="{{ tt('Tela Cheia / Restaurar') }}" style="background: rgba(255,255,255,0.2); border: none; width: 30px; height: 30px;">
                     <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
                         <path fill-rule="evenodd" d="M5.828 10.172a.5.5 0 00-.707 0l-4.096 4.096V11.5a.5.5 0 0 0-1 0v3.975a.5.5 0 0 0 .5.5H4.5a.5.5 0 0 0 0-1H1.732l4.096-4.096a.5.5 0 0 0 0-.707m4.344 0a.5.5 0 0 1 .707 0l4.096 4.096V11.5a.5.5 0 1 1 1 0v3.975a.5.5 0 0 1-.5.5H11.5a.5.5 0 0 1 0-1h2.768l-4.096-4.096a.5.5 0 0 1 0-.707m0-4.344a.5.5 0 0 0 .707 0l4.096-4.096V4.5a.5.5 0 1 0 1 0V.525a.5.5 0 0 0-.5-.5H11.5a.5.5 0 0 0 0 1h2.768l-4.096 4.096a.5.5 0 0 0 0 .707m-4.344 0a.5.5 0 0 1-.707 0L1.025 1.732V4.5a.5.5 0 0 1-1 0V.525a.5.5 0 0 1 .5-.5H4.5a.5.5 0 0 1 0 1H1.732l4.096 4.096a.5.5 0 0 1 0 .707"/>
                     </svg>
@@ -246,12 +246,12 @@
                                 <label class="form-label">{{ t('nivel_acesso') }}</label>
                                 <select name="tipo_usuario" class="form-select">
                                     <option value="Aluno" {% if u.tipo_usuario == 'Aluno' %}selected{% endif %}>{{ t('nivel_aluno') }}</option>
-                                    <option value="Professor" {% if u.tipo_usuario == 'Professor' %}selected{% endif %}>Professor</option>
+                                    <option value="Professor" {% if u.tipo_usuario == 'Professor' %}selected{% endif %}>{{ tt('Professor') }}</option>
                                     <option value="Mentor" {% if u.tipo_usuario == 'Mentor' %}selected{% endif %}>{{ t('nivel_mentor') }}</option>
                                     <option value="Mentor Administrador" {% if u.tipo_usuario == 'Mentor Administrador' %}selected{% endif %}>{{ t('nivel_mentor_admin') }}</option>
                                     <option value="Administrador" {% if u.tipo_usuario == 'Administrador' %}selected{% endif %}>{{ t('nivel_administrador') }}</option>
-                                    <option value="Admin B2B" {% if u.tipo_usuario == 'Admin B2B' %}selected{% endif %}>Gestor Parceiro (Admin B2B)</option>
-                                    <option value="Avaliador Banca" {% if u.tipo_usuario == 'Avaliador Banca' %}selected{% endif %}>Avaliador da Banca (executivo convidado)</option>
+                                    <option value="Admin B2B" {% if u.tipo_usuario == 'Admin B2B' %}selected{% endif %}>{{ tt('Gestor Parceiro (Admin B2B)') }}</option>
+                                    <option value="Avaliador Banca" {% if u.tipo_usuario == 'Avaliador Banca' %}selected{% endif %}>{{ tt('Avaliador da Banca (executivo convidado)') }}</option>
                                 </select>
                             </div>
                             <div class="col-md-6 mb-3">
@@ -260,7 +260,7 @@
                                     <option value="Ativo" {% if u.status == 'Ativo' %}selected{% endif %}>{{ t('ativo') }}</option>
                                     <option value="Ausente" {% if u.status == 'Ausente' %}selected{% endif %}>{{ t('status_ausente') }}</option>
                                     <option value="Desativado" {% if u.status == 'Desativado' %}selected{% endif %}>{{ t('status_desativado') }}</option>
-                                    <option value="Bloqueado" {% if u.status == 'Bloqueado' %} selected{% endif %}>Bloqueado (Senha 5x)</option>
+                                    <option value="Bloqueado" {% if u.status == 'Bloqueado' %} selected{% endif %}>{{ tt('Bloqueado (Senha 5x)') }}</option>
                                 </select>
                             </div>
                             {% if u.tipo_usuario == 'Aluno' %}
@@ -290,7 +290,7 @@
                             <div class="form-check mt-2">
                                 <input class="form-check-input border-danger" type="checkbox" name="resetar_perguntas" value="True" id="resetar_perguntas_{{ u.id }}">
                                 <label class="form-check-label text-danger fw-bold" for="resetar_perguntas_{{ u.id }}">
-                                    Reiniciar Perguntas de Segurança (O aluno recadastrará no próximo login)
+                                    {{ tt('Reiniciar Perguntas de Segurança (O aluno recadastrará no próximo login)') }}
                                 </label>
                             </div>
                         </div>
@@ -327,14 +327,14 @@
                         {% set sugestoes = calcular_match(u, mentores) %}
                         {% if sugestoes %}
                         <div class="alert alert-success border-success mt-4 mb-2 p-3 shadow-sm">
-                            <h6 class="fw-bold text-dark mb-2"><i class="bi bi-robot text-success"></i> Mentores Sugeridos pela IA:</h6>
+                            <h6 class="fw-bold text-dark mb-2"><i class="bi bi-robot text-success"></i> {{ tt('Mentores Sugeridos pela IA:') }}</h6>
                             <ul class="mb-0 small text-muted" style="list-style-type: none; padding-left: 0;">
                                 {% for sug in sugestoes %}
                                     <li class="mb-1">
                                         <i class="bi bi-arrow-right-short text-success"></i>
                                         <strong>{{ sug.mentor.nome }}</strong> 
-                                        <span class="badge bg-success-subtle text-success border border-success-subtle rounded-pill mx-1">{{ sug.score }}% de afinidade</span>
-                                        <br><span style="font-size: 0.75rem; margin-left: 20px;">Áreas em comum: {{ sug.tags_comuns }}</span>
+                                        <span class="badge bg-success-subtle text-success border border-success-subtle rounded-pill mx-1">{{ sug.score }}{{ tt('% de afinidade') }}</span>
+                                        <br><span style="font-size: 0.75rem; margin-left: 20px;">{{ tt('Áreas em comum:') }} {{ sug.tags_comuns }}</span>
                                     </li>
                                 {% endfor %}
                             </ul>

@@ -30,12 +30,12 @@
     <table class="table table-hover align-middle mb-0 text-center small">
         <thead class="table-light text-muted">
             <tr>
-                <th>Data</th>
+                <th>{{ tt('Data') }}</th>
                 <th>{{ t('nome') }}</th>
                 <th>{{ t('email') }}</th>
                 <th class="w-25">{{ t('motivo') }}</th>
-                <th>Status</th>
-                <th>Ações</th>
+                <th>{{ tt('Status') }}</th>
+                <th>{{ tt('Ações') }}</th>
             </tr>
         </thead>
         <tbody>
@@ -56,8 +56,8 @@
                 </td>
                 <td>
                     {% if s.status == 'Pendente' %}
-                        <a href="{{ url_for('acao_solicitacao', id=s.id, acao='aprovar') }}" class="btn btn-sm btn-outline-success fw-bold me-1" title="Aprovar e Cadastrar">✔️</a>
-                        <a href="{{ url_for('acao_solicitacao', id=s.id, acao='negar') }}" class="btn btn-sm btn-outline-danger fw-bold" title="Negar Pedido" onclick="return confirm('Deseja realmente negar esta solicitação?');">❌</a>
+                        <a href="{{ url_for('acao_solicitacao', id=s.id, acao='aprovar') }}" class="btn btn-sm btn-outline-success fw-bold me-1" title="{{ tt('Aprovar e Cadastrar') }}">✔️</a>
+                        <a href="{{ url_for('acao_solicitacao', id=s.id, acao='negar') }}" class="btn btn-sm btn-outline-danger fw-bold" title="{{ tt('Negar Pedido') }}" onclick="return confirm('Deseja realmente negar esta solicitação?');">❌</a>
                     {% else %}
                         <span class="text-muted small">{{ t('finalizado') }}</span>
                     {% endif %}
