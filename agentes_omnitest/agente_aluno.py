@@ -199,8 +199,11 @@ class AgenteAluno(AgenteOmniTest):
                                dica="dashboard.html carrega https://cdn.jsdelivr.net/npm/chart.js sem versão fixa; fixar a versão (ex.: chart.js@4.4.1).")
                 continue
             if not mat:
-                self.registrar("Painel Geral", nome, ALERTA, "Aluno sem matrículas: o gráfico aparece vazio, sem mensagem de 'sem dados'.",
-                               esperado="Mensagem amigável quando não há dados para o gráfico")
+                if self.visivel(f'.grafico-vazio[data-grafico="{id_canvas}"]'):
+                    self.registrar("Painel Geral", nome, APROVADO, "Aluno sem matrículas: mensagem de 'sem dados' exibida.", evidencia=False)
+                else:
+                    self.registrar("Painel Geral", nome, ALERTA, "Aluno sem matrículas: o gráfico aparece vazio, sem mensagem de 'sem dados'.",
+                                   esperado="Mensagem amigável quando não há dados para o gráfico")
                 continue
 
             if id_canvas == "graficoEvolucao":

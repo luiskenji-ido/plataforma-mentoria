@@ -3102,7 +3102,8 @@ from datetime import datetime
 @app.route('/admin/banco', methods=['GET', 'POST'])
 @login_required
 def manutencao_banco():
-    if current_user.tipo_usuario not in ['Administrador', 'Mentor Administrador']:
+    # Backup, restauração e limpeza de histórico: só o Administrador (o menu também só mostra a ele)
+    if current_user.tipo_usuario != 'Administrador':
         flash("Acesso Negado.", "danger")
         return redirect(url_for('dashboard'))
 

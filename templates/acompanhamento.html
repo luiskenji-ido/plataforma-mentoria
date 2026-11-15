@@ -961,6 +961,18 @@
 </div>
 
 <script>
+    // Texto do utilizador e da IA entram no chat sempre como TEXTO, nunca como HTML (evita XSS).
+    // A resposta da IA pode repetir o que foi digitado, por isso também é escapada.
+    function escaparHtml(texto) {
+        const div = document.createElement('div');
+        div.textContent = texto == null ? '' : String(texto);
+        return div.innerHTML;
+    }
+    function formatarRespostaIA(texto) {
+        // Depois de escapar, só reaplica quebras de linha e **negrito** do Markdown
+        return escaparHtml(texto).replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>').replace(/\n/g, '<br>');
+    }
+
     document.getElementById('btn-enviar-chat').addEventListener('click', function() {
         const input = document.getElementById('chat-input');
         const mensagem = input.value.trim();
@@ -971,7 +983,7 @@
         chatBox.innerHTML += `
             <div class="text-end">
                 <span class="badge ia-bubble-user text-wrap text-start p-2" style="font-size: 0.9em; max-width: 85%;">
-                    ${mensagem}
+                    ${escaparHtml(mensagem)}
                 </span>
             </div>`;
         
@@ -999,7 +1011,7 @@
             chatBox.innerHTML += `
                 <div class="text-start">
                     <span class="badge ia-bubble-bot text-wrap text-start p-2" style="font-size: 0.9em; max-width: 85%;">
-                        ${data.resposta.replace(/\n/g, '<br>')}
+                        ${formatarRespostaIA(data.resposta)}
                     </span>
                 </div>`;
             chatBox.scrollTop = chatBox.scrollHeight;

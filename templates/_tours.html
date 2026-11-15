@@ -1,0 +1,115 @@
+{# Tours das páginas que não têm um tour próprio no template.
+   Incluído no fim de base.html. Cada página é identificada pelo endpoint do Flask; um passo com "sel"
+   aponta para o primeiro elemento VISÍVEL que casar com o seletor (se nenhum aparecer, o passo é pulado).
+   Os textos usam tt('texto em português'), traduzidos em traducoes_literais.py. #}
+<script>
+(function () {
+    const TOURS = {
+        'projetos': [
+            { texto: {{ tt('Projetos (TCC): aqui ficam os projetos de conclusão de cada grupo, com tarefas, prazos, entregas e a banca.')|tojson }} },
+            { sel: 'form[action*="projeto"] input[name="nome"], .card.mb-4 form', texto: {{ tt('Cadastre um novo projeto e vincule o grupo responsável (jovens e mentores).')|tojson }} },
+            { sel: 'select[name="grupo_filtro"], select[onchange]', texto: {{ tt('Filtre para ver só os projetos de um grupo.')|tojson }} },
+            { sel: '[id^="projeto-"]', texto: {{ tt('Cada cartão mostra as tarefas, o progresso, a banca agendada e a entrega final do TCC.')|tojson }} },
+        ],
+        'gerenciar_frequencia': [
+            { texto: {{ tt('Diário de frequência: presenças, faltas e justificativas de todos os jovens.')|tojson }} },
+            { sel: 'form[method="GET"], form[method="get"]', texto: {{ tt('Use os filtros de período, aluno e tipo de presença para montar o relatório.')|tojson }} },
+            { sel: '#areaRelatorio .row, #areaRelatorio', texto: {{ tt('Os indicadores mostram a média de presença e quem está em risco por excesso de faltas.')|tojson }} },
+            { sel: '#areaRelatorio table, table', texto: {{ tt('Na tabela, abra cada registro para abonar, reprovar ou corrigir a modalidade da presença.')|tojson }} },
+        ],
+        'gerenciar_notas': [
+            { texto: {{ tt('Diário de classe: lance as notas técnica e de postura dos jovens em cada curso da turma.')|tojson }} },
+            { sel: 'select[name="turma_id"], form select', texto: {{ tt('Escolha a turma para carregar os alunos matriculados.')|tojson }} },
+            { sel: 'table', texto: {{ tt('Preencha as notas de 0 a 10 e salve a turma inteira de uma vez.')|tojson }} },
+        ],
+        'gerenciar_grupos': [
+            { texto: {{ tt('Grupos: cada grupo reúne os jovens e os mentores que orientam um mesmo TCC.')|tojson }} },
+            { sel: '#filtroMembros', texto: {{ tt('Busque e marque os membros para criar um novo grupo.')|tojson }} },
+            { sel: 'table', texto: {{ tt('Aqui estão os grupos existentes; edite os membros sempre que a equipe mudar.')|tojson }} },
+        ],
+        'agenda_bancas': [
+            { texto: {{ tt('Agenda de bancas: datas, avaliadores, prazos de entrega e resultado de cada TCC.')|tojson }} },
+            { sel: '[data-bs-target^="#modal"]', texto: {{ tt('Agende uma banca escolhendo o projeto, a data, os avaliadores e os prazos.')|tojson }} },
+            { sel: '.card.border-start', texto: {{ tt('Cada cartão mostra a situação da banca, as notas recebidas e os botões para remarcar, cancelar ou publicar o resultado.')|tojson }} },
+        ],
+        'atividades_extras': [
+            { texto: {{ tt('Atividades extras: encontros fora do cronograma oficial, com presença e horas de cada participante.')|tojson }} },
+            { sel: '[data-bs-target="#modalNovaAtividade"]', texto: {{ tt('Registre uma nova atividade extra informando o motivo, o grupo e a duração.')|tojson }} },
+            { sel: 'table', texto: {{ tt('Acompanhe as atividades, marque presença e exporte o relatório de cada uma.')|tojson }} },
+        ],
+        'avaliadores_banca': [
+            { texto: {{ tt('Avaliadores da banca: executivos convidados com currículo, área de atuação e empresa.')|tojson }} },
+            { sel: '[data-bs-target^="#modal"]', texto: {{ tt('Cadastre um novo avaliador; ele recebe um acesso restrito às bancas em que for escalado.')|tojson }} },
+            { sel: '.card.h-100', texto: {{ tt('Cada cartão mostra o perfil do avaliador e o currículo para download.')|tojson }} },
+        ],
+        'painel_banca': [
+            { texto: {{ tt('Sala da Banca: notas, perguntas e cronômetro da apresentação deste TCC.')|tojson }} },
+            { sel: '#notaEscrita', texto: {{ tt('Etapa 1: nota do trabalho escrito. Notas abaixo de 7 exigem justificativa.')|tojson }} },
+            { sel: '#notaApresentacao', texto: {{ tt('Etapa 2: notas da apresentação e do material visual, com o feedback para os jovens.')|tojson }} },
+            { sel: '#novaPergunta, #listaPerguntas', texto: {{ tt('Registre as perguntas feitas pela banca e as respostas do grupo.')|tojson }} },
+        ],
+        'biblioteca_tccs': [
+            { texto: {{ tt('Biblioteca: TCCs aprovados de todas as edições e materiais de apoio para pesquisa.')|tojson }} },
+            { sel: 'input[name="q"]', texto: {{ tt('Busque por título, tema, palavra-chave ou autores e filtre por ano.')|tojson }} },
+            { sel: '.card.h-100, .col-12 .card', texto: {{ tt('Cada TCC mostra o resumo, as palavras-chave e o PDF para download.')|tojson }} },
+            { sel: '.list-group', texto: {{ tt('Os materiais de apoio reúnem guias de metodologia, formatação e apresentação.')|tojson }} },
+        ],
+        'portal_demandas': [
+            { texto: {{ tt('Portal de Demandas: o canal oficial para pedidos, dúvidas e alinhamentos (nada por WhatsApp ou e-mail).')|tojson }} },
+            { sel: '[data-bs-target="#modalNovaDemanda"]', texto: {{ tt('Abra um ticket escolhendo a categoria e a prioridade.')|tojson }} },
+            { sel: 'table', texto: {{ tt('Acompanhe o status de cada ticket e a resposta oficial da equipe.')|tojson }} },
+        ],
+        'indicadores_voluntariado': [
+            { texto: {{ tt('Indicadores de voluntariado: o impacto do programa em horas, voluntários e jovens.')|tojson }} },
+            { sel: 'form[method="GET"]', texto: {{ tt('Filtre por período, empresa, tipo de atividade ou grupo.')|tojson }} },
+            { sel: '#graficoTipo', texto: {{ tt('Os gráficos mostram as horas por tipo de atividade e por mês.')|tojson }} },
+            { sel: '#textoNewsletter', texto: {{ tt('Este texto já sai pronto para a newsletter de fim de ciclo.')|tojson }} },
+        ],
+        'meus_certificados': [
+            { texto: {{ tt('Certificados: um para cada projeto aprovado em banca de que você participou.')|tojson }} },
+            { sel: '.card.h-100', texto: {{ tt('Abra o certificado para imprimir ou salvar em PDF; o código permite conferir a autenticidade.')|tojson }} },
+        ],
+        'minhas_bancas': [
+            { texto: {{ tt('Minhas bancas: os TCCs que você vai avaliar, com datas, prazos e arquivos.')|tojson }} },
+            { sel: 'a[href^="/entregas/"]', texto: {{ tt('Baixe o trabalho escrito e os slides entregues pelo grupo.')|tojson }} },
+            { sel: 'form[action*="iniciar_leitura"]', texto: {{ tt('Ligue o relógio ao ler o TCC: as horas vão para o seu certificado de voluntariado.')|tojson }} },
+            { sel: 'a[href^="/projetos/banca/"]', texto: {{ tt('Abra o formulário para lançar as notas da banca.')|tojson }} },
+        ],
+        'central_notificacoes': [
+            { texto: {{ tt('Notificações: avisos de bancas, entregas, tickets e reuniões.')|tojson }} },
+            { sel: '#receberEmail', texto: {{ tt('Escolha se também quer receber os avisos por e-mail.')|tojson }} },
+        ],
+        'reunioes': [
+            { texto: {{ tt('Reuniões ITM × Aon: pautas, atas, decisões e encaminhamentos com responsáveis e prazos.')|tojson }} },
+            { sel: 'form[method="GET"]', texto: {{ tt('Filtre as reuniões por período.')|tojson }} },
+            { sel: 'table', texto: {{ tt('Abra uma reunião para ver a ata e acompanhar os encaminhamentos.')|tojson }} },
+        ],
+        'gestao_trilha_tcc': [
+            { texto: {{ tt('Trilha do TCC: os módulos de orientação que mentores e professores concluem antes de orientar.')|tojson }} },
+            { sel: 'table', texto: {{ tt('Veja quem já concluiu a trilha e quem ainda está pendente.')|tojson }} },
+            { sel: 'form[method="POST"]', texto: {{ tt('Cadastre ou edite os módulos da trilha.')|tojson }} },
+        ],
+    };
+
+    const passos = TOURS[{{ (request.endpoint or '')|tojson }}];
+    if (!passos || typeof iniciarTourDaPagina === 'function') return;
+
+    window.iniciarTourDaPagina = function () {
+        const visivel = el => el && el.offsetParent !== null;
+        const etapas = [];
+        passos.forEach(p => {
+            if (!p.sel) { etapas.push({ intro: p.texto }); return; }
+            const alvo = Array.from(document.querySelectorAll(p.sel)).find(visivel);
+            if (alvo) etapas.push({ element: alvo, intro: p.texto });
+        });
+        introJs().setOptions({
+            steps: etapas,
+            nextLabel: {{ t('tour_btn_proximo')|tojson }},
+            prevLabel: {{ t('tour_btn_anterior')|tojson }},
+            doneLabel: {{ t('tour_btn_voltar')|tojson }},
+            showProgress: true,
+            showBullets: false
+        }).start();
+    };
+})();
+</script>

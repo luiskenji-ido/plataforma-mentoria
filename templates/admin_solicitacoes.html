@@ -85,12 +85,13 @@ function iniciarTourDaPagina() {
         steps: passos, 
         nextLabel: "{{ t('tour_btn_proximo') }}", 
         prevLabel: "{{ t('tour_btn_anterior') }}", 
-        doneLabel: "{{ t('tour_btn_manutencao') }}", 
+        doneLabel: "{{ t('tour_btn_voltar') }}", 
         showProgress: true, 
         showBullets: false
     }).oncomplete(function() {
         if(window.location.search.includes('tour_continuo=1')) {
-            window.location.href = "{{ url_for('manutencao_banco') }}?tour_continuo=1";
+            // Último passo do tour do Mentor Administrador (a Manutenção é só do Administrador)
+            window.location.href = "{{ url_for('dashboard') }}";
         }
     }).start();
 }

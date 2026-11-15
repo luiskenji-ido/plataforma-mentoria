@@ -27,7 +27,8 @@ class AgenteMentorAdministrador(AgenteOmniTest):
     ROTAS_PERMITIDAS = ["dashboard", "sessoes", "acompanhamento", "projetos", "biblioteca", "hub_educacional",
                         "frequencia", "notas", "usuarios", "grupos", "demandas", "solicitacoes", "banca",
                         "esg_csv", "esg_pdf", "atividades_extras", "reunioes", "agenda_bancas", "avaliadores_banca", "minhas_bancas", "indicadores", "certificados", "repositorio"]
-    ROTAS_BLOQUEADAS = []
+    # Manutenção (DB) é exclusiva do Administrador (backup, restauração e limpeza)
+    ROTAS_BLOQUEADAS = ["banco"]
     MENU_VISIVEL = ["indicadores", "agenda_bancas", "avaliadores_banca", "atividades_extras", "reunioes", "dashboard", "hub_educacional", "sessoes", "acompanhamento", "projetos", "frequencia", "notas",
                     "usuarios", "demandas", "biblioteca", "solicitacoes"]
     MENU_OCULTO = ["banco"]
@@ -59,13 +60,14 @@ class AgenteMentorAdministrador(AgenteOmniTest):
         self.checar_saude("Solicitações de Mentoria", None)
 
     def verificar_banco_por_url(self):
-        """O menu esconde a Manutenção (DB) deste perfil, mas a rota permite. Esconder não é proteger."""
+        """O menu esconde a Manutenção (DB) deste perfil; a rota também tem de negar (esconder não é proteger)."""
         _, bloqueado = self.visitar(ROTAS["banco"]["caminho"])
         if bloqueado:
             self.registrar("Manutenção (DB)", "Coerência menu × rota", APROVADO, "Rota bloqueada, coerente com o menu.", evidencia=False)
         else:
-            self.registrar("Manutenção (DB)", "Coerência menu × rota", ALERTA,
-                           "A rota abre por URL direta, embora o menu só a mostre ao Administrador. Decidir se o Mentor Administrador deve ter este acesso.")
+            self.registrar("Manutenção (DB)", "Coerência menu × rota", FALHA,
+                           "🔓 A rota abre por URL direta, mas a Manutenção é exclusiva do Administrador.",
+                           arquivos="app.py (manutencao_banco)")
 
 
 if __name__ == "__main__":

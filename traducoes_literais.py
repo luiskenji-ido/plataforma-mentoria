@@ -112,6 +112,9 @@ LITERAIS = {
         'This is your first visit. How about a quick tour of the main tools for your profile as', 'Notamos que es su primer acceso. ¿Qué tal un recorrido rápido por las principales herramientas de su perfil de'),
     'Sessões Realizadas:': ('Sessions held:', 'Sesiones realizadas:'), 'Tempo de Estudo (Agenda):': ('Study time (calendar):', 'Tiempo de estudio (agenda):'),
     'Projetos': ('Projects', 'Proyectos'),
+    'Ainda não há dados para este gráfico. Ele aparece quando houver cursos matriculados.': (
+        'No data for this chart yet. It shows up once there are enrolled courses.',
+        'Aún no hay datos para este gráfico. Aparece cuando haya cursos matriculados.'),
 
     # ---------------- Acompanhamento
     'Validação (Mentor)': ('Validation (mentor)', 'Validación (mentor)'), 'Status de Validação': ('Validation status', 'Estado de validación'),
@@ -268,6 +271,101 @@ LITERAIS = {
     '🗑️ Confirmar Exclusão': ('🗑️ Confirm deletion', '🗑️ Confirmar eliminación'), '🗑️ Excluir Selecionados': ('🗑️ Delete selected', '🗑️ Eliminar seleccionados'),
     '🗓️ Definir Horários de Trabalho': ('🗓️ Set work times', '🗓️ Definir horarios de trabajo'),
     '🗓️ Planeamento de Horários (Google Agenda)': ('🗓️ Time planning (Google Calendar)', '🗓️ Planificación de horarios (Google Calendar)'),
+
+    # ---------------- Tours das páginas (templates/_tours.html)
+    'O tour interativo para esta página está sendo construído!': ('The interactive tour for this page is being built!', '¡El recorrido interactivo de esta página está en construcción!'),
+    'Projetos (TCC): aqui ficam os projetos de conclusão de cada grupo, com tarefas, prazos, entregas e a banca.': (
+        'Projects (final paper): each group\'s final projects, with tasks, deadlines, submissions and the panel.',
+        'Proyectos (TCC): aquí están los proyectos finales de cada grupo, con tareas, plazos, entregas y el tribunal.'),
+    'Cadastre um novo projeto e vincule o grupo responsável (jovens e mentores).': (
+        'Register a new project and link the responsible group (young people and mentors).', 'Registre un nuevo proyecto y vincule el grupo responsable (jóvenes y mentores).'),
+    'Filtre para ver só os projetos de um grupo.': ("Filter to see only one group's projects.", 'Filtre para ver solo los proyectos de un grupo.'),
+    'Cada cartão mostra as tarefas, o progresso, a banca agendada e a entrega final do TCC.': (
+        'Each card shows the tasks, progress, scheduled panel and the final paper submission.', 'Cada tarjeta muestra las tareas, el avance, el tribunal programado y la entrega final del TCC.'),
+    'Diário de frequência: presenças, faltas e justificativas de todos os jovens.': (
+        'Attendance log: attendance, absences and excuses for all young people.', 'Diario de asistencia: asistencias, faltas y justificaciones de todos los jóvenes.'),
+    'Use os filtros de período, aluno e tipo de presença para montar o relatório.': (
+        'Use the period, student and attendance type filters to build the report.', 'Use los filtros de período, alumno y tipo de asistencia para armar el informe.'),
+    'Os indicadores mostram a média de presença e quem está em risco por excesso de faltas.': (
+        'The indicators show average attendance and who is at risk from too many absences.', 'Los indicadores muestran la asistencia media y quién está en riesgo por exceso de faltas.'),
+    'Na tabela, abra cada registro para abonar, reprovar ou corrigir a modalidade da presença.': (
+        'In the table, open each record to excuse, reject or correct the attendance mode.', 'En la tabla, abra cada registro para justificar, rechazar o corregir la modalidad de la asistencia.'),
+    'Diário de classe: lance as notas técnica e de postura dos jovens em cada curso da turma.': (
+        "Class log: enter the young people's technical and attitude grades for each course in the class.", 'Diario de clase: registre las notas técnica y de actitud de los jóvenes en cada curso del grupo.'),
+    'Escolha a turma para carregar os alunos matriculados.': ('Choose the class to load the enrolled students.', 'Elija el grupo para cargar los alumnos matriculados.'),
+    'Preencha as notas de 0 a 10 e salve a turma inteira de uma vez.': ('Fill in the grades from 0 to 10 and save the whole class at once.', 'Complete las notas de 0 a 10 y guarde todo el grupo de una vez.'),
+    'Grupos: cada grupo reúne os jovens e os mentores que orientam um mesmo TCC.': (
+        'Groups: each group brings together the young people and the mentors guiding the same final paper.', 'Grupos: cada grupo reúne a los jóvenes y a los mentores que orientan un mismo TCC.'),
+    'Busque e marque os membros para criar um novo grupo.': ('Search and tick the members to create a new group.', 'Busque y marque los miembros para crear un nuevo grupo.'),
+    'Aqui estão os grupos existentes; edite os membros sempre que a equipe mudar.': (
+        'Here are the existing groups; edit the members whenever the team changes.', 'Aquí están los grupos existentes; edite los miembros cuando cambie el equipo.'),
+    'Agenda de bancas: datas, avaliadores, prazos de entrega e resultado de cada TCC.': (
+        'Panel schedule: dates, evaluators, submission deadlines and the result of each final paper.', 'Agenda de tribunales: fechas, evaluadores, plazos de entrega y resultado de cada TCC.'),
+    'Agende uma banca escolhendo o projeto, a data, os avaliadores e os prazos.': (
+        'Schedule a panel by choosing the project, date, evaluators and deadlines.', 'Programe un tribunal eligiendo el proyecto, la fecha, los evaluadores y los plazos.'),
+    'Cada cartão mostra a situação da banca, as notas recebidas e os botões para remarcar, cancelar ou publicar o resultado.': (
+        "Each card shows the panel's status, the grades received and the buttons to reschedule, cancel or publish the result.",
+        'Cada tarjeta muestra la situación del tribunal, las notas recibidas y los botones para reprogramar, cancelar o publicar el resultado.'),
+    'Atividades extras: encontros fora do cronograma oficial, com presença e horas de cada participante.': (
+        "Extra activities: meetings outside the official schedule, with each participant's attendance and hours.", 'Actividades extra: encuentros fuera del cronograma oficial, con asistencia y horas de cada participante.'),
+    'Registre uma nova atividade extra informando o motivo, o grupo e a duração.': (
+        'Register a new extra activity with the reason, group and duration.', 'Registre una nueva actividad extra indicando el motivo, el grupo y la duración.'),
+    'Acompanhe as atividades, marque presença e exporte o relatório de cada uma.': (
+        'Follow the activities, mark attendance and export the report for each one.', 'Siga las actividades, marque asistencia y exporte el informe de cada una.'),
+    'Avaliadores da banca: executivos convidados com currículo, área de atuação e empresa.': (
+        'Panel evaluators: guest executives with résumé, field and company.', 'Evaluadores del tribunal: ejecutivos invitados con currículum, área de actuación y empresa.'),
+    'Cadastre um novo avaliador; ele recebe um acesso restrito às bancas em que for escalado.': (
+        'Register a new evaluator; they get access limited to the panels they are assigned to.', 'Registre un nuevo evaluador; recibe un acceso restringido a los tribunales en los que sea designado.'),
+    'Cada cartão mostra o perfil do avaliador e o currículo para download.': (
+        "Each card shows the evaluator's profile and the résumé to download.", 'Cada tarjeta muestra el perfil del evaluador y el currículum para descargar.'),
+    'Sala da Banca: notas, perguntas e cronômetro da apresentação deste TCC.': (
+        'Panel Room: grades, questions and the presentation timer for this final paper.', 'Sala del Tribunal: notas, preguntas y cronómetro de la presentación de este TCC.'),
+    'Etapa 1: nota do trabalho escrito. Notas abaixo de 7 exigem justificativa.': (
+        'Step 1: grade for the written paper. Grades below 7 need a justification.', 'Etapa 1: nota del trabajo escrito. Las notas menores a 7 exigen justificación.'),
+    'Etapa 2: notas da apresentação e do material visual, com o feedback para os jovens.': (
+        'Step 2: grades for the presentation and visual material, with feedback for the young people.', 'Etapa 2: notas de la presentación y del material visual, con comentarios para los jóvenes.'),
+    'Registre as perguntas feitas pela banca e as respostas do grupo.': (
+        "Record the panel's questions and the group's answers.", 'Registre las preguntas del tribunal y las respuestas del grupo.'),
+    'Biblioteca: TCCs aprovados de todas as edições e materiais de apoio para pesquisa.': (
+        'Library: approved final papers from every edition and support materials for research.', 'Biblioteca: TCC aprobados de todas las ediciones y materiales de apoyo para investigar.'),
+    'Busque por título, tema, palavra-chave ou autores e filtre por ano.': (
+        'Search by title, theme, keyword or authors and filter by year.', 'Busque por título, tema, palabra clave o autores y filtre por año.'),
+    'Cada TCC mostra o resumo, as palavras-chave e o PDF para download.': (
+        'Each paper shows the abstract, keywords and the PDF to download.', 'Cada TCC muestra el resumen, las palabras clave y el PDF para descargar.'),
+    'Os materiais de apoio reúnem guias de metodologia, formatação e apresentação.': (
+        'Support materials bring together methodology, formatting and presentation guides.', 'Los materiales de apoyo reúnen guías de metodología, formato y presentación.'),
+    'Portal de Demandas: o canal oficial para pedidos, dúvidas e alinhamentos (nada por WhatsApp ou e-mail).': (
+        'Requests Portal: the official channel for requests, questions and alignment (nothing via WhatsApp or email).',
+        'Portal de Solicitudes: el canal oficial para pedidos, dudas y alineaciones (nada por WhatsApp ni correo).'),
+    'Abra um ticket escolhendo a categoria e a prioridade.': ('Open a ticket by choosing the category and priority.', 'Abra un ticket eligiendo la categoría y la prioridad.'),
+    'Acompanhe o status de cada ticket e a resposta oficial da equipe.': (
+        "Follow each ticket's status and the team's official reply.", 'Siga el estado de cada ticket y la respuesta oficial del equipo.'),
+    'Indicadores de voluntariado: o impacto do programa em horas, voluntários e jovens.': (
+        "Volunteering indicators: the programme's impact in hours, volunteers and young people.", 'Indicadores de voluntariado: el impacto del programa en horas, voluntarios y jóvenes.'),
+    'Filtre por período, empresa, tipo de atividade ou grupo.': ('Filter by period, company, activity type or group.', 'Filtre por período, empresa, tipo de actividad o grupo.'),
+    'Os gráficos mostram as horas por tipo de atividade e por mês.': ('The charts show hours by activity type and by month.', 'Los gráficos muestran las horas por tipo de actividad y por mes.'),
+    'Este texto já sai pronto para a newsletter de fim de ciclo.': ('This text is ready for the end-of-cycle newsletter.', 'Este texto ya sale listo para el boletín de fin de ciclo.'),
+    'Certificados: um para cada projeto aprovado em banca de que você participou.': (
+        'Certificates: one for each panel-approved project you took part in.', 'Certificados: uno por cada proyecto aprobado por el tribunal en el que participó.'),
+    'Abra o certificado para imprimir ou salvar em PDF; o código permite conferir a autenticidade.': (
+        'Open the certificate to print or save as PDF; the code lets anyone check that it is authentic.', 'Abra el certificado para imprimir o guardar en PDF; el código permite verificar su autenticidad.'),
+    'Minhas bancas: os TCCs que você vai avaliar, com datas, prazos e arquivos.': (
+        'My panels: the final papers you will evaluate, with dates, deadlines and files.', 'Mis tribunales: los TCC que va a evaluar, con fechas, plazos y archivos.'),
+    'Baixe o trabalho escrito e os slides entregues pelo grupo.': ('Download the written paper and slides submitted by the group.', 'Descargue el trabajo escrito y las diapositivas entregadas por el grupo.'),
+    'Ligue o relógio ao ler o TCC: as horas vão para o seu certificado de voluntariado.': (
+        'Start the clock while reading the paper: the hours go to your volunteering certificate.', 'Encienda el reloj al leer el TCC: las horas van a su certificado de voluntariado.'),
+    'Abra o formulário para lançar as notas da banca.': ('Open the form to enter the panel grades.', 'Abra el formulario para registrar las notas del tribunal.'),
+    'Notificações: avisos de bancas, entregas, tickets e reuniões.': ('Notifications: alerts about panels, submissions, tickets and meetings.', 'Notificaciones: avisos de tribunales, entregas, tickets y reuniones.'),
+    'Escolha se também quer receber os avisos por e-mail.': ('Choose whether you also want the alerts by email.', 'Elija si también quiere recibir los avisos por correo.'),
+    'Reuniões ITM × Aon: pautas, atas, decisões e encaminhamentos com responsáveis e prazos.': (
+        'ITM × Aon meetings: agendas, minutes, decisions and action items with owners and deadlines.', 'Reuniones ITM × Aon: agendas, actas, decisiones y acciones con responsables y plazos.'),
+    'Filtre as reuniões por período.': ('Filter meetings by period.', 'Filtre las reuniones por período.'),
+    'Abra uma reunião para ver a ata e acompanhar os encaminhamentos.': (
+        'Open a meeting to see the minutes and follow the action items.', 'Abra una reunión para ver el acta y seguir las acciones.'),
+    'Trilha do TCC: os módulos de orientação que mentores e professores concluem antes de orientar.': (
+        'Final paper track: the guidance modules mentors and teachers complete before supervising.', 'Ruta del TCC: los módulos de orientación que mentores y profesores completan antes de orientar.'),
+    'Veja quem já concluiu a trilha e quem ainda está pendente.': ('See who has completed the track and who is still pending.', 'Vea quién ya completó la ruta y quién sigue pendiente.'),
+    'Cadastre ou edite os módulos da trilha.': ('Add or edit the track modules.', 'Registre o edite los módulos de la ruta.'),
 
     # ---------------- Manutenção (DB)
     'Padrão: Backup_repository': ('Default: Backup_repository', 'Predeterminado: Backup_repository'),
