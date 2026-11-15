@@ -1,0 +1,197 @@
+{% extends "base.html" %}
+{% block title %}{{ tt('Governança de aprendizados') }}{% endblock %}
+{% block content %}
+{% macro selo(status) %}
+    {% set cor = {'Aplicado': 'success', 'Pendente': 'warning text-dark', 'Revogado': 'secondary', 'Rejeitado': 'danger'}.get(status, 'secondary') %}
+    <span class="badge bg-{{ cor }}">{{ tt(status) }}</span>
+{% endmacro %}
+{% set nomes_tipos = {'perfil_novo': tt('Perfil novo'), 'perfil_alterado': tt('Perfil alterado'), 'perfil_removido': tt('Perfil removido'),
+                      'rota_nova': tt('Rota nova'), 'rota_removida': tt('Rota removida'), 'linha_base': tt('Linha de base'),
+                      'referencia_externa': tt('Referência oficial')} %}
+{% set nomes_agentes = {'todos': tt('Todos os agentes'), 'administrador': tt('Administrador'), 'aluno': tt('Aluno'), 'professor': tt('Professor'),
+                        'mentor': tt('Mentor'), 'mentor_administrador': tt('Mentor Administrador'), 'gestor_b2b': tt('Gestor B2B'),
+                        'avaliador': tt('Avaliador Banca'), 'perfis_personalizados': tt('Perfis personalizados')} %}
+
+<div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-3">
+    <div>
+        <h2 class="text-primary fw-bold mb-1"><i class="bi bi-mortarboard"></i> {{ tt('Governança de aprendizados') }}</h2>
+        <p class="text-muted mb-0">{{ tt('O Agente Gerente Técnico percebe as mudanças da plataforma e ensina os agentes de teste. Aqui você audita, revoga e limpa esses aprendizados.') }}</p>
+    </div>
+    <div class="d-flex gap-2 flex-wrap">
+        <a href="{{ url_for('agentes_ia') }}" class="btn btn-outline-secondary fw-bold"><i class="bi bi-robot"></i> {{ tt('Agentes IA') }}</a>
+        <form method="POST" class="m-0"><input type="hidden" name="acao" value="detectar">
+            <button class="btn btn-primary fw-bold" type="submit" id="btnDetectar"><i class="bi bi-lightning-charge"></i> {{ tt('Aprender agora') }}</button></form>
+    </div>
+</div>
+
+<!-- Situação -->
+<div class="row row-cols-2 row-cols-lg-5 g-3 mb-3" id="resumoAprendizados">
+    {% for rotulo, valor, cor in [(tt('Aplicados'), resumo['Aplicado'], 'text-success'), (tt('Pendentes de aprovação'), resumo['Pendente'], 'text-warning-emphasis'),
+                                  (tt('Revogados'), resumo['Revogado'], 'text-secondary'), (tt('Rejeitados'), resumo['Rejeitado'], 'text-danger')] %}
+    <div class="col"><div class="card shadow-sm border-0 h-100"><div class="card-body p-3">
+        <small class="text-muted d-block fw-bold">{{ rotulo }}</small><h3 class="fw-bold mb-0 {{ cor }}">{{ valor }}</h3>
+    </div></div></div>
+    {% endfor %}
+    <div class="col"><div class="card shadow-sm border-0 h-100"><div class="card-body p-3">
+        <small class="text-muted d-block fw-bold">{{ tt('Última detecção') }}</small>
+        <span class="fw-bold" data-conteudo-dinamico>{{ ultima.em.replace('T', ' ')[:16] if ultima else '—' }}</span>
+        {% if ultima %}<small class="d-block text-muted" data-conteudo-dinamico>{{ ultima.origem }} · {{ ultima.novos }} {{ tt('novo(s)') }}</small>{% endif %}
+    </div></div></div>
+</div>
+<div class="alert alert-light border small"><i class="bi bi-info-circle"></i> {{ tt('Aprendizados de detecção interna são aplicados automaticamente (e podem ser revogados). Os que vêm de fontes oficiais da internet ficam pendentes até um administrador aprovar.') }}</div>
+
+<!-- Aprendizados -->
+<div class="card shadow-sm border-0 mb-4" id="cardAprendizados">
+    <div class="card-body">
+        <div class="d-flex justify-content-between align-items-end flex-wrap gap-2 mb-2">
+            <h5 class="fw-bold mb-0">{{ tt('Aprendizados') }} ({{ itens|length }})</h5>
+            <form method="GET" class="d-flex gap-2 flex-wrap align-items-end">
+                <div><label class="form-label small mb-0" for="fStatus">{{ tt('Status') }}</label>
+                    <select class="form-select form-select-sm" id="fStatus" name="status"><option value="">{{ tt('Todos') }}</option>
+                        {% for s in ['Aplicado', 'Pendente', 'Revogado', 'Rejeitado'] %}<option value="{{ s }}" {% if filtros.status == s %}selected{% endif %}>{{ tt(s) }}</option>{% endfor %}</select></div>
+                <div><label class="form-label small mb-0" for="fTipo">{{ tt('Tipo') }}</label>
+                    <select class="form-select form-select-sm" id="fTipo" name="tipo"><option value="">{{ tt('Todos') }}</option>
+                        {% for tp in tipos %}<option value="{{ tp }}" {% if filtros.tipo == tp %}selected{% endif %}>{{ nomes_tipos.get(tp, tp) }}</option>{% endfor %}</select></div>
+                <div><label class="form-label small mb-0" for="fAgente">{{ tt('Agente') }}</label>
+                    <select class="form-select form-select-sm" id="fAgente" name="agente"><option value="">{{ tt('Todos') }}</option>
+                        {% for a in agentes %}<option value="{{ a }}" {% if filtros.agente == a %}selected{% endif %}>{{ nomes_agentes.get(a, a) }}</option>{% endfor %}</select></div>
+                <button class="btn btn-sm btn-dark" type="submit">{{ tt('Filtrar') }}</button>
+                <a href="{{ url_for('governanca_aprendizados') }}" class="btn btn-sm btn-outline-secondary">{{ tt('Limpar filtro') }}</a>
+            </form>
+        </div>
+        <div class="d-flex gap-2 mb-2 flex-wrap">
+            <a href="{{ url_for('governanca_aprendizados_csv', tipo='aprendizados', formato='csv') }}" class="btn btn-sm btn-outline-success"><i class="bi bi-file-earmark-spreadsheet"></i> {{ tt('Exportar CSV') }}</a>
+            <a href="{{ url_for('governanca_aprendizados_csv', tipo='aprendizados', formato='json') }}" class="btn btn-sm btn-outline-success"><i class="bi bi-filetype-json"></i> {{ tt('Exportar JSON') }}</a>
+        </div>
+        <div class="table-responsive">
+            <table class="table table-hover align-middle small mb-0">
+                <thead><tr><th>{{ tt('Código') }}</th><th>{{ tt('Aprendizado') }}</th><th>{{ tt('Tipo') }}</th><th>{{ tt('Agentes') }}</th><th>{{ tt('Origem') }}</th><th>{{ tt('Status') }}</th><th>{{ tt('Criado em') }}</th><th>{{ tt('Usos') }}</th><th></th></tr></thead>
+                <tbody>
+                    {% for a in itens %}
+                    <tr>
+                        <td class="fw-bold text-nowrap">{{ a.codigo }}</td>
+                        <td><span data-conteudo-dinamico>{{ a.titulo }}</span>{% if a.descricao %}<div class="text-muted" data-conteudo-dinamico>{{ a.descricao[:160] }}</div>{% endif %}</td>
+                        <td>{{ nomes_tipos.get(a.tipo, a.tipo) }}</td>
+                        <td>{% for d in carregar_json(a.agentes_destino) %}<span class="badge bg-light text-dark border me-1">{{ nomes_agentes.get(d, d) }}</span>{% endfor %}</td>
+                        <td data-conteudo-dinamico>{{ a.origem }}{% if a.fonte_url %}<br><a href="{{ a.fonte_url }}" target="_blank" rel="noopener noreferrer" class="small">{{ a.fonte_url[:50] }}</a>{% endif %}</td>
+                        <td>{{ selo(a.status) }}</td>
+                        <td class="text-nowrap">{{ a.criado_em.strftime('%d/%m/%Y %H:%M') if a.criado_em else '' }}</td>
+                        <td>{{ a.vezes_consumido or 0 }}</td>
+                        <td class="text-nowrap">
+                            <button class="btn btn-sm btn-outline-primary" type="button" data-bs-toggle="collapse" data-bs-target="#det{{ a.id }}" title="{{ tt('Detalhes') }}" aria-label="{{ tt('Detalhes') }}"><i class="bi bi-eye"></i></button>
+                            {% set acoes = {'Pendente': [('aprovar', 'btn-outline-success', 'bi-check-lg'), ('rejeitar', 'btn-outline-danger', 'bi-x-lg')],
+                                            'Aplicado': [('revogar', 'btn-outline-danger', 'bi-slash-circle')], 'Revogado': [('reaplicar', 'btn-outline-success', 'bi-arrow-repeat')]}.get(a.status, []) %}
+                            {% for acao, cor, icone in acoes %}
+                            <form method="POST" class="d-inline"><input type="hidden" name="acao" value="{{ acao }}"><input type="hidden" name="codigo" value="{{ a.codigo }}">
+                                <button class="btn btn-sm {{ cor }} acao-{{ acao }}" type="submit" title="{{ tt(acao|capitalize) }}" aria-label="{{ tt(acao|capitalize) }}"><i class="bi {{ icone }}"></i></button></form>
+                            {% endfor %}
+                        </td>
+                    </tr>
+                    <tr class="collapse" id="det{{ a.id }}"><td colspan="9" class="bg-body-tertiary">
+                        <div class="small"><strong>{{ tt('Assinatura SHA-256') }}:</strong> <code>{{ a.assinatura }}</code></div>
+                        {% if a.revisado_por %}<div class="small"><strong>{{ tt('Revisado por') }}:</strong> {{ a.revisado_por.nome }} · {{ a.revisado_em.strftime('%d/%m/%Y %H:%M') }}{% if a.motivo %} · {{ a.motivo }}{% endif %}</div>{% endif %}
+                        <pre class="small mb-0 mt-1" style="white-space: pre-wrap; max-height: 260px; overflow: auto;" data-conteudo-dinamico>{{ carregar_json(a.conteudo) | tojson(indent=2) }}</pre>
+                    </td></tr>
+                    {% else %}
+                    <tr><td colspan="9" class="text-center text-muted py-3">{{ tt('Nenhum aprendizado com estes filtros.') }}</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<div class="row g-3 mb-4">
+    <!-- Fonte oficial -->
+    <div class="col-lg-6">
+        <div class="card shadow-sm border-0 h-100" id="cardBuscaFonte"><div class="card-body">
+            <h5 class="fw-bold mb-1">{{ tt('Aprender com fonte oficial') }}</h5>
+            <small class="text-muted d-block mb-3">{{ tt('O Gerente Técnico só lê páginas HTTPS dos domínios da lista de fontes confiáveis. O resultado fica pendente até a aprovação.') }}</small>
+            <form method="POST" class="row g-2">
+                <input type="hidden" name="acao" value="buscar">
+                <div class="col-12"><label class="form-label small fw-bold mb-0" for="urlFonte">{{ tt('Endereço da página (HTTPS)') }}</label>
+                    <input class="form-control" type="url" id="urlFonte" name="url" placeholder="https://cheatsheetseries.owasp.org/..." required></div>
+                <div class="col-md-8"><label class="form-label small fw-bold mb-0" for="temaFonte">{{ tt('Tema') }}</label>
+                    <input class="form-control" id="temaFonte" name="tema" maxlength="120" placeholder="{{ tt('Ex.: Controle de acesso') }}"></div>
+                <div class="col-md-4 d-grid align-items-end"><button class="btn btn-primary fw-bold mt-md-4" type="submit"><i class="bi bi-cloud-download"></i> {{ tt('Ler e propor') }}</button></div>
+            </form>
+        </div></div>
+    </div>
+    <!-- Fontes confiáveis -->
+    <div class="col-lg-6">
+        <div class="card shadow-sm border-0 h-100" id="cardFontes"><div class="card-body">
+            <h5 class="fw-bold mb-1">{{ tt('Fontes confiáveis') }} ({{ fontes|length }})</h5>
+            <form method="POST" class="row g-2 mb-2">
+                <input type="hidden" name="acao" value="fonte_incluir">
+                <div class="col-md-5"><label class="visually-hidden" for="novoDominio">{{ tt('Domínio') }}</label><input class="form-control form-control-sm" id="novoDominio" name="dominio" placeholder="docs.python.org" required></div>
+                <div class="col-md-5"><label class="visually-hidden" for="novaDesc">{{ tt('Descrição') }}</label><input class="form-control form-control-sm" id="novaDesc" name="descricao" placeholder="{{ tt('Descrição') }}"></div>
+                <div class="col-md-2 d-grid"><button class="btn btn-sm btn-success fw-bold" type="submit">{{ tt('Incluir') }}</button></div>
+            </form>
+            <div style="max-height: 230px; overflow: auto;">
+                <table class="table table-sm small align-middle mb-0"><tbody>
+                    {% for f in fontes %}
+                    <tr class="{{ '' if f.ativa else 'text-muted' }}"><td class="fw-bold">{{ f.dominio }}</td><td data-conteudo-dinamico>{{ f.descricao or '' }}</td>
+                        <td class="text-end text-nowrap">
+                            <form method="POST" class="d-inline"><input type="hidden" name="fonte_id" value="{{ f.id }}"><input type="hidden" name="acao" value="{{ 'fonte_desativar' if f.ativa else 'fonte_ativar' }}">
+                                <button class="btn btn-sm {{ 'btn-outline-secondary' if f.ativa else 'btn-outline-success' }}" type="submit">{{ tt('Desativar') if f.ativa else tt('Ativar') }}</button></form>
+                            <form method="POST" class="d-inline" onsubmit="return confirm({{ tt('Remover esta fonte da lista?')|tojson|forceescape }});"><input type="hidden" name="fonte_id" value="{{ f.id }}"><input type="hidden" name="acao" value="fonte_remover">
+                                <button class="btn btn-sm btn-outline-danger" type="submit" title="{{ tt('Remover') }}" aria-label="{{ tt('Remover') }}"><i class="bi bi-trash"></i></button></form>
+                        </td></tr>
+                    {% endfor %}
+                </tbody></table>
+            </div>
+        </div></div>
+    </div>
+</div>
+
+<!-- Limpeza para compliance -->
+<div class="card shadow-sm border-0 mb-4 border-start border-danger border-4" id="cardLimpeza">
+    <div class="card-body">
+        <h5 class="fw-bold text-danger mb-1">{{ tt('Limpeza de aprendizados (compliance)') }}</h5>
+        <small class="text-muted d-block mb-3">{{ tt('Antes de apagar, uma cópia em JSON e CSV é guardada no servidor (instance/agentes_conhecimento/auditoria) e a limpeza fica registrada na trilha de eventos, que não é apagada.') }}</small>
+        <form method="POST" class="row g-2 align-items-end">
+            <input type="hidden" name="acao" value="limpar">
+            <div class="col-md-4"><label class="form-label small fw-bold mb-0" for="escopoLimpeza">{{ tt('O que limpar') }}</label>
+                <select class="form-select" id="escopoLimpeza" name="escopo">
+                    <option value="revogados">{{ tt('Revogados e rejeitados') }}</option>
+                    <option value="antigos">{{ tt('Criados até uma data') }}</option>
+                    {% for a in agentes %}<option value="agente:{{ a }}">{{ tt('Do agente') }}: {{ nomes_agentes.get(a, a) }}</option>{% endfor %}
+                    <option value="todos">{{ tt('Todos os aprendizados (recomeça a linha de base)') }}</option>
+                </select></div>
+            <div class="col-md-2"><label class="form-label small fw-bold mb-0" for="ateLimpeza">{{ tt('Até') }}</label><input type="date" class="form-control" id="ateLimpeza" name="ate"></div>
+            <div class="col-md-3"><label class="form-label small fw-bold mb-0" for="confirmaLimpeza">{{ tt('Para liberar, digite LIMPAR') }}</label>
+                <input class="form-control" id="confirmaLimpeza" name="confirmacao" autocomplete="off" placeholder="LIMPAR"></div>
+            <div class="col-md-3 d-grid"><button class="btn btn-danger fw-bold" type="submit" id="btnLimpar" disabled><i class="bi bi-trash"></i> {{ tt('Limpar aprendizados') }}</button></div>
+        </form>
+    </div>
+</div>
+
+<!-- Trilha de eventos -->
+<div class="card shadow-sm border-0 mb-4" id="cardEventos">
+    <div class="card-body">
+        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-2">
+            <h5 class="fw-bold mb-0">{{ tt('Trilha de eventos') }} <small class="text-muted">({{ tt('últimos 200') }})</small></h5>
+            <a href="{{ url_for('governanca_aprendizados_csv', tipo='eventos', formato='csv') }}" class="btn btn-sm btn-outline-success"><i class="bi bi-file-earmark-spreadsheet"></i> {{ tt('Exportar trilha (CSV)') }}</a>
+        </div>
+        <div class="table-responsive" style="max-height: 360px; overflow: auto;">
+            <table class="table table-sm small align-middle mb-0">
+                <thead><tr><th>{{ tt('Data/Hora') }}</th><th>{{ tt('Aprendizado') }}</th><th>{{ tt('Ação') }}</th><th>{{ tt('Agente') }}</th><th>{{ tt('Usuário') }}</th><th>{{ tt('Detalhes') }}</th></tr></thead>
+                <tbody>
+                    {% for e in eventos %}
+                    <tr><td class="text-nowrap">{{ e.data.strftime('%d/%m/%Y %H:%M:%S') }}</td><td>{{ e.aprendizado_codigo or '—' }}</td><td>{{ tt(e.acao) }}</td>
+                        <td data-conteudo-dinamico>{{ e.agente or '' }}</td><td>{{ e.usuario.nome if e.usuario else '' }}</td><td class="text-break" data-conteudo-dinamico>{{ e.detalhes or '' }}</td></tr>
+                    {% else %}
+                    <tr><td colspan="6" class="text-center text-muted">{{ tt('Nenhum evento ainda.') }}</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script>
+document.getElementById('confirmaLimpeza').addEventListener('input', function () {
+    document.getElementById('btnLimpar').disabled = this.value.trim().toUpperCase() !== 'LIMPAR';
+});
+</script>
+{% endblock %}

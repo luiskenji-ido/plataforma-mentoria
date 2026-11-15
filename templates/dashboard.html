@@ -297,7 +297,7 @@
         <div>
             <h2 class="text-primary fw-bold mb-1">{{ t('titulo_dashboard') }}</h2>
             <p class="text-muted mb-0">
-                <i class="bi bi-person-badge"></i> {{ t('nivel_acesso') }}: <strong>{% if current_user.tipo_usuario == 'Aluno' %}{{ t('aluno') }}{% else %}{{ tt(current_user.tipo_usuario) }}{% endif %}</strong>
+                <i class="bi bi-person-badge"></i> {{ t('nivel_acesso') }}: <strong>{% if current_user.perfil_personalizado_id %}{{ nome_perfil_usuario }}{% elif current_user.tipo_usuario == 'Aluno' %}{{ t('aluno') }}{% else %}{{ tt(current_user.tipo_usuario) }}{% endif %}</strong>
                 {% if current_user.tipo_usuario == 'Aluno' %}
                 <span class="ms-3"><i class="bi bi-person-check"></i>
                     {% if t('sem_certificado') == 'Uncertified' %}Responsible Mentor:{% elif t('sem_certificado') == 'Sin Certificado' %}Mentor Responsable:{% else %}Mentor Responsável:{% endif %}

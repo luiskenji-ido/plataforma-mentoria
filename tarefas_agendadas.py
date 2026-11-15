@@ -107,8 +107,14 @@ def executar_backups_agendados(agora):
     return backup_servico.executar_vencidos(agora)
 
 
+def aprender_mudancas_da_plataforma(agora):
+    """Agente Gerente Técnico: percebe perfis e rotas novos e distribui os aprendizados aos agentes (autônomo)."""
+    import conhecimento
+    return len(conhecimento.detectar_mudancas('Agente Gerente Técnico (tarefa de hora em hora)'))
+
+
 TAREFAS = [lembrar_checkout_esquecido, lembrar_encaminhamentos_vencidos, enviar_formulario_banca, fechar_checkin_banca_esquecido,
-           executar_backups_agendados]
+           executar_backups_agendados, aprender_mudancas_da_plataforma]
 
 
 def executar_tarefas():

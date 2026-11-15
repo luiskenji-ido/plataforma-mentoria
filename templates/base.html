@@ -645,18 +645,19 @@
         </li>
         {% else %}
         <!-- Aprendizagem: sessões, acompanhamento, atividades extras, Hub e Diário de Classe -->
+        {% if pode_modulo('sessoes') or pode_modulo('acompanhamento') or pode_modulo('atividades_extras') or pode_modulo('hub') or pode_modulo('diario') %}
         <li class="nav-item dropdown">
           <a class="nav-link dropdown-toggle fw-bold {% if ep in grupo_aprendizagem %}{{ ativo }}{% endif %}" href="#" id="menuAprendizagem" role="button" data-bs-toggle="dropdown" aria-expanded="false">
             <i class="bi bi-mortarboard"></i> {{ tt('Aprendizagem') }}
           </a>
           <ul class="dropdown-menu shadow border-0" aria-labelledby="menuAprendizagem">
-            <li><a class="dropdown-item fw-bold" href="{{ url_for('sessoes') }}"><i class="bi bi-calendar-check text-primary"></i> {{ t('sessoes') }}</a></li>
-            <li><a class="dropdown-item fw-bold" href="{{ url_for('acompanhamento') }}"><i class="bi bi-graph-up-arrow text-primary"></i> {{ t('acompanhamento') }}</a></li>
-            <li><a class="dropdown-item fw-bold" href="{{ url_for('atividades_extras') }}"><i class="bi bi-people-fill text-primary"></i> {{ t('menu_extras') }}</a></li>
-            {% if current_user.is_authenticated and current_user.tipo_usuario in perfis_gestao %}
+            {% if pode_modulo('sessoes') %}<li><a class="dropdown-item fw-bold" href="{{ url_for('sessoes') }}"><i class="bi bi-calendar-check text-primary"></i> {{ t('sessoes') }}</a></li>{% endif %}
+            {% if pode_modulo('acompanhamento') %}<li><a class="dropdown-item fw-bold" href="{{ url_for('acompanhamento') }}"><i class="bi bi-graph-up-arrow text-primary"></i> {{ t('acompanhamento') }}</a></li>{% endif %}
+            {% if pode_modulo('atividades_extras') %}<li><a class="dropdown-item fw-bold" href="{{ url_for('atividades_extras') }}"><i class="bi bi-people-fill text-primary"></i> {{ t('menu_extras') }}</a></li>{% endif %}
+            {% if current_user.is_authenticated and current_user.tipo_usuario in perfis_gestao and pode_modulo('hub') %}
             <li><a class="dropdown-item fw-bold" href="{{ url_for('gerenciar_turmas') }}"><i class="bi bi-diagram-3-fill text-primary"></i> {{ t('menu_hub') }}</a></li>
             {% endif %}
-            {% if current_user.is_authenticated and current_user.tipo_usuario != 'Aluno' %}
+            {% if current_user.is_authenticated and current_user.tipo_usuario != 'Aluno' and pode_modulo('diario') %}
             <li><hr class="dropdown-divider"></li>
             <li><h6 class="dropdown-header">{{ t('menu_diario') }}</h6></li>
             <li><a class="dropdown-item fw-bold" href="{{ url_for('gerenciar_frequencia') }}"><i class="bi bi-clipboard-check text-success"></i> {{ t('menu_frequencia') }}</a></li>
@@ -665,28 +666,31 @@
           </ul>
         </li>
         {% endif %}
+        {% endif %}
 
         <!-- Projetos e TCC: projetos, bancas, biblioteca e certificados -->
+        {% if pode_modulo('projetos') or pode_modulo('bancas') or pode_modulo('biblioteca') or pode_modulo('certificados') %}
         <li class="nav-item dropdown">
           <a class="nav-link dropdown-toggle fw-bold {% if ep in grupo_projetos %}{{ ativo }}{% endif %}" href="#" id="menuProjetos" role="button" data-bs-toggle="dropdown" aria-expanded="false">
             <i class="bi bi-kanban"></i> {{ tt('Projetos e TCC') }}
           </a>
           <ul class="dropdown-menu shadow border-0" aria-labelledby="menuProjetos">
             {% if not eh_avaliador %}
-            <li><a class="dropdown-item fw-bold" href="{{ url_for('projetos') }}"><i class="bi bi-kanban text-primary"></i> {{ t('menu_projetos') }}</a></li>
-            {% if tem_minhas_bancas %}
+            {% if pode_modulo('projetos') %}<li><a class="dropdown-item fw-bold" href="{{ url_for('projetos') }}"><i class="bi bi-kanban text-primary"></i> {{ t('menu_projetos') }}</a></li>{% endif %}
+            {% if tem_minhas_bancas and pode_modulo('bancas') %}
             <li><a class="dropdown-item fw-bold" href="{{ url_for('minhas_bancas') }}"><i class="bi bi-person-video3 text-primary"></i> {{ t('menu_minhas_bancas') }}</a></li>
             {% endif %}
             {% endif %}
-            <li><a class="dropdown-item fw-bold" href="{{ url_for('biblioteca_tccs') }}"><i class="bi bi-journal-bookmark text-primary"></i> {{ t('menu_biblioteca') }}</a></li>
-            {% if tem_certificados %}
+            {% if pode_modulo('biblioteca') %}<li><a class="dropdown-item fw-bold" href="{{ url_for('biblioteca_tccs') }}"><i class="bi bi-journal-bookmark text-primary"></i> {{ t('menu_biblioteca') }}</a></li>{% endif %}
+            {% if tem_certificados and pode_modulo('certificados') %}
             <li><a class="dropdown-item fw-bold" href="{{ url_for('meus_certificados') }}"><i class="bi bi-award text-primary"></i> {{ t('menu_certificados') }}</a></li>
             {% endif %}
           </ul>
         </li>
+        {% endif %}
 
         <!-- Portal de Demandas: canal oficial para todos (nada por WhatsApp ou e-mail) -->
-        {% if current_user.is_authenticated %}
+        {% if current_user.is_authenticated and pode_modulo('demandas') %}
         <li class="nav-item">
           <a class="nav-link fw-bold {% if ep == 'portal_demandas' %}{{ ativo }}{% endif %}" href="{{ url_for('portal_demandas') }}">
             <i class="bi bi-headset"></i> {{ t('menu_demandas') }}
@@ -701,27 +705,33 @@
             <i class="bi bi-gear-fill"></i> {{ t('menu_administracao') }}
           </a>
           <ul class="dropdown-menu shadow border-0" aria-labelledby="adminDropdown">
-            {% if current_user.tipo_usuario in ['Administrador', 'Mentor Administrador'] %}
             <li><h6 class="dropdown-header">{{ tt('Pessoas') }}</h6></li>
+            {% if current_user.tipo_usuario in ['Administrador', 'Mentor Administrador'] and pode_modulo('cadastros') %}
             <li><a class="dropdown-item fw-bold" href="{{ url_for('gerenciar_usuarios') }}"><i class="bi bi-people-fill"></i> {{ t('menu_cadastros') }}</a></li>
             {% endif %}
-            <li><a class="dropdown-item fw-bold" href="{{ url_for('avaliadores_banca') }}"><i class="bi bi-person-badge"></i> {{ t('aval_titulo') }}</a></li>
-            {% if current_user.tipo_usuario == 'Mentor Administrador' %}
+            {% if current_user.tipo_usuario == 'Administrador' and pode_modulo('perfis_acesso') %}
+            <li><a class="dropdown-item fw-bold" href="{{ url_for('perfis_acesso_view') }}"><i class="bi bi-person-gear"></i> {{ tt('Perfis de acesso') }}</a></li>
+            {% endif %}
+            {% if pode_modulo('agenda_bancas') %}<li><a class="dropdown-item fw-bold" href="{{ url_for('avaliadores_banca') }}"><i class="bi bi-person-badge"></i> {{ t('aval_titulo') }}</a></li>{% endif %}
+            {% if current_user.tipo_usuario == 'Mentor Administrador' and pode_modulo('solicitacoes') %}
             <li><a class="dropdown-item fw-bold" href="{{ url_for('gerenciar_solicitacoes') }}"><i class="bi bi-envelope-paper-fill"></i> {{ t('menu_solicitacoes') }}</a></li>
             {% endif %}
             <li><hr class="dropdown-divider"></li>
             <li><h6 class="dropdown-header">{{ tt('Programa') }}</h6></li>
-            {% if current_user.tipo_usuario in ['Administrador', 'Mentor Administrador'] %}
+            {% if current_user.tipo_usuario in ['Administrador', 'Mentor Administrador'] and pode_modulo('trilha_gestao') %}
             <li><a class="dropdown-item fw-bold" href="{{ url_for('gestao_trilha_tcc') }}"><i class="bi bi-mortarboard"></i> {{ t('menu_trilha_tcc') }}</a></li>
             {% endif %}
-            <li><a class="dropdown-item fw-bold" href="{{ url_for('reunioes') }}"><i class="bi bi-journal-text"></i> {{ t('menu_reunioes') }}</a></li>
-            <li><a class="dropdown-item fw-bold" href="{{ url_for('agenda_bancas') }}"><i class="bi bi-calendar-event"></i> {{ t('menu_agenda_bancas') }}</a></li>
-            <li><a class="dropdown-item fw-bold" href="{{ url_for('indicadores_voluntariado') }}"><i class="bi bi-bar-chart-line"></i> {{ t('menu_indicadores') }}</a></li>
-            {% if current_user.tipo_usuario == 'Administrador' %}
+            {% if pode_modulo('reunioes') %}<li><a class="dropdown-item fw-bold" href="{{ url_for('reunioes') }}"><i class="bi bi-journal-text"></i> {{ t('menu_reunioes') }}</a></li>{% endif %}
+            {% if pode_modulo('agenda_bancas') %}<li><a class="dropdown-item fw-bold" href="{{ url_for('agenda_bancas') }}"><i class="bi bi-calendar-event"></i> {{ t('menu_agenda_bancas') }}</a></li>{% endif %}
+            {% if pode_modulo('indicadores') %}<li><a class="dropdown-item fw-bold" href="{{ url_for('indicadores_voluntariado') }}"><i class="bi bi-bar-chart-line"></i> {{ t('menu_indicadores') }}</a></li>{% endif %}
+            {% if current_user.tipo_usuario == 'Administrador' and (pode_modulo('agentes_ia') or pode_modulo('manutencao')) %}
             <li><hr class="dropdown-divider"></li>
             <li><h6 class="dropdown-header">{{ tt('Sistema') }}</h6></li>
+            {% if pode_modulo('agentes_ia') %}
             <li><a class="dropdown-item fw-bold" href="{{ url_for('agentes_ia') }}"><i class="bi bi-robot"></i> {{ tt('Agentes IA') }}</a></li>
-            <li><a class="dropdown-item fw-bold text-danger" href="{{ url_for('manutencao_banco') }}"><i class="bi bi-database-fill-gear"></i> {{ t('menu_manutencao') }}</a></li>
+            <li><a class="dropdown-item fw-bold" href="{{ url_for('governanca_aprendizados') }}"><i class="bi bi-mortarboard"></i> {{ tt('Governança de aprendizados') }}</a></li>
+            {% endif %}
+            {% if pode_modulo('manutencao') %}<li><a class="dropdown-item fw-bold text-danger" href="{{ url_for('manutencao_banco') }}"><i class="bi bi-database-fill-gear"></i> {{ t('menu_manutencao') }}</a></li>{% endif %}
             {% endif %}
           </ul>
         </li>

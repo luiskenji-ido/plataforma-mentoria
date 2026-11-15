@@ -1,0 +1,171 @@
+{% extends "base.html" %}
+{% block title %}{{ tt('Perfis de acesso') }}{% endblock %}
+{% block content %}
+<style>
+    .modulo-opcao { border: 1px solid rgba(128, 128, 128, .28); border-radius: 10px; padding: 8px 10px; }
+    .modulo-opcao.indisponivel { opacity: .45; }
+    .perfil-card { border-left: 4px solid var(--bs-primary) !important; }
+    .perfil-card.inativo { border-left-color: #6c757d !important; opacity: .8; }
+</style>
+
+<div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-3">
+    <div>
+        <h2 class="text-primary fw-bold mb-1"><i class="bi bi-person-gear"></i> {{ tt('Perfis de acesso') }}</h2>
+        <p class="text-muted mb-0">{{ tt('Crie perfis sob medida: cada perfil novo herda as permissões de um perfil do sistema e você escolhe quais módulos ele usa.') }}</p>
+    </div>
+    <button class="btn btn-success fw-bold" data-bs-toggle="modal" data-bs-target="#modalPerfilNovo" id="btnNovoPerfil"><i class="bi bi-plus-lg"></i> {{ tt('Novo perfil') }}</button>
+</div>
+
+<div class="alert alert-info small"><i class="bi bi-shield-lock"></i> {{ tt('Por segurança, um perfil personalizado nunca tem mais acesso que o perfil-base: os módulos desligados somem do menu e são bloqueados na rota. Cada alteração é aprendida pelo Agente Gerente Técnico e registrada na Governança de aprendizados.') }}</div>
+
+<!-- PERFIS PERSONALIZADOS -->
+<h5 class="fw-bold mt-4 mb-2">{{ tt('Perfis personalizados') }} ({{ perfis|length }})</h5>
+<div class="row g-3 mb-4" id="listaPerfisPersonalizados">
+    {% for p in perfis %}
+    <div class="col-lg-6">
+        <div class="card shadow-sm border-0 h-100 perfil-card {{ '' if p.ativo else 'inativo' }}">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-start gap-2">
+                    <div>
+                        <h5 class="fw-bold mb-0">{{ p.nome }}</h5>
+                        <small class="text-muted">{{ tt('Herda de') }} <strong>{{ tt(p.perfil_base) }}</strong> · {{ contagem[p.id] }} {{ tt('usuário(s)') }}</small>
+                    </div>
+                    <span class="badge {{ 'bg-success' if p.ativo else 'bg-secondary' }}">{{ tt('Ativo') if p.ativo else tt('Inativo') }}</span>
+                </div>
+                {% if p.descricao %}<p class="small mb-2 mt-2">{{ p.descricao }}</p>{% endif %}
+                <div class="d-flex flex-wrap gap-1 mt-2">
+                    {% for m in p.lista_modulos() if m in modulos %}<span class="badge bg-primary-subtle text-primary-emphasis border"><i class="bi {{ modulos[m][1] }}"></i> {{ tt(modulos[m][0]) }}</span>{% endfor %}
+                </div>
+                <div class="d-flex gap-2 mt-3">
+                    <button class="btn btn-sm btn-outline-primary fw-bold" data-bs-toggle="modal" data-bs-target="#modalPerfil{{ p.id }}"><i class="bi bi-pencil"></i> {{ tt('Editar') }}</button>
+                    <form method="POST" class="m-0" onsubmit="return confirm({{ tt('Excluir este perfil? Os usuários dele voltam ao perfil-base.')|tojson|forceescape }});">
+                        <input type="hidden" name="acao" value="excluir"><input type="hidden" name="perfil_id" value="{{ p.id }}">
+                        <button class="btn btn-sm btn-outline-danger fw-bold" type="submit"><i class="bi bi-trash"></i> {{ tt('Excluir') }}</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% else %}
+    <div class="col-12"><div class="card shadow-sm border-0"><div class="card-body text-muted text-center py-4">{{ tt('Nenhum perfil personalizado ainda. Clique em Novo perfil para criar o primeiro.') }}</div></div></div>
+    {% endfor %}
+</div>
+
+<!-- PERFIS DO SISTEMA (referência) -->
+<h5 class="fw-bold mb-2">{{ tt('Perfis do sistema') }}</h5>
+<div class="card shadow-sm border-0 mb-4">
+    <div class="table-responsive">
+        <table class="table table-sm align-middle mb-0 small">
+            <thead><tr><th>{{ tt('Perfil') }}</th><th>{{ tt('Usuários') }}</th><th>{{ tt('Módulos disponíveis') }}</th></tr></thead>
+            <tbody>
+                {% for b in perfis_base %}
+                <tr><td class="fw-bold text-nowrap">{{ tt(b) }}</td><td>{{ usuarios_base[b] }}</td>
+                    <td>{% for m in modulos_por_base[b] %}<span class="badge bg-light text-dark border me-1 mb-1"><i class="bi {{ modulos[m][1] }}"></i> {{ tt(modulos[m][0]) }}</span>{% endfor %}</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- HISTÓRICO -->
+<details class="mb-4">
+    <summary class="fw-bold text-primary"><i class="bi bi-journal-text"></i> {{ tt('Histórico de alterações dos perfis') }} ({{ historico|length }})</summary>
+    <table class="table table-sm small align-middle mt-2">
+        <thead><tr><th>{{ tt('Data/Hora') }}</th><th>{{ tt('Ação') }}</th><th>{{ tt('Usuário') }}</th><th>{{ tt('Detalhes') }}</th></tr></thead>
+        <tbody>
+            {% for h in historico %}
+            <tr><td class="text-nowrap">{{ h.data.strftime('%d/%m/%Y %H:%M') }}</td><td>{{ tt(h.acao) }}</td><td>{{ h.usuario.nome if h.usuario else '' }}</td><td class="text-break">{{ h.detalhes }}</td></tr>
+            {% else %}
+            <tr><td colspan="4" class="text-muted text-center">{{ tt('Nenhuma alteração registrada.') }}</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</details>
+
+{% macro formulario(p, sufixo) %}
+<form method="POST">
+    <input type="hidden" name="acao" value="salvar">
+    {% if p %}<input type="hidden" name="perfil_id" value="{{ p.id }}">{% endif %}
+    <div class="modal-body">
+        <div class="row g-3">
+            <div class="col-md-6"><label class="form-label fw-bold small" for="nome{{ sufixo }}">{{ tt('Nome do perfil') }}</label>
+                <input class="form-control" id="nome{{ sufixo }}" name="nome" maxlength="80" value="{{ p.nome if p else '' }}" placeholder="{{ tt('Ex.: Coordenador ITM') }}" required></div>
+            <div class="col-md-6"><label class="form-label fw-bold small" for="base{{ sufixo }}">{{ tt('Herda as permissões de') }}</label>
+                <select class="form-select seletor-base" id="base{{ sufixo }}" name="perfil_base" data-sufixo="{{ sufixo }}" required>
+                    {% for b in perfis_base %}<option value="{{ b }}" {% if p and p.perfil_base == b %}selected{% endif %}>{{ tt(b) }}</option>{% endfor %}
+                </select></div>
+            <div class="col-12"><label class="form-label fw-bold small" for="desc{{ sufixo }}">{{ tt('Descrição') }}</label>
+                <input class="form-control" id="desc{{ sufixo }}" name="descricao" maxlength="500" value="{{ p.descricao or '' if p else '' }}"></div>
+            <div class="col-12">
+                <div class="d-flex justify-content-between align-items-end flex-wrap gap-2">
+                    <span class="form-label fw-bold small mb-0">{{ tt('Módulos que este perfil pode usar') }}</span>
+                    <span class="d-flex gap-2">
+                        <button type="button" class="btn btn-sm btn-outline-secondary marcar-todos" data-sufixo="{{ sufixo }}">{{ tt('Marcar todos') }}</button>
+                        <button type="button" class="btn btn-sm btn-outline-secondary desmarcar-todos" data-sufixo="{{ sufixo }}">{{ tt('Desmarcar') }}</button>
+                    </span>
+                </div>
+                <div class="row g-2 mt-1">
+                    {% set ativos = p.lista_modulos() if p else [] %}
+                    {% for chave, (rotulo, icone, eps, obrigatorio) in modulos.items() %}
+                    <div class="col-md-6 modulo-item" data-modulo="{{ chave }}" data-sufixo="{{ sufixo }}">
+                        <div class="form-check modulo-opcao">
+                            <input class="form-check-input" type="checkbox" name="modulos" value="{{ chave }}" id="mod{{ sufixo }}_{{ chave }}"
+                                   {% if obrigatorio or chave in ativos or not p %}checked{% endif %} {% if obrigatorio %}disabled{% endif %}>
+                            <label class="form-check-label small" for="mod{{ sufixo }}_{{ chave }}"><i class="bi {{ icone }}"></i> {{ tt(rotulo) }}{% if obrigatorio %} <span class="text-muted">({{ tt('sempre') }})</span>{% endif %}</label>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                <small class="text-muted d-block mt-1">{{ tt('Só aparecem os módulos que o perfil-base tem.') }}</small>
+            </div>
+            <div class="col-12">
+                <div class="form-check form-switch">
+                    <input class="form-check-input" type="checkbox" role="switch" name="ativo" id="ativo{{ sufixo }}" {% if not p or p.ativo %}checked{% endif %}>
+                    <label class="form-check-label" for="ativo{{ sufixo }}">{{ tt('Perfil ativo (inativo: os usuários só veem o Painel Geral)') }}</label>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="modal-footer"><button class="btn btn-success fw-bold px-4" type="submit"><i class="bi bi-save"></i> {{ tt('Salvar perfil') }}</button></div>
+</form>
+{% endmacro %}
+
+<div class="modal fade" id="modalPerfilNovo" tabindex="-1"><div class="modal-dialog modal-lg modal-dialog-scrollable"><div class="modal-content">
+    <div class="modal-header bg-success text-white"><h5 class="modal-title fw-bold">{{ tt('Novo perfil') }}</h5><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="{{ t('fechar') }}"></button></div>
+    {{ formulario(None, 'Novo') }}
+</div></div></div>
+{% for p in perfis %}
+<div class="modal fade" id="modalPerfil{{ p.id }}" tabindex="-1"><div class="modal-dialog modal-lg modal-dialog-scrollable"><div class="modal-content">
+    <div class="modal-header bg-primary text-white"><h5 class="modal-title fw-bold">{{ p.nome }}</h5><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="{{ t('fechar') }}"></button></div>
+    {{ formulario(p, p.id) }}
+</div></div></div>
+{% endfor %}
+
+<script>
+(function () {
+    const MODULOS_POR_BASE = {{ modulos_por_base | tojson }};
+    // Mostra só os módulos que o perfil-base escolhido tem
+    function filtrar(sufixo) {
+        const base = document.querySelector(`.seletor-base[data-sufixo="${sufixo}"]`).value;
+        document.querySelectorAll(`.modulo-item[data-sufixo="${sufixo}"]`).forEach(item => {
+            const disponivel = (MODULOS_POR_BASE[base] || []).includes(item.dataset.modulo);
+            item.style.display = disponivel ? '' : 'none';
+            const caixa = item.querySelector('input');
+            if (!disponivel && !caixa.disabled) caixa.checked = false;
+        });
+    }
+    document.querySelectorAll('.seletor-base').forEach(sel => {
+        sel.addEventListener('change', () => filtrar(sel.dataset.sufixo));
+        filtrar(sel.dataset.sufixo);
+    });
+    function marcar(sufixo, valor) {
+        document.querySelectorAll(`.modulo-item[data-sufixo="${sufixo}"]`).forEach(item => {
+            const caixa = item.querySelector('input');
+            if (item.style.display !== 'none' && !caixa.disabled) caixa.checked = valor;
+        });
+    }
+    document.querySelectorAll('.marcar-todos').forEach(b => b.addEventListener('click', () => marcar(b.dataset.sufixo, true)));
+    document.querySelectorAll('.desmarcar-todos').forEach(b => b.addEventListener('click', () => marcar(b.dataset.sufixo, false)));
+})();
+</script>
+{% endblock %}

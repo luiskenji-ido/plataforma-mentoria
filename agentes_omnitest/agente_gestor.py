@@ -33,9 +33,12 @@ from datetime import datetime
 from nucleo import PERFIS, PASTA_RELATORIOS, RAIZ_PROJETO, preparar_usuario, APROVADO, FALHA, ALERTA, PULADO
 
 PASTA_AGENTES = os.path.dirname(os.path.abspath(__file__))
-ORDEM = ["administrador", "aluno", "professor", "mentor", "mentor_administrador", "gestor_b2b", "avaliador"]
+ORDEM = ["administrador", "aluno", "professor", "mentor", "mentor_administrador", "gestor_b2b", "avaliador", "perfis_personalizados"]
 NOMES_PASTA = {"administrador": "Perfil administrador", "aluno": "Perfil aluno", "professor": "Perfil professor", "mentor": "Perfil mentor",
-               "mentor_administrador": "Perfil mentor administrador", "gestor_b2b": "Perfil gestor B2B", "avaliador": "Perfil avaliador banca"}
+               "mentor_administrador": "Perfil mentor administrador", "gestor_b2b": "Perfil gestor B2B", "avaliador": "Perfil avaliador banca",
+               "perfis_personalizados": "Perfis personalizados"}
+# Nome exibido de cada agente (os perfis personalizados não estão em nucleo.PERFIS)
+NOMES_AGENTE = {**{c: d["tipo"] for c, d in PERFIS.items()}, "perfis_personalizados": "Perfis personalizados"}
 
 BASE_IA = os.path.join(RAIZ_PROJETO, "Agent Reports", "Agentes IA")
 PASTA_E2E = os.path.join(BASE_IA, "Agentes Teste Fim a Fim")
@@ -48,7 +51,8 @@ ARQUIVO_HISTORICO = os.path.join(BASE_IA, ".historico_duracoes.json")
 # Estimativa inicial (duração em segundos e número de verificações), medida numa execução completa;
 # a cada execução o Gestor ajusta com a média entre o valor anterior e o novo.
 ESTIMATIVA_PADRAO = {"administrador": (303, 64), "aluno": (172, 74), "professor": (178, 62), "mentor": (182, 62),
-                     "mentor_administrador": (275, 63), "gestor_b2b": (236, 59), "avaliador": (131, 57)}
+                     "mentor_administrador": (275, 63), "gestor_b2b": (236, 59), "avaliador": (131, 57),
+                     "perfis_personalizados": (240, 60)}
 
 
 def criar_estrutura():
@@ -87,7 +91,7 @@ class Estado:
         self.dados = {"status": "executando", "pid": os.getpid(), "inicio": datetime.now().isoformat(timespec="seconds"),
                       "fim": None, "escrita": escrita, "perfil_atual": None, "batimento": time.time(), "log": [],
                       "estimativas": {c: historico[c] for c in perfis if c in historico},
-                      "perfis": {c: {"nome": PERFIS[c]["tipo"], "status": "aguardando", "aprovados": 0, "falhas": 0,
+                      "perfis": {c: {"nome": NOMES_AGENTE[c], "status": "aguardando", "aprovados": 0, "falhas": 0,
                                      "alertas": 0, "pulados": 0, "pdf": None, "prompt": None, "duracao": None} for c in perfis}}
         self.gravar()
 
@@ -202,7 +206,7 @@ def rodar_agente(chave, estado, escrita, lento, url):
     estado.perfil(chave, status="executando", inicio=datetime.now().isoformat(timespec="seconds"))
     with estado.trava:
         estado.dados["perfil_atual"] = chave
-    estado.log(f"▶ Agente {PERFIS[chave]['tipo']} iniciado")
+    estado.log(f"▶ Agente {NOMES_AGENTE[chave]} iniciado")
     for arquivo in ("frame.jpg", "agente.json"):
         try:
             os.remove(os.path.join(PASTA_AO_VIVO, arquivo))
@@ -218,14 +222,14 @@ def rodar_agente(chave, estado, escrita, lento, url):
     for linha in proc.stdout:
         linha = linha.rstrip()
         if linha.startswith(("🔎", "   ✅", "   ❌", "   ⚠️", "   ⏭️")):
-            estado.log(f"[{PERFIS[chave]['tipo']}] {linha.strip()}")
+            estado.log(f"[{NOMES_AGENTE[chave]}] {linha.strip()}")
     proc.wait()
 
     duracao = f"{int(time.time() - inicio) // 60} min {int(time.time() - inicio) % 60:02d} s"
     relatorios = [j for j in glob.glob(os.path.join(PASTA_RELATORIOS, f"Relatorio_OmniTest_{chave}_*.json")) if os.path.getmtime(j) >= marco]
     if not relatorios:
         estado.perfil(chave, status="erro", duracao=duracao, segundos=int(time.time() - inicio), fim=datetime.now().isoformat(timespec="seconds"))
-        estado.log(f"✖ Agente {PERFIS[chave]['tipo']} terminou sem relatório (código {proc.returncode})")
+        estado.log(f"✖ Agente {NOMES_AGENTE[chave]} terminou sem relatório (código {proc.returncode})")
         return
     with open(max(relatorios, key=os.path.getmtime), encoding="utf-8") as f:
         dados = json.load(f)
@@ -236,7 +240,7 @@ def rodar_agente(chave, estado, escrita, lento, url):
     os.makedirs(pasta_pdf, exist_ok=True)
     os.makedirs(pasta_prompt, exist_ok=True)
     destino_pdf = os.path.join(pasta_pdf, f"Relatorio_E2E_{chave}_{data}.pdf")
-    estado.log(f"📄 Gerando o PDF de {PERFIS[chave]['tipo']}…")
+    estado.log(f"📄 Gerando o PDF de {NOMES_AGENTE[chave]}…")
     try:
         gerar_pdf(dados, destino_pdf, duracao)
         pdf_relativo = os.path.relpath(destino_pdf, BASE_IA)
@@ -254,7 +258,7 @@ def rodar_agente(chave, estado, escrita, lento, url):
     estado.perfil(chave, status="falhas" if c[FALHA] else "concluido", aprovados=c[APROVADO], falhas=c[FALHA],
                   alertas=c[ALERTA], pulados=c[PULADO], pdf=pdf_relativo, prompt=prompt_relativo, duracao=duracao,
                   segundos=segundos, fim=datetime.now().isoformat(timespec="seconds"))
-    estado.log(f"{'✔' if not c[FALHA] else '✖'} {PERFIS[chave]['tipo']}: {c[APROVADO]} aprovados, {c[FALHA]} falhas, {c[ALERTA]} alertas")
+    estado.log(f"{'✔' if not c[FALHA] else '✖'} {NOMES_AGENTE[chave]}: {c[APROVADO]} aprovados, {c[FALHA]} falhas, {c[ALERTA]} alertas")
 
 
 def main():
@@ -271,9 +275,19 @@ def main():
     parar = threading.Event()
     threading.Thread(target=batimento, args=(estado, parar), daemon=True).start()
     try:
+        # Agente Gerente Técnico: antes de testar, aprende o que mudou na plataforma (perfis, rotas)
+        try:
+            from app import app as aplicacao
+            import conhecimento
+            with aplicacao.app_context():
+                novos = conhecimento.detectar_mudancas('Agente Gerente Técnico (início dos testes)')
+                estado.log(f"🧠 Gerente Técnico: {len(novos)} aprendizado(s) novo(s)" + (f" ({', '.join(a.codigo for a in novos)})" if novos else ""))
+        except Exception as e:
+            estado.log(f"⚠ Aprendizado não executado: {e}")
         estado.log("🧭 Agente Gestor: preparando utilizadores de teste e massa de dados")
         for chave in perfis:
-            preparar_usuario(chave)
+            if chave in PERFIS:
+                preparar_usuario(chave)
         try:
             from massa_dados import garantir_massa
             estado.log(f"🌱 Massa de dados: {garantir_massa()}")

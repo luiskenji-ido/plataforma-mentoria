@@ -63,6 +63,7 @@ app = Flask(__name__)
 # ---------------------------------------------------------
 from traducoes import t
 from traducoes_literais import tt
+import perfis_acesso
 from notificacoes import notificar, usuarios_gestao
 
 # ---------------------------------------------------------
@@ -801,6 +802,11 @@ def gerenciar_usuarios():
         nome = request.form.get('nome')
         email = request.form.get('email').strip()
         tipo_usuario = request.form.get('tipo_usuario')
+        nivel = perfis_acesso.resolver_nivel(tipo_usuario)
+        if not nivel:
+            flash(tt('Escolha um nível de acesso válido.', current_user.idioma), "danger")
+            return redirect(url_for('gerenciar_usuarios'))
+        tipo_usuario, perfil_personalizado_id = nivel
         status = request.form.get('status')
         senha_plana = request.form.get('senha')
         forcar_troca = request.form.get('forcar_troca_senha') == 'True'
@@ -833,7 +839,8 @@ def gerenciar_usuarios():
             data_ultima_troca_senha=datetime.utcnow(),
             criado_por=current_user.nome,
             forcar_troca_senha=forcar_troca,
-            modalidade_participacao=(request.form.get('modalidade_participacao') or 'Presencial') if tipo_usuario == 'Aluno' else None
+            modalidade_participacao=(request.form.get('modalidade_participacao') or 'Presencial') if tipo_usuario == 'Aluno' else None,
+            perfil_personalizado_id=perfil_personalizado_id
         )
         
         if tipo_usuario == 'Aluno' and mentores_selecionados_ids:
@@ -883,7 +890,11 @@ def editar_usuario(id):
             
         usuario.nome = request.form.get('nome')
         usuario.email = novo_email
-        usuario.tipo_usuario = request.form.get('tipo_usuario')
+        nivel = perfis_acesso.resolver_nivel(request.form.get('tipo_usuario'))
+        if not nivel:
+            flash(tt('Escolha um nível de acesso válido.', current_user.idioma), "danger")
+            return redirect(url_for('gerenciar_usuarios'))
+        usuario.tipo_usuario, usuario.perfil_personalizado_id = nivel
         if usuario.tipo_usuario == 'Aluno' and request.form.get('modalidade_participacao'):
             usuario.modalidade_participacao = request.form.get('modalidade_participacao')
         novo_status = request.form.get('status')
@@ -4300,10 +4311,13 @@ def gerenciar_turmas():
 
             nome = request.form.get('nome_usuario')
             email = request.form.get('email_usuario').strip()
-            tipo_usuario = request.form.get('tipo_usuario_rapido')
+            nivel_rapido = perfis_acesso.resolver_nivel(request.form.get('tipo_usuario_rapido'))
+            tipo_usuario = nivel_rapido[0] if nivel_rapido else None
             senha_plana = request.form.get('senha_usuario')
-            
-            if Usuario.query.filter_by(email=email).first():
+
+            if not nivel_rapido:
+                flash(tt('Escolha um nível de acesso válido.', current_user.idioma), "danger")
+            elif Usuario.query.filter_by(email=email).first():
                 flash(f"Erro: O e-mail '{email}' já está cadastrado no sistema.", "danger")
             else:
                 senha_criptografada = bcrypt.generate_password_hash(senha_plana).decode('utf-8')
@@ -4316,7 +4330,8 @@ def gerenciar_turmas():
                     data_criacao=datetime.now(),
                     data_ultima_troca_senha=datetime.now(),
                     criado_por=current_user.nome,
-                    forcar_troca_senha=True
+                    forcar_troca_senha=True,
+                    perfil_personalizado_id=nivel_rapido[1]
                 )
                 db.session.add(novo_usuario)
                 db.session.commit()
@@ -5522,10 +5537,11 @@ def baixar_repositorio_publico(id):
 PASTA_AGENTES_IA = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'Agent Reports', 'Agentes IA')
 PASTA_AO_VIVO_IA = os.path.join(PASTA_AGENTES_IA, '.ao_vivo')
 ORDEM_AGENTES_IA = [('administrador', 'Administrador'), ('aluno', 'Aluno'), ('professor', 'Professor'), ('mentor', 'Mentor'),
-                    ('mentor_administrador', 'Mentor Administrador'), ('gestor_b2b', 'Gestor B2B'), ('avaliador', 'Avaliador Banca')]
+                    ('mentor_administrador', 'Mentor Administrador'), ('gestor_b2b', 'Gestor B2B'), ('avaliador', 'Avaliador Banca'),
+                    ('perfis_personalizados', 'Perfis personalizados')]
 # Uma subpasta por agente em cada pasta da área (mesmos nomes que o agentes_omnitest/agente_gestor.py usa)
 PASTAS_PERFIS_IA = ['Perfil administrador', 'Perfil aluno', 'Perfil professor', 'Perfil mentor',
-                    'Perfil mentor administrador', 'Perfil gestor B2B', 'Perfil avaliador banca']
+                    'Perfil mentor administrador', 'Perfil gestor B2B', 'Perfil avaliador banca', 'Perfis personalizados']
 
 
 def _ler_json_ia(nome):
@@ -5804,6 +5820,256 @@ def salvar_graficos_painel():
 
 
 # ==============================================================================
+# ADMINISTRAÇÃO › PERFIS DE ACESSO (perfis personalizados) e GOVERNANÇA DE APRENDIZADOS
+# ==============================================================================
+@app.before_request
+def restringir_perfil_personalizado():
+    """Perfil personalizado: o módulo desligado some do menu e a rota também é barrada."""
+    if current_user.is_authenticated and getattr(current_user, 'perfil_personalizado_id', None) and request.endpoint:
+        if perfis_acesso.endpoint_bloqueado(current_user, request.endpoint):
+            flash(tt('Acesso negado: o seu perfil não inclui este módulo.', current_user.idioma), 'danger')
+            return redirect(url_for('dashboard'))
+
+
+@app.context_processor
+def injetar_perfis_acesso():
+    if current_user.is_authenticated:
+        return {'pode_modulo': lambda chave: perfis_acesso.modulo_liberado(current_user, chave),
+                'nome_perfil_usuario': perfis_acesso.nome_do_perfil(current_user)}
+    return {'pode_modulo': lambda chave: True, 'nome_perfil_usuario': ''}
+
+
+def perfis_personalizados_ativos():
+    from models import PerfilPersonalizado
+    return PerfilPersonalizado.query.filter_by(ativo=True).order_by(PerfilPersonalizado.nome).all()
+
+
+app.jinja_env.globals.update(perfis_personalizados_ativos=perfis_personalizados_ativos)
+
+
+def aprender_mudancas(origem):
+    """O Agente Gerente Técnico percebe a mudança na hora e distribui o aprendizado aos agentes."""
+    try:
+        import conhecimento
+        return conhecimento.detectar_mudancas(origem)
+    except Exception as e:
+        db.session.rollback()
+        app.logger.warning(f"Detecção de aprendizados falhou: {e}")
+        return []
+
+
+def _somente_admin_perfis():
+    if current_user.tipo_usuario != 'Administrador':
+        flash("Acesso Negado.", "danger")
+        return redirect(url_for('dashboard'))
+    return None
+
+
+@app.route('/admin/perfis', methods=['GET', 'POST'])
+@login_required
+def perfis_acesso_view():
+    """Tela de parâmetros: criar, editar, desativar e excluir perfis personalizados."""
+    from models import PerfilPersonalizado, HistoricoPerfilAcesso
+    bloqueio = _somente_admin_perfis()
+    if bloqueio:
+        return bloqueio
+    idioma = current_user.idioma
+
+    def registrar_historico(perfil_id, acao, detalhes):
+        db.session.add(HistoricoPerfilAcesso(perfil_id=perfil_id, acao=acao, detalhes=detalhes, usuario_id=current_user.id, data=datetime.now()))
+
+    if request.method == 'POST':
+        acao = request.form.get('acao')
+        if acao == 'salvar':
+            perfil_id = request.form.get('perfil_id', type=int)
+            nome = ' '.join((request.form.get('nome') or '').split())[:80]
+            base = request.form.get('perfil_base')
+            if not nome or base not in perfis_acesso.PERFIS_BASE:
+                flash(tt('Informe o nome do perfil e escolha um perfil-base.', idioma), 'warning')
+                return redirect(url_for('perfis_acesso_view'))
+            if nome in perfis_acesso.PERFIS_BASE:
+                flash(tt('Este nome já é de um perfil do sistema. Escolha outro nome.', idioma), 'warning')
+                return redirect(url_for('perfis_acesso_view'))
+            existente = PerfilPersonalizado.query.filter(db.func.lower(PerfilPersonalizado.nome) == nome.lower()).first()
+            if existente and existente.id != perfil_id:
+                flash(tt('Já existe um perfil com este nome.', idioma), 'warning')
+                return redirect(url_for('perfis_acesso_view'))
+            perfil = db.session.get(PerfilPersonalizado, perfil_id) if perfil_id else None
+            antes = perfis_acesso.descrever(perfil) if perfil else None
+            if not perfil:
+                perfil = PerfilPersonalizado(criado_por_id=current_user.id, data_criacao=datetime.now())
+                db.session.add(perfil)
+            base_mudou = perfil.perfil_base and perfil.perfil_base != base
+            modulos = perfis_acesso.modulos_validos(base, request.form.getlist('modulos'))
+            if base == 'Avaliador Banca' and 'bancas' not in modulos:
+                modulos.append('bancas')   # a página inicial do avaliador é Minhas bancas
+            perfil.nome, perfil.perfil_base = nome, base
+            perfil.descricao = (request.form.get('descricao') or '').strip()[:500]
+            perfil.modulos = json.dumps(modulos)
+            perfil.ativo = bool(request.form.get('ativo'))
+            perfil.atualizado_em = datetime.now()
+            db.session.flush()
+            if base_mudou:
+                # Quem já usa o perfil passa a ter o novo perfil-base (é ele que as telas conferem)
+                Usuario.query.filter_by(perfil_personalizado_id=perfil.id).update({'tipo_usuario': base})
+            registrar_historico(perfil.id, 'Editado' if antes else 'Criado', f"De: {antes} | Para: {perfis_acesso.descrever(perfil)}" if antes else perfis_acesso.descrever(perfil))
+            db.session.commit()
+            aprendidos = aprender_mudancas('Perfis de acesso')
+            flash(tt('Perfil salvo.', idioma) + (' ' + tt('O Agente Gerente Técnico aprendeu a mudança: {codigos}', idioma).format(
+                codigos=', '.join(a.codigo for a in aprendidos)) if aprendidos else ''), 'success')
+        elif acao == 'excluir':
+            perfil = db.session.get(PerfilPersonalizado, request.form.get('perfil_id', type=int))
+            if perfil:
+                usuarios = Usuario.query.filter_by(perfil_personalizado_id=perfil.id).all()
+                for u in usuarios:
+                    u.perfil_personalizado_id = None   # voltam ao perfil-base
+                registrar_historico(perfil.id, 'Excluído', f"{perfis_acesso.descrever(perfil)}; {len(usuarios)} usuário(s) voltaram ao perfil {perfil.perfil_base}")
+                db.session.delete(perfil)
+                db.session.commit()
+                aprender_mudancas('Perfis de acesso')
+                flash(tt('Perfil excluído. Os usuários dele voltaram ao perfil-base.', idioma), 'info')
+        return redirect(url_for('perfis_acesso_view'))
+
+    perfis = PerfilPersonalizado.query.order_by(PerfilPersonalizado.nome).all()
+    contagem = {p.id: Usuario.query.filter_by(perfil_personalizado_id=p.id).count() for p in perfis}
+    usuarios_base = {b: Usuario.query.filter(Usuario.tipo_usuario == b, Usuario.perfil_personalizado_id.is_(None)).count() for b in perfis_acesso.PERFIS_BASE}
+    historico = HistoricoPerfilAcesso.query.order_by(HistoricoPerfilAcesso.data.desc()).limit(100).all()
+    return render_template('perfis_acesso.html', perfis=perfis, contagem=contagem, usuarios_base=usuarios_base, historico=historico,
+                           modulos=perfis_acesso.MODULOS, modulos_por_base=perfis_acesso.MODULOS_POR_BASE, perfis_base=perfis_acesso.PERFIS_BASE)
+
+
+@app.route('/admin/agentes-ia/aprendizados', methods=['GET', 'POST'])
+@login_required
+def governanca_aprendizados():
+    """Governança dos aprendizados dos agentes: revisão, revogação, fontes confiáveis e limpeza para compliance."""
+    import conhecimento
+    from models import AprendizadoAgente, EventoAprendizado, FonteConfiavel, EstadoConhecimento
+    bloqueio = _somente_admin_perfis()
+    if bloqueio:
+        return bloqueio
+    idioma = current_user.idioma
+    conhecimento.garantir_fontes_padrao()
+
+    if request.method == 'POST':
+        acao = request.form.get('acao')
+        if acao in ('aprovar', 'rejeitar', 'revogar', 'reaplicar'):
+            item = AprendizadoAgente.query.filter_by(codigo=request.form.get('codigo')).first()
+            if item and conhecimento.revisar(item, acao, current_user.id, (request.form.get('motivo') or '').strip()[:500]):
+                flash(tt('Aprendizado atualizado: {codigo}', idioma).format(codigo=item.codigo), 'success')
+        elif acao == 'detectar':
+            novos = aprender_mudancas(f"Solicitado por {current_user.nome}")
+            flash(tt('Detecção concluída: {n} aprendizado(s) novo(s).', idioma).format(n=len(novos)), 'info')
+        elif acao == 'buscar':
+            try:
+                item = conhecimento.buscar_fonte_oficial((request.form.get('url') or '').strip(), (request.form.get('tema') or '').strip()[:120], current_user.id)
+                flash(tt('Referência lida e enviada para aprovação: {codigo}', idioma).format(codigo=item.codigo), 'success')
+            except Exception as e:
+                db.session.rollback()
+                flash(tt('Busca recusada: {erro}', idioma).format(erro=e), 'danger')
+        elif acao == 'fonte_incluir':
+            dominio = (request.form.get('dominio') or '').strip().lower().removeprefix('https://').removeprefix('http://').split('/')[0]
+            if re.fullmatch(r'([a-z0-9-]+\.)+[a-z]{2,}', dominio) and not FonteConfiavel.query.filter_by(dominio=dominio).first():
+                db.session.add(FonteConfiavel(dominio=dominio, descricao=(request.form.get('descricao') or '').strip()[:200], ativa=True,
+                                              criado_por_id=current_user.id))
+                conhecimento.evento('Fonte incluída', dominio, usuario_id=current_user.id)
+                db.session.commit()
+                flash(tt('Fonte confiável incluída.', idioma), 'success')
+            else:
+                flash(tt('Informe um domínio válido que ainda não esteja na lista (ex.: docs.python.org).', idioma), 'warning')
+        elif acao in ('fonte_ativar', 'fonte_desativar', 'fonte_remover'):
+            fonte = db.session.get(FonteConfiavel, request.form.get('fonte_id', type=int))
+            if fonte:
+                if acao == 'fonte_remover':
+                    db.session.delete(fonte)
+                else:
+                    fonte.ativa = acao == 'fonte_ativar'
+                conhecimento.evento({'fonte_ativar': 'Fonte ativada', 'fonte_desativar': 'Fonte desativada', 'fonte_remover': 'Fonte removida'}[acao],
+                                    fonte.dominio, usuario_id=current_user.id)
+                db.session.commit()
+        elif acao == 'limpar':
+            if (request.form.get('confirmacao') or '').strip().upper() != 'LIMPAR':
+                flash(tt('Para limpar, digite LIMPAR no campo de confirmação.', idioma), 'warning')
+                return redirect(url_for('governanca_aprendizados'))
+            escopo = request.form.get('escopo', 'revogados')
+            consulta = AprendizadoAgente.query
+            if escopo == 'revogados':
+                consulta = consulta.filter(AprendizadoAgente.status.in_(['Revogado', 'Rejeitado']))
+            elif escopo.startswith('agente:'):
+                agente = escopo[7:]
+                consulta = consulta.filter(AprendizadoAgente.agentes_destino.like(f'%"{agente}"%'))
+            elif escopo == 'antigos':
+                limite = request.form.get('ate')
+                try:
+                    consulta = consulta.filter(AprendizadoAgente.criado_em <= datetime.strptime(limite + ' 23:59:59', '%Y-%m-%d %H:%M:%S'))
+                except (TypeError, ValueError):
+                    flash(tt('Informe a data limite da limpeza.', idioma), 'warning')
+                    return redirect(url_for('governanca_aprendizados'))
+            elif escopo != 'todos':
+                return redirect(url_for('governanca_aprendizados'))
+            total, arquivo = conhecimento.limpar(consulta.all(), current_user.id, current_user.nome, escopo)
+            if escopo == 'todos':
+                # Recomeça do zero: o próximo retrato vira a nova linha de base
+                EstadoConhecimento.query.filter_by(chave='retrato').delete()
+                db.session.commit()
+            flash(tt('{n} aprendizado(s) removido(s). Cópia de auditoria: {arquivo}', idioma).format(n=total, arquivo=arquivo or '—'), 'success')
+        return redirect(url_for('governanca_aprendizados'))
+
+    filtro_status, filtro_tipo, filtro_agente = request.args.get('status', ''), request.args.get('tipo', ''), request.args.get('agente', '')
+    consulta = AprendizadoAgente.query
+    if filtro_status:
+        consulta = consulta.filter_by(status=filtro_status)
+    if filtro_tipo:
+        consulta = consulta.filter_by(tipo=filtro_tipo)
+    if filtro_agente:
+        consulta = consulta.filter(AprendizadoAgente.agentes_destino.like(f'%"{filtro_agente}"%') | AprendizadoAgente.agentes_destino.like('%"todos"%'))
+    itens = consulta.order_by(AprendizadoAgente.id.desc()).all()
+    todos = AprendizadoAgente.query.all()
+    resumo = {s: sum(1 for a in todos if a.status == s) for s in ('Aplicado', 'Pendente', 'Revogado', 'Rejeitado')}
+    eventos = EventoAprendizado.query.order_by(EventoAprendizado.data.desc()).limit(200).all()
+    ultima = db.session.get(EstadoConhecimento, 'ultima_deteccao')
+    return render_template('aprendizados.html', itens=itens, resumo=resumo, eventos=eventos, fontes=FonteConfiavel.query.order_by(FonteConfiavel.dominio).all(),
+                           agentes=conhecimento.AGENTES, ultima=json.loads(ultima.valor) if ultima and ultima.valor else None,
+                           filtros={'status': filtro_status, 'tipo': filtro_tipo, 'agente': filtro_agente},
+                           tipos=sorted({a.tipo for a in todos}), carregar_json=json.loads)
+
+
+@app.route('/admin/agentes-ia/aprendizados/<tipo>.<formato>')
+@login_required
+def governanca_aprendizados_csv(tipo, formato):
+    """Exportação para auditoria: aprendizados ou eventos, em CSV ou JSON."""
+    import io
+    import csv as _csv
+    import conhecimento
+    from flask import Response
+    from models import AprendizadoAgente, EventoAprendizado
+    bloqueio = _somente_admin_perfis()
+    if bloqueio:
+        return bloqueio
+    carimbo = datetime.now().strftime('%Y%m%d_%H%M')
+    if tipo == 'eventos':
+        eventos = EventoAprendizado.query.order_by(EventoAprendizado.data).all()
+        cabecalho = ['Data/Hora', 'Aprendizado', 'Ação', 'Agente', 'Usuário', 'Detalhes']
+        linhas = [[e.data.strftime('%d/%m/%Y %H:%M:%S'), e.aprendizado_codigo or '', e.acao, e.agente or '',
+                   e.usuario.nome if e.usuario else '', e.detalhes or ''] for e in eventos]
+    else:
+        itens = AprendizadoAgente.query.order_by(AprendizadoAgente.id).all()
+        if formato == 'json':
+            corpo = json.dumps([{'codigo': a.codigo, 'titulo': a.titulo, 'tipo': a.tipo, 'status': a.status,
+                                 'destino': json.loads(a.agentes_destino), 'origem': a.origem, 'fonte_url': a.fonte_url,
+                                 'conteudo': json.loads(a.conteudo), 'assinatura': a.assinatura,
+                                 'criado_em': a.criado_em.isoformat() if a.criado_em else None} for a in itens], ensure_ascii=False, indent=1)
+            return Response(corpo, mimetype='application/json',
+                            headers={'Content-Disposition': f'attachment; filename=aprendizados_agentes_{carimbo}.json'})
+        cabecalho, linhas = conhecimento.linhas_csv(itens)
+    saida = io.StringIO()
+    escritor = _csv.writer(saida, delimiter=';')
+    escritor.writerow(cabecalho)
+    escritor.writerows(linhas)
+    return Response('﻿' + saida.getvalue(), mimetype='text/csv; charset=utf-8',
+                    headers={'Content-Disposition': f'attachment; filename={tipo}_agentes_{carimbo}.csv'})
+
+
+# ==============================================================================
 # CONTEÚDO INICIAL DA TRILHA DO TCC (editável depois em Onboarding › Gestão da trilha)
 # ==============================================================================
 MODULOS_TRILHA_PADRAO = [
@@ -5867,6 +6133,8 @@ def atualizar_estrutura_banco():
     from sqlalchemy import text
     db.create_all()
     colunas_novas = [
+        # Perfis personalizados (Administração › Perfis de acesso)
+        "ALTER TABLE usuario ADD COLUMN perfil_personalizado_id INTEGER REFERENCES perfil_personalizado(id)",
         # Painel Geral: gráficos personalizados por utilizador
         "ALTER TABLE usuario ADD COLUMN preferencias_painel TEXT",
         # Manutenção (DB): histórico de execuções com arquivo, tamanho, duração e agendamento de origem
@@ -5914,6 +6182,11 @@ def atualizar_estrutura_banco():
     garantir_modulos_trilha_tcc()
     import backup_servico
     backup_servico.migrar_agendamentos_antigos()
+    try:
+        import conhecimento
+        conhecimento.garantir_fontes_padrao()
+    except Exception:
+        db.session.rollback()
 
 
 with app.app_context():

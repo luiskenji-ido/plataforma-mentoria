@@ -99,7 +99,8 @@
 <div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-3">
     <div>
         <h2 class="text-primary fw-bold mb-1"><i class="bi bi-robot"></i> {{ tt('Agentes IA') }}</h2>
-        <p class="text-muted mb-0">{{ tt('O Agente Gestor coordena os agentes de teste: cada perfil é testado de ponta a ponta, ao vivo, e o relatório em PDF com as evidências vai para a pasta do perfil.') }}</p>
+        <a href="{{ url_for('governanca_aprendizados') }}" class="small fw-bold"><i class="bi bi-mortarboard"></i> {{ tt('Governança de aprendizados') }}</a>
+        <p class="text-muted mb-0">{{ tt('O Agente Gerente Técnico coordena os agentes de teste, aprende as mudanças da plataforma e distribui os aprendizados: cada perfil é testado de ponta a ponta, ao vivo, com relatório em PDF na pasta do perfil.') }}</p>
     </div>
 </div>
 {% if not playwright_ok %}
@@ -171,7 +172,7 @@
             <svg class="hub-linhas" id="hubLinhas" aria-hidden="true"></svg>
 
             <div class="hub-gestor">
-                <div class="circulo"><i class="bi bi-diagram-3-fill"></i>{{ tt('Agente Gestor') }}<span class="contador" id="gestorContador">0</span></div>
+                <div class="circulo"><i class="bi bi-diagram-3-fill"></i>{{ tt('Gerente Técnico') }}<span class="contador" id="gestorContador">0</span></div>
                 <div class="texto" id="gestorTexto">{{ tt('Aguardando o início dos testes.') }}</div>
             </div>
 
@@ -187,7 +188,8 @@
 
             <div class="hub-agentes">
                 {% set posicoes = {'administrador': (14, 30), 'aluno': (86, 30), 'professor': (10, 56), 'mentor': (90, 56),
-                                   'mentor_administrador': (17, 84), 'gestor_b2b': (83, 84), 'avaliador': (50, 90)} %}
+                                   'mentor_administrador': (17, 84), 'gestor_b2b': (83, 84), 'avaliador': (50, 90),
+                                   'perfis_personalizados': (86, 11)} %}
                 {% for chave, nome in ordem %}
                 <div class="hub-agente aguardando" id="agente_{{ chave }}" data-chave="{{ chave }}" style="left: {{ posicoes[chave][0] }}%; top: {{ posicoes[chave][1] }}%;">
                     <div class="base"><i class="bi bi-robot"></i><span class="selo"></span></div>

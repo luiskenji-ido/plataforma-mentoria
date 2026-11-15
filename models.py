@@ -29,6 +29,9 @@ class Usuario(db.Model, UserMixin):
     idioma = db.Column(db.String(10), default='pt')
     # Gráficos escolhidos no Painel Geral (JSON: [{fonte, tipo, cor}]); vazio = padrão do perfil
     preferencias_painel = db.Column(db.Text, nullable=True)
+    # Perfil personalizado (herda de tipo_usuario e só restringe módulos); vazio = perfil padrão
+    perfil_personalizado_id = db.Column(db.Integer, db.ForeignKey('perfil_personalizado.id'), nullable=True)
+    perfil_personalizado = db.relationship('PerfilPersonalizado', foreign_keys=[perfil_personalizado_id])
     data_ultima_troca_senha = db.Column(db.DateTime, default=datetime.utcnow)
     data_criacao = db.Column(db.DateTime, default=datetime.utcnow)
     criado_por = db.Column(db.String(100), default='Sistema')
@@ -901,3 +904,101 @@ class AlteracaoAgendamentoBackup(db.Model):
     data = db.Column(db.DateTime, default=datetime.now)
 
     usuario = db.relationship('Usuario')
+
+
+
+# ==============================================================================
+# PERFIS PERSONALIZADOS (Administração › Perfis de acesso)
+# ==============================================================================
+class PerfilPersonalizado(db.Model):
+    """Perfil criado pela gestão. Herda as permissões de um perfil-base e liga/desliga módulos."""
+    __tablename__ = 'perfil_personalizado'
+    id = db.Column(db.Integer, primary_key=True)
+    nome = db.Column(db.String(80), unique=True, nullable=False)
+    descricao = db.Column(db.Text, nullable=True)
+    perfil_base = db.Column(db.String(30), nullable=False)        # um dos perfis do sistema (tipo_usuario)
+    modulos = db.Column(db.Text, nullable=False, default='[]')     # JSON: chaves de perfis_acesso.MODULOS
+    ativo = db.Column(db.Boolean, default=True)
+    criado_por_id = db.Column(db.Integer, db.ForeignKey('usuario.id'), nullable=True)
+    data_criacao = db.Column(db.DateTime, default=datetime.now)
+    atualizado_em = db.Column(db.DateTime, default=datetime.now)
+
+    def lista_modulos(self):
+        import json
+        try:
+            return list(json.loads(self.modulos or '[]'))
+        except ValueError:
+            return []
+
+
+class HistoricoPerfilAcesso(db.Model):
+    """Quem criou, alterou, desativou ou excluiu cada perfil personalizado (fica após a exclusão)."""
+    __tablename__ = 'historico_perfil_acesso'
+    id = db.Column(db.Integer, primary_key=True)
+    perfil_id = db.Column(db.Integer, nullable=False)
+    acao = db.Column(db.String(30), nullable=False)
+    detalhes = db.Column(db.Text, nullable=True)
+    usuario_id = db.Column(db.Integer, db.ForeignKey('usuario.id'), nullable=True)
+    data = db.Column(db.DateTime, default=datetime.now)
+
+    usuario = db.relationship('Usuario', foreign_keys=[usuario_id])
+
+
+# ==============================================================================
+# APRENDIZADOS DOS AGENTES (governança e compliance)
+# ==============================================================================
+class AprendizadoAgente(db.Model):
+    """Conhecimento que o Agente Gerente Técnico distribui aos agentes de teste."""
+    __tablename__ = 'aprendizado_agente'
+    id = db.Column(db.Integer, primary_key=True)
+    codigo = db.Column(db.String(20), unique=True, nullable=False)      # APR-0001
+    titulo = db.Column(db.String(200), nullable=False)
+    tipo = db.Column(db.String(30), nullable=False)                     # perfil_novo, perfil_alterado, perfil_removido, rota_nova, rota_removida, linha_base, referencia_externa
+    descricao = db.Column(db.Text, nullable=True)
+    conteudo = db.Column(db.Text, nullable=False, default='{}')         # JSON usado pelos agentes
+    agentes_destino = db.Column(db.Text, nullable=False, default='["todos"]')
+    origem = db.Column(db.String(60), nullable=False)                   # Detecção interna / Fonte oficial
+    fonte_url = db.Column(db.String(500), nullable=True)
+    status = db.Column(db.String(20), nullable=False, default='Aplicado')  # Aplicado / Pendente / Revogado / Rejeitado
+    assinatura = db.Column(db.String(64), nullable=False)               # SHA-256 do conteúdo (integridade)
+    criado_em = db.Column(db.DateTime, default=datetime.now)
+    aplicado_em = db.Column(db.DateTime, nullable=True)
+    revisado_por_id = db.Column(db.Integer, db.ForeignKey('usuario.id'), nullable=True)
+    revisado_em = db.Column(db.DateTime, nullable=True)
+    motivo = db.Column(db.Text, nullable=True)
+    vezes_consumido = db.Column(db.Integer, default=0)
+
+    revisado_por = db.relationship('Usuario', foreign_keys=[revisado_por_id])
+
+
+class EventoAprendizado(db.Model):
+    """Trilha de auditoria dos aprendizados (não é apagada pela limpeza: guarda o retrato do que foi removido)."""
+    __tablename__ = 'evento_aprendizado'
+    id = db.Column(db.Integer, primary_key=True)
+    aprendizado_codigo = db.Column(db.String(20), nullable=True)
+    acao = db.Column(db.String(40), nullable=False)
+    detalhes = db.Column(db.Text, nullable=True)
+    agente = db.Column(db.String(60), nullable=True)
+    usuario_id = db.Column(db.Integer, db.ForeignKey('usuario.id'), nullable=True)
+    data = db.Column(db.DateTime, default=datetime.now)
+
+    usuario = db.relationship('Usuario', foreign_keys=[usuario_id])
+
+
+class FonteConfiavel(db.Model):
+    """Domínios oficiais que o Agente Gerente Técnico pode consultar para novos aprendizados."""
+    __tablename__ = 'fonte_confiavel'
+    id = db.Column(db.Integer, primary_key=True)
+    dominio = db.Column(db.String(120), unique=True, nullable=False)
+    descricao = db.Column(db.String(200), nullable=True)
+    ativa = db.Column(db.Boolean, default=True)
+    criado_por_id = db.Column(db.Integer, db.ForeignKey('usuario.id'), nullable=True)
+    data = db.Column(db.DateTime, default=datetime.now)
+
+
+class EstadoConhecimento(db.Model):
+    """Retrato da plataforma que o Gerente Técnico usa para perceber mudanças (chave → JSON)."""
+    __tablename__ = 'estado_conhecimento'
+    chave = db.Column(db.String(60), primary_key=True)
+    valor = db.Column(db.Text, nullable=True)
+    atualizado_em = db.Column(db.DateTime, default=datetime.now)

@@ -37,7 +37,7 @@
                 <td>{{ u.id }}</td>
                 <td class="fw-bold">{{ u.nome }} {{ selo_modalidade(u) }}</td>
                 <td>{{ u.email }}</td>
-                {% if mostrar_nivel %}<td><span class="badge {{ badge_class }}">{{ tt(u.tipo_usuario) }}</span></td>{% endif %}
+                {% if mostrar_nivel %}<td><span class="badge {{ badge_class }}">{{ u.perfil_personalizado.nome if u.perfil_personalizado_id and u.perfil_personalizado else tt(u.tipo_usuario) }}</span></td>{% endif %}
                 <td>
                     {% if u.status == 'Ativo' %} <span class="badge bg-success">{{ t('ativo') }}</span>
                     {% elif u.status == 'Bloqueado' %} <span class="badge bg-danger border border-dark">{{ tt('Bloqueado') }}</span>
@@ -87,6 +87,12 @@
                             <option value="Administrador">{{ tt('Administrador') }}</option>
                             <option value="Admin B2B">{{ tt('Gestor Parceiro (Admin B2B)') }}</option>
                             <option value="Avaliador Banca">{{ tt('Avaliador da Banca (executivo convidado)') }}</option>
+                            {% set personalizados = perfis_personalizados_ativos() %}
+                            {% if personalizados %}
+                            <optgroup label="{{ tt('Perfis personalizados') }}">
+                                {% for pp in personalizados %}<option value="custom:{{ pp.id }}">{{ pp.nome }} ({{ tt(pp.perfil_base) }})</option>{% endfor %}
+                            </optgroup>
+                            {% endif %}
                         </select>
                     </div>
                     <div class="col-md-2 mb-3" id="campoModalidadeNovo">
@@ -251,7 +257,13 @@
                                     <option value="Mentor Administrador" {% if u.tipo_usuario == 'Mentor Administrador' %}selected{% endif %}>{{ t('nivel_mentor_admin') }}</option>
                                     <option value="Administrador" {% if u.tipo_usuario == 'Administrador' %}selected{% endif %}>{{ t('nivel_administrador') }}</option>
                                     <option value="Admin B2B" {% if u.tipo_usuario == 'Admin B2B' %}selected{% endif %}>{{ tt('Gestor Parceiro (Admin B2B)') }}</option>
-                                    <option value="Avaliador Banca" {% if u.tipo_usuario == 'Avaliador Banca' %}selected{% endif %}>{{ tt('Avaliador da Banca (executivo convidado)') }}</option>
+                                    <option value="Avaliador Banca" {% if u.tipo_usuario == 'Avaliador Banca' and not u.perfil_personalizado_id %}selected{% endif %}>{{ tt('Avaliador da Banca (executivo convidado)') }}</option>
+                                    {% set personalizados = perfis_personalizados_ativos() %}
+                                    {% if personalizados or u.perfil_personalizado_id %}
+                                    <optgroup label="{{ tt('Perfis personalizados') }}">
+                                        {% for pp in personalizados %}<option value="custom:{{ pp.id }}" {% if u.perfil_personalizado_id == pp.id %}selected{% endif %}>{{ pp.nome }} ({{ tt(pp.perfil_base) }})</option>{% endfor %}
+                                    </optgroup>
+                                    {% endif %}
                                 </select>
                             </div>
                             <div class="col-md-6 mb-3">

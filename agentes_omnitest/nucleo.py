@@ -342,6 +342,7 @@ class AgenteOmniTest:
         self.tratar_tour = True   # o teste do Tour desliga o fechamento automático do convite
         self.pausar = False
         self.capturas = []        # (módulo, ação, arquivo) de cada etapa, usadas no PDF do Agente Gestor
+        self.aprendizados = []    # aprendizados aplicados recebidos do Agente Gerente Técnico (ver conhecimento.py)
         self.etapa_atual = ""
         self._ultimo_quadro = 0.0
 
@@ -1761,6 +1762,7 @@ class AgenteOmniTest:
             except Exception as e:
                 print(f"   (transmissão ao vivo indisponível: {e})")
 
+            self.carregar_aprendizados()
             self.etapa("Pré-login", "Testes antes do login", self.testes_pre_login)
             print("\n🔎 Autenticação › Login com e-mail e senha")
             try:
@@ -1774,6 +1776,7 @@ class AgenteOmniTest:
             self.etapa("Menu Superior", "Conferência do menu", self.teste_menu)
             self.teste_matriz_de_acesso()
             self.etapa(self.perfil["tipo"], "Testes específicos do perfil", self.testes_especificos)
+            self.etapa("Aprendizados", "Aplicar aprendizados do Gerente Técnico", self.aplicar_aprendizados)
             self.etapa("Tour", "Tour guiado", self.teste_tour)
             self.etapa("Tema", "Temas em todas as páginas", self.teste_temas_todas_paginas)
             self.etapa("Idioma", "Idiomas em todas as páginas", self.teste_idiomas_todas_paginas)
@@ -1791,6 +1794,51 @@ class AgenteOmniTest:
                 self.registrar("Limpeza", "Apagar dados [OmniTest]", ALERTA, f"Não foi possível limpar: {_celula(e)}", evidencia=False)
 
         return self.gerar_relatorio()
+
+    # --------------------------------------------------------------------------
+    # Aprendizados enviados pelo Agente Gerente Técnico (governança em Administração › Governança de aprendizados)
+    # --------------------------------------------------------------------------
+    def carregar_aprendizados(self):
+        """Lê os aprendizados APLICADOS para este agente (assinatura conferida) e registra o consumo."""
+        try:
+            import conhecimento
+
+            def ler():
+                itens = conhecimento.aprendizados_para(self.chave_perfil)
+                conhecimento.registrar_consumo(f"agente_{self.chave_perfil}", itens)
+                return [{"codigo": a.codigo, "tipo": a.tipo, "titulo": a.titulo, "conteudo": json.loads(a.conteudo)} for a in itens]
+            self.aprendizados = consultar_banco(ler)
+            if self.aprendizados:
+                print(f"🧠 {len(self.aprendizados)} aprendizado(s) recebido(s) do Gerente Técnico: " + ", ".join(a["codigo"] for a in self.aprendizados))
+        except Exception as e:
+            self.aprendizados = []
+            print(f"   (aprendizados indisponíveis: {e})")
+
+    def aplicar_aprendizados(self):
+        """Usa o que foi aprendido. Rotas novas: o agente confere se abrem sem erro de servidor."""
+        if not self.aprendizados:
+            self.registrar("Aprendizados", "Aprendizados do Gerente Técnico", PULADO, "Nenhum aprendizado aplicado para este agente.", evidencia=False)
+            return
+        rotas = [r for a in self.aprendizados if a["tipo"] == "rota_nova" for r in a["conteudo"].get("rotas", [])]
+        testaveis = [r for r in rotas if "<" not in r["regra"]]
+        erros = []
+        for rota in testaveis[:30]:
+            resposta = self.context.request.get(BASE_URL + rota["regra"], max_redirects=0)
+            if resposta.status >= 500:
+                erros.append(f"{rota['regra']} (HTTP {resposta.status})")
+        if testaveis:
+            if erros:
+                self.registrar("Aprendizados", "Rotas novas aprendidas", FALHA, "Erro de servidor em: " + ", ".join(erros),
+                               esperado="Rotas novas sem parâmetros respondem sem erro 500", arquivos="app.py")
+            else:
+                self.registrar("Aprendizados", "Rotas novas aprendidas", APROVADO, f"{len(testaveis)} rota(s) nova(s) conferida(s) sem erro.", evidencia=False)
+        self.registrar("Aprendizados", "Aprendizados do Gerente Técnico", APROVADO,
+                       f"{len(self.aprendizados)} recebido(s): " + ", ".join(f"{a['codigo']} ({a['tipo']})" for a in self.aprendizados[:12]),
+                       evidencia=False)
+
+    def referencias_oficiais(self):
+        """Referências de fontes oficiais aprovadas: entram no prompt de correção para o LLM."""
+        return [a for a in self.aprendizados if a["tipo"] == "referencia_externa"][-6:]
 
     # --------------------------------------------------------------------------
     # Relatório
@@ -1839,6 +1887,8 @@ class AgenteOmniTest:
         secao("💡 Sugestão de Melhoria de UX/UI (Alertas)", ALERTA, detalhado=True)
         secao("🟢 Aprovado (O que funcionou)", APROVADO)
         secao("⏭️ Não testado (falta de dados ou pré-requisito)", PULADO)
+        linhas.append("\n## 🧠 Aprendizados recebidos do Agente Gerente Técnico\n")
+        linhas += [f"- **{a['codigo']}** ({a['tipo']}): {a['titulo']}" for a in self.aprendizados] or ["- Nenhum."]
 
         caminho_prompt = self.gerar_prompt_llm()
         if caminho_prompt:
@@ -1854,7 +1904,8 @@ class AgenteOmniTest:
             json.dump({"perfil": self.perfil["tipo"], "chave": self.chave_perfil, "contagem": contagem,
                        "relatorio": caminho_md, "prompt_llm": caminho_prompt, "resultados": self.resultados,
                        "capturas": self.capturas, "email": self.perfil["email"], "ambiente": BASE_URL,
-                       "escrita": self.escrita, "roteiro": self.roteiro(), "carimbo": self.carimbo},
+                       "escrita": self.escrita, "roteiro": self.roteiro(), "carimbo": self.carimbo,
+                       "aprendizados": [{"codigo": a["codigo"], "tipo": a["tipo"], "titulo": a["titulo"]} for a in self.aprendizados]},
                       f, ensure_ascii=False, indent=2)
 
         print("\n==================================================")
@@ -1912,6 +1963,11 @@ class AgenteOmniTest:
             problemas.sort(key=lambda r: r["status"] != FALHA)
             linhas = cabecalho_prompt_llm(f"Perfil {self.perfil['tipo']}", f"o perfil **{self.perfil['tipo']}**",
                                           problemas, f"python agentes_omnitest/agente_{self.chave_perfil}.py")
+            referencias = self.referencias_oficiais()
+            if referencias:
+                linhas.append("**Referências oficiais aprovadas pelo Agente Gerente Técnico** (use como base nas correções):\n")
+                linhas += [f"- [{r['conteudo'].get('tema') or r['titulo']}]({r['conteudo'].get('url')}) — {r['conteudo'].get('resumo', '')[:280]}" for r in referencias]
+                linhas.append("")
             for i, r in enumerate(problemas, 1):
                 tipo = "FALHA" if r["status"] == FALHA else "ALERTA (melhoria)"
                 linhas.append(f"### {i}. {tipo} — {r['modulo']} › {r['acao']}")
