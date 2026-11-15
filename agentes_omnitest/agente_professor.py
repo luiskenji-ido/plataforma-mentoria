@@ -15,9 +15,9 @@ class AgenteProfessor(AgenteOmniTest):
     ESCOPO_ALUNOS = "vinculados"
 
     ROTAS_PERMITIDAS = ["dashboard", "sessoes", "acompanhamento", "projetos", "biblioteca",
-                        "frequencia", "notas", "demandas", "atividades_extras"]
+                        "frequencia", "notas", "demandas", "atividades_extras", "certificados", "repositorio"]
     # Reuniões ITM × Aon: só quem participou vê a ata (o perfil de teste não participa de nenhuma)
-    ROTAS_BLOQUEADAS = ["hub_educacional", "usuarios", "grupos", "solicitacoes", "banco", "esg_csv", "esg_pdf", "reunioes", "agenda_bancas", "avaliadores_banca", "minhas_bancas",
+    ROTAS_BLOQUEADAS = ["hub_educacional", "usuarios", "grupos", "solicitacoes", "banco", "esg_csv", "esg_pdf", "reunioes", "agenda_bancas", "avaliadores_banca", "minhas_bancas", "indicadores",
                         # Sala da Banca: só quem está escalado na banca daquele TCC
                         "banca"]
     MENU_VISIVEL = ["dashboard", "sessoes", "acompanhamento", "projetos", "biblioteca", "demandas", "atividades_extras", "frequencia", "notas"]

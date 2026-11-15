@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Verificação de certificado · Jovem Seguro 2026</title>
+    <style>
+        :root { --fundo: #f4f6fa; --cartao: #ffffff; --texto: #1d2633; --suave: #5d6878; --ok: #1b7a43; --erro: #b42318; --linha: #dde2ea; }
+        @media (prefers-color-scheme: dark) { :root { --fundo: #11161e; --cartao: #18202b; --texto: #e6ebf2; --suave: #9aa6b6; --ok: #6fcf97; --erro: #f2877c; --linha: #2a3442; } }
+        body { margin: 0; background: var(--fundo); color: var(--texto); font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+               display: flex; min-height: 100vh; align-items: center; justify-content: center; padding: 16px; box-sizing: border-box; }
+        .cartao { background: var(--cartao); border: 1px solid var(--linha); border-radius: 12px; padding: 28px; max-width: 520px; width: 100%; }
+        h1 { font-size: 1.3rem; margin: 0 0 4px; }
+        .selo { font-weight: 700; margin: 12px 0; }
+        .ok { color: var(--ok); } .erro { color: var(--erro); }
+        dl { display: grid; grid-template-columns: auto 1fr; gap: 6px 14px; margin: 0; }
+        dt { color: var(--suave); } dd { margin: 0; font-weight: 600; }
+        p { color: var(--suave); font-size: .9rem; }
+    </style>
+</head>
+<body>
+    <main class="cartao">
+        <h1>Verificação de certificado</h1>
+        <p>Jovem Seguro 2026 · Aon e Instituto ITM</p>
+        {% if certificado %}
+        <div class="selo ok">✔ Certificado autêntico</div>
+        <dl>
+            <dt>Código</dt><dd>{{ certificado.codigo }}</dd>
+            <dt>Participante</dt><dd>{{ certificado.usuario.nome.split()[0] }} {{ certificado.usuario.nome.split()[-1] if certificado.usuario.nome.split()|length > 1 else '' }}</dd>
+            <dt>Participação</dt><dd>{{ certificado.tipo }}</dd>
+            <dt>Projeto (TCC)</dt><dd>{{ certificado.projeto.nome }}</dd>
+            {% if certificado.minutos_total %}<dt>Tempo dedicado</dt><dd>{{ certificado.minutos_total // 60 }} h {{ certificado.minutos_total % 60 }} min</dd>{% endif %}
+            <dt>Emitido em</dt><dd>{{ certificado.data_emissao.strftime('%d/%m/%Y') }}</dd>
+        </dl>
+        {% else %}
+        <div class="selo erro">✖ Nenhum certificado encontrado com o código "{{ codigo }}".</div>
+        <p>Confira se o código foi digitado exatamente como aparece no certificado.</p>
+        {% endif %}
+    </main>
+</body>
+</html>

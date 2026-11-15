@@ -3002,16 +3002,58 @@ def gestao_trilha_tcc():
 # ==============================================================================
 # ROTA: BIBLIOTECA HISTÓRICA DE TCCS (VITRINE DE PROJETOS)
 # ==============================================================================
-@app.route('/biblioteca')
+@app.route('/biblioteca', methods=['GET', 'POST'])
 @login_required
 def biblioteca_tccs():
-    from models import Projeto
-    
-    # Busca apenas os projetos que já passaram pela banca e foram aprovados/concluídos
-    # Ordena pelos que tiveram a maior nota de conteúdo primeiro (se houver notas)
-    projetos_concluidos = Projeto.query.filter_by(status='Concluído', notas_publicadas=True).order_by(Projeto.nota_conteudo.desc()).all()
-    
-    return render_template('biblioteca.html', projetos=projetos_concluidos)
+    # P19: acervo interno de TCCs (aprovados na plataforma e históricos) + materiais de apoio
+    from models import TCCAcervo, MaterialApoio
+
+    if request.method == 'POST':
+        if not pode_gerir_bancas(current_user):
+            flash("Acesso negado.", "danger")
+            return redirect(url_for('biblioteca_tccs'))
+        acao = request.form.get('acao')
+        if acao == 'importar_historico':
+            titulo = (request.form.get('titulo') or '').strip()
+            pdf = salvar_arquivo_acervo(request.files.get('arquivo_pdf'), 'historico', {'pdf'})
+            if not titulo or not pdf:
+                flash(t('acervo_erro_importar', current_user.idioma), "warning")
+                return redirect(url_for('biblioteca_tccs'))
+            item = TCCAcervo(titulo=titulo, origem='Histórico', arquivo_pdf=pdf,
+                             autores_exibicao=(request.form.get('autores_exibicao') or '').strip() or None)
+            dados_acervo_do_formulario(item, request.form)
+            db.session.add(item)
+            flash(t('acervo_importado', current_user.idioma), "success")
+        elif acao == 'editar_acervo':
+            item = db.session.get(TCCAcervo, request.form.get('acervo_id', type=int) or 0)
+            if item:
+                dados_acervo_do_formulario(item, request.form)
+                flash(t('acervo_atualizado', current_user.idioma), "success")
+        elif acao == 'material':
+            arquivo = request.files.get('arquivo')
+            nome = salvar_arquivo_acervo(arquivo, 'material', {'pdf', 'docx', 'pptx', 'xlsx'})
+            titulo = (request.form.get('titulo') or '').strip()
+            if not titulo or not nome:
+                flash(t('acervo_erro_material', current_user.idioma), "warning")
+                return redirect(url_for('biblioteca_tccs'))
+            db.session.add(MaterialApoio(titulo=titulo, descricao=(request.form.get('descricao') or '').strip() or None,
+                                         categoria=request.form.get('categoria') or 'Metodologia', arquivo=nome,
+                                         nome_original=secure_filename(arquivo.filename), enviado_por_id=current_user.id))
+            flash(t('acervo_material_ok', current_user.idioma), "success")
+        db.session.commit()
+        return redirect(url_for('biblioteca_tccs'))
+
+    busca = (request.args.get('q') or '').strip().lower()
+    ano = request.args.get('ano', type=int)
+    itens = TCCAcervo.query.order_by(TCCAcervo.ano_edicao.desc(), TCCAcervo.titulo).all()
+    anos = sorted({i.ano_edicao for i in itens if i.ano_edicao}, reverse=True)
+    if busca:
+        itens = [i for i in itens if busca in ' '.join(filter(None, [i.titulo, i.tema, i.resumo, i.palavras_chave, i.autores_exibicao])).lower()]
+    if ano:
+        itens = [i for i in itens if i.ano_edicao == ano]
+    materiais = MaterialApoio.query.order_by(MaterialApoio.categoria, MaterialApoio.titulo).all()
+    return render_template('biblioteca.html', itens=itens, materiais=materiais, anos=anos, busca=request.args.get('q') or '',
+                           ano=ano, gestor=pode_gerir_bancas(current_user), ano_atual=datetime.now().year)
 
 
 # ==============================================================================
@@ -3020,24 +3062,33 @@ def biblioteca_tccs():
 @app.route('/certificado/<int:projeto_id>/<int:usuario_id>')
 @login_required
 def emitir_certificado(projeto_id, usuario_id):
-    from models import Projeto, Usuario
-    
+    # P17: certificado com as horas dedicadas, só para quem participou e só depois da divulgação do resultado
+    import json
     projeto = db.session.get(Projeto, projeto_id)
     usuario = db.session.get(Usuario, usuario_id)
-    
+
     if not projeto or not usuario:
         flash("Dados não encontrados para a emissão do certificado.", "danger")
         return redirect(url_for('dashboard'))
-        
-    # Trava de Segurança: Certificado só sai se a banca aprovou
-    if projeto.status != 'Concluído':
+    if not pode_emitir_certificado_de(current_user, usuario):
+        flash("Acesso negado.", "danger")
+        return redirect(url_for('dashboard'))
+
+    # Trava de Segurança: Certificado só sai se a banca aprovou e a coordenação divulgou o resultado
+    if projeto.status != 'Concluído' or not projeto.notas_publicadas:
         flash("Este projeto ainda não foi aprovado pela Banca Avaliadora.", "warning")
-        return redirect(url_for('biblioteca_tccs'))
-        
-    # Identifica a data de aprovação
-    data_emissao = projeto.data_criacao.strftime('%d/%m/%Y')
-    
-    return render_template('certificado.html', projeto=projeto, usuario=usuario, data_emissao=data_emissao)
+        return redirect(url_for('meus_certificados'))
+
+    tipo = tipo_certificado(usuario, projeto)
+    if not tipo:
+        flash(t('cert_nao_participou', current_user.idioma), "warning")
+        return redirect(url_for('meus_certificados'))
+
+    certificado = registrar_certificado(usuario, projeto, tipo)
+    detalhe = json.loads(certificado.detalhe_minutos or '{}')
+    return render_template('certificado.html', projeto=projeto, usuario=usuario, certificado=certificado, detalhe=detalhe,
+                           data_emissao=certificado.data_emissao.strftime('%d/%m/%Y'),
+                           url_verificacao=url_for('verificar_certificado', codigo=certificado.codigo, _external=True))
 
 
 # ===========================================================================
@@ -4460,7 +4511,8 @@ ENDPOINTS_AVALIADOR = {'login', 'logout', 'static', 'dashboard', 'onboarding', '
                        'central_notificacoes', 'abrir_notificacao', 'portal_demandas', 'biblioteca_tccs',
                        'bater_ponto_voluntariado', 'lancamento_manual_voluntariado', 'minhas_bancas', 'relogio_banca',
                        'painel_banca', 'perguntas_banca', 'cronometro_banca', 'estado_cronometro_banca', 'telao_banca',
-                       'baixar_entrega_tcc', 'curriculo_avaliador', 'ficha_banca', 'emitir_certificado', 'meus_certificados'}
+                       'baixar_entrega_tcc', 'curriculo_avaliador', 'ficha_banca', 'emitir_certificado', 'meus_certificados',
+                       'baixar_acervo', 'verificar_certificado', 'repositorio_publico', 'baixar_repositorio_publico'}
 
 
 @app.before_request
@@ -5001,6 +5053,14 @@ app.jinja_env.globals.update(pode_ver_resultado=pode_ver_resultado, pode_enviar_
                              perguntas_do_projeto=perguntas_do_projeto)
 
 
+@app.context_processor
+def injetar_certificados_menu():
+    # Item "Certificados" no menu só para quem já tem algum disponível
+    if current_user.is_authenticated:
+        return dict(tem_certificados=bool(certificados_disponiveis(current_user)))
+    return dict(tem_certificados=False)
+
+
 # ------------------------------------------------------------------------------
 # P14 — Perguntas da banca e respostas dos jovens (a qualquer momento, sem enviar notas)
 # ------------------------------------------------------------------------------
@@ -5104,6 +5164,322 @@ def telao_banca(id):
         flash("Acesso negado.", "danger")
         return redirect(url_for('dashboard'))
     return render_template('banca_telao.html', banca=banca)
+
+
+# ==============================================================================
+# FASE 4 — CERTIFICADOS COM HORAS, INDICADORES DE VOLUNTARIADO E REPOSITÓRIO DE TCCs
+# ==============================================================================
+PASTA_ACERVO = os.path.join(app.config['UPLOAD_FOLDER'], 'acervo')
+os.makedirs(PASTA_ACERVO, exist_ok=True)
+ROTULOS_ATIVIDADE = {'Leitura Assíncrona de TCC': 'Leitura do TCC', 'Análise e Notas': 'Análise e notas',
+                     'Avaliação de Banca Ao Vivo': 'Banca ao vivo', 'Mentoria Extraordinária': 'Mentoria extra',
+                     'Reunião Institucional': 'Reuniões institucionais', 'Apoio Institucional': 'Apoio institucional'}
+
+
+# ------------------------------------------------------------------------------
+# P17 — Certificados
+# ------------------------------------------------------------------------------
+def pode_emitir_certificado_de(quem, usuario):
+    """O próprio usuário, a coordenação ou o Gestor B2B para pessoas das suas empresas."""
+    if quem.id == usuario.id or quem.tipo_usuario in ['Administrador', 'Mentor Administrador']:
+        return True
+    if quem.tipo_usuario == 'Admin B2B':
+        empresas = {e.nome for e in Empresa.query.filter_by(gestor_id=quem.id).all()}
+        da_empresa = {e.nome for e in (getattr(usuario, 'empresas_vinculadas', None) or [])}
+        perfil = getattr(usuario, 'perfil_avaliador', None)
+        if perfil and perfil.empresa_origem:
+            da_empresa.add(perfil.empresa_origem)
+        return bool(empresas & da_empresa) or usuario.id in (ids_jovens_visiveis(quem) or set())
+    return False
+
+
+def tipo_certificado(usuario, projeto):
+    banca = getattr(projeto, 'banca', None)
+    if banca and usuario in banca.avaliadores:
+        return 'Avaliador da Banca'
+    if usuario in membros_do_projeto(projeto):
+        return 'Jovem participante' if usuario.tipo_usuario == 'Aluno' else 'Mentor'
+    return None
+
+
+def minutos_certificado(usuario, projeto, tipo):
+    """Soma as horas registradas (só lançamentos concluídos) e devolve (total, {atividade: minutos})."""
+    from models import CheckinVoluntariado, AtividadeExtra, PresencaAtividadeExtra
+    detalhe = {}
+    if tipo == 'Jovem participante':
+        presencas = PresencaAtividadeExtra.query.join(AtividadeExtra).filter(
+            PresencaAtividadeExtra.usuario_id == usuario.id, AtividadeExtra.grupo_id == projeto.grupo_id,
+            PresencaAtividadeExtra.check_out.isnot(None)).all()
+        if presencas:
+            detalhe['Atividades extras do grupo'] = sum(p.total_minutos or 0 for p in presencas)
+    else:
+        consulta = CheckinVoluntariado.query.filter(CheckinVoluntariado.usuario_id == usuario.id,
+                                                    CheckinVoluntariado.data_hora_fim.isnot(None))
+        if tipo == 'Avaliador da Banca':
+            consulta = consulta.filter(CheckinVoluntariado.projeto_id == projeto.id)
+        else:
+            consulta = consulta.filter((CheckinVoluntariado.projeto_id == projeto.id) | (CheckinVoluntariado.grupo_id == projeto.grupo_id))
+        for registro in consulta.all():
+            base = registro.tipo_atividade.replace(' (Lançamento Manual)', '')
+            rotulo = ROTULOS_ATIVIDADE.get(base, base)
+            detalhe[rotulo] = detalhe.get(rotulo, 0) + (registro.total_minutos or 0)
+    return sum(detalhe.values()), detalhe
+
+
+def registrar_certificado(usuario, projeto, tipo):
+    """Cria (ou atualiza as horas de) o certificado com um código curto e único para verificação pública."""
+    import json
+    import secrets
+    from models import CertificadoEmitido
+    certificado = CertificadoEmitido.query.filter_by(usuario_id=usuario.id, projeto_id=projeto.id, tipo=tipo).first()
+    if not certificado:
+        codigo = secrets.token_hex(5).upper()
+        while CertificadoEmitido.query.filter_by(codigo=codigo).first():
+            codigo = secrets.token_hex(5).upper()
+        certificado = CertificadoEmitido(usuario_id=usuario.id, projeto_id=projeto.id, tipo=tipo, codigo=codigo)
+        db.session.add(certificado)
+    total, detalhe = minutos_certificado(usuario, projeto, tipo)
+    certificado.minutos_total = total
+    certificado.detalhe_minutos = json.dumps(detalhe, ensure_ascii=False)
+    db.session.commit()
+    return certificado
+
+
+def certificados_disponiveis(usuario):
+    """Projetos aprovados e divulgados em que a pessoa participou: (projeto, tipo)."""
+    publicados = Projeto.query.filter_by(status='Concluído', notas_publicadas=True).order_by(Projeto.data_publicacao_notas.desc()).all()
+    return [(p, tipo_certificado(usuario, p)) for p in publicados if tipo_certificado(usuario, p)]
+
+
+@app.route('/certificados')
+@login_required
+def meus_certificados():
+    from models import CertificadoEmitido
+    emitidos = {(c.projeto_id, c.tipo): c for c in CertificadoEmitido.query.filter_by(usuario_id=current_user.id).all()}
+    return render_template('meus_certificados.html', disponiveis=certificados_disponiveis(current_user), emitidos=emitidos)
+
+
+@app.route('/certificado/verificar/<codigo>')
+def verificar_certificado(codigo):
+    """Página pública: confirma a autenticidade sem expor e-mail nem dados sensíveis."""
+    from models import CertificadoEmitido
+    certificado = CertificadoEmitido.query.filter_by(codigo=(codigo or '').upper()).first()
+    return render_template('certificado_verificar.html', certificado=certificado, codigo=codigo)
+
+
+# ------------------------------------------------------------------------------
+# P18 — Indicadores de voluntariado
+# ------------------------------------------------------------------------------
+def registros_indicadores(usuario, filtros):
+    """Lançamentos do escopo do perfil com os filtros da tela aplicados."""
+    registros = registros_esg_do_perfil(usuario)
+    inicio, fim = filtros.get('data_inicio'), filtros.get('data_fim')
+    if inicio:
+        registros = [r for r in registros if r.data_hora_inicio and r.data_hora_inicio.strftime('%Y-%m-%d') >= inicio]
+    if fim:
+        registros = [r for r in registros if r.data_hora_inicio and r.data_hora_inicio.strftime('%Y-%m-%d') <= fim]
+    if filtros.get('tipo'):
+        registros = [r for r in registros if r.tipo_atividade.replace(' (Lançamento Manual)', '') == filtros['tipo']]
+    if filtros.get('grupo_id'):
+        registros = [r for r in registros if r.grupo_id == filtros['grupo_id'] or (r.projeto and r.projeto.grupo_id == filtros['grupo_id'])]
+    if filtros.get('empresa'):
+        registros = [r for r in registros if filtros['empresa'] in linha_relatorio_esg(r)['empresa']]
+    return registros
+
+
+def calcular_indicadores(usuario, filtros):
+    registros = registros_indicadores(usuario, filtros)
+    concluidos = [r for r in registros if r.data_hora_fim]
+    linhas = [linha_relatorio_esg(r) for r in concluidos]
+    total = sum(l['minutos'] for l in linhas)
+    por_pessoa, por_tipo, por_empresa, por_mes = {}, {}, {}, {}
+    regular = extra = 0
+    for r, l in zip(concluidos, linhas):
+        por_pessoa[l['nome']] = por_pessoa.get(l['nome'], 0) + l['minutos']
+        rotulo = ROTULOS_ATIVIDADE.get(r.tipo_atividade.replace(' (Lançamento Manual)', ''), r.tipo_atividade)
+        por_tipo[rotulo] = por_tipo.get(rotulo, 0) + l['minutos']
+        por_empresa[l['empresa']] = por_empresa.get(l['empresa'], 0) + l['minutos']
+        mes = r.data_hora_inicio.strftime('%Y-%m')
+        por_mes[mes] = por_mes.get(mes, 0) + l['minutos']
+        if l['categoria'] == 'Extra':
+            extra += l['minutos']
+        else:
+            regular += l['minutos']
+
+    visiveis = ids_jovens_visiveis(usuario)
+    consulta_jovens = Usuario.query.filter(Usuario.tipo_usuario == 'Aluno', Usuario.status == 'Ativo')
+    if visiveis is not None:
+        consulta_jovens = consulta_jovens.filter(Usuario.id.in_(list(visiveis) or [-1]))
+    jovens = consulta_jovens.count()
+    aprovados = Projeto.query.filter_by(status='Concluído', notas_publicadas=True).count()
+    return {
+        'total_min': total, 'voluntarios': len(por_pessoa), 'regular_min': regular, 'extra_min': extra,
+        'por_tipo': sorted(por_tipo.items(), key=lambda x: -x[1]),
+        'ranking': sorted(por_pessoa.items(), key=lambda x: -x[1])[:10],
+        'por_empresa': sorted(por_empresa.items(), key=lambda x: -x[1]),
+        'por_mes': sorted(por_mes.items()),
+        'jovens': jovens, 'horas_por_jovem': round(total / 60 / jovens, 1) if jovens else 0,
+        'tccs_aprovados': aprovados,
+        'abertos': [r for r in registros if not r.data_hora_fim],
+        'linhas': linhas,
+    }
+
+
+def filtros_indicadores():
+    return {'data_inicio': request.args.get('data_inicio') or '', 'data_fim': request.args.get('data_fim') or '',
+            'tipo': request.args.get('tipo') or '', 'empresa': request.args.get('empresa') or '',
+            'grupo_id': request.args.get('grupo_id', type=int)}
+
+
+@app.route('/indicadores-voluntariado')
+@login_required
+def indicadores_voluntariado():
+    if current_user.tipo_usuario not in PERFIS_GESTAO_BANCA:
+        flash("Acesso negado.", "danger")
+        return redirect(url_for('dashboard'))
+    filtros = filtros_indicadores()
+    dados = calcular_indicadores(current_user, filtros)
+    empresas = [e.nome for e in (Empresa.query.filter_by(gestor_id=current_user.id) if current_user.tipo_usuario == 'Admin B2B'
+                                 else Empresa.query).order_by(Empresa.nome).all()]
+    return render_template('indicadores_voluntariado.html', dados=dados, filtros=filtros, empresas=empresas,
+                           grupos=Grupo.query.order_by(Grupo.nome).all(), tipos=list(ROTULOS_ATIVIDADE.items()))
+
+
+@app.route('/indicadores-voluntariado.csv')
+@login_required
+def indicadores_voluntariado_csv():
+    import csv
+    import io
+    from flask import Response
+    if current_user.tipo_usuario not in PERFIS_GESTAO_BANCA:
+        flash("Acesso negado.", "danger")
+        return redirect(url_for('dashboard'))
+    dados = calcular_indicadores(current_user, filtros_indicadores())
+    saida = io.StringIO()
+    escritor = csv.writer(saida, delimiter=';')
+    escritor.writerow(['Indicador', 'Valor'])
+    for nome, valor in [('Horas totais', round(dados['total_min'] / 60, 1)), ('Voluntários ativos', dados['voluntarios']),
+                        ('Horas regulares', round(dados['regular_min'] / 60, 1)), ('Horas extras', round(dados['extra_min'] / 60, 1)),
+                        ('Jovens capacitados', dados['jovens']), ('Horas por jovem', dados['horas_por_jovem']),
+                        ('TCCs aprovados', dados['tccs_aprovados'])]:
+        escritor.writerow([nome, valor])
+    escritor.writerow([])
+    escritor.writerow(['Atividade', 'Horas'])
+    for nome, minutos in dados['por_tipo']:
+        escritor.writerow([nome, round(minutos / 60, 1)])
+    escritor.writerow([])
+    escritor.writerow(['Voluntário', 'Horas'])
+    for nome, minutos in dados['ranking']:
+        escritor.writerow([nome, round(minutos / 60, 1)])
+    return Response(saida.getvalue().encode('utf-8-sig'), mimetype="text/csv",
+                    headers={"Content-Disposition": f"attachment;filename=Indicadores_Voluntariado_{datetime.now().strftime('%Y%m%d')}.csv"})
+
+
+# ------------------------------------------------------------------------------
+# P19 — Repositório de TCCs e materiais de apoio
+# ------------------------------------------------------------------------------
+def eh_orientador(usuario, projeto):
+    return usuario.tipo_usuario != 'Aluno' and usuario in membros_do_projeto(projeto)
+
+
+app.jinja_env.globals.update(eh_orientador=eh_orientador)
+
+
+def salvar_arquivo_acervo(arquivo, prefixo, extensoes):
+    if not arquivo or not arquivo.filename or '.' not in arquivo.filename:
+        return None
+    extensao = arquivo.filename.rsplit('.', 1)[-1].lower()
+    if extensao not in extensoes:
+        return None
+    nome = f"{prefixo}_{datetime.now().strftime('%Y%m%d%H%M%S%f')}.{extensao}"
+    arquivo.save(os.path.join(PASTA_ACERVO, nome))
+    return nome
+
+
+def dados_acervo_do_formulario(item, formulario):
+    item.tema = (formulario.get('tema') or '').strip() or None
+    item.resumo = (formulario.get('resumo') or '').strip() or None
+    item.palavras_chave = (formulario.get('palavras_chave') or '').strip() or None
+    item.ano_edicao = formulario.get('ano_edicao', type=int) or datetime.now().year
+    item.edicao = (formulario.get('edicao') or '').strip() or None
+    item.exibir_nota = bool(formulario.get('exibir_nota'))
+    item.autorizacao_publicacao = bool(formulario.get('autorizacao_publicacao'))
+    # Sem a autorização dos jovens/responsáveis registrada, o TCC nunca fica público
+    item.visibilidade = 'Pública' if (formulario.get('visibilidade') == 'Pública' and item.autorizacao_publicacao) else 'Interna'
+    if item.autorizacao_publicacao:
+        item.autorizado_por_id = current_user.id
+
+
+@app.route('/projetos/<int:id>/aprovar-versao-final', methods=['POST'])
+@login_required
+def aprovar_versao_final(id):
+    """Orientador do grupo ou gestão leva a versão final aprovada para o acervo."""
+    import shutil
+    from models import TCCAcervo
+    projeto = db.session.get(Projeto, id)
+    if not projeto or not (eh_orientador(current_user, projeto) or pode_gerir_bancas(current_user)):
+        flash("Acesso negado.", "danger")
+        return redirect(url_for('projetos'))
+    escrito = next((e for e in projeto.entregas if e.tipo == 'Escrito final'), None)
+    if projeto.status != 'Concluído' or not projeto.notas_publicadas or not escrito:
+        flash(t('acervo_erro_requisitos', current_user.idioma), "warning")
+        return redirect(url_for('projetos') + f"#projeto-{projeto.id}")
+
+    item = projeto.acervo or TCCAcervo(projeto_id=projeto.id, origem='Plataforma')
+    item.titulo = projeto.nome
+    item.nota_final = projeto.nota_final
+    jovens = [m for m in membros_do_projeto(projeto) if m.tipo_usuario == 'Aluno']
+    item.autores_exibicao = ", ".join(sorted(m.nome.split()[0] for m in jovens)) or (projeto.grupo.nome if projeto.grupo else '')
+    dados_acervo_do_formulario(item, request.form)
+    for entrega, campo in [(escrito, 'arquivo_pdf'), (next((e for e in projeto.entregas if e.tipo == 'Slides da apresentação'), None), 'arquivo_slides')]:
+        if entrega:
+            destino = f"acervo_{projeto.id}_{entrega.arquivo}"
+            shutil.copyfile(os.path.join(PASTA_TCC, entrega.arquivo), os.path.join(PASTA_ACERVO, destino))
+            setattr(item, campo, destino)
+    db.session.add(item)
+    db.session.commit()
+    flash(t('acervo_aprovado', current_user.idioma), "success")
+    return redirect(url_for('biblioteca_tccs'))
+
+
+@app.route('/acervo/<int:id>/<tipo>')
+@login_required
+def baixar_acervo(id, tipo):
+    from models import TCCAcervo, MaterialApoio
+    if tipo == 'material':
+        item = db.session.get(MaterialApoio, id)
+        arquivo = item.arquivo if item else None
+    else:
+        item = db.session.get(TCCAcervo, id)
+        arquivo = (item.arquivo_slides if tipo == 'slides' else item.arquivo_pdf) if item else None
+    if not item or not arquivo:
+        flash("Arquivo não encontrado.", "warning")
+        return redirect(url_for('biblioteca_tccs'))
+    item.downloads = (item.downloads or 0) + 1
+    db.session.commit()
+    return send_from_directory(PASTA_ACERVO, arquivo, as_attachment=True)
+
+
+@app.route('/repositorio')
+def repositorio_publico():
+    """Acervo aberto (sem login) para o Instituto Aon, o ITM e o mercado: só TCCs públicos e autorizados."""
+    from models import TCCAcervo
+    busca = (request.args.get('q') or '').strip().lower()
+    itens = TCCAcervo.query.filter_by(visibilidade='Pública', autorizacao_publicacao=True).order_by(TCCAcervo.ano_edicao.desc(), TCCAcervo.titulo).all()
+    if busca:
+        itens = [i for i in itens if busca in ' '.join(filter(None, [i.titulo, i.tema, i.resumo, i.palavras_chave])).lower()]
+    return render_template('repositorio_publico.html', itens=itens, busca=request.args.get('q') or '')
+
+
+@app.route('/repositorio/<int:id>/pdf')
+def baixar_repositorio_publico(id):
+    from models import TCCAcervo
+    item = db.session.get(TCCAcervo, id)
+    if not item or item.visibilidade != 'Pública' or not item.autorizacao_publicacao or not item.arquivo_pdf:
+        return redirect(url_for('repositorio_publico'))
+    item.downloads = (item.downloads or 0) + 1
+    db.session.commit()
+    return send_from_directory(PASTA_ACERVO, item.arquivo_pdf, as_attachment=True)
 
 
 # ==============================================================================

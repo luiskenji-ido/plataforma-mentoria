@@ -75,4 +75,39 @@
         {% endif %}
     </div>
     {% endif %}
+
+    {# Versão final para o repositório: orientador do grupo ou gestão, depois da aprovação publicada #}
+    {% if p.acervo %}
+    <div><span class="badge bg-success"><i class="bi bi-journal-check"></i> {{ t('acervo_no_repositorio') }} · {{ t('acervo_publica') if p.acervo.visibilidade == 'Pública' else t('acervo_interna') }}</span>
+        <a href="{{ url_for('biblioteca_tccs', q=p.nome) }}" class="ms-1">{{ t('menu_biblioteca') }}</a></div>
+    {% endif %}
+    {% if p.status == 'Concluído' and p.notas_publicadas and (eh_orientador(current_user, p) or pode_gerir_bancas(current_user)) %}
+    <details>
+        <summary class="fw-bold text-primary">{{ t('acervo_atualizar') if p.acervo else t('acervo_aprovar') }}</summary>
+        <form method="POST" action="{{ url_for('aprovar_versao_final', id=p.id) }}" class="row g-2 mt-1">
+            <div class="col-md-6"><label class="form-label fw-bold small mb-0" for="temaAc{{ p.id }}">{{ t('acervo_tema') }}</label>
+                <input class="form-control form-control-sm" id="temaAc{{ p.id }}" name="tema" value="{{ p.acervo.tema if p.acervo and p.acervo.tema else '' }}"></div>
+            <div class="col-md-3"><label class="form-label fw-bold small mb-0" for="anoAc{{ p.id }}">{{ t('acervo_ano') }}</label>
+                <input type="number" class="form-control form-control-sm" id="anoAc{{ p.id }}" name="ano_edicao" value="{{ p.acervo.ano_edicao if p.acervo else (p.data_avaliacao.year if p.data_avaliacao else '') }}"></div>
+            <div class="col-md-3"><label class="form-label fw-bold small mb-0" for="edAc{{ p.id }}">{{ t('acervo_edicao') }}</label>
+                <input class="form-control form-control-sm" id="edAc{{ p.id }}" name="edicao" value="{{ p.acervo.edicao if p.acervo and p.acervo.edicao else '' }}"></div>
+            <div class="col-12"><label class="form-label fw-bold small mb-0" for="palAc{{ p.id }}">{{ t('acervo_palavras') }}</label>
+                <input class="form-control form-control-sm" id="palAc{{ p.id }}" name="palavras_chave" value="{{ p.acervo.palavras_chave if p.acervo and p.acervo.palavras_chave else '' }}"></div>
+            <div class="col-12"><label class="form-label fw-bold small mb-0" for="resAc{{ p.id }}">{{ t('acervo_resumo') }}</label>
+                <textarea class="form-control form-control-sm" id="resAc{{ p.id }}" name="resumo" rows="3">{{ p.acervo.resumo if p.acervo and p.acervo.resumo else (p.descricao or '') }}</textarea></div>
+            <div class="col-md-4"><label class="form-label fw-bold small mb-0" for="visAc{{ p.id }}">{{ t('acervo_visibilidade') }}</label>
+                <select class="form-select form-select-sm" id="visAc{{ p.id }}" name="visibilidade">
+                    <option value="Interna">{{ t('acervo_interna') }}</option>
+                    <option value="Pública" {% if p.acervo and p.acervo.visibilidade == 'Pública' %}selected{% endif %}>{{ t('acervo_publica') }}</option>
+                </select></div>
+            <div class="col-md-8 d-flex flex-column justify-content-end">
+                <div class="form-check"><input class="form-check-input" type="checkbox" id="autAc{{ p.id }}" name="autorizacao_publicacao" {% if p.acervo and p.acervo.autorizacao_publicacao %}checked{% endif %}>
+                    <label class="form-check-label" for="autAc{{ p.id }}">{{ t('acervo_autorizacao') }}</label></div>
+                <div class="form-check"><input class="form-check-input" type="checkbox" id="notAc{{ p.id }}" name="exibir_nota" {% if p.acervo and p.acervo.exibir_nota %}checked{% endif %}>
+                    <label class="form-check-label" for="notAc{{ p.id }}">{{ t('acervo_exibir_nota') }}</label></div>
+            </div>
+            <div class="col-12"><button class="btn btn-sm btn-success fw-bold rounded-pill px-3" type="submit"><i class="bi bi-journal-arrow-up"></i> {{ t('acervo_atualizar') if p.acervo else t('acervo_aprovar') }}</button></div>
+        </form>
+    </details>
+    {% endif %}
 </div>

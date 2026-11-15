@@ -89,6 +89,10 @@ ROTAS = {
     "agenda_bancas": {"caminho": "/bancas", "nome": "Agenda de bancas"},
     "avaliadores_banca": {"caminho": "/bancas/avaliadores", "nome": "Avaliadores da banca"},
     "minhas_bancas": {"caminho": "/minhas-bancas", "nome": "Minhas bancas"},
+    "indicadores": {"caminho": "/indicadores-voluntariado", "nome": "Indicadores de voluntariado"},
+    "certificados": {"caminho": "/certificados", "nome": "Certificados"},
+    # Vitrine pública dos TCCs autorizados: página própria, sem login nem menu
+    "repositorio": {"caminho": "/repositorio", "nome": "Repositório público", "independente": True},
     "esg_csv": {"caminho": "/admin/exportar-relatorio-esg", "nome": "Exportar ESG (CSV)", "download": True},
     # O "PDF" é uma página HTML pronta para imprimir (render_template_string), não um ficheiro
     # "independente": não estende base.html (sem menu, tema, idioma nem tour), por isso fica fora dessas varreduras
@@ -101,7 +105,7 @@ ARQUIVOS_POR_MODULO = {
     "Sessões": "app.py (rota sessoes), templates/sessoes.html",
     "Acompanhamento": "app.py (rotas acompanhamento, conectar_agenda, oauth2callback, chat_ia), templates/acompanhamento.html",
     "Projetos": "app.py (rota projetos), templates/projetos.html",
-    "Biblioteca de Projetos": "app.py (rota biblioteca_tccs), templates/biblioteca.html",
+    "Biblioteca de Projetos": "app.py (biblioteca_tccs, baixar_acervo, dados_acervo_do_formulario), templates/biblioteca.html",
     "Hub Educacional": "app.py (rota gerenciar_turmas), templates/admin_turmas.html",
     "Diário › Frequência": "app.py (rota gerenciar_frequencia), templates/admin_frequencia.html",
     "Diário › Gestão de Notas": "app.py (rota gerenciar_notas), templates/admin_notas.html",
@@ -119,6 +123,9 @@ ARQUIVOS_POR_MODULO = {
     "Agenda de bancas": "app.py (agenda_bancas, publicar_resultado_banca), templates/agenda_bancas.html",
     "Avaliadores da banca": "app.py (avaliadores_banca, curriculo_avaliador), templates/avaliadores_banca.html",
     "Minhas bancas": "app.py (minhas_bancas, relogio_banca), templates/minhas_bancas.html",
+    "Indicadores de voluntariado": "app.py (indicadores_voluntariado, calcular_indicadores, registros_indicadores), templates/indicadores_voluntariado.html",
+    "Certificados": "app.py (meus_certificados, emitir_certificado, registrar_certificado, verificar_certificado), templates/meus_certificados.html, certificado.html",
+    "Repositório público": "app.py (repositorio_publico, baixar_repositorio_publico, aprovar_versao_final), templates/repositorio_publico.html",
     "Sala da Banca": "app.py (painel_banca, consolidar_banca, perguntas_banca, cronometro_banca), templates/banca_avaliacao.html, templates/banca_telao.html",
     "Reuniões ITM × Aon": "app.py (reunioes, editar_reuniao, detalhe_reuniao, sincronizar_voluntariado_reuniao), templates/reunioes.html, reuniao_form.html, reuniao_detalhe.html",
     "Tour": "templates/dashboard.html (modalTourInicial, iniciarTourDaPagina, desativarTourBackend), app.py (rota desativar_tour), "

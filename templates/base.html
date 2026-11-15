@@ -628,6 +628,14 @@
         {% endif %}
         {% endif %}
 
+        {% if tem_certificados %}
+        <li class="nav-item">
+          <a class="nav-link fw-bold {% if request.endpoint == 'meus_certificados' %}{{ ativo }}{% endif %}" href="{{ url_for('meus_certificados') }}">
+            <i class="bi bi-award"></i> {{ t('menu_certificados') }}
+          </a>
+        </li>
+        {% endif %}
+
         <!-- Biblioteca de TCCs: aberta a todos os perfis (material de pesquisa) -->
         <li class="nav-item">
           <a class="nav-link fw-bold {% if request.endpoint == 'biblioteca_tccs' %}{{ ativo }}{% endif %}" href="{{ url_for('biblioteca_tccs') }}">
@@ -693,6 +701,7 @@
                 <li><a class="dropdown-item fw-bold" href="{{ url_for('reunioes') }}"><i class="bi bi-journal-text"></i> {{ t('menu_reunioes') }}</a></li>
                 <li><a class="dropdown-item fw-bold" href="{{ url_for('agenda_bancas') }}"><i class="bi bi-calendar-event"></i> {{ t('menu_agenda_bancas') }}</a></li>
                 <li><a class="dropdown-item fw-bold" href="{{ url_for('avaliadores_banca') }}"><i class="bi bi-person-badge"></i> {{ t('aval_titulo') }}</a></li>
+                <li><a class="dropdown-item fw-bold" href="{{ url_for('indicadores_voluntariado') }}"><i class="bi bi-bar-chart-line"></i> {{ t('menu_indicadores') }}</a></li>
 
                 {% if current_user.tipo_usuario == 'Mentor Administrador' %}
                 <li><a class="dropdown-item fw-bold" href="{{ url_for('gerenciar_solicitacoes') }}"><i class="bi bi-envelope-paper-fill"></i> {{ t('menu_solicitacoes') }}</a></li>

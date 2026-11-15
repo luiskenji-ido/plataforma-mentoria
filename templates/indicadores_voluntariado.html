@@ -1,0 +1,117 @@
+{% extends "base.html" %}
+{% block title %}{{ t('ind_titulo') }}{% endblock %}
+
+{% block content %}
+{% macro horas(minutos) %}{{ '%.1f'|format((minutos or 0) / 60) }} h{% endmacro %}
+<div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-4 border-bottom pb-3">
+    <div>
+        <h2 class="text-primary fw-bold mb-1"><i class="bi bi-bar-chart-line-fill"></i> {{ t('ind_titulo') }}</h2>
+        <p class="text-muted mb-0">{{ t('ind_subtitulo') }}</p>
+    </div>
+    <div class="d-flex gap-2 d-print-none">
+        <a href="{{ url_for('indicadores_voluntariado_csv', **request.args) }}" class="btn btn-outline-success fw-bold rounded-pill px-3"><i class="bi bi-file-earmark-excel"></i> CSV</a>
+        <button type="button" class="btn btn-outline-secondary fw-bold rounded-pill px-3" onclick="window.print()"><i class="bi bi-printer"></i> {{ t('reuniao_imprimir') }}</button>
+    </div>
+</div>
+
+<!-- Filtros -->
+<form method="GET" class="card shadow-sm border-0 mb-4 d-print-none">
+    <div class="card-body row g-2 align-items-end">
+        <div class="col-6 col-md-2"><label class="form-label small fw-bold" for="fIni">{{ t('reuniao_de') }}</label><input type="date" class="form-control form-control-sm" id="fIni" name="data_inicio" value="{{ filtros.data_inicio }}"></div>
+        <div class="col-6 col-md-2"><label class="form-label small fw-bold" for="fFim">{{ t('reuniao_ate') }}</label><input type="date" class="form-control form-control-sm" id="fFim" name="data_fim" value="{{ filtros.data_fim }}"></div>
+        <div class="col-md-3"><label class="form-label small fw-bold" for="fEmpresa">{{ t('aval_empresa') }}</label>
+            <select class="form-select form-select-sm" id="fEmpresa" name="empresa"><option value="">—</option>{% for e in empresas %}<option value="{{ e }}" {% if filtros.empresa == e %}selected{% endif %}>{{ e }}</option>{% endfor %}</select></div>
+        <div class="col-md-2"><label class="form-label small fw-bold" for="fTipo">{{ t('vol_col_atividade') }}</label>
+            <select class="form-select form-select-sm" id="fTipo" name="tipo"><option value="">—</option>{% for valor, rotulo in tipos %}<option value="{{ valor }}" {% if filtros.tipo == valor %}selected{% endif %}>{{ rotulo }}</option>{% endfor %}</select></div>
+        <div class="col-md-2"><label class="form-label small fw-bold" for="fGrupo">{{ t('vol_campo_grupo') }}</label>
+            <select class="form-select form-select-sm" id="fGrupo" name="grupo_id"><option value="">—</option>{% for g in grupos %}<option value="{{ g.id }}" {% if filtros.grupo_id == g.id %}selected{% endif %}>{{ g.nome }}</option>{% endfor %}</select></div>
+        <div class="col-md-1 d-grid"><button class="btn btn-sm btn-primary fw-bold" type="submit">{{ t('reuniao_filtrar') }}</button></div>
+    </div>
+</form>
+
+<!-- Números principais -->
+<div class="row g-3 mb-4">
+    {% for rotulo, valor in [(t('ind_horas_totais'), horas(dados.total_min)), (t('ind_voluntarios'), dados.voluntarios),
+                              (t('ind_regulares'), horas(dados.regular_min)), (t('ind_extras'), horas(dados.extra_min)),
+                              (t('ind_jovens'), dados.jovens), (t('ind_horas_por_jovem'), dados.horas_por_jovem ~ ' h'),
+                              (t('ind_tccs_aprovados'), dados.tccs_aprovados)] %}
+    <div class="col-6 col-md-3 col-xl">
+        <div class="card shadow-sm border-0 h-100 text-center p-2">
+            <small class="text-muted fw-bold">{{ rotulo }}</small>
+            <div class="fs-3 fw-bold text-dark" style="font-variant-numeric: tabular-nums;">{{ valor }}</div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+{% if dados.abertos %}
+<div class="alert alert-warning small"><i class="bi bi-exclamation-triangle"></i> <strong>{{ dados.abertos|length }} {{ t('ind_abertos') }}:</strong>
+    {% for r in dados.abertos[:6] %}{{ r.usuario.nome if r.usuario else '' }} ({{ r.tipo_atividade }}, {{ r.data_hora_inicio.strftime('%d/%m %H:%M') }}){% if not loop.last %} · {% endif %}{% endfor %}
+</div>
+{% endif %}
+
+<div class="row g-4 mb-4">
+    <div class="col-lg-6"><div class="card shadow-sm border-0 h-100"><div class="card-body">
+        <h6 class="fw-bold text-primary">{{ t('ind_por_tipo') }}</h6>
+        <canvas id="graficoTipo" height="220" aria-label="{{ t('ind_por_tipo') }}" role="img"></canvas>
+    </div></div></div>
+    <div class="col-lg-6"><div class="card shadow-sm border-0 h-100"><div class="card-body">
+        <h6 class="fw-bold text-primary">{{ t('ind_por_mes') }}</h6>
+        <canvas id="graficoMes" height="220" aria-label="{{ t('ind_por_mes') }}" role="img"></canvas>
+    </div></div></div>
+</div>
+
+<div class="row g-4 mb-4">
+    <div class="col-lg-6"><div class="card shadow-sm border-0 h-100">
+        <div class="card-header bg-white fw-bold text-primary">{{ t('ind_ranking') }}</div>
+        <table class="table table-sm align-middle mb-0 small"><tbody>
+            {% for nome, minutos in dados.ranking %}<tr><td>{{ loop.index }}. {{ nome }}</td><td class="text-end fw-bold" style="font-variant-numeric: tabular-nums;">{{ horas(minutos) }}</td></tr>
+            {% else %}<tr><td class="text-muted text-center py-3">{{ t('vol_sem_lancamentos') }}</td></tr>{% endfor %}
+        </tbody></table>
+    </div></div>
+    <div class="col-lg-6"><div class="card shadow-sm border-0 h-100">
+        <div class="card-header bg-white fw-bold text-primary">{{ t('ind_por_empresa') }}</div>
+        <table class="table table-sm align-middle mb-0 small"><tbody>
+            {% for nome, minutos in dados.por_empresa %}<tr><td>{{ nome }}</td><td class="text-end fw-bold" style="font-variant-numeric: tabular-nums;">{{ horas(minutos) }}</td></tr>
+            {% else %}<tr><td class="text-muted text-center py-3">{{ t('vol_sem_lancamentos') }}</td></tr>{% endfor %}
+        </tbody></table>
+    </div></div>
+</div>
+
+<!-- Texto pronto para a newsletter de fim de ciclo -->
+<div class="card shadow-sm border-0 mb-4">
+    <div class="card-header bg-white fw-bold text-primary">{{ t('ind_newsletter') }}</div>
+    <div class="card-body small" id="textoNewsletter">
+        📊 O nosso impacto em números:<br>
+        • {{ dados.jovens }} jovens diretamente capacitados.<br>
+        • {{ '%.0f'|format(dados.total_min / 60) }} horas de voluntariado corporativo registadas ({{ '%.0f'|format(dados.extra_min / 60) }} h fora do cronograma oficial).<br>
+        • {{ dados.voluntarios }} voluntários envolvidos.<br>
+        • {{ dados.tccs_aprovados }} projetos de TCC apresentados e aprovados.
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script>
+(function () {
+    if (!window.Chart) return;
+    // Cores tiradas do tema ativo para os gráficos ficarem legíveis nos 4 temas
+    const estilo = getComputedStyle(document.body);
+    Chart.defaults.color = estilo.color;
+    Chart.defaults.borderColor = 'rgba(128,128,128,0.25)';
+    const cor = getComputedStyle(document.documentElement).getPropertyValue('--bs-primary').trim() || '#0d6efd';
+    const porTipo = {{ dados.por_tipo | tojson }};
+    const porMes = {{ dados.por_mes | tojson }};
+    const horas = m => Math.round(m / 6) / 10;
+    new Chart(document.getElementById('graficoTipo'), {
+        type: 'bar',
+        data: { labels: porTipo.map(x => x[0]), datasets: [{ label: 'h', data: porTipo.map(x => horas(x[1])), backgroundColor: cor }] },
+        options: { indexAxis: 'y', plugins: { legend: { display: false } }, scales: { x: { beginAtZero: true } } }
+    });
+    new Chart(document.getElementById('graficoMes'), {
+        type: 'line',
+        data: { labels: porMes.map(x => x[0]), datasets: [{ label: 'h', data: porMes.map(x => horas(x[1])), borderColor: cor, backgroundColor: cor, tension: 0.25 }] },
+        options: { plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } }
+    });
+})();
+</script>
+{% endblock %}

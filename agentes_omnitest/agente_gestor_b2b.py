@@ -15,9 +15,9 @@ class AgenteGestorB2B(AgenteOmniTest):
     ESCOPO_ALUNOS = "empresas"
 
     ROTAS_PERMITIDAS = ["dashboard", "sessoes", "acompanhamento", "projetos", "biblioteca", "hub_educacional",
-                        "frequencia", "notas", "demandas", "banca", "esg_csv", "esg_pdf", "atividades_extras", "reunioes", "agenda_bancas", "avaliadores_banca", "minhas_bancas"]
+                        "frequencia", "notas", "demandas", "banca", "esg_csv", "esg_pdf", "atividades_extras", "reunioes", "agenda_bancas", "avaliadores_banca", "minhas_bancas", "indicadores", "certificados", "repositorio"]
     ROTAS_BLOQUEADAS = ["usuarios", "grupos", "solicitacoes", "banco"]
-    MENU_VISIVEL = ["agenda_bancas", "avaliadores_banca", "atividades_extras", "reunioes", "dashboard", "hub_educacional", "sessoes", "acompanhamento", "projetos", "frequencia", "notas",
+    MENU_VISIVEL = ["indicadores", "agenda_bancas", "avaliadores_banca", "atividades_extras", "reunioes", "dashboard", "hub_educacional", "sessoes", "acompanhamento", "projetos", "frequencia", "notas",
                     "demandas", "biblioteca"]
     # 'Cadastros & Usuários' aparece no menu do B2B, mas /admin/usuarios nega o acesso
     MENU_OCULTO = ["usuarios", "solicitacoes", "banco"]

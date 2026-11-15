@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Repositório de TCCs · Jovem Seguro</title>
+    <style>
+        :root { --fundo: #f4f6fa; --cartao: #ffffff; --texto: #1d2633; --suave: #5d6878; --acento: #0b5cad; --linha: #dde2ea; --etiqueta: #eef3fa; }
+        @media (prefers-color-scheme: dark) { :root { --fundo: #11161e; --cartao: #18202b; --texto: #e6ebf2; --suave: #9aa6b6; --acento: #6aa8ec; --linha: #2a3442; --etiqueta: #1c2c40; } }
+        * { box-sizing: border-box; }
+        body { margin: 0; background: var(--fundo); color: var(--texto); font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        .pagina { max-width: 980px; margin: 0 auto; padding: 32px max(16px, env(safe-area-inset-left, 0px)) 48px; }
+        h1 { margin: 0 0 6px; font-size: 1.7rem; }
+        .sub { color: var(--suave); margin: 0 0 20px; max-width: 70ch; }
+        form { display: flex; gap: 8px; margin-bottom: 24px; flex-wrap: wrap; }
+        input[type=search] { flex: 1; min-width: 220px; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--linha); background: var(--cartao); color: var(--texto); font-size: 1rem; }
+        button { padding: 10px 18px; border-radius: 8px; border: 0; background: var(--acento); color: #fff; font-weight: 600; cursor: pointer; }
+        .grade { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 14px; }
+        .item { background: var(--cartao); border: 1px solid var(--linha); border-radius: 10px; padding: 16px; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+        .item h2 { font-size: 1.05rem; margin: 0; }
+        .meta { color: var(--suave); font-size: .85rem; }
+        .item p { margin: 0; font-size: .9rem; line-height: 1.45; }
+        .tags { display: flex; flex-wrap: wrap; gap: 4px; }
+        .tag { background: var(--etiqueta); color: var(--texto); border-radius: 999px; padding: 2px 10px; font-size: .78rem; }
+        a.baixar { margin-top: auto; color: var(--acento); font-weight: 700; text-decoration: none; }
+        a.baixar:focus-visible, button:focus-visible, input:focus-visible { outline: 2px solid var(--acento); outline-offset: 2px; }
+        .vazio { color: var(--suave); text-align: center; padding: 40px 0; }
+    </style>
+</head>
+<body>
+    <main class="pagina">
+        <h1>Repositório de TCCs — Jovem Seguro</h1>
+        <p class="sub">Trabalhos de conclusão aprovados nas bancas do programa da Aon e do Instituto ITM, publicados com autorização dos jovens e responsáveis. Material aberto para pesquisa de jovens, mentores, institutos e mercado.</p>
+        <form method="GET" role="search">
+            <label for="q" style="position:absolute;left:-9999px;">Buscar</label>
+            <input type="search" id="q" name="q" value="{{ busca }}" placeholder="Buscar por título, tema ou palavra-chave">
+            <button type="submit">Buscar</button>
+        </form>
+        <div class="grade">
+            {% for i in itens %}
+            <article class="item">
+                <h2>{{ i.titulo }}</h2>
+                <div class="meta">{{ i.tema or '' }}{% if i.ano_edicao %} · {{ i.ano_edicao }}{% endif %}{% if i.autores_exibicao %} · {{ i.autores_exibicao }}{% endif %}</div>
+                {% if i.resumo %}<p>{{ i.resumo[:320] }}{% if i.resumo|length > 320 %}…{% endif %}</p>{% endif %}
+                {% if i.palavras_chave %}<div class="tags">{% for p in i.palavras_chave.split(',') if p.strip() %}<span class="tag">{{ p.strip() }}</span>{% endfor %}</div>{% endif %}
+                {% if i.arquivo_pdf %}<a class="baixar" href="{{ url_for('baixar_repositorio_publico', id=i.id) }}">Baixar o TCC (PDF)</a>{% endif %}
+            </article>
+            {% else %}
+            <p class="vazio">Nenhum TCC público encontrado{% if busca %} para "{{ busca }}"{% endif %}.</p>
+            {% endfor %}
+        </div>
+    </main>
+</body>
+</html>

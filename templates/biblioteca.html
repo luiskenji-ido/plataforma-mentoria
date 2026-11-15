@@ -1,59 +1,134 @@
 {% extends "base.html" %}
-{% block title %}Biblioteca de TCCs{% endblock %}
+{% block title %}{{ t('menu_biblioteca') }}{% endblock %}
 
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-4 border-bottom pb-3">
-    <div>
-        <h2 class="text-primary fw-bold mb-0"><i class="bi bi-journal-bookmark-fill"></i> Biblioteca de Projetos</h2>
-        <p class="text-muted mb-0 mt-1">Repositório histórico de TCCs corporativos aprovados para consulta e inspiração.</p>
+{% macro campos_acervo(item, sufixo) %}
+    <div class="col-md-6"><label class="form-label fw-bold small" for="tema{{ sufixo }}">{{ t('acervo_tema') }}</label>
+        <input class="form-control form-control-sm" id="tema{{ sufixo }}" name="tema" value="{{ item.tema or '' if item else '' }}"></div>
+    <div class="col-md-3"><label class="form-label fw-bold small" for="ano{{ sufixo }}">{{ t('acervo_ano') }}</label>
+        <input type="number" class="form-control form-control-sm" id="ano{{ sufixo }}" name="ano_edicao" min="2000" max="2100" value="{{ item.ano_edicao if item else ano_atual }}"></div>
+    <div class="col-md-3"><label class="form-label fw-bold small" for="edicao{{ sufixo }}">{{ t('acervo_edicao') }}</label>
+        <input class="form-control form-control-sm" id="edicao{{ sufixo }}" name="edicao" value="{{ item.edicao or '' if item else 'Jovem Seguro ' ~ ano_atual }}"></div>
+    <div class="col-12"><label class="form-label fw-bold small" for="palavras{{ sufixo }}">{{ t('acervo_palavras') }}</label>
+        <input class="form-control form-control-sm" id="palavras{{ sufixo }}" name="palavras_chave" value="{{ item.palavras_chave or '' if item else '' }}" placeholder="finanças pessoais, seguros, jovens"></div>
+    <div class="col-12"><label class="form-label fw-bold small" for="resumo{{ sufixo }}">{{ t('acervo_resumo') }}</label>
+        <textarea class="form-control form-control-sm" id="resumo{{ sufixo }}" name="resumo" rows="3">{{ item.resumo or '' if item else '' }}</textarea></div>
+    <div class="col-md-4"><label class="form-label fw-bold small" for="vis{{ sufixo }}">{{ t('acervo_visibilidade') }}</label>
+        <select class="form-select form-select-sm" id="vis{{ sufixo }}" name="visibilidade">
+            <option value="Interna" {% if not item or item.visibilidade == 'Interna' %}selected{% endif %}>{{ t('acervo_interna') }}</option>
+            <option value="Pública" {% if item and item.visibilidade == 'Pública' %}selected{% endif %}>{{ t('acervo_publica') }}</option>
+        </select></div>
+    <div class="col-md-8 d-flex flex-column justify-content-end gap-1">
+        <div class="form-check"><input class="form-check-input" type="checkbox" id="aut{{ sufixo }}" name="autorizacao_publicacao" {% if item and item.autorizacao_publicacao %}checked{% endif %}>
+            <label class="form-check-label small" for="aut{{ sufixo }}">{{ t('acervo_autorizacao') }}</label></div>
+        <div class="form-check"><input class="form-check-input" type="checkbox" id="nota{{ sufixo }}" name="exibir_nota" {% if item and item.exibir_nota %}checked{% endif %}>
+            <label class="form-check-label small" for="nota{{ sufixo }}">{{ t('acervo_exibir_nota') }}</label></div>
     </div>
-    <a href="{{ url_for('dashboard') }}" class="btn btn-outline-secondary fw-bold rounded-pill px-4 shadow-sm">
-        <i class="bi bi-arrow-left"></i> Voltar ao Painel
-    </a>
+{% endmacro %}
+
+<div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-4 border-bottom pb-3">
+    <div>
+        <h2 class="text-primary fw-bold mb-1"><i class="bi bi-journal-bookmark-fill"></i> {{ t('menu_biblioteca') }}</h2>
+        <p class="text-muted mb-0">{{ t('acervo_subtitulo') }}</p>
+    </div>
+    <div class="d-flex gap-2 flex-wrap">
+        <a href="{{ url_for('repositorio_publico') }}" target="_blank" class="btn btn-outline-primary fw-bold rounded-pill px-3"><i class="bi bi-globe2"></i> {{ t('acervo_publico_link') }}</a>
+        {% if gestor %}
+        <button class="btn btn-primary fw-bold rounded-pill px-3" data-bs-toggle="modal" data-bs-target="#modalImportar"><i class="bi bi-upload"></i> {{ t('acervo_importar') }}</button>
+        <button class="btn btn-outline-secondary fw-bold rounded-pill px-3" data-bs-toggle="modal" data-bs-target="#modalMaterial"><i class="bi bi-folder-plus"></i> {{ t('acervo_novo_material') }}</button>
+        {% endif %}
+    </div>
 </div>
 
-<div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4">
-    {% for p in projetos %}
-    <div class="col">
-        <div class="card h-100 shadow-sm border-0 border-top border-4 border-success bg-white">
-            <div class="card-body p-4">
-                <div class="d-flex justify-content-between align-items-start mb-3">
-                    <span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1"><i class="bi bi-check-circle-fill"></i> Aprovado</span>
-                    <small class="text-muted fw-bold"><i class="bi bi-calendar3"></i> {{ p.data_criacao.strftime('%Y') if p.data_criacao else '2026' }}</small>
-                </div>
-                
-                <h5 class="card-title fw-bold text-dark mb-1">{{ p.nome }}</h5>
-                <p class="card-text text-muted small mb-4">
-                    <i class="bi bi-people-fill text-primary"></i> Grupo: <strong class="text-dark">{{ p.grupo.nome if p.grupo else 'Não informado' }}</strong>
-                </p>
+<form method="GET" class="card shadow-sm border-0 mb-4">
+    <div class="card-body row g-2 align-items-end">
+        <div class="col-md-7"><label class="form-label small fw-bold" for="busca">{{ t('acervo_buscar') }}</label>
+            <input class="form-control" id="busca" name="q" value="{{ busca }}" placeholder="{{ t('acervo_buscar_dica') }}"></div>
+        <div class="col-md-3"><label class="form-label small fw-bold" for="filtroAno">{{ t('acervo_ano') }}</label>
+            <select class="form-select" id="filtroAno" name="ano"><option value="">—</option>{% for a in anos %}<option value="{{ a }}" {% if ano == a %}selected{% endif %}>{{ a }}</option>{% endfor %}</select></div>
+        <div class="col-md-2 d-grid"><button class="btn btn-primary fw-bold" type="submit">{{ t('reuniao_filtrar') }}</button></div>
+    </div>
+</form>
 
-                <div class="bg-light p-3 rounded border border-secondary-subtle mb-3">
-                    <h6 class="fw-bold text-secondary mb-2 border-bottom pb-2" style="font-size: 0.85rem;"><i class="bi bi-bar-chart-fill"></i> Métricas da Banca Oficial</h6>
-                    <div class="d-flex justify-content-between small mb-1">
-                        <span class="text-muted">Conteúdo Escrito:</span>
-                        <strong class="text-dark">{{ p.nota_conteudo or '-' }} / 10</strong>
-                    </div>
-                    <div class="d-flex justify-content-between small mb-1">
-                        <span class="text-muted">Apresentação Oral:</span>
-                        <strong class="text-dark">{{ p.nota_apresentacao or '-' }} / 10</strong>
-                    </div>
+<h5 class="fw-bold mb-3">{{ t('acervo_tccs') }} ({{ itens|length }})</h5>
+<div class="row g-3 mb-5">
+    {% for i in itens %}
+    <div class="col-md-6 col-xl-4">
+        <div class="card shadow-sm border-0 h-100">
+            <div class="card-body d-flex flex-column gap-2">
+                <div class="d-flex justify-content-between gap-2">
+                    <h6 class="fw-bold mb-0">{{ i.titulo }}</h6>
+                    <span class="badge {{ 'bg-success' if i.visibilidade == 'Pública' else 'bg-secondary' }} align-self-start">{{ t('acervo_publica') if i.visibilidade == 'Pública' else t('acervo_interna') }}</span>
+                </div>
+                <div class="small text-muted">{{ i.tema or '—' }} · {{ i.ano_edicao or '' }}{% if i.edicao %} · {{ i.edicao }}{% endif %}{% if i.origem == 'Histórico' %} · {{ t('acervo_historico') }}{% endif %}</div>
+                {% if i.autores_exibicao %}<div class="small">{{ t('acervo_autores') }}: {{ i.autores_exibicao }}</div>{% endif %}
+                {% if i.resumo %}<p class="small text-dark mb-0">{{ i.resumo[:280] }}{% if i.resumo|length > 280 %}…{% endif %}</p>{% endif %}
+                {% if i.palavras_chave %}<div class="d-flex flex-wrap gap-1">{% for p in i.palavras_chave.split(',') if p.strip() %}<span class="badge bg-light text-dark border">{{ p.strip() }}</span>{% endfor %}</div>{% endif %}
+                {% if i.exibir_nota and i.nota_final is not none %}<div class="small">{{ t('banca_nota_final') }}: <strong>{{ '%.1f'|format(i.nota_final) }}</strong></div>{% endif %}
+                <div class="mt-auto d-flex gap-2 flex-wrap align-items-center">
+                    {% if i.arquivo_pdf %}<a href="{{ url_for('baixar_acervo', id=i.id, tipo='pdf') }}" class="btn btn-sm btn-primary fw-bold rounded-pill"><i class="bi bi-file-earmark-pdf"></i> PDF</a>{% endif %}
+                    {% if i.arquivo_slides %}<a href="{{ url_for('baixar_acervo', id=i.id, tipo='slides') }}" class="btn btn-sm btn-outline-primary fw-bold rounded-pill"><i class="bi bi-easel"></i> {{ t('entrega_slides') }}</a>{% endif %}
+                    <span class="small text-muted ms-auto"><i class="bi bi-download"></i> {{ i.downloads or 0 }}</span>
+                    {% if gestor %}<button class="btn btn-sm btn-outline-secondary rounded-pill" data-bs-toggle="modal" data-bs-target="#modalAcervo{{ i.id }}">{{ t('trilha_editar') }}</button>{% endif %}
                 </div>
             </div>
-            <div class="card-footer bg-white border-top-0 pt-0 pb-4 px-4">
-                <a href="{{ url_for('emitir_certificado', projeto_id=p.id, usuario_id=current_user.id) }}" target="_blank" class="btn btn-outline-primary w-100 fw-bold shadow-sm">
-                    <i class="bi bi-award-fill"></i> Emitir Certificado
-                </a>
-            </div>
         </div>
     </div>
+    {% if gestor %}
+    <div class="modal fade" id="modalAcervo{{ i.id }}" tabindex="-1"><div class="modal-dialog modal-lg"><div class="modal-content">
+        <form method="POST">
+            <div class="modal-header bg-primary text-white"><h5 class="modal-title fw-bold">{{ i.titulo }}</h5><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="{{ t('fechar') }}"></button></div>
+            <div class="modal-body row g-2"><input type="hidden" name="acao" value="editar_acervo"><input type="hidden" name="acervo_id" value="{{ i.id }}">{{ campos_acervo(i, 'E' ~ i.id) }}</div>
+            <div class="modal-footer"><button class="btn btn-success fw-bold px-4" type="submit">{{ t('trilha_salvar') }}</button></div>
+        </form>
+    </div></div></div>
+    {% endif %}
     {% else %}
-    <div class="col-12">
-        <div class="alert alert-light border border-secondary-subtle text-center p-5 shadow-sm text-muted rounded-4">
-            <i class="bi bi-folder2-open display-4 d-block mb-3 text-secondary"></i>
-            <h4 class="fw-bold text-dark">Nenhum projeto concluído ainda.</h4>
-            <p class="mb-0">Os TCCs aprovados nas Bancas de Avaliação aparecerão aqui automaticamente para inspirar as próximas turmas.</p>
-        </div>
-    </div>
+    <div class="col-12"><div class="card shadow-sm border-0"><div class="card-body text-muted text-center py-5">{{ t('acervo_vazio') }}</div></div></div>
     {% endfor %}
 </div>
+
+<h5 class="fw-bold mb-3">{{ t('acervo_materiais') }}</h5>
+<div class="card shadow-sm border-0">
+    <ul class="list-group list-group-flush">
+        {% for m in materiais %}
+        <li class="list-group-item bg-transparent d-flex justify-content-between align-items-center gap-2 flex-wrap">
+            <div><strong>{{ m.titulo }}</strong> <span class="badge bg-light text-dark border">{{ m.categoria }}</span>{% if m.descricao %}<div class="small text-muted">{{ m.descricao }}</div>{% endif %}</div>
+            <a href="{{ url_for('baixar_acervo', id=m.id, tipo='material') }}" class="btn btn-sm btn-outline-primary fw-bold rounded-pill"><i class="bi bi-download"></i> {{ t('acervo_baixar') }}</a>
+        </li>
+        {% else %}
+        <li class="list-group-item bg-transparent text-muted text-center py-4">{{ t('acervo_materiais_vazio') }}</li>
+        {% endfor %}
+    </ul>
+</div>
+
+{% if gestor %}
+<div class="modal fade" id="modalImportar" tabindex="-1"><div class="modal-dialog modal-lg"><div class="modal-content">
+    <form method="POST" enctype="multipart/form-data">
+        <div class="modal-header bg-primary text-white"><h5 class="modal-title fw-bold">{{ t('acervo_importar') }}</h5><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="{{ t('fechar') }}"></button></div>
+        <div class="modal-body row g-2">
+            <input type="hidden" name="acao" value="importar_historico">
+            <div class="col-md-8"><label class="form-label fw-bold small" for="impTitulo">{{ t('reuniao_campo_titulo') }}</label><input class="form-control form-control-sm" id="impTitulo" name="titulo" required></div>
+            <div class="col-md-4"><label class="form-label fw-bold small" for="impPdf">PDF</label><input type="file" class="form-control form-control-sm" id="impPdf" name="arquivo_pdf" accept="application/pdf" required></div>
+            <div class="col-12"><label class="form-label fw-bold small" for="impAutores">{{ t('acervo_autores') }}</label><input class="form-control form-control-sm" id="impAutores" name="autores_exibicao" placeholder="{{ t('acervo_autores_dica') }}"></div>
+            {{ campos_acervo(None, 'Imp') }}
+        </div>
+        <div class="modal-footer"><button class="btn btn-success fw-bold px-4" type="submit">{{ t('acervo_importar') }}</button></div>
+    </form>
+</div></div></div>
+<div class="modal fade" id="modalMaterial" tabindex="-1"><div class="modal-dialog"><div class="modal-content">
+    <form method="POST" enctype="multipart/form-data">
+        <div class="modal-header bg-secondary text-white"><h5 class="modal-title fw-bold">{{ t('acervo_novo_material') }}</h5><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="{{ t('fechar') }}"></button></div>
+        <div class="modal-body d-flex flex-column gap-2">
+            <input type="hidden" name="acao" value="material">
+            <label class="form-label fw-bold small mb-0" for="matTitulo">{{ t('reuniao_campo_titulo') }}</label><input class="form-control form-control-sm" id="matTitulo" name="titulo" required>
+            <label class="form-label fw-bold small mb-0" for="matCat">{{ t('acervo_categoria') }}</label>
+            <select class="form-select form-select-sm" id="matCat" name="categoria"><option>Metodologia</option><option>Apresentação</option><option>Formatação</option><option>Outros</option></select>
+            <label class="form-label fw-bold small mb-0" for="matDesc">{{ t('acervo_descricao') }}</label><textarea class="form-control form-control-sm" id="matDesc" name="descricao" rows="2"></textarea>
+            <label class="form-label fw-bold small mb-0" for="matArq">{{ t('entrega_arquivo') }} (PDF, DOCX, PPTX, XLSX)</label><input type="file" class="form-control form-control-sm" id="matArq" name="arquivo" required>
+        </div>
+        <div class="modal-footer"><button class="btn btn-success fw-bold px-4" type="submit">{{ t('trilha_salvar') }}</button></div>
+    </form>
+</div></div></div>
+{% endif %}
 {% endblock %}

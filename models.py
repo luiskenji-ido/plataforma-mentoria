@@ -793,3 +793,67 @@ class EnvioFormularioBanca(db.Model):
     tipo = db.Column(db.String(20), default='formulario')  # formulario / lembrete_2h
     enviado_em = db.Column(db.DateTime, default=datetime.utcnow)
     __table_args__ = (db.UniqueConstraint('banca_id', 'avaliador_id', 'tipo', name='uq_envio_formulario_banca'),)
+
+
+# ==============================================================================
+# CERTIFICADOS EMITIDOS (com horas e código público de verificação)
+# ==============================================================================
+class CertificadoEmitido(db.Model):
+    __tablename__ = 'certificado_emitido'
+    id = db.Column(db.Integer, primary_key=True)
+    codigo = db.Column(db.String(16), unique=True, nullable=False, index=True)
+    usuario_id = db.Column(db.Integer, db.ForeignKey('usuario.id'), nullable=False)
+    projeto_id = db.Column(db.Integer, db.ForeignKey('projeto.id'), nullable=False)
+    tipo = db.Column(db.String(40), nullable=False)  # Avaliador da Banca / Mentor / Jovem participante
+    minutos_total = db.Column(db.Integer, default=0)
+    detalhe_minutos = db.Column(db.Text, nullable=True)  # JSON: {"Leitura": 40, ...}
+    data_emissao = db.Column(db.DateTime, default=datetime.utcnow)
+    data_atualizacao = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    usuario = db.relationship('Usuario')
+    projeto = db.relationship('Projeto')
+    __table_args__ = (db.UniqueConstraint('usuario_id', 'projeto_id', 'tipo', name='uq_certificado_usuario_projeto_tipo'),)
+
+
+# ==============================================================================
+# REPOSITÓRIO DE TCCs (acervo interno e público) E MATERIAIS DE APOIO
+# ==============================================================================
+class TCCAcervo(db.Model):
+    __tablename__ = 'tcc_acervo'
+    id = db.Column(db.Integer, primary_key=True)
+    projeto_id = db.Column(db.Integer, db.ForeignKey('projeto.id'), nullable=True)  # vazio nos TCCs históricos importados
+    titulo = db.Column(db.String(250), nullable=False)
+    tema = db.Column(db.String(200), nullable=True)
+    resumo = db.Column(db.Text, nullable=True)
+    palavras_chave = db.Column(db.String(300), nullable=True)
+    ano_edicao = db.Column(db.Integer, nullable=True)
+    edicao = db.Column(db.String(120), nullable=True)
+    arquivo_pdf = db.Column(db.String(255), nullable=True)  # em uploads/acervo/
+    arquivo_slides = db.Column(db.String(255), nullable=True)
+    nota_final = db.Column(db.Float, nullable=True)
+    exibir_nota = db.Column(db.Boolean, default=False)
+    autores_exibicao = db.Column(db.String(300), nullable=True)  # só primeiros nomes ou o nome do grupo (LGPD)
+    visibilidade = db.Column(db.String(20), default='Interna')  # Interna / Pública
+    autorizacao_publicacao = db.Column(db.Boolean, default=False)
+    autorizado_por_id = db.Column(db.Integer, db.ForeignKey('usuario.id'), nullable=True)
+    origem = db.Column(db.String(20), default='Plataforma')  # Plataforma / Histórico
+    data_publicacao = db.Column(db.DateTime, default=datetime.utcnow)
+    downloads = db.Column(db.Integer, default=0)
+
+    projeto = db.relationship('Projeto', backref=db.backref('acervo', uselist=False))
+    autorizado_por = db.relationship('Usuario')
+
+
+class MaterialApoio(db.Model):
+    __tablename__ = 'material_apoio'
+    id = db.Column(db.Integer, primary_key=True)
+    titulo = db.Column(db.String(200), nullable=False)
+    descricao = db.Column(db.Text, nullable=True)
+    categoria = db.Column(db.String(80), default='Metodologia')
+    arquivo = db.Column(db.String(255), nullable=False)  # em uploads/acervo/
+    nome_original = db.Column(db.String(255), nullable=True)
+    enviado_por_id = db.Column(db.Integer, db.ForeignKey('usuario.id'), nullable=True)
+    data_envio = db.Column(db.DateTime, default=datetime.utcnow)
+    downloads = db.Column(db.Integer, default=0)
+
+    enviado_por = db.relationship('Usuario')
