@@ -11,9 +11,8 @@ Coordena os agentes de teste fim a fim, um de cada vez, começando pelo Administ
       Relatórios de Testes Fim a Fim e Evidencias/Perfil <nome>/Relatorio_E2E_<perfil>_<data>.pdf
       Prompt de correção LLM/Perfil <nome>/Prompt_correcao_LLM_<perfil>_<data>.md   (serve para qualquer LLM)
     Agentes Teste de Segurança/
-      Relatórios de Testes de Segurança/Perfil <nome>/
-      Prompt de correção LLM/Perfil <nome>/
-Todas as pastas já nascem com uma subpasta para cada um dos 7 agentes.
+      (criadas e mantidas pelo agentes_seguranca/gestor_seguranca.py, uma subpasta por agente de segurança)
+As pastas dos testes fim a fim já nascem com uma subpasta para cada agente de perfil.
 
 Uso (normalmente a própria página dispara):
     python agentes_omnitest/agente_gestor.py [--perfis administrador aluno ...] [--escrita] [--lento 150]
@@ -56,9 +55,8 @@ ESTIMATIVA_PADRAO = {"administrador": (303, 64), "aluno": (172, 74), "professor"
 
 
 def criar_estrutura():
-    """Pastas da área com uma subpasta por agente (inclusive as dos Agentes Teste de Segurança)."""
-    for pasta in (PASTA_REL_E2E, PASTA_PROMPT_E2E, os.path.join(PASTA_SEGURANCA, "Relatórios de Testes de Segurança"),
-                  os.path.join(PASTA_SEGURANCA, "Prompt de correção LLM")):
+    """Pastas da área com uma subpasta por agente de perfil (as de Segurança são do gestor_seguranca.py)."""
+    for pasta in (PASTA_REL_E2E, PASTA_PROMPT_E2E):
         for nome in NOMES_PASTA.values():
             os.makedirs(os.path.join(pasta, nome), exist_ok=True)
     os.makedirs(PASTA_AO_VIVO, exist_ok=True)

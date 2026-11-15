@@ -1,0 +1,529 @@
+{% extends "base.html" %}
+{% block title %}{{ tt('Agentes de Segurança') }}{% endblock %}
+{% block content %}
+<style>
+    /* ---------- Centro de operações de segurança (sempre escuro, em qualquer tema) ---------- */
+    .seg-hub { position: relative; height: 700px; border-radius: 16px; overflow: hidden; color: #e2e8f0; background-color: #0b0a12;
+               background-image: radial-gradient(ellipse at 50% 40%, #3b0d17 0%, #12070d 52%, #050307 100%); box-shadow: inset 0 0 90px rgba(0,0,0,.7); }
+    .seg-hub::before { content: ""; position: absolute; inset: 0; pointer-events: none; opacity: .35;
+                       background-image: radial-gradient(rgba(248,113,113,.35) 1px, transparent 1.4px); background-size: 22px 22px; }
+    .seg-hub::after { content: ""; position: absolute; left: -20%; right: -20%; bottom: -10%; height: 50%; pointer-events: none;
+                      background-image: linear-gradient(rgba(239,68,68,.12) 1px, transparent 1px), linear-gradient(90deg, rgba(239,68,68,.12) 1px, transparent 1px);
+                      background-size: 46px 46px; transform: perspective(520px) rotateX(62deg); transform-origin: bottom; }
+    .seg-varredura { position: absolute; left: 0; right: 0; height: 2px; top: 0; z-index: 1; pointer-events: none; opacity: 0;
+                     background: linear-gradient(90deg, transparent, rgba(248,113,113,.9), transparent); box-shadow: 0 0 14px rgba(239,68,68,.8); }
+    .seg-hub.ativo .seg-varredura { opacity: 1; animation: segVarrer 3.2s linear infinite; }
+    @keyframes segVarrer { from { top: 0; } to { top: 100%; } }
+
+    .seg-linhas { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 1; }
+    .seg-linhas path { fill: none; stroke: rgba(248,113,113,.28); stroke-width: 1.6; stroke-dasharray: 4 10; animation: segTracejado 1.8s linear infinite; }
+    .seg-linhas path.ativa { stroke: #f59e0b; stroke-width: 3; filter: drop-shadow(0 0 6px #f59e0b); animation-duration: .5s; }
+    .seg-linhas path.concluido { stroke: rgba(34,197,94,.75); }
+    .seg-linhas path.vulneravel, .seg-linhas path.erro { stroke: rgba(239,68,68,.9); }
+    @keyframes segTracejado { to { stroke-dashoffset: -28; } }
+
+    /* Console de varredura no centro */
+    .seg-console { position: absolute; left: 50%; top: 46px; width: 46%; height: 300px; transform: translateX(-50%); z-index: 3; display: flex; flex-direction: column;
+                   border: 2px solid #ef4444; border-radius: 10px; background: rgba(8,6,12,.94); box-shadow: 0 0 30px rgba(239,68,68,.45); overflow: hidden; }
+    .seg-barra { display: flex; align-items: center; gap: 6px; padding: 5px 9px; background: #1c1117; font-size: .72rem; color: #fca5a5; }
+    .seg-barra i.ponto { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
+    .seg-titulo { flex: 1; font-family: Consolas, 'Courier New', monospace; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .seg-etapa { padding: 4px 10px; font-size: .72rem; color: #fde68a; background: rgba(245,158,11,.08); border-bottom: 1px solid rgba(245,158,11,.2);
+                 white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .seg-saida { flex: 1; overflow-y: auto; padding: 6px 10px; font-family: Consolas, 'Courier New', monospace; font-size: .72rem; line-height: 1.45; color: #cbd5e1; }
+    .seg-saida div { white-space: pre-wrap; word-break: break-word; }
+    .seg-saida .ok { color: #4ade80; } .seg-saida .passo { color: #fbbf24; font-weight: 700; } .seg-saida .tempo { color: #64748b; }
+    .seg-saida .sev-Crítica { color: #fff; background: #991b1b; } .seg-saida .sev-Alta { color: #f87171; font-weight: 700; }
+    .seg-saida .sev-Média { color: #fbbf24; } .seg-saida .sev-Baixa { color: #93c5fd; } .seg-saida .sev-Informativa { color: #94a3b8; }
+    .seg-cursor::after { content: "▌"; color: #f87171; animation: segPiscar 1s steps(2) infinite; }
+    @keyframes segPiscar { 50% { opacity: 0; } }
+    .seg-vazio { margin: auto; text-align: center; color: #94a3b8; font-size: .85rem; padding: 0 16px; font-family: inherit; }
+    .seg-vazio i { font-size: 2.2rem; display: block; margin-bottom: 6px; color: #7f1d1d; }
+
+    /* Radar central */
+    .seg-radar { position: absolute; left: 50%; top: 65%; width: 150px; height: 150px; transform: translate(-50%, -50%); z-index: 2; border-radius: 50%;
+                 background: radial-gradient(circle, rgba(127,29,29,.35) 0 30%, transparent 31%), repeating-radial-gradient(circle, transparent 0 22px, rgba(248,113,113,.28) 23px 24px);
+                 border: 1px solid rgba(248,113,113,.5); box-shadow: 0 0 28px rgba(239,68,68,.35); display: flex; align-items: center; justify-content: center; }
+    .seg-radar::before { content: ""; position: absolute; inset: 0; border-radius: 50%; opacity: .25;
+                         background: conic-gradient(from 0deg, rgba(248,113,113,.0), rgba(248,113,113,.65) 60deg, transparent 61deg); }
+    .seg-hub.ativo .seg-radar::before { opacity: 1; animation: segGirar 2.6s linear infinite; }
+    @keyframes segGirar { to { transform: rotate(360deg); } }
+    .seg-radar i { font-size: 2.6rem; color: #fecaca; text-shadow: 0 0 14px rgba(239,68,68,.9); position: relative; }
+
+    /* Gerente de Segurança e nota de risco */
+    .seg-gerente { position: absolute; left: 18px; top: 16px; z-index: 4; display: flex; align-items: center; gap: 10px; }
+    .seg-gerente .circulo { width: 80px; height: 80px; border-radius: 50%; background-color: #991b1b; background-image: radial-gradient(circle at 35% 30%, #f87171, #7f1d1d);
+                            display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: .64rem; line-height: 1.1;
+                            text-align: center; font-weight: 700; color: #fff; box-shadow: 0 0 22px rgba(239,68,68,.6); position: relative; }
+    .seg-gerente .circulo i { font-size: 1.35rem; }
+    .seg-gerente .contador { position: absolute; top: -4px; right: -4px; background: #0f172a; color: #fff; border-radius: 50%; width: 25px; height: 25px;
+                             display: flex; align-items: center; justify-content: center; font-size: .75rem; border: 2px solid #ef4444; }
+    .seg-gerente .texto { font-size: .78rem; color: #fecaca; max-width: 170px; }
+    .seg-risco { position: absolute; right: 18px; top: 12px; z-index: 4; width: 150px; text-align: center; }
+    .seg-risco svg { width: 150px; height: 84px; }
+    .seg-risco .valor { margin-top: -38px; font-size: 1.45rem; font-weight: 800; color: #fff; line-height: 1; }
+    .seg-risco .legenda { font-size: .68rem; color: #fca5a5; text-transform: uppercase; letter-spacing: .06em; }
+    .seg-severidades { display: flex; justify-content: center; gap: 4px; margin-top: 6px; }
+    .seg-severidades span { min-width: 26px; padding: 1px 5px; border-radius: 4px; font-size: .7rem; font-weight: 700; color: #fff; }
+
+    /* Agentes especialistas (escudos) */
+    .seg-agente { position: absolute; width: 150px; transform: translate(-50%, -50%); z-index: 3; text-align: center; transition: opacity .3s; }
+    .seg-agente .escudo { position: relative; margin: 0 auto; width: 76px; height: 84px; display: flex; align-items: center; justify-content: center;
+                          clip-path: polygon(50% 0, 100% 16%, 100% 58%, 50% 100%, 0 58%, 0 16%); background: linear-gradient(160deg, #475569, #1e1b24);
+                          padding: 2px; }
+    .seg-agente .escudo .miolo { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center;
+                                 clip-path: polygon(50% 0, 100% 16%, 100% 58%, 50% 100%, 0 58%, 0 16%); background: linear-gradient(160deg, #2a1d27, #110c14); }
+    .seg-agente .escudo i { font-size: 1.9rem; color: #fee2e2; margin-top: -8px; text-shadow: 0 0 10px rgba(248,113,113,.7); }
+    .seg-agente .halo { position: absolute; left: 50%; top: 42px; width: 96px; height: 96px; transform: translate(-50%, -50%); border-radius: 50%; pointer-events: none; }
+    .seg-agente .selo { position: absolute; left: calc(50% + 26px); top: -6px; width: 26px; height: 26px; border-radius: 50%; display: none; z-index: 2;
+                        align-items: center; justify-content: center; font-size: .85rem; color: #fff; border: 2px solid #050307; }
+    .seg-agente .nome { margin-top: 6px; font-size: .74rem; font-weight: 700; color: #f8fafc; line-height: 1.15; }
+    .seg-agente .situacao { font-size: .68rem; color: #94a3b8; }
+    .seg-agente .pontos { display: flex; justify-content: center; gap: 3px; margin-top: 3px; min-height: 16px; }
+    .seg-agente .pontos span { font-size: .62rem; font-weight: 700; color: #fff; border-radius: 3px; padding: 0 4px; }
+    .seg-agente .mini { height: 4px; margin: 4px auto 0; width: 80px; border-radius: 2px; background: rgba(148,163,184,.25); overflow: hidden; display: none; }
+    .seg-agente .mini span { display: block; height: 100%; width: 0; background: #f59e0b; transition: width .6s; }
+    .seg-agente.aguardando { opacity: .55; }
+    .seg-agente.executando .escudo { background: linear-gradient(160deg, #fbbf24, #b45309); }
+    .seg-agente.executando .halo { border: 2px solid rgba(245,158,11,.8); animation: segPulso 1.3s ease-out infinite; }
+    .seg-agente.executando .situacao { color: #fbbf24; font-weight: 700; } .seg-agente.executando .mini { display: block; }
+    .seg-agente.concluido .escudo { background: linear-gradient(160deg, #4ade80, #15803d); } .seg-agente.concluido .situacao { color: #4ade80; }
+    .seg-agente.concluido .selo { display: flex; background: #16a34a; }
+    .seg-agente.vulneravel .escudo, .seg-agente.erro .escudo { background: linear-gradient(160deg, #f87171, #991b1b); }
+    .seg-agente.vulneravel .situacao, .seg-agente.erro .situacao { color: #f87171; }
+    .seg-agente.vulneravel .selo, .seg-agente.erro .selo { display: flex; background: #dc2626; }
+    @keyframes segPulso { from { transform: translate(-50%, -50%) scale(.75); opacity: 1; } to { transform: translate(-50%, -50%) scale(1.35); opacity: 0; } }
+
+    .seg-log { font-family: Consolas, 'Courier New', monospace; font-size: .76rem; background: #0b0a12; color: #cbd5e1; border-radius: 8px;
+               padding: 10px 12px; height: 220px; overflow-y: auto; white-space: pre-wrap; }
+    .sev-pill { display: inline-block; color: #fff; border-radius: 4px; padding: 0 6px; font-size: .72rem; font-weight: 700; white-space: nowrap; }
+    .arvore-ia summary { cursor: pointer; font-weight: 700; padding: 3px 0; }
+    .arvore-ia .bi-folder-fill { color: #dc2626; }
+    .arvore-ia ul { list-style: none; padding-left: 16px; margin: 0; border-left: 1px solid #94a3b8; }
+    .arvore-ia li { padding: 2px 0; font-size: .85rem; word-break: break-word; }
+    .lista-especialistas li { font-size: .82rem; margin-bottom: 6px; }
+
+    @media (max-width: 991.98px) {
+        .seg-hub { height: auto; padding: 120px 10px 16px; }
+        .seg-console { position: relative; left: auto; top: auto; transform: none; width: 100%; }
+        .seg-radar, .seg-linhas, .seg-varredura { display: none !important; }
+        .seg-risco { right: 10px; top: 8px; width: 120px; } .seg-risco svg { width: 120px; height: 68px; } .seg-risco .valor { margin-top: -30px; font-size: 1.2rem; }
+        .seg-gerente .texto { display: none; }
+        .seg-agentes { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 14px; margin-top: 18px; }
+        .seg-agente { position: static; transform: none; width: auto; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+        .seg-hub *, .seg-hub *::before, .seg-hub *::after, .seg-hub.ativo .seg-varredura { animation: none !important; }
+    }
+</style>
+
+{% set cores = {'Crítica': '#7f1d1d', 'Alta': '#dc2626', 'Média': '#d97706', 'Baixa': '#2563eb', 'Informativa': '#64748b'} %}
+<div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-3">
+    <div>
+        <h2 class="text-danger fw-bold mb-1"><i class="bi bi-shield-lock-fill"></i> {{ tt('Agentes de Segurança') }}</h2>
+        <a href="{{ url_for('agentes_ia') }}" class="small fw-bold me-3"><i class="bi bi-robot"></i> {{ tt('Agentes de testes fim a fim') }}</a>
+        <a href="{{ url_for('governanca_aprendizados') }}" class="small fw-bold"><i class="bi bi-mortarboard"></i> {{ tt('Governança de aprendizados') }}</a>
+        <p class="text-muted mb-0">{{ tt('O Gerente de Segurança coordena 5 especialistas em cibersegurança: procuram dados inconsistentes, analisam o código, verificam as vulnerabilidades das tecnologias e fazem testes de invasão controlados. No fim, gera relatórios em PDF e prompts de correção para qualquer LLM.') }}</p>
+    </div>
+</div>
+{% if not pentest_local %}
+<div class="alert alert-info small"><i class="bi bi-info-circle"></i> {{ tt('O Agente Pentest só ataca a plataforma em ambiente local ou de teste (localhost, *.test). Neste endereço ele registra a verificação como não realizada; os outros agentes rodam normalmente.') }}</div>
+{% endif %}
+{% if not playwright_ok %}
+<div class="alert alert-warning small"><i class="bi bi-exclamation-triangle"></i> {{ tt('Sem o Playwright neste servidor, os relatórios saem só como prompt (.md), sem o PDF.') }}</div>
+{% endif %}
+
+<div class="row g-3">
+    <!-- Pastas e especialistas -->
+    <div class="col-xl-3">
+        <div class="card shadow-sm border-0 mb-3" id="cardArvoreSeg">
+            <div class="card-body arvore-ia">
+                <h6 class="fw-bold mb-2">{{ tt('Estrutura') }}</h6>
+                <details open><summary><i class="bi bi-gear-fill"></i> {{ t('menu_administracao') }}</summary>
+                <ul><li><details open><summary><i class="bi bi-robot"></i> {{ tt('Agentes de IA') }}</summary>
+                    <ul><li><details open><summary><i class="bi bi-shield-lock-fill text-danger"></i> {{ tt(grupo.nome) }}</summary>
+                        <ul>
+                        {% for pasta in grupo.pastas %}
+                            {% set total = pasta.subpastas | map(attribute='arquivos') | map('length') | sum %}
+                            <li><details {% if loop.first %}open{% endif %}><summary><i class="bi bi-folder-fill"></i> {{ tt(pasta.nome) }} <span class="text-muted fw-normal">({{ total }})</span></summary>
+                                <ul>
+                                {% for sub in pasta.subpastas %}
+                                    <li><details><summary><i class="bi bi-folder-fill"></i> {{ tt(sub.nome) }} <span class="text-muted fw-normal">({{ sub.arquivos|length }})</span></summary>
+                                        <ul>{% for a in sub.arquivos[:15] %}
+                                            <li><a href="{{ url_for('arquivo_agentes_ia', f=a.relativo) }}" {% if a.nome.endswith('.pdf') %}target="_blank" rel="noopener"{% endif %}>
+                                                <i class="bi {{ 'bi-file-earmark-pdf text-danger' if a.nome.endswith('.pdf') else 'bi-file-earmark-text' }}"></i> {{ a.data.strftime('%d/%m %H:%M') }}</a></li>
+                                        {% else %}<li class="text-muted">{{ tt('vazia') }}</li>{% endfor %}</ul>
+                                    </details></li>
+                                {% endfor %}
+                                </ul>
+                            </details></li>
+                        {% endfor %}
+                        </ul>
+                    </details></li></ul>
+                </details></li></ul>
+                </details>
+            </div>
+        </div>
+        <div class="card shadow-sm border-0">
+            <div class="card-body">
+                <h6 class="fw-bold mb-2">{{ tt('Especialistas') }}</h6>
+                <ol class="lista-especialistas ps-3 mb-2">
+                    {% for chave, nome, icone, descricao in ordem %}
+                    <li><b><i class="bi {{ icone }} text-danger"></i> {{ tt(nome) }}</b><br><span class="text-muted">{{ tt(descricao) }}</span></li>
+                    {% endfor %}
+                </ol>
+                <small class="text-muted"><i class="bi bi-patch-check"></i> {{ tt('Referências: OWASP Top 10 (2021), CWE/MITRE e a base de vulnerabilidades OSV.dev, consultada só se estiver nas Fontes confiáveis.') }}</small>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-xl-9">
+        <!-- Comandos -->
+        <form method="POST" action="{{ url_for('iniciar_agentes_seguranca') }}" class="card shadow-sm border-0 mb-3" id="cardComandosSeg">
+            <div class="card-body d-flex flex-wrap gap-3 align-items-center">
+                <div class="d-flex flex-wrap gap-2">
+                    {% for chave, nome, icone, descricao in ordem %}
+                    <input type="checkbox" class="btn-check" name="agentes" value="{{ chave }}" id="seg_{{ chave }}" checked autocomplete="off">
+                    <label class="btn btn-sm btn-outline-danger rounded-pill" for="seg_{{ chave }}" title="{{ tt(descricao) }}"><i class="bi {{ icone }}"></i> {{ tt(nome) }}</label>
+                    {% endfor %}
+                </div>
+                <div class="ms-auto d-flex gap-2">
+                    <button class="btn btn-danger fw-bold px-3" type="submit" id="btnIniciarSeg"><i class="bi bi-shield-fill-check"></i> {{ tt('Iniciar auditoria de segurança') }}</button>
+                    <button class="btn btn-outline-secondary fw-bold" type="submit" form="formPararSeg" id="btnPararSeg" disabled><i class="bi bi-stop-fill"></i> {{ tt('Parar') }}</button>
+                </div>
+            </div>
+        </form>
+        <form method="POST" action="{{ url_for('parar_agentes_seguranca') }}" id="formPararSeg" class="d-none"></form>
+
+        <!-- Centro de operações: console ao centro, especialistas ao redor -->
+        <div class="seg-hub mb-3" id="segHub" aria-label="{{ tt('Painel ao vivo dos agentes de segurança') }}">
+            <div class="seg-varredura"></div>
+            <svg class="seg-linhas" id="segLinhas" aria-hidden="true"></svg>
+
+            <div class="seg-gerente">
+                <div class="circulo"><i class="bi bi-shield-shaded"></i>{{ tt('Gerente de Segurança') }}<span class="contador" id="gerenteContador">0</span></div>
+                <div class="texto" id="gerenteTexto">{{ tt('Aguardando o início da auditoria.') }}</div>
+            </div>
+
+            <div class="seg-risco" title="{{ tt('Nota de risco: soma ponderada das vulnerabilidades (Crítica 25, Alta 10, Média 4, Baixa 1), limitada a 100.') }}">
+                <svg viewBox="0 0 150 84" aria-hidden="true">
+                    <path d="M12 78 A63 63 0 0 1 138 78" fill="none" stroke="rgba(148,163,184,.25)" stroke-width="12" stroke-linecap="round"/>
+                    <path id="riscoArco" d="M12 78 A63 63 0 0 1 138 78" fill="none" stroke="#22c55e" stroke-width="12" stroke-linecap="round" pathLength="100" stroke-dasharray="0 100"/>
+                </svg>
+                <div class="valor" id="riscoValor">—</div>
+                <div class="legenda">{{ tt('Risco') }}</div>
+                <div class="seg-severidades" id="riscoSeveridades">
+                    {% for s in ['Crítica', 'Alta', 'Média', 'Baixa'] %}<span style="background: {{ cores[s] }}" title="{{ tt(s) }}" data-sev="{{ s }}">0</span>{% endfor %}
+                </div>
+            </div>
+
+            <div class="seg-console">
+                <div class="seg-barra"><i class="ponto" style="background:#ef4444"></i><i class="ponto" style="background:#f59e0b"></i><i class="ponto" style="background:#22c55e"></i>
+                    <span class="seg-titulo" id="consoleTitulo" data-conteudo-dinamico>seguranca@mentoria:~$</span></div>
+                <div class="seg-etapa" id="consoleEtapa" data-conteudo-dinamico>—</div>
+                <div class="seg-saida" id="consoleSaida" aria-live="polite" data-conteudo-dinamico>
+                    <div class="seg-vazio" id="consoleVazio"><i class="bi bi-shield-lock"></i>{{ tt('Nenhuma auditoria em execução. As verificações e as vulnerabilidades aparecem aqui ao vivo.') }}</div>
+                </div>
+            </div>
+            <div class="seg-radar" aria-hidden="true"><i class="bi bi-shield-lock-fill"></i></div>
+
+            <div class="seg-agentes">
+                {% set posicoes = {'configuracao': (13, 32), 'dados': (87, 40), 'codigo': (13, 66), 'dependencias': (87, 74), 'pentest': (50, 89)} %}
+                {% for chave, nome, icone, descricao in ordem %}
+                <div class="seg-agente aguardando" id="seg_agente_{{ chave }}" data-chave="{{ chave }}" title="{{ tt(descricao) }}"
+                     style="left: {{ posicoes[chave][0] }}%; top: {{ posicoes[chave][1] }}%;">
+                    <span class="halo"></span>
+                    <div class="escudo"><div class="miolo"><i class="bi {{ icone }}"></i></div></div><span class="selo"></span>
+                    <div class="nome">{{ tt('Agente') }} {{ tt(nome) }}</div>
+                    <div class="situacao">{{ tt('aguardando') }}</div>
+                    <div class="pontos"></div>
+                    <div class="mini"><span></span></div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- Progresso por agente, com tempo estimado -->
+        <div class="card shadow-sm border-0 mb-3" id="cardProgressoSeg">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-end flex-wrap gap-2 mb-1">
+                    <h6 class="fw-bold mb-0">{{ tt('Progresso por agente') }}</h6>
+                    <small class="text-muted">{{ tt('Tempo estimado pelas execuções anteriores de cada agente.') }}</small>
+                </div>
+                <div class="d-flex justify-content-between small fw-bold mt-2"><span>{{ tt('Execução total') }} <span id="totalContagem" data-conteudo-dinamico></span></span><span id="totalRestante" data-conteudo-dinamico></span></div>
+                <div class="progress mb-3" style="height: 14px;" role="progressbar" aria-label="{{ tt('Execução total') }}">
+                    <div class="progress-bar bg-danger" id="totalBarra" style="width: 0%"></div>
+                </div>
+                <div class="d-flex flex-column gap-2">
+                    {% for chave, nome, icone, descricao in ordem %}
+                    <div class="linha-progresso" data-chave="{{ chave }}">
+                        <div class="d-flex justify-content-between align-items-center small gap-2">
+                            <span class="fw-bold text-nowrap"><i class="bi {{ icone }} text-danger"></i> {{ tt(nome) }}</span>
+                            <span class="text-muted text-end tempo" data-conteudo-dinamico>—</span>
+                        </div>
+                        <div class="d-flex align-items-center gap-2">
+                            <div class="progress flex-grow-1" style="height: 10px;" role="progressbar" aria-label="{{ tt(nome) }}">
+                                <div class="progress-bar bg-secondary" style="width: 0%"></div>
+                            </div>
+                            <span class="small fw-bold pct" style="width: 38px; text-align: right; font-variant-numeric: tabular-nums;">0%</span>
+                            <span class="small contagem text-nowrap" style="min-width: 150px;" data-conteudo-dinamico></span>
+                            <span class="small links text-nowrap" style="min-width: 40px;"></span>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <div class="row g-3">
+            <!-- Resultado consolidado -->
+            <div class="col-lg-6">
+                <div class="card shadow-sm border-0 h-100" id="cardConsolidadoSeg"><div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start gap-2 mb-2">
+                        <h6 class="fw-bold mb-0">{{ tt('Resultado consolidado') }}</h6>
+                        <span id="consolidadoLinks" class="text-nowrap"></span>
+                    </div>
+                    <div id="consolidadoCorpo" class="small text-muted" data-conteudo-dinamico>{{ tt('O resultado aparece ao final da auditoria.') }}</div>
+                </div></div>
+            </div>
+            <!-- Log do Gerente -->
+            <div class="col-lg-6">
+                <div class="card shadow-sm border-0 h-100"><div class="card-body">
+                    <h6 class="fw-bold mb-2">{{ tt('Registro do Gerente de Segurança') }}</h6>
+                    <div class="seg-log" id="logSeg" aria-live="polite" data-conteudo-dinamico></div>
+                </div></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+(function () {
+    const URL_ESTADO = "{{ url_for('estado_agentes_seguranca_json') }}";
+    const URL_ARQUIVO = "{{ url_for('arquivo_agentes_ia') }}?f=";
+    const CORES = {{ cores | tojson }};
+    const SEVERIDADES = ['Crítica', 'Alta', 'Média', 'Baixa'];
+    const TXT = {
+        aguardando: {{ tt('aguardando')|tojson }}, executando: {{ tt('varrendo…')|tojson }}, concluido: {{ tt('sem falhas graves')|tojson }},
+        vulneravel: {{ tt('vulnerável')|tojson }}, erro: {{ tt('erro')|tojson }}, agente: {{ tt('Agente')|tojson }},
+        aguardandoInicio: {{ tt('Aguardando o início da auditoria.')|tojson }}, executandoGerente: {{ tt('Auditando')|tojson }},
+        concluidoGerente: {{ tt('Auditoria concluída.')|tojson }}, parado: {{ tt('Execução interrompida.')|tojson }},
+        verificacoes: {{ tt('verificações')|tojson }}, restantes: {{ tt('restantes')|tojson }}, estimado: {{ tt('estimado')|tojson }},
+        concluidoEm: {{ tt('concluído em')|tojson }}, foraExecucao: {{ tt('fora desta execução')|tojson }},
+        preparando: {{ tt('Preparando o agente…')|tojson }}, risco: {{ tt('Risco')|tojson }}, prioridades: {{ tt('Corrigir primeiro')|tojson }},
+        nenhumaGrave: {{ tt('Nenhuma vulnerabilidade crítica ou alta.')|tojson }}, aoFinal: {{ tt('O resultado aparece ao final da auditoria.')|tojson }},
+        sevs: { 'Crítica': {{ tt('Crítica')|tojson }}, 'Alta': {{ tt('Alta')|tojson }}, 'Média': {{ tt('Média')|tojson }}, 'Baixa': {{ tt('Baixa')|tojson }} }
+    };
+    {% set nomes_js = {} %}{% for chave, nome, icone, descricao in ordem %}{% set _ = nomes_js.update({chave: tt(nome)}) %}{% endfor %}
+    const NOMES_AGENTES = {{ nomes_js | tojson }};
+    const hub = document.getElementById('segHub');
+    const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+    function desenharLinhas(agentes) {
+        const svg = document.getElementById('segLinhas');
+        const caixa = hub.getBoundingClientRect();
+        const radar = hub.querySelector('.seg-radar').getBoundingClientRect();
+        if (!radar.width) { svg.innerHTML = ''; return; }
+        const rx = radar.left + radar.width / 2 - caixa.left, ry = radar.top + radar.height / 2 - caixa.top;
+        svg.setAttribute('viewBox', `0 0 ${caixa.width} ${caixa.height}`);
+        svg.innerHTML = '';
+        hub.querySelectorAll('.seg-agente').forEach(no => {
+            const r = no.querySelector('.escudo').getBoundingClientRect();
+            const x = r.left + r.width / 2 - caixa.left, y = r.top + r.height / 2 - caixa.top;
+            const caminho = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+            caminho.setAttribute('d', `M${x},${y} Q${(x + rx) / 2},${y} ${rx},${ry}`);
+            const st = agentes && agentes[no.dataset.chave] ? agentes[no.dataset.chave].status : '';
+            caminho.setAttribute('class', st === 'executando' ? 'ativa' : st);
+            svg.appendChild(caminho);
+        });
+    }
+
+    function link(rel, icone, titulo) {
+        return rel ? `<a href="${URL_ARQUIVO}${encodeURIComponent(rel.replace(/\\/g, '/'))}" target="_blank" rel="noopener" title="${titulo}" class="me-2"><i class="bi ${icone}"></i></a>` : '';
+    }
+
+    function pontos(contagem) {
+        return contagem ? SEVERIDADES.filter(s => contagem[s]).map(s => `<span style="background:${CORES[s]}" title="${esc(TXT.sevs[s])}">${contagem[s]}</span>`).join('') : '';
+    }
+
+    function linhaConsole(texto) {
+        const m = texto.match(/^(\d\d:\d\d:\d\d)\s+(.*)$/);
+        const hora = m ? m[1] : '', corpo = m ? m[2] : texto;
+        let classe = '';
+        const sev = corpo.match(/^⚠ \[(Crítica|Alta|Média|Baixa|Informativa)\]/);
+        if (sev) classe = 'sev-' + sev[1];
+        else if (corpo.startsWith('✓')) classe = 'ok';
+        else if (corpo.startsWith('▶')) classe = 'passo';
+        return `<div><span class="tempo">${hora}</span> <span class="${classe}">${esc(corpo)}</span></div>`;
+    }
+
+    function desenharRisco(risco, contagem) {
+        const arco = document.getElementById('riscoArco');
+        const valor = typeof risco === 'number' ? risco : null;
+        arco.setAttribute('stroke-dasharray', `${valor || 0} 100`);
+        arco.setAttribute('stroke', valor === null ? '#22c55e' : valor < 25 ? '#22c55e' : valor < 60 ? '#f59e0b' : '#ef4444');
+        document.getElementById('riscoValor').textContent = valor === null ? '—' : valor;
+        document.querySelectorAll('#riscoSeveridades span').forEach(s => { s.textContent = contagem ? (contagem[s.dataset.sev] || 0) : 0; });
+    }
+
+    function atualizar(dados) {
+        const estado = dados.estado, agente = dados.agente;
+        const agentes = estado ? estado.agentes : {};
+        const rodando = estado && estado.status === 'executando';
+        hub.classList.toggle('ativo', !!rodando);
+        document.getElementById('btnIniciarSeg').disabled = !!rodando;
+        document.getElementById('btnPararSeg').disabled = !rodando;
+
+        // Especialistas ao redor
+        hub.querySelectorAll('.seg-agente').forEach(no => {
+            const a = agentes[no.dataset.chave];
+            const st = a ? a.status : 'aguardando';
+            no.className = 'seg-agente ' + st;
+            no.style.opacity = a || !estado ? '' : '.3';
+            const vivo = st === 'executando' && agente && agente.chave === no.dataset.chave;
+            no.querySelector('.situacao').textContent = a ? (TXT[st] || st) + (vivo ? ` · ${agente.verificacoes} ${TXT.verificacoes}` : '') : (estado ? '—' : TXT.aguardando);
+            no.querySelector('.pontos').innerHTML = pontos(vivo ? agente.contagem : (a && st !== 'aguardando' ? a.contagem : null));
+            no.querySelector('.selo').innerHTML = st === 'concluido' ? '<i class="bi bi-shield-check"></i>' : (st === 'vulneravel' || st === 'erro') ? '<i class="bi bi-exclamation-lg"></i>' : '';
+        });
+
+        // Gerente de Segurança
+        const chaves = Object.keys(agentes);
+        const feitos = chaves.filter(c => !['aguardando', 'executando'].includes(agentes[c].status)).length;
+        document.getElementById('gerenteContador').textContent = feitos;
+        let texto = TXT.aguardandoInicio;
+        if (rodando) texto = `${TXT.executandoGerente} ${Math.min(feitos + 1, chaves.length)}/${chaves.length}` + (estado.atual ? ` · ${TXT.agente} ${NOMES_AGENTES[estado.atual]}` : '');
+        else if (estado && estado.status === 'concluido') texto = `${TXT.concluidoGerente} ${feitos}/${chaves.length}`;
+        else if (estado && ['parado', 'interrompido', 'erro'].includes(estado.status)) texto = TXT.parado;
+        document.getElementById('gerenteTexto').textContent = texto;
+
+        // Nota de risco: consolidada no fim; durante a execução, a soma do que já foi encontrado
+        if (estado && estado.consolidado) {
+            desenharRisco(estado.consolidado.risco, estado.consolidado.contagem);
+        } else if (estado) {
+            const soma = {};
+            SEVERIDADES.forEach(s => soma[s] = 0);
+            chaves.forEach(c => {
+                const cont = (rodando && agente && agente.chave === c) ? agente.contagem : (agentes[c].status !== 'aguardando' ? agentes[c].contagem : null);
+                if (cont) SEVERIDADES.forEach(s => soma[s] += cont[s] || 0);
+            });
+            desenharRisco(Math.min(100, soma['Crítica'] * 25 + soma['Alta'] * 10 + soma['Média'] * 4 + soma['Baixa']), soma);
+        } else {
+            desenharRisco(null, null);
+        }
+
+        // Console central
+        const vivo = rodando && agente && estado.atual === agente.chave;
+        document.getElementById('consoleTitulo').textContent = vivo ? `seguranca@mentoria:~$ agente_${agente.chave}.py — ${NOMES_AGENTES[agente.chave]}` : 'seguranca@mentoria:~$';
+        document.getElementById('consoleEtapa').textContent = vivo ? `▶ ${agente.etapa || '…'}` : (rodando ? TXT.preparando : '—');
+        const saida = document.getElementById('consoleSaida');
+        const linhas = vivo ? agente.feed : (!rodando && agente ? agente.feed : null);
+        if (linhas && linhas.length) {
+            const html = linhas.map(linhaConsole).join('') + (vivo ? '<div class="seg-cursor"></div>' : '');
+            if (saida.dataset.ultimo !== html) { saida.innerHTML = html; saida.dataset.ultimo = html; saida.scrollTop = saida.scrollHeight; }
+        } else if (saida.dataset.ultimo !== 'vazio') {
+            saida.innerHTML = `<div class="seg-vazio"><i class="bi bi-shield-lock"></i>${esc(rodando ? TXT.preparando : {{ tt('Nenhuma auditoria em execução. As verificações e as vulnerabilidades aparecem aqui ao vivo.')|tojson }})}</div>`;
+            saida.dataset.ultimo = 'vazio';
+        }
+
+        // Consolidado
+        const corpo = document.getElementById('consolidadoCorpo');
+        const cons = estado && estado.consolidado;
+        if (cons) {
+            const lista = cons.principais.length
+                ? cons.principais.map(p => `<li class="mb-1"><span class="sev-pill" style="background:${CORES[p.severidade]}">${esc(TXT.sevs[p.severidade] || p.severidade)}</span> ${esc(p.titulo)} <span class="text-muted">· ${esc(p.agente)}</span></li>`).join('')
+                : `<li class="text-success">${esc(TXT.nenhumaGrave)}</li>`;
+            corpo.className = 'small';
+            corpo.innerHTML = `<div class="mb-2"><b>${esc(TXT.risco)}: ${cons.risco}/100</b> · ${SEVERIDADES.map(s => `<span class="sev-pill" style="background:${CORES[s]}">${cons.contagem[s]} ${esc(TXT.sevs[s])}</span>`).join(' ')}</div>`
+                + `<div class="fw-bold mb-1">${esc(TXT.prioridades)}</div><ul class="ps-3 mb-0">${lista}</ul>`;
+            document.getElementById('consolidadoLinks').innerHTML = link(cons.pdf, 'bi-file-earmark-pdf text-danger fs-5', 'PDF') + link(cons.prompt, 'bi-file-earmark-text fs-5', 'Prompt');
+        } else {
+            corpo.className = 'small text-muted';
+            corpo.textContent = TXT.aoFinal;
+            document.getElementById('consolidadoLinks').innerHTML = '';
+        }
+
+        const log = document.getElementById('logSeg');
+        const novoLog = estado ? estado.log.slice(-20).join('\n') : '';
+        if (log.textContent !== novoLog) { log.textContent = novoLog; log.scrollTop = log.scrollHeight; }
+
+        atualizarProgresso(estado, agente, dados.agora);
+        desenharLinhas(agentes);
+        return rodando;
+    }
+
+    function formatar(segundos) {
+        segundos = Math.max(0, Math.round(segundos));
+        const m = Math.floor(segundos / 60), s = segundos % 60;
+        return m ? `${m} min ${String(s).padStart(2, '0')} s` : `${s} s`;
+    }
+
+    function atualizarProgresso(estado, agente, agoraIso) {
+        const agentes = estado ? estado.agentes : {};
+        const estimativas = (estado && estado.estimativas) || {};
+        const agora = Date.parse(agoraIso);
+        let totalPrevisto = 0, totalFeito = 0, totalRestante = 0, terminados = 0;
+        document.querySelectorAll('.linha-progresso').forEach(linha => {
+            const chave = linha.dataset.chave, a = agentes[chave];
+            const est = estimativas[chave] || 15;
+            const barra = linha.querySelector('.progress-bar');
+            let pct = 0, texto = '—', cor = 'bg-secondary', restante = 0, cont = null;
+            if (!a) {
+                texto = estado ? TXT.foraExecucao : '—';
+            } else if (a.status === 'executando') {
+                const decorrido = Math.max(0, (agora - Date.parse(a.inicio)) / 1000);
+                pct = Math.min(0.97, decorrido / est);
+                restante = Math.max(est - decorrido, 2);
+                texto = `≈ ${formatar(restante)} ${TXT.restantes}`;
+                cor = 'bg-warning progress-bar-striped progress-bar-animated';
+                const mini = document.querySelector(`#seg_agente_${chave} .mini span`);
+                if (mini) mini.style.width = Math.round(pct * 100) + '%';
+                if (agente && agente.chave === chave) cont = agente;
+            } else if (a.status === 'aguardando') {
+                restante = est;
+                texto = `${TXT.estimado} ≈ ${formatar(est)}`;
+            } else {
+                pct = 1; terminados++;
+                texto = `${TXT.concluidoEm} ${a.duracao || ''}`;
+                cor = a.status === 'concluido' ? 'bg-success' : 'bg-danger';
+                cont = a;
+            }
+            if (a) { totalPrevisto += est; totalFeito += pct * est; totalRestante += restante; }
+            barra.className = 'progress-bar ' + cor;
+            barra.style.width = Math.round(pct * 100) + '%';
+            linha.querySelector('.pct').textContent = Math.round(pct * 100) + '%';
+            linha.querySelector('.tempo').textContent = texto;
+            linha.querySelector('.contagem').innerHTML = cont ? `${cont.verificacoes} ✓ · ` + SEVERIDADES.map(s => `<span class="sev-pill" style="background:${CORES[s]}" title="${esc(TXT.sevs[s])}">${cont.contagem[s]}</span>`).join(' ') : '';
+            linha.querySelector('.links').innerHTML = a ? link(a.pdf, 'bi-file-earmark-pdf text-danger', 'PDF') + link(a.prompt, 'bi-file-earmark-text', 'Prompt') : '';
+            linha.style.opacity = a || !estado ? '' : '.5';
+        });
+        const chaves = Object.keys(agentes);
+        const pctTotal = totalPrevisto ? totalFeito / totalPrevisto : 0;
+        const rodando = estado && estado.status === 'executando';
+        document.getElementById('totalBarra').style.width = Math.round(pctTotal * 100) + '%';
+        document.getElementById('totalBarra').className = 'progress-bar ' + (rodando ? 'bg-danger progress-bar-striped progress-bar-animated' : 'bg-danger');
+        document.getElementById('totalContagem').textContent = chaves.length ? `· ${terminados}/${chaves.length} · ${Math.round(pctTotal * 100)}%` : '';
+        document.getElementById('totalRestante').textContent = rodando ? `≈ ${formatar(totalRestante)} ${TXT.restantes}` : '';
+    }
+
+    let intervalo = null, ultimoEstado = null, falhasSeguidas = 0;
+    function consultar() {
+        fetch(URL_ESTADO, { cache: 'no-store' }).then(r => { if (!r.ok) throw new Error(r.status); return r.json(); }).then(dados => {
+            if (!dados.estado && ultimoEstado && ultimoEstado.status === 'executando' && ++falhasSeguidas < 5) {
+                dados.estado = ultimoEstado;
+            } else {
+                falhasSeguidas = 0;
+            }
+            if (dados.estado) ultimoEstado = dados.estado;
+            const rodando = atualizar(dados);
+            const desejado = rodando ? 800 : 5000;
+            if (intervalo === null || intervalo.ms !== desejado) {
+                if (intervalo) clearInterval(intervalo.id);
+                intervalo = { ms: desejado, id: setInterval(consultar, desejado) };
+            }
+        }).catch(() => {});
+    }
+    window.addEventListener('resize', () => desenharLinhas(ultimoEstado ? ultimoEstado.agentes : null));
+    consultar();
+})();
+</script>
+{% endblock %}

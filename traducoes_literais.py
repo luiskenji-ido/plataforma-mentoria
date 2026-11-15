@@ -643,6 +643,103 @@ LITERAIS = {
 
     # ---------------- Manutenção (DB)
     'Padrão: Backup_repository': ('Default: Backup_repository', 'Predeterminado: Backup_repository'),
+    # ---------------- Administração › Agentes de Segurança
+    'Agentes de Segurança': ('Security Agents', 'Agentes de Seguridad'),
+    'Agentes de testes fim a fim': ('End-to-end test agents', 'Agentes de pruebas de punta a punta'),
+    'Abrir': ('Open', 'Abrir'),
+    'Gerente de Segurança': ('Security Manager', 'Gerente de Seguridad'),
+    'Especialistas': ('Specialists', 'Especialistas'),
+    'Consolidado': ('Consolidated', 'Consolidado'),
+    'Relatórios de Testes de Segurança': ('Security Test Reports', 'Informes de Pruebas de Seguridad'),
+    'Agente Configuração e Segredos': ('Configuration and Secrets Agent', 'Agente Configuración y Secretos'),
+    'Agente Inconsistências de Dados': ('Data Inconsistencies Agent', 'Agente Inconsistencias de Datos'),
+    'Agente Análise de Código': ('Code Analysis Agent', 'Agente Análisis de Código'),
+    'Agente Dependências e Tecnologias': ('Dependencies and Technologies Agent', 'Agente Dependencias y Tecnologías'),
+    'Agente Pentest': ('Pentest Agent', 'Agente Pentest'),
+    'Configuração e Segredos': ('Configuration and Secrets', 'Configuración y Secretos'),
+    'Inconsistências de Dados': ('Data Inconsistencies', 'Inconsistencias de Datos'),
+    'Análise de Código (SAST)': ('Code Analysis (SAST)', 'Análisis de Código (SAST)'),
+    'Dependências e Tecnologias (SCA)': ('Dependencies and Technologies (SCA)', 'Dependencias y Tecnologías (SCA)'),
+    'Pentest (DAST)': ('Pentest (DAST)', 'Pentest (DAST)'),
+    'Chaves secretas, modo debug, cookies, CSRF, cabeçalhos de segurança e segredos esquecidos no código.': (
+        'Secret keys, debug mode, cookies, CSRF, security headers and secrets left in the code.',
+        'Claves secretas, modo debug, cookies, CSRF, cabeceras de seguridad y secretos olvidados en el código.'),
+    'Senhas e respostas de segurança mal guardadas, contas de teste, perfis e vínculos inconsistentes, integridade do banco.': (
+        'Poorly stored passwords and security answers, test accounts, inconsistent profiles and links, database integrity.',
+        'Contraseñas y respuestas de seguridad mal guardadas, cuentas de prueba, perfiles y vínculos inconsistentes, integridad de la base.'),
+    'Funções perigosas, SQL montado com texto, rotas sem login, XSS nos templates e código mal escrito.': (
+        'Dangerous functions, SQL built from text, routes without login, XSS in templates and poorly written code.',
+        'Funciones peligrosas, SQL armado con texto, rutas sin login, XSS en las plantillas y código mal escrito.'),
+    'Vulnerabilidades conhecidas (OSV.dev) do Python, Flask, bibliotecas e CDNs; pacotes descontinuados e SRI.': (
+        'Known vulnerabilities (OSV.dev) in Python, Flask, libraries and CDNs; discontinued packages and SRI.',
+        'Vulnerabilidades conocidas (OSV.dev) de Python, Flask, bibliotecas y CDN; paquetes descontinuados y SRI.'),
+    'Ataques controlados na plataforma em execução: XSS, SQL injection, IDOR, CSRF, força bruta, sessão e redirecionamento.': (
+        'Controlled attacks on the running platform: XSS, SQL injection, IDOR, CSRF, brute force, session and redirects.',
+        'Ataques controlados a la plataforma en ejecución: XSS, inyección SQL, IDOR, CSRF, fuerza bruta, sesión y redirecciones.'),
+    'O Gerente de Segurança coordena 5 especialistas em cibersegurança: procuram dados inconsistentes, analisam o código, verificam as vulnerabilidades das tecnologias e fazem testes de invasão controlados. No fim, gera relatórios em PDF e prompts de correção para qualquer LLM.': (
+        'The Security Manager coordinates 5 cybersecurity specialists: they look for inconsistent data, analyze the code, check the vulnerabilities of the technologies and run controlled penetration tests. At the end, it generates PDF reports and fix prompts for any LLM.',
+        'El Gerente de Seguridad coordina 5 especialistas en ciberseguridad: buscan datos inconsistentes, analizan el código, verifican las vulnerabilidades de las tecnologías y hacen pruebas de intrusión controladas. Al final, genera informes en PDF y prompts de corrección para cualquier LLM.'),
+    'O Agente Pentest só ataca a plataforma em ambiente local ou de teste (localhost, *.test). Neste endereço ele registra a verificação como não realizada; os outros agentes rodam normalmente.': (
+        'The Pentest Agent only attacks the platform in a local or test environment (localhost, *.test). At this address it records the check as not performed; the other agents run normally.',
+        'El Agente Pentest solo ataca la plataforma en un entorno local o de prueba (localhost, *.test). En esta dirección registra la verificación como no realizada; los demás agentes se ejecutan normalmente.'),
+    'Sem o Playwright neste servidor, os relatórios saem só como prompt (.md), sem o PDF.': (
+        'Without Playwright on this server, reports are produced only as a prompt (.md), without the PDF.',
+        'Sin Playwright en este servidor, los informes salen solo como prompt (.md), sin el PDF.'),
+    'Referências: OWASP Top 10 (2021), CWE/MITRE e a base de vulnerabilidades OSV.dev, consultada só se estiver nas Fontes confiáveis.': (
+        'References: OWASP Top 10 (2021), CWE/MITRE and the OSV.dev vulnerability database, queried only if it is in the Trusted sources.',
+        'Referencias: OWASP Top 10 (2021), CWE/MITRE y la base de vulnerabilidades OSV.dev, consultada solo si está en las Fuentes confiables.'),
+    'Iniciar auditoria de segurança': ('Start security audit', 'Iniciar auditoría de seguridad'),
+    'Painel ao vivo dos agentes de segurança': ('Live panel of the security agents', 'Panel en vivo de los agentes de seguridad'),
+    'Aguardando o início da auditoria.': ('Waiting for the audit to start.', 'Esperando el inicio de la auditoría.'),
+    'Nota de risco: soma ponderada das vulnerabilidades (Crítica 25, Alta 10, Média 4, Baixa 1), limitada a 100.': (
+        'Risk score: weighted sum of the vulnerabilities (Critical 25, High 10, Medium 4, Low 1), capped at 100.',
+        'Nota de riesgo: suma ponderada de las vulnerabilidades (Crítica 25, Alta 10, Media 4, Baja 1), limitada a 100.'),
+    'Risco': ('Risk', 'Riesgo'),
+    'Média': ('Medium', 'Media'),
+    'Baixa': ('Low', 'Baja'),
+    'Nenhuma auditoria em execução. As verificações e as vulnerabilidades aparecem aqui ao vivo.': (
+        'No audit running. Checks and vulnerabilities appear here live.', 'Ninguna auditoría en ejecución. Las verificaciones y las vulnerabilidades aparecen aquí en vivo.'),
+    'Resultado consolidado': ('Consolidated result', 'Resultado consolidado'),
+    'O resultado aparece ao final da auditoria.': ('The result appears at the end of the audit.', 'El resultado aparece al final de la auditoría.'),
+    'Registro do Gerente de Segurança': ('Security Manager log', 'Registro del Gerente de Seguridad'),
+    'varrendo…': ('scanning…', 'escaneando…'),
+    'sem falhas graves': ('no serious flaws', 'sin fallas graves'),
+    'vulnerável': ('vulnerable', 'vulnerable'),
+    'Auditando': ('Auditing', 'Auditando'),
+    'Auditoria concluída.': ('Audit completed.', 'Auditoría concluida.'),
+    'verificações': ('checks', 'verificaciones'),
+    'Preparando o agente…': ('Preparing the agent…', 'Preparando el agente…'),
+    'Corrigir primeiro': ('Fix first', 'Corregir primero'),
+    'Nenhuma vulnerabilidade crítica ou alta.': ('No critical or high vulnerabilities.', 'Ninguna vulnerabilidad crítica o alta.'),
+    'Gerente de Segurança iniciado: a auditoria começa pela configuração.': (
+        'Security Manager started: the audit begins with the configuration.', 'Gerente de Seguridad iniciado: la auditoría empieza por la configuración.'),
+    'Agentes de Segurança: o Gerente de Segurança coordena 5 especialistas em cibersegurança e mostra a auditoria ao vivo.': (
+        'Security Agents: the Security Manager coordinates 5 cybersecurity specialists and shows the audit live.',
+        'Agentes de Seguridad: el Gerente de Seguridad coordina 5 especialistas en ciberseguridad y muestra la auditoría en vivo.'),
+    'Escolha os agentes e inicie a auditoria: o pentest só ataca a própria plataforma em ambiente local ou de teste.': (
+        'Choose the agents and start the audit: the pentest only attacks the platform itself in a local or test environment.',
+        'Elija los agentes e inicie la auditoría: el pentest solo ataca la propia plataforma en un entorno local o de prueba.'),
+    'No centro, o console mostra ao vivo cada verificação e cada vulnerabilidade encontrada.': (
+        'In the center, the console shows every check and every vulnerability found, live.',
+        'En el centro, la consola muestra en vivo cada verificación y cada vulnerabilidad encontrada.'),
+    'Cada escudo é um agente especialista: fica verde se não achou nada grave e vermelho se encontrou vulnerabilidade crítica ou alta.': (
+        'Each shield is a specialist agent: it turns green if nothing serious was found and red if it found a critical or high vulnerability.',
+        'Cada escudo es un agente especialista: queda verde si no encontró nada grave y rojo si encontró una vulnerabilidad crítica o alta.'),
+    'O resultado consolidado traz a nota de risco, as prioridades e o PDF e o prompt de correção para qualquer LLM.': (
+        'The consolidated result shows the risk score, the priorities and the PDF and fix prompt for any LLM.',
+        'El resultado consolidado trae la nota de riesgo, las prioridades y el PDF y el prompt de corrección para cualquier LLM.'),
+    'Os relatórios em PDF e os prompts de correção ficam nestas pastas, uma por agente de segurança.': (
+        'The PDF reports and the fix prompts are kept in these folders, one per security agent.',
+        'Los informes en PDF y los prompts de corrección quedan en estas carpetas, una por agente de seguridad.'),
+    # ---------------- Proteções web (seguranca_web.py)
+    'Muitas tentativas seguidas. Aguarde um minuto e tente de novo.': (
+        'Too many attempts in a row. Wait a minute and try again.', 'Demasiados intentos seguidos. Espere un minuto e inténtelo de nuevo.'),
+    'A página expirou ou o pedido não veio da plataforma. Recarregue a página e tente de novo.': (
+        'The page expired or the request did not come from the platform. Reload the page and try again.',
+        'La página expiró o la solicitud no vino de la plataforma. Recargue la página e inténtelo de nuevo.'),
+    'Desculpe, o assistente está indisponível agora. Tente de novo em alguns minutos.': (
+        'Sorry, the assistant is unavailable right now. Try again in a few minutes.',
+        'Lo sentimos, el asistente no está disponible ahora. Inténtelo de nuevo en unos minutos.'),
 }
 
 # Montados uma vez: {'en': {pt: en}, 'es': {pt: es}}

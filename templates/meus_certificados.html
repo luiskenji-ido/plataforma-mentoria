@@ -19,7 +19,7 @@
                 <div class="small">{{ t('cert_codigo') }} <strong>{{ emitido.codigo }}</strong>{% if emitido.minutos_total %} · {{ emitido.minutos_total // 60 }} h {{ emitido.minutos_total % 60 }} min{% endif %}</div>
                 {% endif %}
                 <div class="mt-auto">
-                    <a href="{{ url_for('emitir_certificado', projeto_id=projeto.id, usuario_id=current_user.id) }}" target="_blank" class="btn btn-sm btn-primary fw-bold rounded-pill px-3"><i class="bi bi-award"></i> {{ t('cert_abrir') }}</a>
+                    <a href="{{ url_for('emitir_certificado', projeto_id=projeto.id, usuario_id=current_user.id) }}" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-primary fw-bold rounded-pill px-3"><i class="bi bi-award"></i> {{ t('cert_abrir') }}</a>
                 </div>
             </div>
         </div>

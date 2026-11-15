@@ -32,7 +32,7 @@
                         <span class="badge bg-secondary">{{ t('trilha_pendente') }}</span>
                     {% endif %}
                 </div>
-                <div class="text-dark conteudo-trilha">{{ m.conteudo_html | safe }}</div>
+                <div class="text-dark conteudo-trilha">{{ m.conteudo_html | html_seguro }}</div>
                 {% if m.link_video %}
                 <p class="mb-2"><a href="{{ m.link_video }}" target="_blank" rel="noopener" class="fw-bold"><i class="bi bi-play-circle"></i> {{ t('trilha_video') }}</a></p>
                 {% endif %}

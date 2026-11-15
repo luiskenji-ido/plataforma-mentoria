@@ -36,7 +36,15 @@ BASE_URL = os.environ.get("OMNITEST_URL", "http://127.0.0.1:5000").rstrip("/")
 # Quando o Agente Gestor (área Agentes IA) dispara o agente, ele informa esta pasta: o agente transmite ali
 # a tela do navegador (frame.jpg), a etapa atual (agente.json) e guarda uma captura de cada etapa para o PDF.
 PASTA_AO_VIVO = os.environ.get("OMNITEST_AO_VIVO", "")
-SENHA_PADRAO = "#Test-p0nt4-pOnt@"
+# A senha das contas de teste fica fora do código: variável OMNITEST_SENHA (arquivo .env, fora do Git)
+try:
+    from dotenv import load_dotenv
+    load_dotenv(os.path.join(RAIZ_PROJETO, ".env"))
+except ImportError:
+    pass
+SENHA_PADRAO = os.environ.get("OMNITEST_SENHA", "")
+if not SENHA_PADRAO:
+    raise SystemExit("Defina OMNITEST_SENHA (senha das contas de teste) no arquivo .env da raiz do projeto.")
 PASTA_RELATORIOS = os.path.join(RAIZ_PROJETO, "Agent Reports", "OmniTest")
 
 # Respostas das perguntas de segurança dos utilizadores de teste (o app guarda em minúsculas)
@@ -211,18 +219,20 @@ def preparar_usuario(chave_perfil, primeiro_acesso=False):
         user.forcar_troca_senha = False
         user.data_ultima_troca_senha = datetime.utcnow()
 
-        # O app guarda as respostas em texto minúsculo (sem hash) e compara assim na recuperação
+        # O app guarda só o hash (bcrypt) das respostas, normalizadas em minúsculas
+        from app import hash_resposta_seguranca, conferir_resposta_seguranca
         seguranca = SegurancaUsuario.query.filter_by(usuario_id=user.id).first()
         if not seguranca:
             db.session.add(SegurancaUsuario(
                 usuario_id=user.id,
-                pergunta_1=PERGUNTAS_TESTE[0], resposta_1=RESPOSTA_SEGURANCA,
-                pergunta_2=PERGUNTAS_TESTE[1], resposta_2=RESPOSTA_SEGURANCA,
-                pergunta_3=PERGUNTAS_TESTE[2], resposta_3=RESPOSTA_SEGURANCA,
+                pergunta_1=PERGUNTAS_TESTE[0], resposta_1=hash_resposta_seguranca(RESPOSTA_SEGURANCA),
+                pergunta_2=PERGUNTAS_TESTE[1], resposta_2=hash_resposta_seguranca(RESPOSTA_SEGURANCA),
+                pergunta_3=PERGUNTAS_TESTE[2], resposta_3=hash_resposta_seguranca(RESPOSTA_SEGURANCA),
             ))
             notas.append("Perguntas de segurança de teste cadastradas.")
-        elif {seguranca.resposta_1, seguranca.resposta_2, seguranca.resposta_3} != {RESPOSTA_SEGURANCA}:
-            seguranca.resposta_1 = seguranca.resposta_2 = seguranca.resposta_3 = RESPOSTA_SEGURANCA
+        elif not all(conferir_resposta_seguranca(RESPOSTA_SEGURANCA, r) and r.startswith("$2")
+                     for r in (seguranca.resposta_1, seguranca.resposta_2, seguranca.resposta_3)):
+            seguranca.resposta_1 = seguranca.resposta_2 = seguranca.resposta_3 = hash_resposta_seguranca(RESPOSTA_SEGURANCA)
             if seguranca.pergunta_1.startswith("OmniTest"):
                 seguranca.pergunta_1, seguranca.pergunta_2, seguranca.pergunta_3 = PERGUNTAS_TESTE
             notas.append(f"Respostas de segurança redefinidas para '{RESPOSTA_SEGURANCA}'.")
@@ -1614,6 +1624,10 @@ class AgenteOmniTest:
         modal.locator('input[name="email_recuperacao"]').fill(email)
         modal.locator('button[type="submit"]').click()
         self.page.wait_for_load_state("domcontentloaded")
+        if "Muitas tentativas" in self.texto_pagina():
+            # Limite de requisições por IP (proteção contra força bruta): espera a janela e tenta de novo
+            self.page.wait_for_timeout(61000)
+            return self.abrir_recuperacao(email)
 
     def mensagem_flash(self):
         alertas = self.page.locator(".alert").all_inner_texts()
@@ -1627,13 +1641,25 @@ class AgenteOmniTest:
         self.aguardar()
 
     def recuperacao_email_inexistente(self):
+        # Para não revelar quais e-mails existem, um e-mail inexistente recebe perguntas "de fachada" e nunca é aprovado
         self.abrir_recuperacao("naoexiste_omnitest@local.com")
+        texto = self.texto_pagina().lower()
+        if "não encontrado" in texto:
+            self.registrar("Recuperação de Senha", "E-mail inexistente", FALHA, "A tela revela que o e-mail não existe.",
+                           esperado="Mesma tela de perguntas de um e-mail cadastrado (sem enumeração de e-mails)")
+            return
+        if self.page.locator('input[name="resposta_1"]').count() == 0:
+            self.registrar("Recuperação de Senha", "E-mail inexistente", FALHA, f"Rota {self.caminho_atual()}; mensagem: '{self.mensagem_flash()}'.",
+                           esperado="Tela de perguntas (de fachada) igual à de um e-mail cadastrado")
+            return
+        self.responder_perguntas([RESPOSTA_SEGURANCA] * 3)
         msg = self.mensagem_flash()
-        if "não encontrado" in msg.lower():
-            self.registrar("Recuperação de Senha", "E-mail inexistente", APROVADO, msg, evidencia=False)
+        if "2 acertos" in msg:
+            self.registrar("Recuperação de Senha", "E-mail inexistente", APROVADO,
+                           "Perguntas de fachada exibidas e recuperação negada (o e-mail não é revelado).", evidencia=False)
         else:
             self.registrar("Recuperação de Senha", "E-mail inexistente", FALHA, f"Mensagem recebida: '{msg or 'nenhuma'}'.",
-                           esperado="Aviso 'E-mail não encontrado no sistema.' na tela de login")
+                           esperado="Recuperação negada com o aviso de mínimo de 2 acertos")
 
     def recuperacao_mostra_perguntas(self):
         perguntas = self.perguntas_do_banco()

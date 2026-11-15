@@ -259,11 +259,18 @@ def saude():
 # ------------------------------------------------------------------------------
 # Restauração e limpeza
 # ------------------------------------------------------------------------------
+def _identificador(nome, permitidos):
+    """Nome de tabela/coluna para SQL dinâmico: só da lista fixa (ou do próprio esquema), só [a-z0-9_] e entre aspas."""
+    if nome not in permitidos or not re.fullmatch(r'[A-Za-z_][A-Za-z0-9_]*', nome):
+        raise ValueError(f"Identificador SQL não permitido: {nome!r}")
+    return '"' + nome + '"'
+
+
 def _ler_tabelas_preservadas():
     con = sqlite3.connect(caminho_banco())
     con.row_factory = sqlite3.Row
     try:
-        return {t: [dict(r) for r in con.execute(f'SELECT * FROM {t}')] for t in TABELAS_PRESERVADAS}
+        return {t: [dict(r) for r in con.execute('SELECT * FROM ' + _identificador(t, TABELAS_PRESERVADAS))] for t in TABELAS_PRESERVADAS}
     finally:
         con.close()
 
@@ -272,12 +279,14 @@ def _gravar_tabelas_preservadas(dados):
     con = sqlite3.connect(caminho_banco())
     try:
         for tabela, linhas in dados.items():
-            colunas_atuais = {c[1] for c in con.execute(f'PRAGMA table_info({tabela})')}
-            con.execute(f'DELETE FROM {tabela}')
+            nome_tabela = _identificador(tabela, TABELAS_PRESERVADAS)
+            colunas_atuais = {c[1] for c in con.execute('PRAGMA table_info(' + nome_tabela + ')')}
+            con.execute('DELETE FROM ' + nome_tabela)
             for linha in linhas:
                 linha = {k: v for k, v in linha.items() if k in colunas_atuais}
-                campos = ', '.join(linha)
-                con.execute(f'INSERT INTO {tabela} ({campos}) VALUES ({", ".join("?" for _ in linha)})', list(linha.values()))
+                campos = ', '.join(_identificador(c, colunas_atuais) for c in linha)
+                marcadores = ', '.join('?' for _ in linha)
+                con.execute('INSERT INTO ' + nome_tabela + ' (' + campos + ') VALUES (' + marcadores + ')', list(linha.values()))
         con.commit()
     finally:
         con.close()

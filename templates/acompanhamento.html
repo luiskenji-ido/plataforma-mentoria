@@ -374,7 +374,7 @@
                                         <i class="bi bi-check-circle-fill"></i> {{ tt('Presença Registrada Hoje!') }}
                                     </span>
                                     {% if item.curso.url %}
-                                        <a href="{{ item.curso.url }}" target="_blank" class="btn btn-sm btn-acessar-curso w-100 text-center fw-bold">{{ t('acessar_curso') }}</a>
+                                        <a href="{{ item.curso.url }}" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-acessar-curso w-100 text-center fw-bold">{{ t('acessar_curso') }}</a>
                                     {% endif %}
                                 </div>
                             {% else %}
@@ -392,7 +392,7 @@
                         {% else %}
                             <!-- PARA MENTORES E ADMINS -->
                             {% if item.curso.url %}
-                                <a href="{{ item.curso.url }}" target="_blank" class="btn btn-sm btn-acessar-curso w-100 text-center fw-bold mb-1">{{ t('acessar_curso') }}</a>
+                                <a href="{{ item.curso.url }}" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-acessar-curso w-100 text-center fw-bold mb-1">{{ t('acessar_curso') }}</a>
                             {% endif %}
                         {% endif %}
 
@@ -404,7 +404,7 @@
                         {% endif %}
 
                         {% if item.reg.certificado %}
-                            <a href="{{ url_for('acessar_upload', nome_arquivo=item.reg.certificado) }}" target="_blank" class="btn btn-sm btn-outline-success w-100 text-center fw-bold mb-1">{{ tt('Ver Certificado') }}</a>
+                            <a href="{{ url_for('acessar_upload', nome_arquivo=item.reg.certificado) }}" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-outline-success w-100 text-center fw-bold mb-1">{{ tt('Ver Certificado') }}</a>
                         {% endif %}
 
                         {% if item.reg.status != 'Desativado' %}
@@ -466,7 +466,7 @@
                                         <span class="text-muted small fw-normal">{{ nome_arquivo_real }}</span>
                                     </div>
                                     
-                                    <a href="{{ url_for('acessar_upload', nome_arquivo=nome_arquivo_real) }}" target="_blank" class="btn btn-sm btn-outline-primary rounded-pill px-3">{{ t('btn_abrir') }}</a>
+                                    <a href="{{ url_for('acessar_upload', nome_arquivo=nome_arquivo_real) }}" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-outline-primary rounded-pill px-3">{{ t('btn_abrir') }}</a>
                                 </div>
                             {% endfor %}
                         </div>
@@ -1073,7 +1073,7 @@ function iniciarTourDaPagina() {
     let cardCurso = document.querySelector('.table, .card');
     if (cardCurso) passos.push({ element: cardCurso, intro: "{{ t('tour_aco_card') | safe }}" });
 
-    let tipoPerfil = "{{ current_user.tipo_usuario }}";
+    let tipoPerfil = {{ current_user.tipo_usuario|tojson }};
     let ehAdmin = (tipoPerfil === 'Administrador' || tipoPerfil === 'Mentor Administrador');
     
     introJs().setOptions({

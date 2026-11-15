@@ -91,6 +91,14 @@
             { sel: '.hub-agente', texto: {{ tt('Cada robô é o agente de um perfil: brilha enquanto testa e recebe ✓ ou ✗ ao terminar.')|tojson }} },
             { sel: '#cardArvoreIa', texto: {{ tt('Os relatórios em PDF com as evidências e os prompts de correção ficam nestas pastas, separados por perfil.')|tojson }} },
         ],
+        'agentes_seguranca': [
+            { texto: {{ tt('Agentes de Segurança: o Gerente de Segurança coordena 5 especialistas em cibersegurança e mostra a auditoria ao vivo.')|tojson }} },
+            { sel: '#cardComandosSeg', texto: {{ tt('Escolha os agentes e inicie a auditoria: o pentest só ataca a própria plataforma em ambiente local ou de teste.')|tojson }} },
+            { sel: '.seg-console', texto: {{ tt('No centro, o console mostra ao vivo cada verificação e cada vulnerabilidade encontrada.')|tojson }} },
+            { sel: '.seg-agente', texto: {{ tt('Cada escudo é um agente especialista: fica verde se não achou nada grave e vermelho se encontrou vulnerabilidade crítica ou alta.')|tojson }} },
+            { sel: '#cardConsolidadoSeg', texto: {{ tt('O resultado consolidado traz a nota de risco, as prioridades e o PDF e o prompt de correção para qualquer LLM.')|tojson }} },
+            { sel: '#cardArvoreSeg', texto: {{ tt('Os relatórios em PDF e os prompts de correção ficam nestas pastas, uma por agente de segurança.')|tojson }} },
+        ],
         'gestao_trilha_tcc': [
             { texto: {{ tt('Trilha do TCC: os módulos de orientação que mentores e professores concluem antes de orientar.')|tojson }} },
             { sel: 'table', texto: {{ tt('Veja quem já concluiu a trilha e quem ainda está pendente.')|tojson }} },

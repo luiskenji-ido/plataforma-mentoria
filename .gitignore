@@ -16,3 +16,6 @@ uploads/
 Backup_repository/
 
 .env
+
+# Relatórios e evidências dos agentes de teste e de segurança (prints, e-mails de teste, achados)
+Agent Reports/

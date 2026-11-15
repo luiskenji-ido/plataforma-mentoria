@@ -99,7 +99,8 @@
 <div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-3">
     <div>
         <h2 class="text-primary fw-bold mb-1"><i class="bi bi-robot"></i> {{ tt('Agentes IA') }}</h2>
-        <a href="{{ url_for('governanca_aprendizados') }}" class="small fw-bold"><i class="bi bi-mortarboard"></i> {{ tt('Governança de aprendizados') }}</a>
+        <a href="{{ url_for('governanca_aprendizados') }}" class="small fw-bold me-3"><i class="bi bi-mortarboard"></i> {{ tt('Governança de aprendizados') }}</a>
+        <a href="{{ url_for('agentes_seguranca') }}" class="small fw-bold text-danger"><i class="bi bi-shield-lock-fill"></i> {{ tt('Agentes de Segurança') }}</a>
         <p class="text-muted mb-0">{{ tt('O Agente Gerente Técnico coordena os agentes de teste, aprende as mudanças da plataforma e distribui os aprendizados: cada perfil é testado de ponta a ponta, ao vivo, com relatório em PDF na pasta do perfil.') }}</p>
     </div>
 </div>
@@ -117,7 +118,7 @@
                 <ul><li><details open><summary><i class="bi bi-robot"></i> {{ tt('Agentes de IA') }}</summary>
                     <ul>
                     {% for grupo in arvore %}
-                        <li><details {% if not grupo.em_breve %}open{% endif %}><summary>{{ tt(grupo.nome) }}{% if grupo.em_breve %} <span class="badge bg-secondary">{{ tt('em breve') }}</span>{% endif %}</summary>
+                        <li><details {% if not grupo.pagina %}open{% endif %}><summary>{{ tt(grupo.nome) }}{% if grupo.pagina %} <a href="{{ url_for(grupo.pagina) }}" class="small" title="{{ tt('Abrir') }}"><i class="bi bi-box-arrow-up-right"></i></a>{% endif %}</summary>
                             <ul>
                             {% for pasta in grupo.pastas %}
                                 {% set total = pasta.subpastas | map(attribute='arquivos') | map('length') | sum %}
@@ -126,7 +127,7 @@
                                     {% for sub in pasta.subpastas %}
                                         <li><details><summary><i class="bi bi-folder-fill"></i> <span data-conteudo-dinamico>{{ sub.nome }}</span> <span class="text-muted fw-normal">({{ sub.arquivos|length }})</span></summary>
                                             <ul>{% for a in sub.arquivos[:15] %}
-                                                <li><a href="{{ url_for('arquivo_agentes_ia', f=a.relativo) }}" {% if a.nome.endswith('.pdf') %}target="_blank"{% endif %}>
+                                                <li><a href="{{ url_for('arquivo_agentes_ia', f=a.relativo) }}" {% if a.nome.endswith('.pdf') %}target="_blank" rel="noopener noreferrer"{% endif %}>
                                                     <i class="bi {{ 'bi-file-earmark-pdf text-danger' if a.nome.endswith('.pdf') else 'bi-file-earmark-text' }}"></i> {{ a.data.strftime('%d/%m %H:%M') }}</a></li>
                                             {% else %}<li class="text-muted">{{ tt('vazia') }}</li>{% endfor %}</ul>
                                         </details></li>
@@ -288,14 +289,14 @@
     }
 
     function link(rel, icone, titulo) {
-        return rel ? `<a href="${URL_ARQUIVO}${encodeURIComponent(rel.replace(/\\/g, '/'))}" target="_blank" title="${titulo}" class="me-2"><i class="bi ${icone}"></i></a>` : '';
+        return rel ? `<a href="${URL_ARQUIVO}${encodeURIComponent(rel.replace(/\\/g, '/'))}" target="_blank" rel="noopener noreferrer" title="${titulo}" class="me-2"><i class="bi ${icone}"></i></a>` : '';
     }
 
     function atualizar(dados) {
         const estado = dados.estado, agente = dados.agente;
         const perfis = estado ? estado.perfis : {};
         const rodando = estado && estado.status === 'executando';
-        document.getElementById('btnIniciarIa').disabled = rodando || {{ 'false' if playwright_ok else 'true' }};
+        document.getElementById('btnIniciarIa').disabled = rodando || {{ (not playwright_ok)|tojson }};
         document.getElementById('btnPararIa').disabled = !rodando;
 
         // Agentes ao redor do hub

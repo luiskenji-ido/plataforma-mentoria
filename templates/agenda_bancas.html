@@ -73,7 +73,7 @@
 
             <div class="d-flex gap-2 flex-wrap">
                 <a href="{{ url_for('painel_banca', id=b.projeto_id) }}" class="btn btn-sm btn-success fw-bold rounded-pill px-3"><i class="bi bi-person-video3"></i> {{ t('banca_sala') }}</a>
-                <a href="{{ url_for('ficha_banca', id=b.id) }}" target="_blank" class="btn btn-sm btn-outline-secondary fw-bold rounded-pill px-3"><i class="bi bi-printer"></i> {{ t('banca_ficha') }}</a>
+                <a href="{{ url_for('ficha_banca', id=b.id) }}" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-outline-secondary fw-bold rounded-pill px-3"><i class="bi bi-printer"></i> {{ t('banca_ficha') }}</a>
                 {% if b.status in ['Agendada', 'Remarcada'] %}
                 <button class="btn btn-sm btn-outline-primary fw-bold rounded-pill px-3" data-bs-toggle="modal" data-bs-target="#modalBanca{{ b.id }}">{{ t('trilha_editar') }}</button>
                 <form method="POST" class="m-0"><input type="hidden" name="acao" value="cancelar"><input type="hidden" name="banca_id" value="{{ b.id }}">

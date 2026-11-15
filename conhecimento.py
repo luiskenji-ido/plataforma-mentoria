@@ -38,6 +38,9 @@ FONTES_PADRAO = [
     ('cheatsheetseries.owasp.org', 'OWASP Cheat Sheet Series'), ('getbootstrap.com', 'Documentação oficial do Bootstrap'),
     ('www.chartjs.org', 'Documentação oficial do Chart.js'), ('www.gov.br', 'Governo Federal (LGPD e ANPD)'),
     ('help.pythonanywhere.com', 'Ajuda oficial do PythonAnywhere'),
+    # Bases oficiais de vulnerabilidades (usadas pelos Agentes de Segurança)
+    ('osv.dev', 'OSV — base oficial de vulnerabilidades open source (Google/OpenSSF)'), ('pypi.org', 'PyPI — índice oficial de pacotes Python'),
+    ('nvd.nist.gov', 'NVD — National Vulnerability Database (NIST)'), ('cwe.mitre.org', 'CWE — catálogo de fraquezas (MITRE)'),
 ]
 LIMITE_DOWNLOAD = 2 * 1024 * 1024
 
@@ -191,9 +194,14 @@ def referencias_aprovadas(limite=8):
 # 2. Fontes oficiais
 # ------------------------------------------------------------------------------
 def garantir_fontes_padrao():
-    if FonteConfiavel.query.count() == 0:
-        for dominio, descricao in FONTES_PADRAO:
+    """Inclui cada fonte padrão uma única vez (se o administrador remover uma, ela não volta sozinha)."""
+    oferecidas = set(_estado('fontes_oferecidas', [] if FonteConfiavel.query.count() == 0 else [d for d, _ in FONTES_PADRAO[:13]]))
+    novas = [(d, desc) for d, desc in FONTES_PADRAO if d not in oferecidas]
+    for dominio, descricao in novas:
+        if not FonteConfiavel.query.filter_by(dominio=dominio).first():
             db.session.add(FonteConfiavel(dominio=dominio, descricao=descricao, ativa=True))
+    if novas:
+        _gravar_estado('fontes_oferecidas', sorted(oferecidas | {d for d, _ in novas}))
         db.session.commit()
 
 

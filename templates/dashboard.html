@@ -118,7 +118,7 @@
                         </a>
                     </li>
                     <li>
-                        <a class="dropdown-item fw-bold text-danger" href="{{ url_for('exportar_relatorio_esg_pdf') }}" target="_blank">
+                        <a class="dropdown-item fw-bold text-danger" href="{{ url_for('exportar_relatorio_esg_pdf') }}" target="_blank" rel="noopener noreferrer">
                             <i class="bi bi-file-earmark-pdf"></i> {{ t('vol_relatorio_pdf') }}
                         </a>
                     </li>
@@ -451,7 +451,7 @@ data-progresso="{{ item.percentual }}">
 
 <td class="text-start">
 {% if item.url %}
-<a href="{{ item.url }}" target="_blank" class="text-decoration-none fw-bold text-primary" title="{{ tt('Acessar o curso') }}">
+<a href="{{ item.url }}" target="_blank" rel="noopener noreferrer" class="text-decoration-none fw-bold text-primary" title="{{ tt('Acessar o curso') }}">
 {{ item.curso }} 🔗
 </a>
 {% else %}
@@ -499,7 +499,7 @@ data-progresso="{{ item.percentual }}">
 <!-- ==========================================================
 GRÁFICOS DO PAINEL (CHART.JS): dados do perfil + escolha do utilizador
 =========================================================== -->
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js" integrity="sha384-9nhczxUqK87bcKHh20fSQcTGD4qq5GhayNYSYWqwBkINBhOfQLg/P5HG5lF1urn4" crossorigin="anonymous"></script>
 <script>
 (function () {
     const FONTES = {{ fontes_graficos | tojson }};
@@ -800,7 +800,7 @@ window.iniciarTourDaPagina = function() {
     let tabela = document.getElementById('tabelaMatriz') || document.querySelector('.table');
     if (tabela) passos.push({ element: tabela, intro: "{{ t('tour_dash_tabela') | safe }}" });
 
-    let tipoPerfil = "{{ current_user.tipo_usuario }}";
+    let tipoPerfil = {{ current_user.tipo_usuario|tojson }};
     
     // CORREÇÃO: Administrador, Mentor Administrador e Mentor acessam Cursos. Só o 'Aluno' pula para Sessões.
     let acessaCursos = ['Administrador', 'Mentor Administrador', 'Admin B2B'].includes(tipoPerfil);

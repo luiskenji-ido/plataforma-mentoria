@@ -19,6 +19,8 @@ aluno_mentor = db.Table('aluno_mentor',
 # ---------------------------------------------------------------------------
 class Usuario(db.Model, UserMixin):
     id = db.Column(db.Integer, primary_key=True)
+    # Muda a cada logout: invalida cópias antigas do cookie de sessão (ver get_id e load_user no app.py)
+    token_sessao = db.Column(db.String(64))
     nome = db.Column(db.String(100), nullable=False)
     email = db.Column(db.String(120), unique=True, nullable=False)
     senha = db.Column(db.String(200), nullable=False)
@@ -175,6 +177,21 @@ class HistoricoSenha(db.Model):
 # ==================================================================================
 # 9. TABELA DE SEGURANÇA: Armazena as 3 perguntas escolhidas para recuperar a senha
 # ==================================================================================
+def _gerar_token_sessao():
+    import secrets
+    return secrets.token_hex(16)
+
+
+def _get_id_com_token(self):
+    if not self.token_sessao:
+        self.token_sessao = _gerar_token_sessao()
+        db.session.commit()
+    return f"{self.id}:{self.token_sessao}"
+
+
+Usuario.get_id = _get_id_com_token
+
+
 class SegurancaUsuario(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     

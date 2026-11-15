@@ -30,7 +30,7 @@
                 <p class="small text-dark mb-0" style="white-space: pre-line;">{{ p.curriculo_minibio or t('aval_sem_minibio') }}</p>
                 <div class="small text-muted">{{ p.usuario.email }}{% if p.telefone %} · {{ p.telefone }}{% endif %}{% if p.linkedin %} · <a href="{{ p.linkedin }}" target="_blank" rel="noopener">LinkedIn</a>{% endif %}</div>
                 <div class="mt-auto d-flex gap-2 flex-wrap">
-                    {% if p.curriculo_arquivo %}<a href="{{ url_for('curriculo_avaliador', usuario_id=p.usuario_id) }}" target="_blank" class="btn btn-sm btn-outline-secondary fw-bold rounded-pill"><i class="bi bi-file-earmark-pdf"></i> {{ t('aval_curriculo') }}</a>{% endif %}
+                    {% if p.curriculo_arquivo %}<a href="{{ url_for('curriculo_avaliador', usuario_id=p.usuario_id) }}" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-outline-secondary fw-bold rounded-pill"><i class="bi bi-file-earmark-pdf"></i> {{ t('aval_curriculo') }}</a>{% endif %}
                     <button class="btn btn-sm btn-outline-primary fw-bold rounded-pill" data-bs-toggle="modal" data-bs-target="#modalAvaliador{{ p.id }}">{{ t('trilha_editar') }}</button>
                     <span class="badge bg-light text-dark border align-self-center">{{ p.usuario.tipo_usuario }}</span>
                 </div>

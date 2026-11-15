@@ -46,7 +46,8 @@ MODULOS = {
     'perfis_acesso': ('Perfis de acesso', 'bi-person-gear', ['perfis_acesso_view'], False),
     'agentes_ia': ('Agentes IA e governança de aprendizados', 'bi-robot',
                    ['agentes_ia', 'iniciar_agentes_ia', 'parar_agentes_ia', 'estado_agentes_ia_json', 'quadro_agentes_ia',
-                    'arquivo_agentes_ia', 'governanca_aprendizados', 'governanca_aprendizados_csv'], False),
+                    'arquivo_agentes_ia', 'governanca_aprendizados', 'governanca_aprendizados_csv', 'agentes_seguranca',
+                    'iniciar_agentes_seguranca', 'parar_agentes_seguranca', 'estado_agentes_seguranca_json'], False),
     'manutencao': ('Manutenção do banco de dados', 'bi-database-fill-gear', ['manutencao_banco', 'baixar_backup', 'relatorio_auditoria_backup'], False),
 }
 

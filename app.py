@@ -18,7 +18,6 @@ import google.oauth2.credentials
 from googleapiclient.discovery import build
 import datetime
 
-import google.generativeai as genai
 
 # Configuração da Inteligência Artificial
 # Substitua o texto abaixo pela chave enorme que você copiou no Passo 1
@@ -28,7 +27,15 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-genai.configure(api_key=os.environ.get('GOOGLE_API_KEY'), transport='rest')
+_CLIENTE_GEMINI = []
+
+
+def cliente_gemini():
+    """Cliente do SDK oficial google-genai (o google-generativeai foi descontinuado pelo Google)."""
+    if not _CLIENTE_GEMINI:
+        from google import genai
+        _CLIENTE_GEMINI.append(genai.Client(api_key=os.environ.get('GOOGLE_API_KEY')))
+    return _CLIENTE_GEMINI[0]
 
 # Isso permite testarmos o login do Google no nosso computador (localhost) sem HTTPS
 os.environ['OAUTHLIB_INSECURE_TRANSPORT'] = '1'
@@ -38,6 +45,7 @@ SCOPES = ['https://www.googleapis.com/auth/calendar.events']
 
 # Thread (Tarefa em Segundo Plano)
 import threading
+import secrets
 import shutil
 import time
 
@@ -191,7 +199,12 @@ def injetar_notificacoes_qa():
 # ===========================================================================
 # CONFIGURAÇÕES DE SEGURANÇA E BANCO DE DADOS
 # ===========================================================================
-app.config['SECRET_KEY'] = 'chave_super_secreta_projeto_mentoria_2026' 
+# SECRET_KEY (variável de ambiente ou instance/.secret_key), cookies, CSRF, cabeçalhos, limite de requisições
+# e de upload: tudo em seguranca_web.py (achados dos Agentes de Segurança)
+import seguranca_web
+from seguranca_web import voltar
+seguranca_web.configurar_seguranca(
+    app, lambda texto: tt(texto, current_user.idioma if current_user.is_authenticated else session.get('idioma', 'pt')))
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///mentoria.db' 
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
@@ -210,7 +223,14 @@ login_manager.login_message = "Por favor, faça login para acessar esta página.
 # ===========================================================================
 @login_manager.user_loader
 def load_user(user_id):
-    return db.session.get(Usuario, int(user_id))
+    # Formato "id:token". Sessões antigas (só o id) ou de antes de um logout deixam de valer.
+    id_texto, _, token = str(user_id).partition(':')
+    if not id_texto.isdigit() or not token:
+        return None
+    usuario = db.session.get(Usuario, int(id_texto))
+    if usuario and usuario.token_sessao and secrets.compare_digest(usuario.token_sessao, token):
+        return usuario
+    return None
 
 from flask import render_template, request, redirect, url_for, flash
 from flask_login import login_user, logout_user, login_required, current_user
@@ -242,6 +262,14 @@ def ids_jovens_visiveis(usuario):
     return vinculados | dos_grupos
 
 
+def conta_de_teste_bloqueada(email):
+    """Em produção (PythonAnywhere), as contas dos agentes de teste (*_ominitest@local.com e @local.com) não fazem login.
+    Para rodar os agentes num ambiente de produção seu, defina OMNITEST_PERMITIR_EM_PRODUCAO=1."""
+    if not seguranca_web.EM_PRODUCAO or os.environ.get('OMNITEST_PERMITIR_EM_PRODUCAO') == '1':
+        return False
+    return (email or '').lower().endswith(('_ominitest@local.com', '@local.com'))
+
+
 @app.route('/', methods=['GET', 'POST'])
 def login():
     # ==============================================================================
@@ -267,6 +295,9 @@ def login():
         email_digitado = request.form.get('email')
         senha_digitada = request.form.get('senha')
         usuario = Usuario.query.filter_by(email=email_digitado).first()
+
+        if usuario and conta_de_teste_bloqueada(usuario.email):
+            usuario = None  # em produção, as contas dos agentes de teste não entram
 
         if usuario:
             # Trava o usuário se ele estiver bloqueado pelas 5 tentativas
@@ -302,7 +333,9 @@ def login():
                     usuario.status = 'Bloqueado'
                     flash('Conta bloqueada após 5 tentativas incorretas.', 'danger')
                 else:
-                    flash(f'E-mail ou senha incorretos. Tentativa {usuario.tentativas_login} de 5.', 'warning')
+                    # Mensagem idêntica à de e-mail inexistente (não revela quais e-mails existem)
+                    flash('E-mail ou senha incorretos.', 'danger')
+                    app.logger.info(f"Login: senha incorreta para o usuário {usuario.id} (tentativa {usuario.tentativas_login} de 5)")
                 
                 db.session.add(usuario)
                 db.session.commit()
@@ -523,7 +556,7 @@ def dashboard():
 
     try:
         meses_ordenados = sorted(dict_evolucao.keys(), key=lambda x: datetime.strptime(x, '%m/%Y'))
-    except:
+    except (ValueError, TypeError):
         meses_ordenados = list(dict_evolucao.keys())
 
     for mes in meses_ordenados:
@@ -1304,7 +1337,7 @@ def acompanhamento():
                         h_fim = datetime.strptime(partes[2], '%H:%M')
                         diff = (h_fim - h_ini).seconds // 60
                         minutos_estudo += diff
-                    except:
+                    except (ValueError, IndexError, TypeError):
                         pass
                         
         horas_estudo = minutos_estudo // 60
@@ -1951,8 +1984,12 @@ def logout():
     # Limpa as credenciais do Google da memória do navegador
     session.pop('google_token', None)
     session.pop('google_refresh_token', None)
-    
+
+    # Troca o token: qualquer cópia do cookie de sessão deixa de valer
+    current_user.token_sessao = secrets.token_hex(16)
+    db.session.commit()
     logout_user()
+    session.pop('_csrf_token', None)
     flash("Você saiu do sistema em segurança.", "info")
     return redirect(url_for('login'))
 
@@ -1988,7 +2025,7 @@ def alterar_tema(nome_tema):
         db.session.commit()
         # Removido o flash daqui para não poluir a tela com alertas
     
-    return redirect(request.referrer or url_for('dashboard'))
+    return voltar('dashboard')
 
 # ---------------------------------------------------------
 # Rota para Alternar o Idioma do Sistema
@@ -2001,7 +2038,7 @@ def alterar_idioma(sigla_idioma):
         current_user.idioma = sigla_idioma
         db.session.commit()
     
-    return redirect(request.referrer or url_for('dashboard'))
+    return voltar('dashboard')
 
 # ==============================================================================
 # MOTOR DO RELÓGIO DE VOLUNTARIADO CORPORATIVO (ESG)
@@ -2113,7 +2150,7 @@ def verificar_relogio_voluntariado():
             ponto = CheckinVoluntariado.query.filter_by(usuario_id=current_user.id, data_hora_fim=None).first()
             if ponto:
                 relogio_aberto = True
-        except:
+        except Exception:
             pass
     return dict(relogio_aberto=relogio_aberto)
 
@@ -2147,7 +2184,7 @@ def bater_ponto_voluntariado():
         erro, grupo_id, projeto_id, motivo = validar_vinculos_voluntariado(current_user, tipo, request.form)
         if erro:
             flash(t(erro, current_user.idioma), "warning")
-            return redirect(request.referrer or url_for('dashboard'))
+            return voltar('dashboard')
 
         novo_ponto = CheckinVoluntariado(
             usuario_id=current_user.id,
@@ -2162,7 +2199,7 @@ def bater_ponto_voluntariado():
         db.session.commit()
         flash("⏳ O relógio de voluntariado começou a contar! Não se esqueça de desligar quando terminar a leitura ou reunião.", "info")
 
-    return redirect(request.referrer or url_for('dashboard'))
+    return voltar('dashboard')
 
 
 # ==============================================================================
@@ -2465,7 +2502,7 @@ def editar_reuniao(id=None):
         erro = salvar_reuniao_do_formulario(reuniao, request.form)
         if erro:
             flash(t(erro, current_user.idioma), "warning")
-            return redirect(request.url)
+            return redirect(url_for('editar_reuniao', id=id))
         db.session.add(reuniao)
         db.session.flush()
         sincronizar_voluntariado_reuniao(reuniao)
@@ -2673,12 +2710,12 @@ def lancamento_manual_voluntariado():
 
     if not (tipo and data_str and hora_inicio_str and hora_fim_str):
         flash("Preencha todos os campos obrigatórios para o lançamento manual.", "warning")
-        return redirect(request.referrer or url_for('dashboard'))
+        return voltar('dashboard')
 
     erro, grupo_id, projeto_id, motivo = validar_vinculos_voluntariado(current_user, tipo, request.form)
     if erro:
         flash(t(erro, current_user.idioma), "warning")
-        return redirect(request.referrer or url_for('dashboard'))
+        return voltar('dashboard')
 
     try:
         # Junta a data com as horas para criar o formato completo
@@ -2686,7 +2723,7 @@ def lancamento_manual_voluntariado():
         fim_dt = datetime.strptime(f"{data_str} {hora_fim_str}", "%Y-%m-%d %H:%M")
     except ValueError:
         flash("Erro ao processar as datas. Tente novamente.", "danger")
-        return redirect(request.referrer or url_for('dashboard'))
+        return voltar('dashboard')
 
     # Trata o caso de virar a noite (ex: 23:00 até 01:00)
     if fim_dt < inicio_dt:
@@ -2696,10 +2733,10 @@ def lancamento_manual_voluntariado():
     # Regras: nada no futuro, nada com duração zero e no máximo 12 h por lançamento
     if inicio_dt > datetime.now():
         flash(t('vol_erro_futuro', current_user.idioma), "warning")
-        return redirect(request.referrer or url_for('dashboard'))
+        return voltar('dashboard')
     if minutos <= 0 or minutos > 12 * 60:
         flash(t('vol_erro_duracao', current_user.idioma), "warning")
-        return redirect(request.referrer or url_for('dashboard'))
+        return voltar('dashboard')
 
     novo_ponto = CheckinVoluntariado(
         usuario_id=current_user.id,
@@ -2717,7 +2754,7 @@ def lancamento_manual_voluntariado():
 
     # Alerta limpo e genérico para qualquer parceiro B2B
     flash(f"✅ Lançamento manual gravado! {minutos} minutos adicionados ao relatório corporativo ESG.", "success")
-    return redirect(request.referrer or url_for('dashboard'))
+    return voltar('dashboard')
 
 # ==============================================================================
 # ROTA: EXPORTAÇÃO DE RELATÓRIO EXECUTIVO ESG (CSV/EXCEL)
@@ -2764,8 +2801,6 @@ def exportar_relatorio_esg():
 @app.route('/admin/exportar-relatorio-esg-pdf')
 @login_required
 def exportar_relatorio_esg_pdf():
-    from flask import render_template_string
-
     if current_user.tipo_usuario not in ['Administrador', 'Mentor Administrador', 'Admin B2B']:
         flash('Acesso negado. Apenas gestores podem exportar o relatório ESG.', 'danger')
         return redirect(url_for('dashboard'))
@@ -2781,93 +2816,8 @@ def exportar_relatorio_esg_pdf():
         pessoa['Extra' if d['categoria'] == 'Extra' else 'Regular'] += d['minutos']
     resumo = sorted(totais.values(), key=lambda p: -(p['Regular'] + p['Extra']))
 
-    # Gera um HTML limpo otimizado para salvar como PDF
-    html_pdf = """
-    <!DOCTYPE html>
-    <html lang="pt">
-    <head>
-        <meta charset="UTF-8">
-        <title>Relatório ESG - PDF</title>
-        <style>
-            body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color: #333; padding: 20px; }
-            .header { text-align: center; border-bottom: 2px solid #198754; padding-bottom: 10px; margin-bottom: 20px; }
-            .header h1 { color: #198754; margin: 0; }
-            .header p { color: #666; font-size: 0.9em; }
-            h2 { color: #198754; font-size: 1.1em; margin-top: 28px; }
-            table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 0.85em; }
-            th, td { border: 1px solid #ddd; padding: 8px 10px; text-align: left; }
-            th { background-color: #f8f9fa; color: #198754; }
-            td.num { text-align: right; font-variant-numeric: tabular-nums; }
-            tr:nth-child(even) { background-color: #f9f9f9; }
-            .badge { background-color: #e9ecef; padding: 4px 8px; border-radius: 4px; font-size: 0.8em; }
-            .extra { background-color: #fff3cd; }
-            @media print {
-                .no-print { display: none; }
-                body { padding: 0; }
-            }
-        </style>
-    </head>
-    <body onload="window.print()">
-        <div class="no-print" style="margin-bottom: 20px; text-align: right;">
-            <button onclick="window.print()" style="background: #198754; color: white; padding: 10px 15px; border: none; border-radius: 5px; cursor: pointer; font-weight: bold;">Salvar como PDF</button>
-            <a href="{{ url_for('dashboard') }}" style="margin-left: 15px; color: #666; text-decoration: none;">Voltar ao Sistema</a>
-        </div>
-        <div class="header">
-            <h1>Relatório Executivo ESG</h1>
-            <p>Horas de Voluntariado Corporativo e Impacto Social | Emitido em: {{ data_emissao }}</p>
-        </div>
-
-        <h2>Horas por colaborador (regulamentares × extraordinárias)</h2>
-        <table>
-            <thead><tr><th>Colaborador</th><th>Empresa</th><th>Regulares</th><th>Extras</th><th>Total</th></tr></thead>
-            <tbody>
-                {% for p in resumo %}
-                <tr>
-                    <td><strong>{{ p.nome }}</strong></td>
-                    <td>{{ p.empresa }}</td>
-                    <td class="num">{{ '%.1f'|format(p.Regular / 60) }} h</td>
-                    <td class="num">{{ '%.1f'|format(p.Extra / 60) }} h</td>
-                    <td class="num"><strong>{{ '%.1f'|format((p.Regular + p.Extra) / 60) }} h</strong></td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-
-        <h2>Lançamentos</h2>
-        <table>
-            <thead>
-                <tr>
-                    <th>Colaborador</th>
-                    <th>Empresa</th>
-                    <th>Atividade Executada</th>
-                    <th>Categoria</th>
-                    <th>Grupo / Projeto</th>
-                    <th>Motivo</th>
-                    <th>Minutos</th>
-                    <th>Data</th>
-                    <th>Status</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for d in dados %}
-                <tr class="{{ 'extra' if d.categoria == 'Extra' else '' }}">
-                    <td><strong>{{ d.nome }}</strong><br><span class="badge">{{ d.perfil }}</span></td>
-                    <td>{{ d.empresa }}</td>
-                    <td>{{ d.atividade }}</td>
-                    <td>{{ d.categoria }}</td>
-                    <td>{{ d.grupo }}{% if d.projeto %}<br><small>{{ d.projeto }}</small>{% endif %}</td>
-                    <td>{{ d.motivo }}</td>
-                    <td class="num"><strong>{{ d.minutos }} min</strong></td>
-                    <td>{{ d.data }}</td>
-                    <td>{{ d.status }}</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </body>
-    </html>
-    """
-    return render_template_string(html_pdf, dados=dados_formatados, resumo=resumo, data_emissao=datetime.now().strftime('%d/%m/%Y %H:%M'))
+    # HTML limpo otimizado para salvar como PDF (templates/relatorio_esg_pdf.html)
+    return render_template('relatorio_esg_pdf.html', dados=dados_formatados, resumo=resumo, data_emissao=datetime.now().strftime('%d/%m/%Y %H:%M'))
 
 # ==============================================================================
 # MOTOR DO ONBOARDING B2B E TRAVA DE COMPLIANCE
@@ -3375,6 +3325,23 @@ def verificar_backups_agendados():
         app.logger.warning(f"Verificação de backups agendados falhou: {e}")
 
 
+def hash_resposta_seguranca(resposta):
+    """Respostas das perguntas de segurança: normalizadas (minúsculas, sem espaços nas pontas) e guardadas com bcrypt."""
+    return bcrypt.generate_password_hash((resposta or '').strip().lower()).decode('utf-8')
+
+
+def conferir_resposta_seguranca(digitada, guardada):
+    digitada = (digitada or '').strip().lower()
+    if not digitada or not guardada:
+        return False
+    if guardada.startswith('$2'):
+        try:
+            return bcrypt.check_password_hash(guardada, digitada)
+        except ValueError:
+            return False
+    return secrets.compare_digest(digitada, guardada.strip().lower())  # resposta antiga ainda não migrada
+
+
 # ==============================================================================
 # ROTA DE RECUPERAÇÃO DE SENHA (Aprovação exige acertar 2 de 3 perguntas)
 # ==============================================================================
@@ -3408,16 +3375,21 @@ def recuperar_senha():
     email = request.form.get('email_recuperacao')
     usuario = Usuario.query.filter_by(email=email).first()
     
-    # 3. Verifica se o e-mail existe no sistema
-    if not usuario:
-        flash('E-mail não encontrado no sistema.', 'danger')
-        return redirect(url_for('login'))
-
-    # 4. Busca as perguntas salvas por este usuário no banco
-    seguranca = SegurancaUsuario.query.filter_by(usuario_id=usuario.id).first()
+    # 3 e 4. E-mail inexistente, conta de teste em produção ou conta sem perguntas recebem 3 perguntas "de fachada"
+    # (sempre as mesmas para o mesmo e-mail) e nunca são aprovadas: a tela não revela quais e-mails existem.
+    seguranca = None
+    if usuario and not conta_de_teste_bloqueada(usuario.email):
+        seguranca = SegurancaUsuario.query.filter_by(usuario_id=usuario.id).first()
     if not seguranca:
-        flash('Este usuário não cadastrou as perguntas. Contate o administrador.', 'warning')
-        return redirect(url_for('login'))
+        if 'resposta_1' in request.form:
+            flash('Você não atingiu o mínimo de 2 acertos. Tente novamente.', 'danger')
+            return redirect(url_for('login'))
+        import hashlib
+        semente = int(hashlib.sha256((email or '').strip().lower().encode('utf-8')).hexdigest(), 16)
+        fachada = [perguntas_disponiveis[(semente >> (8 * i)) % len(perguntas_disponiveis)] for i in range(12)]
+        fachada = list(dict.fromkeys(fachada))[:3] + perguntas_disponiveis[:3]
+        fachada = list(dict.fromkeys(fachada))[:3]
+        return render_template('perguntas_seguranca.html', email=email, p1=fachada[0], p2=fachada[1], p3=fachada[2])
 
     # 5. Verifica se o usuário já preencheu a tela de respostas
     if 'resposta_1' in request.form:
@@ -3428,10 +3400,10 @@ def recuperar_senha():
         r2_digitada = request.form.get('resposta_2', '').strip().lower()
         r3_digitada = request.form.get('resposta_3', '').strip().lower()
 
-        # Compara com o que está no banco (também minúsculo e sem espaços)
-        if r1_digitada == seguranca.resposta_1.strip().lower(): acertos += 1
-        if r2_digitada == seguranca.resposta_2.strip().lower(): acertos += 1
-        if r3_digitada == seguranca.resposta_3.strip().lower(): acertos += 1
+        # Compara com o hash guardado no banco (as respostas nunca ficam legíveis)
+        if conferir_resposta_seguranca(r1_digitada, seguranca.resposta_1): acertos += 1
+        if conferir_resposta_seguranca(r2_digitada, seguranca.resposta_2): acertos += 1
+        if conferir_resposta_seguranca(r3_digitada, seguranca.resposta_3): acertos += 1
 
         # 6. Regra de Negócio: Se acertou 2 ou mais, libera o acesso para troca
         if acertos >= 2:
@@ -3487,12 +3459,16 @@ def cadastrar_perguntas():
             flash("Por favor, escolha 3 perguntas diferentes.", "danger")
             return render_template('cadastrar_perguntas.html', perguntas=perguntas_disponiveis)
 
-        # Salva no banco de dados (convertendo as respostas para minúsculas para não dar erro depois)
+        if not all((r or '').strip() for r in (r1, r2, r3)):
+            flash("Responda as 3 perguntas.", "danger")
+            return render_template('cadastrar_perguntas.html', perguntas=perguntas_disponiveis)
+
+        # Salva no banco só o hash das respostas (normalizadas em minúsculas)
         nova_seguranca = SegurancaUsuario(
             usuario_id=current_user.id,
-            pergunta_1=p1, resposta_1=r1.strip().lower(),
-            pergunta_2=p2, resposta_2=r2.strip().lower(),
-            pergunta_3=p3, resposta_3=r3.strip().lower()
+            pergunta_1=p1, resposta_1=hash_resposta_seguranca(r1),
+            pergunta_2=p2, resposta_2=hash_resposta_seguranca(r2),
+            pergunta_3=p3, resposta_3=hash_resposta_seguranca(r3)
         )
         db.session.add(nova_seguranca)
         db.session.commit()
@@ -3652,7 +3628,7 @@ def desconectar_agenda():
     session.pop('google_token', None)
     session.pop('google_refresh_token', None)
     flash("Sua conta do Google Agenda foi desconectada do sistema.", "info")
-    return redirect(request.referrer or url_for('acompanhamento'))
+    return voltar('acompanhamento')
 
 def sincronizar_evento_google(titulo, descricao, data_inicio, horario_str="09:00", horario_fim_str="10:00"):
     # Regra 1: Se o usuário não conectou a agenda, aborta silenciosamente
@@ -3723,8 +3699,6 @@ def chat_ia():
     mensagem_usuario = dados.get('mensagem', '')
 
     try:
-        # Mantendo a versão que estabilizou no seu ambiente
-        modelo = genai.GenerativeModel('gemini-3.6-flash')
 
         # 1. Coleta o contexto real do usuário no Banco de Dados
         contexto_estudos = ""
@@ -3758,11 +3732,13 @@ def chat_ia():
 
         prompt_final = f"{instrucoes_tutor}\n\nMensagem do usuário: {mensagem_usuario}\nSua resposta:"
 
-        resposta = modelo.generate_content(prompt_final)
+        resposta = cliente_gemini().models.generate_content(model='gemini-3.6-flash', contents=prompt_final)
         return jsonify({'resposta': resposta.text})
 
     except Exception as e:
-        return jsonify({'resposta': f"Desculpe, encontrei um erro: {str(e)}"}), 500
+        # O detalhe técnico vai só para o log (não expõe chaves, cotas nem caminhos ao usuário)
+        app.logger.warning(f"Chat IA falhou: {e}")
+        return jsonify({'resposta': tt('Desculpe, o assistente está indisponível agora. Tente de novo em alguns minutos.', current_user.idioma)}), 503
 
 # ==============================================================================
 # ROTA: FORÇAR SINCRONIZAÇÃO DE HORÁRIOS SALVOS (BOTÃO AMIGÁVEL)
@@ -4086,7 +4062,7 @@ def registrar_frequencia():
             flash('Presença registrada com sucesso! Bom trabalho.', 'success')
             
     # Devolve o usuário para a página em que ele estava
-    return redirect(request.referrer or url_for('dashboard'))
+    return voltar('dashboard')
 
 # ==============================================================================
 # ROTA: HUB EDUCACIONAL (CATÁLOGO, PARCEIROS E TURMAS)
@@ -4462,10 +4438,6 @@ def gerenciar_turmas():
                            gestores=gestores,
                            alunos=alunos,
                            mentores_disponiveis=mentores_disponiveis)
-
-
-
-    return render_template('admin_turmas.html', empresas=empresas, turmas=turmas, cursos=cursos, alunos=alunos, grupos=grupos, mentores=lista_mentores, gestores=lista_gestores)
     
 # ==============================================================================
 # ROTA: DIÁRIO DE CLASSE (LANÇAMENTO DE NOTAS)
@@ -5542,6 +5514,9 @@ ORDEM_AGENTES_IA = [('administrador', 'Administrador'), ('aluno', 'Aluno'), ('pr
 # Uma subpasta por agente em cada pasta da área (mesmos nomes que o agentes_omnitest/agente_gestor.py usa)
 PASTAS_PERFIS_IA = ['Perfil administrador', 'Perfil aluno', 'Perfil professor', 'Perfil mentor',
                     'Perfil mentor administrador', 'Perfil gestor B2B', 'Perfil avaliador banca', 'Perfis personalizados']
+# Agentes de Segurança: uma subpasta por agente especialista (mesmos nomes que o agentes_seguranca/gestor_seguranca.py usa)
+PASTAS_SEGURANCA_IA = ['Agente Configuração e Segredos', 'Agente Inconsistências de Dados', 'Agente Análise de Código',
+                       'Agente Dependências e Tecnologias', 'Agente Pentest', 'Consolidado']
 
 
 def _ler_json_ia(nome):
@@ -5569,11 +5544,11 @@ def arvore_agentes_ia():
         return [{'nome': os.path.basename(a), 'relativo': os.path.relpath(a, PASTA_AGENTES_IA).replace('\\', '/'),
                  'data': datetime.fromtimestamp(os.path.getmtime(a))} for a in sorted(itens, key=os.path.getmtime, reverse=True)]
 
-    def subpastas(pasta):
-        # Sempre as 7 subpastas, na ordem dos agentes, mesmo antes da primeira execução
-        for nome in PASTAS_PERFIS_IA:
+    def subpastas(pasta, nomes=PASTAS_PERFIS_IA):
+        # Sempre uma subpasta por agente, na ordem dos agentes, mesmo antes da primeira execução
+        for nome in nomes:
             os.makedirs(os.path.join(pasta, nome), exist_ok=True)
-        return [{'nome': n, 'arquivos': arquivos(os.path.join(pasta, n))} for n in PASTAS_PERFIS_IA]
+        return [{'nome': n, 'arquivos': arquivos(os.path.join(pasta, n))} for n in nomes]
 
     e2e = os.path.join(PASTA_AGENTES_IA, 'Agentes Teste Fim a Fim')
     seg = os.path.join(PASTA_AGENTES_IA, 'Agentes Teste de Segurança')
@@ -5581,9 +5556,9 @@ def arvore_agentes_ia():
         {'nome': 'Agentes Teste Fim a Fim', 'pastas': [
             {'nome': 'Relatórios de Testes Fim a Fim e Evidencias', 'subpastas': subpastas(os.path.join(e2e, 'Relatórios de Testes Fim a Fim e Evidencias'))},
             {'nome': 'Prompt de correção LLM', 'subpastas': subpastas(os.path.join(e2e, 'Prompt de correção LLM'))}]},
-        {'nome': 'Agentes Teste de Segurança', 'em_breve': True, 'pastas': [
-            {'nome': 'Relatórios de Testes de Segurança', 'subpastas': subpastas(os.path.join(seg, 'Relatórios de Testes de Segurança'))},
-            {'nome': 'Prompt de correção LLM', 'subpastas': subpastas(os.path.join(seg, 'Prompt de correção LLM'))}]},
+        {'nome': 'Agentes Teste de Segurança', 'pagina': 'agentes_seguranca', 'pastas': [
+            {'nome': 'Relatórios de Testes de Segurança', 'subpastas': subpastas(os.path.join(seg, 'Relatórios de Testes de Segurança'), PASTAS_SEGURANCA_IA)},
+            {'nome': 'Prompt de correção LLM', 'subpastas': subpastas(os.path.join(seg, 'Prompt de correção LLM'), PASTAS_SEGURANCA_IA)}]},
     ]
 
 
@@ -5709,6 +5684,119 @@ def arquivo_agentes_ia():
         flash(tt('Arquivo não encontrado.', current_user.idioma), "warning")
         return redirect(url_for('agentes_ia'))
     return send_file(alvo, as_attachment=alvo.lower().endswith('.md'), download_name=os.path.basename(alvo))
+
+
+# ==============================================================================
+# ADMINISTRAÇÃO › AGENTES DE SEGURANÇA: Gerente de Segurança + 5 especialistas (dados, configuração, SAST, SCA e pentest)
+# ==============================================================================
+PASTA_AO_VIVO_SEG = os.path.join(PASTA_AGENTES_IA, '.ao_vivo_seguranca')
+# (chave, nome, ícone, o que verifica)
+ORDEM_AGENTES_SEG = [
+    ('configuracao', 'Configuração e Segredos', 'bi-key-fill',
+     'Chaves secretas, modo debug, cookies, CSRF, cabeçalhos de segurança e segredos esquecidos no código.'),
+    ('dados', 'Inconsistências de Dados', 'bi-database-fill-exclamation',
+     'Senhas e respostas de segurança mal guardadas, contas de teste, perfis e vínculos inconsistentes, integridade do banco.'),
+    ('codigo', 'Análise de Código (SAST)', 'bi-code-slash',
+     'Funções perigosas, SQL montado com texto, rotas sem login, XSS nos templates e código mal escrito.'),
+    ('dependencias', 'Dependências e Tecnologias (SCA)', 'bi-boxes',
+     'Vulnerabilidades conhecidas (OSV.dev) do Python, Flask, bibliotecas e CDNs; pacotes descontinuados e SRI.'),
+    ('pentest', 'Pentest (DAST)', 'bi-bug-fill',
+     'Ataques controlados na plataforma em execução: XSS, SQL injection, IDOR, CSRF, força bruta, sessão e redirecionamento.'),
+]
+
+
+def _ler_json_seg(nome):
+    try:
+        with open(os.path.join(PASTA_AO_VIVO_SEG, nome), encoding='utf-8') as f:
+            return json.load(f)
+    except (OSError, ValueError):
+        return None
+
+
+def estado_agentes_seguranca():
+    estado = _ler_json_seg('estado.json')
+    if estado and estado.get('status') == 'executando' and time.time() - estado.get('batimento', 0) > 30:
+        estado['status'] = 'interrompido'
+    return estado
+
+
+@app.route('/admin/agentes-seguranca')
+@login_required
+def agentes_seguranca():
+    import importlib.util
+    bloqueio = _somente_administrador()
+    if bloqueio:
+        return bloqueio
+    grupo = next(g for g in arvore_agentes_ia() if g['nome'] == 'Agentes Teste de Segurança')
+    from urllib.parse import urlparse
+    alvo = urlparse(request.host_url).hostname or ''
+    return render_template('agentes_seguranca.html', ordem=ORDEM_AGENTES_SEG, estado=estado_agentes_seguranca(), grupo=grupo,
+                           playwright_ok=importlib.util.find_spec('playwright') is not None,
+                           pentest_local=alvo in ('localhost', '127.0.0.1', '::1') or alvo.endswith(('.localhost', '.test')))
+
+
+@app.route('/admin/agentes-seguranca/iniciar', methods=['POST'])
+@login_required
+def iniciar_agentes_seguranca():
+    """O Gerente de Segurança roda em segundo plano e chama os especialistas um a um."""
+    import subprocess
+    import sys as _sys
+    bloqueio = _somente_administrador()
+    if bloqueio:
+        return bloqueio
+    estado = estado_agentes_seguranca()
+    if estado and estado.get('status') == 'executando':
+        flash(tt('Já existe uma execução em andamento.', current_user.idioma), "warning")
+        return redirect(url_for('agentes_seguranca'))
+    validos = [c for c, *_ in ORDEM_AGENTES_SEG]
+    agentes = [a for a in request.form.getlist('agentes') if a in validos] or validos
+    raiz = os.path.dirname(os.path.abspath(__file__))
+    cmd = [_sys.executable, os.path.join(raiz, 'agentes_seguranca', 'gestor_seguranca.py'), '--agentes', *agentes,
+           '--url', request.host_url.rstrip('/')]
+    os.makedirs(PASTA_AO_VIVO_SEG, exist_ok=True)
+    for nome in ('estado.json', 'agente.json'):
+        try:
+            os.remove(os.path.join(PASTA_AO_VIVO_SEG, nome))
+        except OSError:
+            pass
+    opcoes = {'creationflags': subprocess.CREATE_NEW_PROCESS_GROUP | subprocess.CREATE_NO_WINDOW} if os.name == 'nt' else {'start_new_session': True}
+    log = open(os.path.join(PASTA_AO_VIVO_SEG, 'gestor.log'), 'w', encoding='utf-8')
+    subprocess.Popen(cmd, cwd=raiz, stdout=log, stderr=subprocess.STDOUT, env={**os.environ, 'PYTHONIOENCODING': 'utf-8'}, **opcoes)
+    flash(tt('Gerente de Segurança iniciado: a auditoria começa pela configuração.', current_user.idioma), "success")
+    return redirect(url_for('agentes_seguranca'))
+
+
+@app.route('/admin/agentes-seguranca/parar', methods=['POST'])
+@login_required
+def parar_agentes_seguranca():
+    import subprocess
+    import signal
+    bloqueio = _somente_administrador()
+    if bloqueio:
+        return bloqueio
+    estado = _ler_json_seg('estado.json')
+    if estado and estado.get('pid'):
+        try:
+            if os.name == 'nt':
+                subprocess.run(['taskkill', '/PID', str(estado['pid']), '/T', '/F'], capture_output=True, timeout=20)
+            else:
+                os.killpg(os.getpgid(estado['pid']), signal.SIGTERM)
+        except Exception:
+            pass
+        estado.update(status='parado', fim=datetime.now().isoformat(timespec='seconds'))
+        estado['log'] = (estado.get('log') or []) + [f"{datetime.now().strftime('%H:%M:%S')}  ■ {current_user.nome} parou a execução"]
+        with open(os.path.join(PASTA_AO_VIVO_SEG, 'estado.json'), 'w', encoding='utf-8') as f:
+            json.dump(estado, f, ensure_ascii=False)
+        flash(tt('Execução interrompida.', current_user.idioma), "info")
+    return redirect(url_for('agentes_seguranca'))
+
+
+@app.route('/admin/agentes-seguranca/estado')
+@login_required
+def estado_agentes_seguranca_json():
+    if current_user.tipo_usuario != 'Administrador':
+        return jsonify({'erro': 'acesso negado'}), 403
+    return jsonify({'estado': estado_agentes_seguranca(), 'agente': _ler_json_seg('agente.json'), 'agora': datetime.now().isoformat(timespec='seconds')})
 
 
 # ==============================================================================
@@ -6125,6 +6213,24 @@ def garantir_modulos_trilha_tcc():
         db.session.commit()
 
 
+def migrar_respostas_seguranca():
+    """Troca as respostas de segurança gravadas em texto puro pelo hash bcrypt (idempotente)."""
+    try:
+        alteradas = 0
+        for registro in SegurancaUsuario.query.all():
+            for campo in ('resposta_1', 'resposta_2', 'resposta_3'):
+                valor = getattr(registro, campo) or ''
+                if valor and not valor.startswith('$2'):
+                    setattr(registro, campo, hash_resposta_seguranca(valor))
+                    alteradas += 1
+        if alteradas:
+            db.session.commit()
+            app.logger.info(f"{alteradas} resposta(s) de segurança migrada(s) para hash")
+    except Exception as e:
+        db.session.rollback()
+        app.logger.warning(f"Migração das respostas de segurança falhou: {e}")
+
+
 # ===========================================================================
 # ATUALIZAÇÃO DO BANCO DE DADOS (Garante que roda no PythonAnywhere)
 # ===========================================================================
@@ -6169,7 +6275,9 @@ def atualizar_estrutura_banco():
         "ALTER TABLE projeto ADD COLUMN notas_publicadas BOOLEAN DEFAULT 0",
         "ALTER TABLE projeto ADD COLUMN data_publicacao_notas DATETIME",
         "ALTER TABLE qa_banca ADD COLUMN banca_id INTEGER REFERENCES banca(id)",
-        "ALTER TABLE qa_banca ADD COLUMN ordem INTEGER DEFAULT 0"
+        "ALTER TABLE qa_banca ADD COLUMN ordem INTEGER DEFAULT 0",
+        # Segurança: token que invalida a sessão no logout
+        "ALTER TABLE usuario ADD COLUMN token_sessao VARCHAR(64)"
     ]
     
     for comando in colunas_novas:
@@ -6179,6 +6287,7 @@ def atualizar_estrutura_banco():
         except Exception:
             db.session.rollback()
 
+    migrar_respostas_seguranca()
     garantir_modulos_trilha_tcc()
     import backup_servico
     backup_servico.migrar_agendamentos_antigos()
@@ -6198,5 +6307,8 @@ with app.app_context():
 if __name__ == '__main__':
     # Liga a tarefa de backup automático em segundo plano
     iniciar_agendador(app)
-    # Roda o servidor web no modo 'debug'
-    app.run(debug=True)
+    # O servidor de desenvolvimento não anuncia versões do Werkzeug/Python no cabeçalho Server
+    from werkzeug.serving import WSGIRequestHandler
+    WSGIRequestHandler.server_version, WSGIRequestHandler.sys_version = 'Mentoria', ''
+    # Depurador interativo só se pedido (FLASK_DEBUG=1) e nunca exposto fora do computador
+    app.run(debug=os.environ.get('FLASK_DEBUG') == '1')

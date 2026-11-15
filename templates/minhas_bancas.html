@@ -60,7 +60,7 @@
                 <form method="POST" action="{{ url_for('relogio_banca', id=b.id, acao='checkin_banca') }}" class="m-0"><button class="btn btn-sm btn-success fw-bold rounded-pill px-3" type="submit"><i class="bi bi-box-arrow-in-right"></i> {{ t('banca_checkin') }}</button></form>
                 {% endif %}
                 <a href="{{ url_for('painel_banca', id=p.id) }}" class="btn btn-sm btn-primary fw-bold rounded-pill px-3 ms-auto"><i class="bi bi-pencil-square"></i> {{ t('banca_abrir_formulario') }}</a>
-                <a href="{{ url_for('ficha_banca', id=b.id) }}" target="_blank" class="btn btn-sm btn-outline-secondary fw-bold rounded-pill px-3">{{ t('banca_ficha') }}</a>
+                <a href="{{ url_for('ficha_banca', id=b.id) }}" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-outline-secondary fw-bold rounded-pill px-3">{{ t('banca_ficha') }}</a>
             </div>
             <div class="mt-2">
                 <span class="badge {{ 'bg-success' if av and av.etapa_escrita_concluida_em else 'bg-light text-dark border' }}">{{ t('banca_etapa_escrita') }}</span>
