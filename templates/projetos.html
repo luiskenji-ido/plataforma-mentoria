@@ -6,8 +6,10 @@
 
     <!-- ========================================================================== -->
     <!-- SEÇÃO 1: FORMULÁRIO DE CADASTRO DE NOVO PROJETO (Layout Compacto)          -->
+    <!-- Regra de negócio: o Aluno vê os projetos do seu grupo, mas não cadastra    -->
     <!-- ========================================================================== -->
-    <div class="card shadow-sm mb-4">
+    {% if pode_cadastrar_projeto %}
+    <div class="card shadow-sm mb-4" id="cardCadastroProjeto">
         <div class="card-header bg-primary text-white py-2">
             <h6 class="mb-0">{{ tt('Cadastrar Novo Projeto') }}</h6>
         </div>
@@ -43,6 +45,7 @@
             </form>
         </div>
     </div>
+    {% endif %}
 
     <!-- ========================================================================== -->
     <!-- SEÇÃO 2: LISTAGEM E FILTRO DE PROJETOS EM ANDAMENTO                        -->

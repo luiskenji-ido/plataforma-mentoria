@@ -1391,14 +1391,24 @@ def fazer_checkin_aula():
 # ==============================================================================
 # ROTA: Gestão de Projetos (Tela principal e Cadastro)
 # ==============================================================================
+PERFIS_SEM_CADASTRO_PROJETO = ['Aluno']  # o Aluno vê os projetos do seu grupo, mas não cadastra
+
+
 @app.route('/projetos', methods=['GET', 'POST'])
 @login_required
 def projetos():
     # 1. Se o usuário preencheu o formulário e clicou em "Salvar" (POST)
     if request.method == 'POST':
-        nome = request.form.get('nome')
+        # Esconder o formulário não basta: a rota também recusa o cadastro feito pelo Aluno
+        if current_user.tipo_usuario in PERFIS_SEM_CADASTRO_PROJETO:
+            flash(tt('Acesso negado: o Aluno não pode cadastrar projetos.', current_user.idioma), 'danger')
+            return redirect(url_for('projetos'))
+        nome = (request.form.get('nome') or '').strip()
         descricao = request.form.get('descricao')
-        grupo_id = request.form.get('grupo_id') # Recebe o ID do Grupo
+        grupo_id = request.form.get('grupo_id', type=int) # Recebe o ID do Grupo
+        if not nome or not grupo_id or not db.session.get(Grupo, grupo_id):
+            flash(tt('Informe o nome do projeto e escolha um grupo válido.', current_user.idioma), 'warning')
+            return redirect(url_for('projetos'))
         
         # Garante o preenchimento de todos os dados vitais para o projeto aparecer
         novo_projeto = Projeto(
@@ -1435,7 +1445,8 @@ def projetos():
     lista_projetos = query.order_by(Projeto.id.desc()).all()
 
     
-    return render_template('projetos.html', projetos=lista_projetos, grupos=grupos_disponiveis, grupo_filtro=grupo_filtro)
+    return render_template('projetos.html', projetos=lista_projetos, grupos=grupos_disponiveis, grupo_filtro=grupo_filtro,
+                           pode_cadastrar_projeto=current_user.tipo_usuario not in PERFIS_SEM_CADASTRO_PROJETO)
 
 
 # ==============================================================================

@@ -367,6 +367,10 @@ LITERAIS = {
     'Veja quem já concluiu a trilha e quem ainda está pendente.': ('See who has completed the track and who is still pending.', 'Vea quién ya completó la ruta y quién sigue pendiente.'),
     'Cadastre ou edite os módulos da trilha.': ('Add or edit the track modules.', 'Registre o edite los módulos de la ruta.'),
 
+    # ---------------- Projetos: regra do Aluno
+    'Acesso negado: o Aluno não pode cadastrar projetos.': ('Access denied: students cannot create projects.', 'Acceso denegado: el alumno no puede registrar proyectos.'),
+    'Informe o nome do projeto e escolha um grupo válido.': ('Enter the project name and choose a valid group.', 'Indique el nombre del proyecto y elija un grupo válido.'),
+
     # ---------------- Menu do topo e Painel Geral (gráficos personalizáveis)
     'Aprendizagem': ('Learning', 'Aprendizaje'), 'Projetos e TCC': ('Projects & final papers', 'Proyectos y TCC'),
     'Pessoas': ('People', 'Personas'), 'Programa': ('Programme', 'Programa'), 'Sistema': ('System', 'Sistema'),

@@ -66,6 +66,7 @@ class AgenteAluno(AgenteOmniTest):
         self.etapa("Acompanhamento", "Conectar Agenda", self.acompanhamento_conectar_agenda)
         self.etapa("Acompanhamento", "Gemini Notebook", self.acompanhamento_gemini_notebook)
         self.etapa("Projetos", "Projeto do aluno", self.projetos_do_aluno)
+        self.etapa("Projetos", "Aluno não cadastra projetos", self.aluno_nao_cadastra_projeto)
         self.etapa("Sessões", "Privacidade entre alunos", lambda: self.verificar_privacidade("/sessoes", "Sessões"))
         self.etapa("Acompanhamento", "Privacidade entre alunos", lambda: self.verificar_privacidade("/acompanhamento", "Acompanhamento"))
 
@@ -508,6 +509,27 @@ class AgenteAluno(AgenteOmniTest):
                            esperado="Botão da banca oculto para o Aluno")
         else:
             self.registrar("Projetos", "Sem link para a Sala da Banca", APROVADO, evidencia=False)
+
+    def aluno_nao_cadastra_projeto(self):
+        """Regra de negócio: o Aluno vê o projeto do seu grupo, mas não cadastra projetos (nem pela tela, nem pela rota)."""
+        from models import Projeto
+        self.visitar("/projetos")
+        if self.page.locator('#cardCadastroProjeto, form[action="/projetos"] input[name="nome"]').count():
+            self.registrar("Projetos", "Formulário de cadastro oculto", FALHA, "O Aluno vê o formulário 'Cadastrar Novo Projeto'.",
+                           esperado="Formulário de cadastro oculto para o Aluno", arquivos="templates/projetos.html")
+        else:
+            self.registrar("Projetos", "Formulário de cadastro oculto", APROVADO, evidencia=False)
+        nome = f"[OmniTest] Projeto proibido {self.carimbo}"
+        grupo = consultar_banco(lambda: (Projeto.query.with_entities(Projeto.grupo_id).filter(Projeto.grupo_id.isnot(None)).first() or [None])[0])
+        self.context.request.post(BASE_URL + "/projetos", form={"nome": nome, "descricao": "teste de permissão", "grupo_id": str(grupo or 1)},
+                                  max_redirects=0)
+        criado = consultar_banco(lambda: Projeto.query.filter_by(nome=nome).first() is not None)
+        if criado:
+            consultar_banco(lambda: (Projeto.query.filter_by(nome=nome).delete(), __import__("models").db.session.commit()))
+            self.registrar("Projetos", "Cadastro bloqueado na rota", FALHA, "🔓 FALHA DE SEGURANÇA: o POST /projetos do Aluno criou um projeto.",
+                           esperado="A rota /projetos recusa o cadastro feito pelo Aluno", arquivos="app.py (rota projetos)")
+        else:
+            self.registrar("Projetos", "Cadastro bloqueado na rota", APROVADO, "POST /projetos recusado.", evidencia=False)
 
     # --------------------------------------------------------------------------
     # Privacidade
