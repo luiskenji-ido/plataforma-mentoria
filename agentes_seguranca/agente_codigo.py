@@ -58,6 +58,40 @@ class AgenteCodigo(AgenteSeguranca):
         self.python()
         self.templates()
         self.pyflakes()
+        self.rotas_aprendidas()
+
+    def rotas_aprendidas(self):
+        """Aprendizado do Gerente de Segurança: revisa com mais rigor as rotas novas desde a linha de base."""
+        import conhecimento_seguranca as cs
+        self.etapa("Rotas novas aprendidas (controle de acesso)")
+        novas = [r for r in cs.rotas_aprendidas(self.aprendizados_do_tipo("seg_linha_base", "seg_rota_nova", "seg_rota_removida")) if r.get("nova")]
+        if not novas:
+            self.log("Nenhuma rota nova desde a linha de base")
+            return
+        funcoes = {}
+        for caminho, rel in self.arquivos((".py",)):
+            if rel.startswith(("agentes_omnitest/", "agentes_seguranca/")):
+                continue
+            try:
+                fonte = open(caminho, encoding="utf-8").read()
+                for no in ast.walk(ast.parse(fonte)):
+                    if isinstance(no, ast.FunctionDef):
+                        funcoes.setdefault(no.name, (rel, no.lineno, ast.get_source_segment(fonte, no) or ""))
+            except (SyntaxError, UnicodeDecodeError):
+                continue
+        checagem = re.compile(r"tipo_usuario|_somente_|pode_\w+\(|PERFIS_|perfis_acesso|abort\(403|eh_\w+\(|is_admin|bloqueio")
+        sem_checagem = []
+        for r in novas:
+            rel, linha, corpo = funcoes.get(r["endpoint"], (None, 0, ""))
+            gestao = r["regra"].startswith("/admin") or re.search(r"admin|gerenciar|gestao|exportar|backup|banco", r["endpoint"])
+            if rel and gestao and not checagem.search(corpo):
+                sem_checagem.append(f"{rel}:{linha} {r['endpoint']}() {r['regra']} ({r.get('aprendizado')})")
+        if sem_checagem:
+            self.achado(f"{len(sem_checagem)} rota(s) nova(s) de gestão sem checagem de perfil", "Média", "A01", "CWE-285", "; ".join(sem_checagem[:8]),
+                        "Rotas novas (aprendidas pelo Gerente de Segurança) em área de gestão não conferem o perfil do usuário no corpo da função.",
+                        "Conferir o perfil no início da rota (ex.: _somente_administrador() ou current_user.tipo_usuario in PERFIS_...) e devolver 403.")
+        else:
+            self.ok(f"{len(novas)} rota(s) nova(s) aprendida(s) revisada(s): as de gestão conferem o perfil")
 
     # ------------------------------------------------------------------ Python
     def python(self):

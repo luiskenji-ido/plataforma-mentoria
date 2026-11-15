@@ -113,8 +113,21 @@ def aprender_mudancas_da_plataforma(agora):
     return len(conhecimento.detectar_mudancas('Agente Gerente Técnico (tarefa de hora em hora)'))
 
 
+def aprender_seguranca(agora):
+    """Gerente de Segurança: aprende rotas, perfis, dados sensíveis e componentes novos (aplicados na hora) e,
+    uma vez por dia, pesquisa vulnerabilidades na OSV.dev (fonte oficial; os avisos ficam pendentes de aprovação)."""
+    import conhecimento_seguranca
+    novos = len(conhecimento_seguranca.detectar_mudancas('Gerente de Segurança (tarefa de hora em hora)'))
+    try:
+        novos += len(conhecimento_seguranca.pesquisar_vulnerabilidades('Gerente de Segurança (tarefa diária)'))
+    except Exception as erro:
+        db.session.rollback()
+        print(f"   OSV.dev indisponível: {erro}")
+    return novos
+
+
 TAREFAS = [lembrar_checkout_esquecido, lembrar_encaminhamentos_vencidos, enviar_formulario_banca, fechar_checkin_banca_esquecido,
-           executar_backups_agendados, aprender_mudancas_da_plataforma]
+           executar_backups_agendados, aprender_mudancas_da_plataforma, aprender_seguranca]
 
 
 def executar_tarefas():

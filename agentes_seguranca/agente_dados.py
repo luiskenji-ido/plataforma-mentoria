@@ -43,6 +43,51 @@ class AgenteDados(AgenteSeguranca):
             self.perfis()
             self.ciclo_de_vida()
             self.integridade()
+            self.dados_aprendidos()
+
+    def dados_aprendidos(self):
+        """Aprendizado do Gerente de Segurança: colunas com segredos (precisam de hash) e com dados pessoais (inventário LGPD)."""
+        import conhecimento_seguranca as cs
+        from models import db
+        self.etapa("Dados sensíveis aprendidos (segredos e LGPD)")
+        colunas = cs.colunas_aprendidas(self.aprendizados_do_tipo("seg_linha_base", "seg_dado_sensivel"))
+        if not colunas:
+            self.log("Nenhuma coluna sensível aprendida ainda")
+            return
+        ja_verificadas = {("usuario", "senha"), ("seguranca_usuario", "resposta_1"), ("seguranca_usuario", "resposta_2"), ("seguranca_usuario", "resposta_3")}
+        tabelas = db.metadata.tables
+        con = db.engine.raw_connection()
+        cur = con.cursor()
+        texto_puro, inventario = [], []
+        try:
+            for tabela, grupos in sorted(colunas.items()):
+                if tabela not in tabelas:
+                    continue
+                existentes = {c.name for c in tabelas[tabela].columns}
+                for coluna in grupos.get("segredos", []):
+                    if coluna not in existentes or (tabela, coluna) in ja_verificadas:
+                        continue
+                    valores = [v for (v,) in cur.execute('SELECT "' + coluna + '" FROM "' + tabela + '" WHERE "' + coluna + '" IS NOT NULL LIMIT 2000').fetchall()]
+                    abertos = [v for v in valores if str(v) and not str(v).startswith(("$2", "pbkdf2:", "scrypt:", "argon2"))]
+                    if abertos:
+                        texto_puro.append(f"{tabela}.{coluna} ({len(abertos)} de {len(valores)})")
+                for coluna in grupos.get("pessoais", []):
+                    if coluna in existentes:
+                        total = cur.execute('SELECT COUNT(*) FROM "' + tabela + '" WHERE "' + coluna + '" IS NOT NULL AND "' + coluna + '" != \'\'').fetchone()[0]
+                        inventario.append(f"{tabela}.{coluna}: {total}")
+        finally:
+            con.close()
+        if texto_puro:
+            self.achado("Segredos gravados sem hash (colunas aprendidas)", "Alta", "A02", "CWE-256", "; ".join(texto_puro[:8]),
+                        "Colunas de senha/resposta/segredo aprendidas pelo Gerente de Segurança têm valores legíveis.",
+                        "Guardar com bcrypt (como as senhas e as respostas de segurança) e migrar os valores existentes.")
+        else:
+            self.ok(f"Segredos das colunas aprendidas estão com hash ({sum(len(g.get('segredos', [])) for g in colunas.values())} coluna(s))")
+        if inventario:
+            self.achado(f"Inventário de dados pessoais (LGPD): {len(inventario)} coluna(s)", "Informativa", "A04", "CWE-359", "; ".join(inventario[:12]),
+                        "Mapa das colunas com dados pessoais, mantido pelo Gerente de Segurança a cada mudança no banco.",
+                        "Manter no Registro de Operações de Tratamento (LGPD art. 37) e conferir a base legal e o prazo de retenção de cada dado.",
+                        ["https://www.gov.br/anpd/pt-br"])
 
     def credenciais(self):
         from models import Usuario, SegurancaUsuario

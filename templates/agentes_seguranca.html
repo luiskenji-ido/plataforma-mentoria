@@ -175,6 +175,37 @@
                 <small class="text-muted"><i class="bi bi-patch-check"></i> {{ tt('Referências: OWASP Top 10 (2021), CWE/MITRE e a base de vulnerabilidades OSV.dev, consultada só se estiver nas Fontes confiáveis.') }}</small>
             </div>
         </div>
+        <!-- Aprendizado autônomo do Gerente de Segurança -->
+        <div class="card shadow-sm border-0 mt-3" id="cardAprendizadoSeg">
+            <div class="card-body">
+                <h6 class="fw-bold mb-1"><i class="bi bi-mortarboard text-danger"></i> {{ tt('Aprendizado do Gerente de Segurança') }}</h6>
+                <small class="text-muted d-block mb-2">{{ tt('Ele aprende sozinho as rotas, perfis, dados sensíveis e componentes novos e ensina cada agente. Da internet, só lê fontes oficiais da lista confiável, e o que vem de fora espera a sua aprovação.') }}</small>
+                {% if aprendizado %}
+                {% set nomes_seg = {'seguranca': tt('Todos os agentes de segurança'), 'seg_configuracao': tt('Configuração e Segredos'),
+                                    'seg_dados': tt('Inconsistências de Dados'), 'seg_codigo': tt('Análise de Código (SAST)'),
+                                    'seg_dependencias': tt('Dependências e Tecnologias (SCA)'), 'seg_pentest': tt('Pentest (DAST)')} %}
+                <table class="table table-sm small mb-2">
+                    <thead><tr><th>{{ tt('Agente') }}</th><th class="text-center" title="{{ tt('Aplicados') }}"><i class="bi bi-check2-circle text-success"></i></th>
+                        <th class="text-center" title="{{ tt('Pendentes de aprovação') }}"><i class="bi bi-hourglass-split text-warning"></i></th></tr></thead>
+                    <tbody>
+                    {% for chave, n in aprendizado.contagem.items() %}
+                        <tr><td><a href="{{ url_for('governanca_aprendizados', agente=chave) }}">{{ nomes_seg.get(chave, chave) }}</a></td>
+                            <td class="text-center fw-bold text-success">{{ n['Aplicado'] }}</td><td class="text-center fw-bold text-warning-emphasis">{{ n['Pendente'] }}</td></tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+                <div class="small text-muted mb-2" data-conteudo-dinamico>
+                    {% if aprendizado.ultima %}<div><i class="bi bi-clock-history"></i> {{ tt('Última detecção') }}: {{ aprendizado.ultima.em.replace('T', ' ')[:16] }} · {{ aprendizado.ultima.novos }} {{ tt('novo(s)') }}</div>{% endif %}
+                    {% if aprendizado.ultima_osv %}<div><i class="bi bi-globe2"></i> {{ tt('Última pesquisa na OSV.dev') }}: {{ aprendizado.ultima_osv.em.replace('T', ' ')[:16] }} · {{ aprendizado.ultima_osv.novos }} {{ tt('novo(s)') }}</div>{% endif %}
+                </div>
+                {% endif %}
+                <div class="d-flex gap-2 flex-wrap">
+                    <form method="POST" action="{{ url_for('aprender_agentes_seguranca') }}" class="m-0">
+                        <button class="btn btn-sm btn-danger fw-bold" type="submit" id="btnAprenderSeg"><i class="bi bi-lightning-charge"></i> {{ tt('Aprender agora') }}</button></form>
+                    <a href="{{ url_for('governanca_aprendizados', agente='seguranca') }}" class="btn btn-sm btn-outline-secondary fw-bold"><i class="bi bi-mortarboard"></i> {{ tt('Governança de aprendizados') }}</a>
+                </div>
+            </div>
+        </div>
     </div>
 
     <div class="col-xl-9">

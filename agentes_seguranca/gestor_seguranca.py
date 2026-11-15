@@ -100,6 +100,39 @@ class Estado:
         self.gravar()
 
 
+def aprender(estado, relatorios=None):
+    """Autonomia do Gerente de Segurança. Antes da auditoria: aprende as mudanças da plataforma (aplicadas na hora)
+    e pesquisa vulnerabilidades oficiais na OSV.dev (pendentes até a aprovação, no máximo 1 vez por dia).
+    Depois: lê a página oficial do CWE de cada fraqueza nova encontrada (pendente) para ensinar o agente que a achou."""
+    try:
+        if RAIZ_PROJETO not in sys.path:
+            sys.path.insert(0, RAIZ_PROJETO)
+        from app import app
+        import conhecimento_seguranca as cs
+        with app.app_context():
+            if relatorios is None:
+                novos = cs.detectar_mudancas("Gerente de Segurança (início da auditoria)")
+                estado.log(f"🧠 Gerente de Segurança aprendeu {len(novos)} mudança(s) da plataforma"
+                           + (": " + "; ".join(a.titulo for a in novos[:4]) if novos else ""))
+                try:
+                    pendentes = cs.pesquisar_vulnerabilidades("Gerente de Segurança (início da auditoria)")
+                    if pendentes:
+                        estado.log(f"🌐 {len(pendentes)} aviso(s) de vulnerabilidade da OSV.dev aguardando aprovação na Governança")
+                except Exception as e:
+                    estado.log(f"🌐 Pesquisa na OSV.dev não realizada: {e}")
+                with estado.trava:
+                    estado.dados["aprendizado"] = {"novos": len(novos), "codigos": [a.codigo for a in novos][:10]}
+            else:
+                refs = cs.aprender_com_achados(relatorios, "Gerente de Segurança (fim da auditoria)")
+                if refs:
+                    estado.log(f"📖 {len(refs)} referência(s) oficial(is) do CWE propostas para os agentes (aguardando aprovação)")
+                with estado.trava:
+                    estado.dados.setdefault("aprendizado", {})["referencias"] = len(refs)
+        estado.gravar()
+    except Exception as e:
+        estado.log(f"🧠 Aprendizado indisponível: {e}")
+
+
 def batimento(estado, parar):
     while not parar.is_set():
         estado.gravar()
@@ -146,12 +179,16 @@ ESTILO = """<style>
 
 def html_agente(dados, url):
     roteiro = "".join(f"<li>{escape(p)}</li>" for p in dados.get("roteiro", []))
+    aprendidos = dados.get("aprendizados", [])
+    aprendizado = ("<ul>" + "".join(f"<li><b>{escape(a['codigo'])}</b> · {escape(a['tipo'])} — {escape(a['titulo'])}</li>" for a in aprendidos[-15:])
+                   + "</ul>") if aprendidos else "<p>Nenhum aprendizado recebido nesta auditoria.</p>"
     return f"""<!DOCTYPE html><html lang="pt"><head><meta charset="utf-8">{ESTILO}</head><body>
       <h1>Relatório de Segurança — {escape(dados['nome'])}</h1>
       <div class="meta">{escape(dados['especialidade'])} · Alvo {escape(url)} · {datetime.now().strftime('%d/%m/%Y %H:%M')} ·
         {dados['verificacoes']} verificações em {dados.get('duracao_seg', 0)} s</div>
       {_cards(dados['contagem'], dados['nota_risco'])}
       <h2>Roteiro</h2><ol>{roteiro}</ol>
+      <h2>Aprendizados aplicados ({len(aprendidos)}, ensinados pelo Gerente de Segurança)</h2>{aprendizado}
       <h2>Achados</h2>{_achados_html(dados['achados'])}
     </body></html>"""
 
@@ -277,7 +314,10 @@ def main():
     threading.Thread(target=batimento, args=(estado, parar), daemon=True).start()
     try:
         estado.log("🛡️ Gerente de Segurança: iniciando a auditoria")
+        aprender(estado)
         relatorios = [r for r in (rodar_agente(c, estado, args.url.rstrip("/")) for c in agentes) if r]
+        if relatorios:
+            aprender(estado, relatorios)
         if relatorios:
             estado.log("📄 Gerando o relatório consolidado…")
             html, contagem, risco, todos = html_consolidado(relatorios, args.url)

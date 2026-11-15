@@ -29,7 +29,9 @@ from models import (db, AprendizadoAgente, EventoAprendizado, FonteConfiavel, Es
 
 AGENTE_GERENTE = 'Agente Gerente Técnico'
 TODOS = 'todos'
-AGENTES = ['administrador', 'aluno', 'professor', 'mentor', 'mentor_administrador', 'gestor_b2b', 'avaliador', 'perfis_personalizados']
+AGENTES = ['administrador', 'aluno', 'professor', 'mentor', 'mentor_administrador', 'gestor_b2b', 'avaliador', 'perfis_personalizados',
+           # Agentes de Segurança (ensinados pelo Gerente de Segurança, conhecimento_seguranca.py)
+           'seguranca', 'seg_configuracao', 'seg_dados', 'seg_codigo', 'seg_dependencias', 'seg_pentest']
 FONTES_PADRAO = [
     ('docs.python.org', 'Documentação oficial do Python'), ('flask.palletsprojects.com', 'Documentação oficial do Flask'),
     ('jinja.palletsprojects.com', 'Documentação oficial do Jinja'), ('docs.sqlalchemy.org', 'Documentação oficial do SQLAlchemy'),
@@ -57,23 +59,31 @@ def evento(acao, detalhes='', codigo=None, agente=None, usuario_id=None):
                                      usuario_id=usuario_id, data=datetime.now()))
 
 
+def _numero(codigo):
+    m = re.fullmatch(r'APR-(\d+)', codigo or '')
+    return int(m.group(1)) if m else 0
+
+
 def _proximo_codigo():
-    ultimo = db.session.query(db.func.max(AprendizadoAgente.id)).scalar() or 0
-    codigo = f"APR-{ultimo + 1:04d}"
-    while AprendizadoAgente.query.filter_by(codigo=codigo).first():
-        ultimo += 1
-        codigo = f"APR-{ultimo + 1:04d}"
-    return codigo
+    """Códigos nunca se repetem, nem depois de uma limpeza para compliance (a trilha de eventos guarda os antigos)."""
+    usados = [_numero(c) for (c,) in db.session.query(AprendizadoAgente.codigo).all()]
+    usados += [_numero(c) for (c,) in db.session.query(EventoAprendizado.aprendizado_codigo).filter(EventoAprendizado.aprendizado_codigo.isnot(None)).all()]
+    for texto in (d for (d,) in db.session.query(EventoAprendizado.detalhes).filter(EventoAprendizado.acao == 'Limpeza para compliance').all()):
+        usados += [int(n) for n in re.findall(r'APR-(\d+)', texto or '')]
+    ultimo = max([_estado('ultimo_codigo', 0)] + usados)
+    _gravar_estado('ultimo_codigo', ultimo + 1)
+    return f"APR-{ultimo + 1:04d}"
 
 
-def criar_aprendizado(titulo, tipo, conteudo, destino, descricao='', origem='Detecção interna', fonte_url=None, status='Aplicado'):
+def criar_aprendizado(titulo, tipo, conteudo, destino, descricao='', origem='Detecção interna', fonte_url=None, status='Aplicado',
+                      gerente=AGENTE_GERENTE):
     item = AprendizadoAgente(codigo=_proximo_codigo(), titulo=titulo[:200], tipo=tipo, descricao=descricao,
                              conteudo=json.dumps(conteudo, ensure_ascii=False), agentes_destino=json.dumps(destino),
                              origem=origem, fonte_url=fonte_url, status=status, assinatura=assinar(conteudo),
                              criado_em=datetime.now(), aplicado_em=datetime.now() if status == 'Aplicado' else None)
     db.session.add(item)
     db.session.flush()
-    evento('Criado' if status == 'Pendente' else 'Criado e aplicado', f"{tipo}: {titulo} → {', '.join(destino)}", item.codigo, AGENTE_GERENTE)
+    evento('Criado' if status == 'Pendente' else 'Criado e aplicado', f"{tipo}: {titulo} → {', '.join(destino)}", item.codigo, gerente)
     return item
 
 
@@ -226,19 +236,31 @@ def dominio_confiavel(url):
 def _texto_da_pagina(html):
     titulo = re.search(r'<title[^>]*>(.*?)</title>', html, re.S | re.I)
     corpo = re.sub(r'<(script|style|nav|header|footer|noscript)\b.*?</\1>', ' ', html, flags=re.S | re.I)
+    # Começa pelo conteúdo principal quando a página o marca (ex.: CWE/MITRE "Description", <main>, <article>)
+    inicio = re.search(r'id="Description"|<main\b|<article\b|role="main"', corpo, re.I)
+    if inicio:
+        corpo = corpo[inicio.start():]
+        texto_corrido = ' '.join(unescape(re.sub(r'<[^>]+>', ' ', corpo[:20000])).split())
     paragrafos = [unescape(re.sub(r'<[^>]+>', ' ', p)) for p in re.findall(r'<(?:p|li|h[1-3])\b[^>]*>(.*?)</(?:p|li|h[1-3])>', corpo, re.S | re.I)]
     texto = ' '.join(' '.join(p.split()) for p in paragrafos if len(p.split()) > 3)
+    # Prefere os parágrafos de texto (<p>) a listas de navegação/sumário quando houver conteúdo suficiente
+    so_paragrafos = ' '.join(' '.join(unescape(re.sub(r'<[^>]+>', ' ', p)).split()) for p in re.findall(r'<p\b[^>]*>(.*?)</p>', corpo, re.S | re.I)
+                             if len(p.split()) > 5)
+    if len(so_paragrafos) >= 300:
+        texto = so_paragrafos
+    if inicio and (len(texto) < 200 or inicio.group(0) == 'id="Description"'):
+        texto = texto_corrido.removeprefix('id="Description"> ').strip()
     return (unescape(' '.join(titulo.group(1).split())) if titulo else ''), texto
 
 
-def buscar_fonte_oficial(url, tema, usuario_id=None):
+def buscar_fonte_oficial(url, tema, usuario_id=None, gerente=AGENTE_GERENTE, destino=None):
     """Lê uma página de fonte oficial e cria um aprendizado PENDENTE (só vale depois da aprovação)."""
     fonte = dominio_confiavel(url)
     if not fonte:
-        evento('Busca recusada', f"Domínio fora da lista de fontes confiáveis: {url}", agente=AGENTE_GERENTE, usuario_id=usuario_id)
+        evento('Busca recusada', f"Domínio fora da lista de fontes confiáveis: {url}", agente=gerente, usuario_id=usuario_id)
         db.session.commit()
         raise ValueError('domínio fora da lista de fontes confiáveis (ou endereço sem HTTPS)')
-    pedido = Request(url, headers={'User-Agent': 'MentoriaAgenteGerenteTecnico/1.0'})
+    pedido = Request(url, headers={'User-Agent': 'MentoriaAgenteGerenteTecnico/1.0' if gerente == AGENTE_GERENTE else 'MentoriaGerenteSeguranca/1.0'})
     with urlopen(pedido, timeout=15) as resposta:
         if not dominio_confiavel(resposta.geturl()):
             raise ValueError('a página redirecionou para fora das fontes confiáveis')
@@ -250,8 +272,9 @@ def buscar_fonte_oficial(url, tema, usuario_id=None):
     resumo = texto[:2500]
     conteudo = {'tema': tema, 'titulo_pagina': titulo, 'url': url, 'dominio': fonte.dominio, 'resumo': resumo,
                 'lido_em': datetime.now().isoformat(timespec='seconds')}
-    item = criar_aprendizado(f"Referência oficial: {tema or titulo}"[:200], 'referencia_externa', conteudo, [TODOS],
-                             f"{fonte.descricao or fonte.dominio} — {titulo}", f"Fonte oficial ({fonte.dominio})", url, status='Pendente')
+    item = criar_aprendizado(f"Referência oficial: {tema or titulo}"[:200], 'referencia_externa', conteudo, destino or [TODOS],
+                             f"{fonte.descricao or fonte.dominio} — {titulo}", f"Fonte oficial ({fonte.dominio})", url, status='Pendente',
+                             gerente=gerente)
     db.session.commit()
     return item
 

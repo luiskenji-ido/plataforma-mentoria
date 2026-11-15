@@ -58,6 +58,7 @@ class AgenteSeguranca:
         self.feed = []
         self.etapa_atual = ""
         self.carimbo = datetime.now().strftime("%Y%m%d_%H%M%S")
+        self.aprendizados = []  # ensinados pelo Gerente de Segurança (conhecimento_seguranca.py)
         self.inicio = time.time()
 
     # ------------------------------------------------------------------ registro
@@ -105,6 +106,7 @@ class AgenteSeguranca:
         print(f"\n🛡️ {self.nome} — {self.especialidade}")
         for i, passo in enumerate(self.ROTEIRO, 1):
             print(f"   {i:>2}. {passo}")
+        self.carregar_aprendizados()
         try:
             self.rodar()
         except Exception as e:
@@ -118,18 +120,41 @@ class AgenteSeguranca:
         pontos = sum(PESO[a["severidade"]] for a in self.achados)
         return min(100, pontos * 2)
 
-    def referencias_aprovadas(self):
-        """Referências oficiais aprovadas na Governança de aprendizados (entram no prompt)."""
+    # ------------------------------------------------------------------ aprendizados
+    def carregar_aprendizados(self):
+        """Recebe do Gerente de Segurança os aprendizados APLICADOS para este agente (revogados não chegam;
+        conteúdo com assinatura SHA-256 conferida) e registra o consumo na trilha da Governança."""
+        from types import SimpleNamespace
         try:
             from app import app
-            import conhecimento
+            import conhecimento_seguranca as cs
             with app.app_context():
-                itens = conhecimento.referencias_aprovadas()
-                conhecimento.registrar_consumo(f"seguranca_{self.chave}", itens)
-                return [{"titulo": json.loads(a.conteudo).get("tema") or a.titulo, "url": a.fonte_url,
-                         "resumo": json.loads(a.conteudo).get("resumo", "")[:280]} for a in itens]
-        except Exception:
-            return []
+                itens = cs.para_agente(self.chave)
+                cs.consumir(self.chave, itens)
+                self.aprendizados = [SimpleNamespace(codigo=a.codigo, tipo=a.tipo, titulo=a.titulo, conteudo=a.conteudo,
+                                                     fonte_url=a.fonte_url) for a in itens]
+        except Exception as e:
+            self.log(f"Aprendizados indisponíveis: {e}")
+            self.aprendizados = []
+        if self.aprendizados:
+            tipos = {}
+            for a in self.aprendizados:
+                tipos[a.tipo] = tipos.get(a.tipo, 0) + 1
+            self.log(f"📚 {len(self.aprendizados)} aprendizado(s) do Gerente de Segurança: "
+                     + ", ".join(f"{t} ×{n}" for t, n in sorted(tipos.items())))
+        else:
+            self.log("📚 Nenhum aprendizado recebido do Gerente de Segurança")
+
+    def aprendizados_do_tipo(self, *tipos):
+        return [a for a in self.aprendizados if a.tipo in tipos]
+
+    def referencias_aprovadas(self):
+        """Referências oficiais aprovadas na Governança de aprendizados para este agente (entram no prompt)."""
+        refs = []
+        for a in self.aprendizados_do_tipo("referencia_externa"):
+            dados = json.loads(a.conteudo)
+            refs.append({"titulo": dados.get("tema") or a.titulo, "url": a.fonte_url, "resumo": dados.get("resumo", "")[:280]})
+        return refs[-8:]
 
     def gerar_prompt(self, caminho):
         ordenados = sorted(self.achados, key=lambda a: SEVERIDADES.index(a["severidade"]))
@@ -153,7 +178,7 @@ class AgenteSeguranca:
             ]
             refs = self.referencias_aprovadas()
             if refs:
-                linhas.append("**Referências oficiais aprovadas pelo Agente Gerente Técnico:**\n")
+                linhas.append("**Referências oficiais aprovadas na Governança de aprendizados (ensinadas pelo Gerente de Segurança):**\n")
                 linhas += [f"- [{r['titulo']}]({r['url']}) — {r['resumo']}" for r in refs]
                 linhas.append("")
             linhas.append("## Achados (do mais grave para o menos grave)\n")
@@ -173,6 +198,7 @@ class AgenteSeguranca:
         self.gerar_prompt(base + "_prompt.md")
         dados = {"chave": self.chave, "nome": self.nome, "especialidade": self.especialidade, "roteiro": self.ROTEIRO,
                  "verificacoes": self.verificacoes, "contagem": self.contagem(), "nota_risco": self.nota_de_risco(),
+                 "aprendizados": [{"codigo": a.codigo, "tipo": a.tipo, "titulo": a.titulo} for a in self.aprendizados],
                  "achados": sorted(self.achados, key=lambda a: SEVERIDADES.index(a["severidade"])),
                  "duracao_seg": int(time.time() - self.inicio), "carimbo": self.carimbo, "prompt": base + "_prompt.md"}
         with open(base + ".json", "w", encoding="utf-8") as f:

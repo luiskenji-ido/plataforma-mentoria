@@ -5730,7 +5730,13 @@ def agentes_seguranca():
     grupo = next(g for g in arvore_agentes_ia() if g['nome'] == 'Agentes Teste de Segurança')
     from urllib.parse import urlparse
     alvo = urlparse(request.host_url).hostname or ''
-    return render_template('agentes_seguranca.html', ordem=ORDEM_AGENTES_SEG, estado=estado_agentes_seguranca(), grupo=grupo,
+    import conhecimento_seguranca
+    try:
+        aprendizado = conhecimento_seguranca.resumo_para_tela()
+    except Exception:
+        db.session.rollback()
+        aprendizado = None
+    return render_template('agentes_seguranca.html', ordem=ORDEM_AGENTES_SEG, estado=estado_agentes_seguranca(), grupo=grupo, aprendizado=aprendizado,
                            playwright_ok=importlib.util.find_spec('playwright') is not None,
                            pentest_local=alvo in ('localhost', '127.0.0.1', '::1') or alvo.endswith(('.localhost', '.test')))
 
@@ -5763,6 +5769,30 @@ def iniciar_agentes_seguranca():
     log = open(os.path.join(PASTA_AO_VIVO_SEG, 'gestor.log'), 'w', encoding='utf-8')
     subprocess.Popen(cmd, cwd=raiz, stdout=log, stderr=subprocess.STDOUT, env={**os.environ, 'PYTHONIOENCODING': 'utf-8'}, **opcoes)
     flash(tt('Gerente de Segurança iniciado: a auditoria começa pela configuração.', current_user.idioma), "success")
+    return redirect(url_for('agentes_seguranca'))
+
+
+@app.route('/admin/agentes-seguranca/aprender', methods=['POST'])
+@login_required
+def aprender_agentes_seguranca():
+    """Botão "Aprender agora": o Gerente de Segurança aprende as mudanças e pesquisa a OSV.dev (fonte oficial)."""
+    import conhecimento_seguranca
+    bloqueio = _somente_administrador()
+    if bloqueio:
+        return bloqueio
+    idioma = current_user.idioma
+    try:
+        novos = conhecimento_seguranca.detectar_mudancas(f"Solicitado por {current_user.nome}")
+        flash(tt('Gerente de Segurança: {n} aprendizado(s) novo(s) aplicado(s) aos agentes.', idioma).format(n=len(novos)), 'success')
+    except Exception as e:
+        db.session.rollback()
+        flash(tt('Detecção falhou: {erro}', idioma).format(erro=e), 'danger')
+    try:
+        pendentes = conhecimento_seguranca.pesquisar_vulnerabilidades(f"Solicitado por {current_user.nome}", forcar=True)
+        flash(tt('Pesquisa na OSV.dev: {n} aviso(s) novo(s) aguardando aprovação na Governança.', idioma).format(n=len(pendentes)), 'info')
+    except Exception as e:
+        db.session.rollback()
+        flash(tt('Pesquisa na OSV.dev não realizada: {erro}', idioma).format(erro=e), 'warning')
     return redirect(url_for('agentes_seguranca'))
 
 
@@ -5936,14 +5966,21 @@ app.jinja_env.globals.update(perfis_personalizados_ativos=perfis_personalizados_
 
 
 def aprender_mudancas(origem):
-    """O Agente Gerente Técnico percebe a mudança na hora e distribui o aprendizado aos agentes."""
+    """O Agente Gerente Técnico e o Gerente de Segurança percebem a mudança na hora e distribuem os aprendizados."""
+    criados = []
     try:
         import conhecimento
-        return conhecimento.detectar_mudancas(origem)
+        criados += conhecimento.detectar_mudancas(origem)
     except Exception as e:
         db.session.rollback()
         app.logger.warning(f"Detecção de aprendizados falhou: {e}")
-        return []
+    try:
+        import conhecimento_seguranca
+        criados += conhecimento_seguranca.detectar_mudancas(origem)
+    except Exception as e:
+        db.session.rollback()
+        app.logger.warning(f"Detecção de aprendizados de segurança falhou: {e}")
+    return criados
 
 
 def _somente_admin_perfis():
@@ -6096,8 +6133,8 @@ def governanca_aprendizados():
                 return redirect(url_for('governanca_aprendizados'))
             total, arquivo = conhecimento.limpar(consulta.all(), current_user.id, current_user.nome, escopo)
             if escopo == 'todos':
-                # Recomeça do zero: o próximo retrato vira a nova linha de base
-                EstadoConhecimento.query.filter_by(chave='retrato').delete()
+                # Recomeça do zero: o próximo retrato vira a nova linha de base (dos dois gerentes)
+                EstadoConhecimento.query.filter(EstadoConhecimento.chave.in_(['retrato', 'retrato_seguranca'])).delete(synchronize_session=False)
                 db.session.commit()
             flash(tt('{n} aprendizado(s) removido(s). Cópia de auditoria: {arquivo}', idioma).format(n=total, arquivo=arquivo or '—'), 'success')
         return redirect(url_for('governanca_aprendizados'))
@@ -6108,7 +6145,10 @@ def governanca_aprendizados():
         consulta = consulta.filter_by(status=filtro_status)
     if filtro_tipo:
         consulta = consulta.filter_by(tipo=filtro_tipo)
-    if filtro_agente:
+    if filtro_agente == 'seguranca':
+        # Grupo de segurança: aprendizados do grupo e de cada um dos 5 agentes de segurança (seg_*)
+        consulta = consulta.filter(AprendizadoAgente.agentes_destino.like('%"seg%') | AprendizadoAgente.agentes_destino.like('%"todos"%'))
+    elif filtro_agente:
         consulta = consulta.filter(AprendizadoAgente.agentes_destino.like(f'%"{filtro_agente}"%') | AprendizadoAgente.agentes_destino.like('%"todos"%'))
     itens = consulta.order_by(AprendizadoAgente.id.desc()).all()
     todos = AprendizadoAgente.query.all()

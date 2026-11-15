@@ -73,10 +73,45 @@ class AgenteDependencias(AgenteSeguranca):
                "Vulnerabilidades conhecidas na base oficial OSV.dev (só se o domínio for fonte confiável)"]
 
     def rodar(self):
+        self.reportados = set()
         self.inventario()
         self.python_e_descontinuados()
         self.integridade_cdn()
         self.osv()
+        self.conhecimento_aprendido()
+
+    def conhecimento_aprendido(self):
+        """Aprendizado do Gerente de Segurança: componentes que mudaram e vulnerabilidades oficiais APROVADAS na Governança.
+        As aprovadas valem mesmo sem acesso à internet (ex.: PythonAnywhere sem liberação para a OSV.dev)."""
+        self.etapa("Conhecimento aprendido: componentes e vulnerabilidades aprovadas")
+        for a in self.aprendizados_do_tipo("seg_dependencia"):
+            mudancas = json.loads(a.conteudo)
+            partes = []
+            for tipo, m in mudancas.items():
+                partes += [f"novo {p} {v}" for p, v in list(m.get("novos", {}).items())[:6]]
+                partes += [f"{p} {v[0]}→{v[1]}" for p, v in list(m.get("atualizados", {}).items())[:6]]
+                partes += [f"removido {p}" for p in m.get("removidos", [])[:4]]
+            self.achado(f"Componentes que mudaram desde a auditoria anterior ({a.codigo})", "Informativa", "A06", "", "requirements.txt / templates",
+                        "; ".join(partes)[:600] or a.titulo, "Conferir as notas de versão e as vulnerabilidades destes componentes (já incluídos na consulta).")
+        aprovadas = self.aprendizados_do_tipo("seg_vulnerabilidade")
+        afetadas = 0
+        for a in aprovadas:
+            v = json.loads(a.conteudo)
+            chave = v["pacote"].lower()
+            instalada = self.pacotes.get(chave) if v.get("ecossistema", "PyPI") == "PyPI" else dict((p.lower(), ver) for p, ver in self.cdn).get(chave)
+            if not instalada or chave in self.reportados:
+                continue
+            corrigidas = [c for c in v.get("corrigida_em", []) if c]
+            ainda = instalada == v["versao_afetada"] or (corrigidas and _versao(instalada) < min(_versao(c) for c in corrigidas))
+            if ainda:
+                afetadas += 1
+                self.achado(f"{v['pacote']} {instalada}: {v['id']} (aprendida em {a.codigo})", v.get("severidade", "Média"), "A06", "CWE-1395",
+                            f"requirements.txt: {v['pacote']}=={instalada}", f"{v['resumo']} {' '.join(v.get('aliases', []))}".strip(),
+                            f"Atualizar {v['pacote']} para {', '.join(corrigidas) or 'uma versão corrigida'} e testar.", [v["url"]])
+        if aprovadas and not afetadas:
+            self.ok(f"{len(aprovadas)} vulnerabilidade(s) aprendida(s): nenhuma afeta as versões instaladas")
+        elif not aprovadas:
+            self.log("Nenhuma vulnerabilidade aprovada na Governança ainda")
 
     def inventario(self):
         self.etapa("Inventário de tecnologias")
@@ -195,6 +230,7 @@ class AgenteDependencias(AgenteSeguranca):
             if not confirmadas:
                 continue
             vulneraveis += 1
+            self.reportados.add(pacote.lower())
             ids = confirmadas
             self.achado(f"{pacote} {versao} com {len(ids)} vulnerabilidade(s) conhecida(s)", pior, "A06", "CWE-1395",
                         f"{'requirements.txt' if consulta['package']['ecosystem'] == 'PyPI' else 'templates (CDN)'}: {pacote}=={versao}",

@@ -740,6 +740,30 @@ LITERAIS = {
     'Desculpe, o assistente está indisponível agora. Tente de novo em alguns minutos.': (
         'Sorry, the assistant is unavailable right now. Try again in a few minutes.',
         'Lo sentimos, el asistente no está disponible ahora. Inténtelo de nuevo en unos minutos.'),
+
+    # ---------------- Aprendizado do Gerente de Segurança
+    'Aprendizado do Gerente de Segurança': ('Security Manager learning', 'Aprendizaje del Gerente de Seguridad'),
+    'Ele aprende sozinho as rotas, perfis, dados sensíveis e componentes novos e ensina cada agente. Da internet, só lê fontes oficiais da lista confiável, e o que vem de fora espera a sua aprovação.': ('It learns new routes, profiles, sensitive data and components on its own and teaches each agent. From the internet it only reads official sources on the trusted list, and anything from outside waits for your approval.', 'Aprende solo las rutas, perfiles, datos sensibles y componentes nuevos y enseña a cada agente. De internet solo lee fuentes oficiales de la lista confiable, y lo que viene de fuera espera su aprobación.'),
+    'Todos os agentes de segurança': ('All security agents', 'Todos los agentes de seguridad'),
+    'Segurança · Configuração e Segredos': ('Security · Configuration and Secrets', 'Seguridad · Configuración y Secretos'),
+    'Segurança · Inconsistências de Dados': ('Security · Data Inconsistencies', 'Seguridad · Inconsistencias de Datos'),
+    'Segurança · Análise de Código': ('Security · Code Analysis', 'Seguridad · Análisis de Código'),
+    'Segurança · Dependências e Tecnologias': ('Security · Dependencies and Technologies', 'Seguridad · Dependencias y Tecnologías'),
+    'Segurança · Pentest': ('Security · Pentest', 'Seguridad · Pentest'),
+    'Linha de base de segurança': ('Security baseline', 'Línea base de seguridad'),
+    'Rota nova (segurança)': ('New route (security)', 'Ruta nueva (seguridad)'),
+    'Rota removida (segurança)': ('Removed route (security)', 'Ruta eliminada (seguridad)'),
+    'Perfil de acesso (segurança)': ('Access profile (security)', 'Perfil de acceso (seguridad)'),
+    'Perfil removido (segurança)': ('Removed profile (security)', 'Perfil eliminado (seguridad)'),
+    'Dado sensível novo': ('New sensitive data', 'Dato sensible nuevo'),
+    'Componente novo/atualizado': ('New/updated component', 'Componente nuevo/actualizado'),
+    'Vulnerabilidade conhecida': ('Known vulnerability', 'Vulnerabilidad conocida'),
+    'O Gerente de Segurança faz o mesmo com os agentes de segurança.': ('The Security Manager does the same with the security agents.', 'El Gerente de Seguridad hace lo mismo con los agentes de seguridad.'),
+    'Última pesquisa na OSV.dev': ('Last OSV.dev search', 'Última búsqueda en OSV.dev'),
+    'Gerente de Segurança: {n} aprendizado(s) novo(s) aplicado(s) aos agentes.': ('Security Manager: {n} new learning(s) applied to the agents.', 'Gerente de Seguridad: {n} aprendizaje(s) nuevo(s) aplicado(s) a los agentes.'),
+    'Detecção falhou: {erro}': ('Detection failed: {erro}', 'La detección falló: {erro}'),
+    'Pesquisa na OSV.dev: {n} aviso(s) novo(s) aguardando aprovação na Governança.': ('OSV.dev search: {n} new advisory(ies) awaiting approval in Governance.', 'Búsqueda en OSV.dev: {n} aviso(s) nuevo(s) esperando aprobación en la Gobernanza.'),
+    'Pesquisa na OSV.dev não realizada: {erro}': ('OSV.dev search not performed: {erro}', 'Búsqueda en OSV.dev no realizada: {erro}'),
 }
 
 # Montados uma vez: {'en': {pt: en}, 'es': {pt: es}}

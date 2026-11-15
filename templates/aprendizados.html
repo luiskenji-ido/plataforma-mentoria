@@ -7,18 +7,27 @@
 {% endmacro %}
 {% set nomes_tipos = {'perfil_novo': tt('Perfil novo'), 'perfil_alterado': tt('Perfil alterado'), 'perfil_removido': tt('Perfil removido'),
                       'rota_nova': tt('Rota nova'), 'rota_removida': tt('Rota removida'), 'linha_base': tt('Linha de base'),
-                      'referencia_externa': tt('Referência oficial')} %}
+                      'referencia_externa': tt('Referência oficial'), 'seg_linha_base': tt('Linha de base de segurança'),
+                      'seg_rota_nova': tt('Rota nova (segurança)'), 'seg_rota_removida': tt('Rota removida (segurança)'),
+                      'seg_perfil': tt('Perfil de acesso (segurança)'), 'seg_perfil_removido': tt('Perfil removido (segurança)'),
+                      'seg_dado_sensivel': tt('Dado sensível novo'), 'seg_dependencia': tt('Componente novo/atualizado'),
+                      'seg_vulnerabilidade': tt('Vulnerabilidade conhecida')} %}
 {% set nomes_agentes = {'todos': tt('Todos os agentes'), 'administrador': tt('Administrador'), 'aluno': tt('Aluno'), 'professor': tt('Professor'),
                         'mentor': tt('Mentor'), 'mentor_administrador': tt('Mentor Administrador'), 'gestor_b2b': tt('Gestor B2B'),
-                        'avaliador': tt('Avaliador Banca'), 'perfis_personalizados': tt('Perfis personalizados')} %}
+                        'avaliador': tt('Avaliador Banca'), 'perfis_personalizados': tt('Perfis personalizados'),
+                        'seguranca': tt('Todos os agentes de segurança'), 'seg_configuracao': tt('Segurança · Configuração e Segredos'),
+                        'seg_dados': tt('Segurança · Inconsistências de Dados'), 'seg_codigo': tt('Segurança · Análise de Código'),
+                        'seg_dependencias': tt('Segurança · Dependências e Tecnologias'), 'seg_pentest': tt('Segurança · Pentest')} %}
 
 <div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-3">
     <div>
         <h2 class="text-primary fw-bold mb-1"><i class="bi bi-mortarboard"></i> {{ tt('Governança de aprendizados') }}</h2>
-        <p class="text-muted mb-0">{{ tt('O Agente Gerente Técnico percebe as mudanças da plataforma e ensina os agentes de teste. Aqui você audita, revoga e limpa esses aprendizados.') }}</p>
+        <p class="text-muted mb-0">{{ tt('O Agente Gerente Técnico percebe as mudanças da plataforma e ensina os agentes de teste. Aqui você audita, revoga e limpa esses aprendizados.') }}
+            {{ tt('O Gerente de Segurança faz o mesmo com os agentes de segurança.') }}</p>
     </div>
     <div class="d-flex gap-2 flex-wrap">
         <a href="{{ url_for('agentes_ia') }}" class="btn btn-outline-secondary fw-bold"><i class="bi bi-robot"></i> {{ tt('Agentes IA') }}</a>
+        <a href="{{ url_for('agentes_seguranca') }}" class="btn btn-outline-danger fw-bold"><i class="bi bi-shield-lock-fill"></i> {{ tt('Agentes de Segurança') }}</a>
         <form method="POST" class="m-0"><input type="hidden" name="acao" value="detectar">
             <button class="btn btn-primary fw-bold" type="submit" id="btnDetectar"><i class="bi bi-lightning-charge"></i> {{ tt('Aprender agora') }}</button></form>
     </div>
