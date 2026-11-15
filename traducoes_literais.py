@@ -367,6 +367,38 @@ LITERAIS = {
     'Veja quem já concluiu a trilha e quem ainda está pendente.': ('See who has completed the track and who is still pending.', 'Vea quién ya completó la ruta y quién sigue pendiente.'),
     'Cadastre ou edite os módulos da trilha.': ('Add or edit the track modules.', 'Registre o edite los módulos de la ruta.'),
 
+    # ---------------- Menu do topo e Painel Geral (gráficos personalizáveis)
+    'Aprendizagem': ('Learning', 'Aprendizaje'), 'Projetos e TCC': ('Projects & final papers', 'Proyectos y TCC'),
+    'Pessoas': ('People', 'Personas'), 'Programa': ('Programme', 'Programa'), 'Sistema': ('System', 'Sistema'),
+    'Personalizar gráficos': ('Customise charts', 'Personalizar gráficos'), 'Meus gráficos': ('My charts', 'Mis gráficos'),
+    'Troque o tipo de cada gráfico no seletor ou escolha outros dados em Personalizar gráficos.': (
+        'Change each chart type in its selector or pick other data in Customise charts.',
+        'Cambie el tipo de cada gráfico en su selector o elija otros datos en Personalizar gráficos.'),
+    'Escolha até 4 gráficos: o dado, o tipo de gráfico e a cor. A escolha fica salva no seu perfil.': (
+        'Pick up to 4 charts: the data, the chart type and the colour. Your choice is saved to your profile.',
+        'Elija hasta 4 gráficos: el dato, el tipo de gráfico y el color. La elección queda guardada en su perfil.'),
+    'Adicionar gráfico': ('Add chart', 'Añadir gráfico'), 'Restaurar padrão': ('Restore default', 'Restaurar predeterminado'),
+    'Salvar gráficos': ('Save charts', 'Guardar gráficos'), 'Dado': ('Data', 'Dato'), 'Tipo de gráfico': ('Chart type', 'Tipo de gráfico'),
+    'Cor': ('Colour', 'Color'), 'Remover': ('Remove', 'Quitar'),
+    'Gráficos salvos.': ('Charts saved.', 'Gráficos guardados.'), 'Não foi possível salvar os gráficos.': ('The charts could not be saved.', 'No se pudieron guardar los gráficos.'),
+    'Escolha pelo menos um gráfico válido.': ('Pick at least one valid chart.', 'Elija al menos un gráfico válido.'),
+    'Personalize os gráficos: escolha os dados, o tipo (barras, linhas, pizza, rosca, radar...) e as cores. A escolha fica salva no seu perfil.': (
+        'Customise the charts: pick the data, the type (bars, lines, pie, doughnut, radar...) and the colours. Your choice is saved to your profile.',
+        'Personalice los gráficos: elija los datos, el tipo (barras, líneas, torta, dona, radar...) y los colores. La elección queda guardada en su perfil.'),
+    'Misto (barras + linha)': ('Mixed (bars + line)', 'Mixto (barras + línea)'), 'Barras': ('Bars', 'Barras'),
+    'Barras horizontais': ('Horizontal bars', 'Barras horizontales'), 'Barras empilhadas': ('Stacked bars', 'Barras apiladas'),
+    'Linhas': ('Lines', 'Líneas'), 'Área': ('Area', 'Área'), 'Pizza': ('Pie', 'Torta'), 'Rosca': ('Doughnut', 'Dona'),
+    'Polar': ('Polar', 'Polar'), 'Radar': ('Radar', 'Radar'),
+    'Cursos': ('Courses', 'Cursos'), 'Horas': ('Hours', 'Horas'), 'Cursos por status': ('Courses by status', 'Cursos por estado'),
+    'Saúde dos cursos': ('Course health', 'Salud de los cursos'), 'Saudáveis': ('Healthy', 'Saludables'),
+    'Em atenção': ('Needs attention', 'En atención'), 'Em risco': ('At risk', 'En riesgo'),
+    'Certificação dos cursos finalizados': ('Certification of completed courses', 'Certificación de los cursos finalizados'),
+    'Carga horária por tipo de curso': ('Workload by course type', 'Carga horaria por tipo de curso'),
+    'Projetos (TCC) por status': ('Projects (final paper) by status', 'Proyectos (TCC) por estado'),
+    'Progresso por curso': ('Progress by course', 'Progreso por curso'), 'Progresso médio por aluno': ('Average progress by student', 'Progreso medio por alumno'),
+    'Minhas horas de voluntariado por mês': ('My volunteering hours by month', 'Mis horas de voluntariado por mes'),
+    'Finalizado': ('Completed', 'Finalizado'), 'Parado': ('Stalled', 'Detenido'),
+
     # ---------------- Administração › Agentes IA
     'Agentes IA': ('AI Agents', 'Agentes IA'), 'Agentes de IA': ('AI agents', 'Agentes de IA'), 'Agente': ('Agent', 'Agente'),
     'Agente Gestor': ('Manager Agent', 'Agente Gestor'), 'Gestor B2B': ('B2B Manager', 'Gestor B2B'),

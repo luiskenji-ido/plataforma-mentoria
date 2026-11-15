@@ -1001,7 +1001,8 @@ class AgenteOmniTest:
                     # O menu é igual em todas as páginas (base.html): conferido uma vez por idioma
                     if not menu_conferido:
                         menu_conferido = True
-                        menu = self.page.inner_text("#menuPrincipal") if self.page.locator("#menuPrincipal").count() else ""
+                        # textContent: inclui os itens dos submenus (Aprendizagem, Projetos e TCC...), que ficam fechados
+                        menu = self.page.eval_on_selector("#menuPrincipal", "e => e.textContent") if self.page.locator("#menuPrincipal").count() else ""
                         faltando = [alvo[k] for k in self.CHAVES_MENU_IDIOMA if alvo.get(k) and alvo[k] not in menu]
                         sobras_menu = self.textos_em_portugues(self.page.evaluate(self.JS_TEXTO_INTERFACE, "menu"),
                                                                termos_pt, palavras_pt, dados_banco)

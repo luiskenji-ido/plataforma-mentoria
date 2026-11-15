@@ -608,226 +608,181 @@
 <body>
 
 <!-- MENU DE NAVEGAÇÃO GLOBAL -->
-<nav class="navbar navbar-expand-lg mb-4 shadow-sm">
+<nav class="navbar navbar-expand-xl mb-4 shadow-sm menu-topo">
   <div class="container-fluid">
    <a class="navbar-brand fw-bold text-primary" href="{{ url_for('dashboard') }}">
     🚀 {{ t('nome_app') }}
    </a>
-    
-    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#menuPrincipal">
+
+    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#menuPrincipal" aria-controls="menuPrincipal" aria-expanded="false" aria-label="Menu">
       <span class="navbar-toggler-icon"></span>
     </button>
-    
+
     <div class="collapse navbar-collapse" id="menuPrincipal">
-      <!-- Links Principais do Menu Traduzidos Dinamicamente -->
-      <ul class="navbar-nav me-auto mb-2 mb-lg-0">
-        {% set ativo = 'text-primary border-bottom border-2 border-primary' %}
-        {% set perfis_gestao = ['Administrador', 'Mentor Administrador', 'Admin B2B'] %}
+      {% set ativo = 'ativo' %}
+      {% set perfis_gestao = ['Administrador', 'Mentor Administrador', 'Admin B2B'] %}
+      {% set ep = request.endpoint %}
+      {% set eh_avaliador = current_user.is_authenticated and current_user.tipo_usuario == 'Avaliador Banca' %}
+      {% set grupo_aprendizagem = ['sessoes', 'acompanhamento', 'atividades_extras', 'gerenciar_turmas', 'gerenciar_frequencia', 'gerenciar_notas'] %}
+      {% set grupo_projetos = ['projetos', 'minhas_bancas', 'biblioteca_tccs', 'meus_certificados', 'painel_banca'] %}
+      {% set grupo_admin = ['gerenciar_usuarios', 'gestao_trilha_tcc', 'reunioes', 'agenda_bancas', 'avaliadores_banca', 'indicadores_voluntariado',
+                            'gerenciar_solicitacoes', 'agentes_ia', 'manutencao_banco', 'gerenciar_grupos'] %}
 
-        <!-- Dashboard / Painel Geral -->
+      <ul class="navbar-nav me-auto mb-2 mb-xl-0 gap-xl-1">
+        <!-- Painel Geral -->
         <li class="nav-item">
-          <a class="nav-link fw-bold {% if request.endpoint == 'dashboard' %}{{ ativo }}{% endif %}" href="{{ url_for('dashboard') }}">
-            {{ t('painel_geral') }}
+          <a class="nav-link fw-bold {% if ep == 'dashboard' %}{{ ativo }}{% endif %}" href="{{ url_for('dashboard') }}">
+            <i class="bi bi-speedometer2"></i> {{ t('painel_geral') }}
           </a>
         </li>
 
-        <!-- Hub Educacional: só para os perfis que a rota gerenciar_turmas aceita -->
-        {% if current_user.is_authenticated and current_user.tipo_usuario in perfis_gestao %}
-        <li class="nav-item">
-          <a class="nav-link fw-bold {% if request.endpoint == 'gerenciar_turmas' %}{{ ativo }}{% endif %}" href="{{ url_for('gerenciar_turmas') }}">
-            <i class="bi bi-diagram-3-fill"></i> {{ t('menu_hub') }}
-          </a>
-        </li>
-        {% endif %}
-
-        {% if current_user.is_authenticated and current_user.tipo_usuario == 'Avaliador Banca' %}
+        {% if eh_avaliador %}
         <!-- Executivo da banca: só o que é da banca dele -->
         <li class="nav-item">
-          <a class="nav-link fw-bold {% if request.endpoint == 'minhas_bancas' %}{{ ativo }}{% endif %}" href="{{ url_for('minhas_bancas') }}">
+          <a class="nav-link fw-bold {% if ep == 'minhas_bancas' %}{{ ativo }}{% endif %}" href="{{ url_for('minhas_bancas') }}">
             <i class="bi bi-person-video3"></i> {{ t('menu_minhas_bancas') }}
           </a>
         </li>
         {% else %}
-        <!-- Sessões -->
-        <li class="nav-item">
-          <a class="nav-link fw-bold {% if request.endpoint == 'sessoes' %}{{ ativo }}{% endif %}" href="{{ url_for('sessoes') }}">
-            {{ t('sessoes') }}
+        <!-- Aprendizagem: sessões, acompanhamento, atividades extras, Hub e Diário de Classe -->
+        <li class="nav-item dropdown">
+          <a class="nav-link dropdown-toggle fw-bold {% if ep in grupo_aprendizagem %}{{ ativo }}{% endif %}" href="#" id="menuAprendizagem" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+            <i class="bi bi-mortarboard"></i> {{ tt('Aprendizagem') }}
           </a>
-        </li>
-
-        <!-- Acompanhamento -->
-        <li class="nav-item">
-          <a class="nav-link fw-bold {% if request.endpoint == 'acompanhamento' %}{{ ativo }}{% endif %}" href="{{ url_for('acompanhamento') }}">
-            {{ t('acompanhamento') }}
-          </a>
-        </li>
-
-        <!-- Gestão de Projetos (TCC) -->
-        <li class="nav-item">
-          <a class="nav-link fw-bold {% if request.endpoint == 'projetos' %}{{ ativo }}{% endif %}" href="{{ url_for('projetos') }}">
-            {{ t('menu_projetos') }}
-          </a>
-        </li>
-
-        {% if tem_minhas_bancas %}
-        <li class="nav-item">
-          <a class="nav-link fw-bold {% if request.endpoint == 'minhas_bancas' %}{{ ativo }}{% endif %}" href="{{ url_for('minhas_bancas') }}">
-            <i class="bi bi-person-video3"></i> {{ t('menu_minhas_bancas') }}
-          </a>
-        </li>
-        {% endif %}
-        {% endif %}
-
-        {% if tem_certificados %}
-        <li class="nav-item">
-          <a class="nav-link fw-bold {% if request.endpoint == 'meus_certificados' %}{{ ativo }}{% endif %}" href="{{ url_for('meus_certificados') }}">
-            <i class="bi bi-award"></i> {{ t('menu_certificados') }}
-          </a>
+          <ul class="dropdown-menu shadow border-0" aria-labelledby="menuAprendizagem">
+            <li><a class="dropdown-item fw-bold" href="{{ url_for('sessoes') }}"><i class="bi bi-calendar-check text-primary"></i> {{ t('sessoes') }}</a></li>
+            <li><a class="dropdown-item fw-bold" href="{{ url_for('acompanhamento') }}"><i class="bi bi-graph-up-arrow text-primary"></i> {{ t('acompanhamento') }}</a></li>
+            <li><a class="dropdown-item fw-bold" href="{{ url_for('atividades_extras') }}"><i class="bi bi-people-fill text-primary"></i> {{ t('menu_extras') }}</a></li>
+            {% if current_user.is_authenticated and current_user.tipo_usuario in perfis_gestao %}
+            <li><a class="dropdown-item fw-bold" href="{{ url_for('gerenciar_turmas') }}"><i class="bi bi-diagram-3-fill text-primary"></i> {{ t('menu_hub') }}</a></li>
+            {% endif %}
+            {% if current_user.is_authenticated and current_user.tipo_usuario != 'Aluno' %}
+            <li><hr class="dropdown-divider"></li>
+            <li><h6 class="dropdown-header">{{ t('menu_diario') }}</h6></li>
+            <li><a class="dropdown-item fw-bold" href="{{ url_for('gerenciar_frequencia') }}"><i class="bi bi-clipboard-check text-success"></i> {{ t('menu_frequencia') }}</a></li>
+            <li><a class="dropdown-item fw-bold" href="{{ url_for('gerenciar_notas') }}"><i class="bi bi-journal-check text-success"></i> {{ t('menu_notas') }}</a></li>
+            {% endif %}
+          </ul>
         </li>
         {% endif %}
 
-        <!-- Biblioteca de TCCs: aberta a todos os perfis (material de pesquisa) -->
-        <li class="nav-item">
-          <a class="nav-link fw-bold {% if request.endpoint == 'biblioteca_tccs' %}{{ ativo }}{% endif %}" href="{{ url_for('biblioteca_tccs') }}">
-            {{ t('menu_biblioteca') }}
+        <!-- Projetos e TCC: projetos, bancas, biblioteca e certificados -->
+        <li class="nav-item dropdown">
+          <a class="nav-link dropdown-toggle fw-bold {% if ep in grupo_projetos %}{{ ativo }}{% endif %}" href="#" id="menuProjetos" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+            <i class="bi bi-kanban"></i> {{ tt('Projetos e TCC') }}
           </a>
+          <ul class="dropdown-menu shadow border-0" aria-labelledby="menuProjetos">
+            {% if not eh_avaliador %}
+            <li><a class="dropdown-item fw-bold" href="{{ url_for('projetos') }}"><i class="bi bi-kanban text-primary"></i> {{ t('menu_projetos') }}</a></li>
+            {% if tem_minhas_bancas %}
+            <li><a class="dropdown-item fw-bold" href="{{ url_for('minhas_bancas') }}"><i class="bi bi-person-video3 text-primary"></i> {{ t('menu_minhas_bancas') }}</a></li>
+            {% endif %}
+            {% endif %}
+            <li><a class="dropdown-item fw-bold" href="{{ url_for('biblioteca_tccs') }}"><i class="bi bi-journal-bookmark text-primary"></i> {{ t('menu_biblioteca') }}</a></li>
+            {% if tem_certificados %}
+            <li><a class="dropdown-item fw-bold" href="{{ url_for('meus_certificados') }}"><i class="bi bi-award text-primary"></i> {{ t('menu_certificados') }}</a></li>
+            {% endif %}
+          </ul>
         </li>
 
         <!-- Portal de Demandas: canal oficial para todos (nada por WhatsApp ou e-mail) -->
         {% if current_user.is_authenticated %}
         <li class="nav-item">
-          <a class="nav-link fw-bold {% if request.endpoint == 'portal_demandas' %}{{ ativo }}{% endif %}" href="{{ url_for('portal_demandas') }}">
+          <a class="nav-link fw-bold {% if ep == 'portal_demandas' %}{{ ativo }}{% endif %}" href="{{ url_for('portal_demandas') }}">
             <i class="bi bi-headset"></i> {{ t('menu_demandas') }}
           </a>
         </li>
         {% endif %}
 
-        <!-- Atividades extras do grupo (fora do cronograma) com check-in/out -->
-        {% if current_user.is_authenticated and current_user.tipo_usuario != 'Avaliador Banca' %}
-        <li class="nav-item">
-          <a class="nav-link fw-bold {% if request.endpoint == 'atividades_extras' %}{{ ativo }}{% endif %}" href="{{ url_for('atividades_extras') }}">
-            <i class="bi bi-people-fill"></i> {{ t('menu_extras') }}
-          </a>
-        </li>
-        {% endif %}
-
-        <!-- ============================================================================== -->
-        <!-- MENU SUSPENSO: DIÁRIO DE CLASSE (Oculto para Alunos)                           -->
-        <!-- ============================================================================== -->
-        {% if current_user.is_authenticated and current_user.tipo_usuario not in ['Aluno', 'Avaliador Banca'] %}
-        <li class="nav-item dropdown">
-            <a class="nav-link dropdown-toggle fw-bold {% if request.endpoint in ['gerenciar_frequencia', 'gerenciar_notas'] %}{{ ativo }}{% endif %}" href="#" id="menuDiario" role="button" data-bs-toggle="dropdown" aria-expanded="false">
-                <i class="bi bi-journal-bookmark-fill"></i> {{ t('menu_diario') }}
-            </a>
-            <ul class="dropdown-menu shadow-sm border-0 mt-2" aria-labelledby="menuDiario">
-                <li>
-                    <a class="dropdown-item fw-bold text-dark py-2" href="{{ url_for('gerenciar_frequencia') }}">
-                        <i class="bi bi-clipboard-check text-primary me-2"></i> {{ t('menu_frequencia') }}
-                    </a>
-                </li>
-                <li>
-                    <a class="dropdown-item fw-bold text-dark py-2" href="{{ url_for('gerenciar_notas') }}">
-                        <i class="bi bi-journal-check text-success me-2"></i> {{ t('menu_notas') }}
-                    </a>
-                </li>
-            </ul>
-        </li>
-        {% endif %}
-
-        <!-- ============================================================================== -->
-        <!-- ÁREA RESTRITA: Gerenciamento Administrativo (Menu Suspenso)                    -->
-        <!-- Cada item aparece só para os perfis que a rota correspondente aceita.          -->
-        <!-- ============================================================================== -->
+        <!-- Administração: cada item aparece só para os perfis que a rota aceita -->
         {% if current_user.is_authenticated and current_user.tipo_usuario in perfis_gestao %}
         <li class="nav-item dropdown">
-            <a class="nav-link dropdown-toggle fw-bold text-danger" href="#" id="adminDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
-                <i class="bi bi-gear-fill"></i> {{ t('menu_administracao') }}
-            </a>
-            <ul class="dropdown-menu shadow" aria-labelledby="adminDropdown">
-                {% if current_user.tipo_usuario in ['Administrador', 'Mentor Administrador'] %}
-                <li><a class="dropdown-item fw-bold" href="{{ url_for('gerenciar_usuarios') }}"><i class="bi bi-people-fill"></i> {{ t('menu_cadastros') }}</a></li>
-                <li><a class="dropdown-item fw-bold" href="{{ url_for('gestao_trilha_tcc') }}"><i class="bi bi-mortarboard"></i> {{ t('menu_trilha_tcc') }}</a></li>
-                {% endif %}
-                <li><a class="dropdown-item fw-bold" href="{{ url_for('reunioes') }}"><i class="bi bi-journal-text"></i> {{ t('menu_reunioes') }}</a></li>
-                <li><a class="dropdown-item fw-bold" href="{{ url_for('agenda_bancas') }}"><i class="bi bi-calendar-event"></i> {{ t('menu_agenda_bancas') }}</a></li>
-                <li><a class="dropdown-item fw-bold" href="{{ url_for('avaliadores_banca') }}"><i class="bi bi-person-badge"></i> {{ t('aval_titulo') }}</a></li>
-                <li><a class="dropdown-item fw-bold" href="{{ url_for('indicadores_voluntariado') }}"><i class="bi bi-bar-chart-line"></i> {{ t('menu_indicadores') }}</a></li>
-
-                {% if current_user.tipo_usuario == 'Mentor Administrador' %}
-                <li><a class="dropdown-item fw-bold" href="{{ url_for('gerenciar_solicitacoes') }}"><i class="bi bi-envelope-paper-fill"></i> {{ t('menu_solicitacoes') }}</a></li>
-                {% endif %}
-
-                {% if current_user.tipo_usuario == 'Administrador' %}
-                <li><hr class="dropdown-divider"></li>
-                <li><a class="dropdown-item fw-bold" href="{{ url_for('agentes_ia') }}"><i class="bi bi-robot"></i> {{ tt('Agentes IA') }}</a></li>
-                <li><a class="dropdown-item fw-bold text-danger" href="{{ url_for('manutencao_banco') }}"><i class="bi bi-database-fill-gear"></i> {{ t('menu_manutencao') }}</a></li>
-                {% endif %}
-            </ul>
+          <a class="nav-link dropdown-toggle fw-bold text-danger {% if ep in grupo_admin %}{{ ativo }}{% endif %}" href="#" id="adminDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+            <i class="bi bi-gear-fill"></i> {{ t('menu_administracao') }}
+          </a>
+          <ul class="dropdown-menu shadow border-0" aria-labelledby="adminDropdown">
+            {% if current_user.tipo_usuario in ['Administrador', 'Mentor Administrador'] %}
+            <li><h6 class="dropdown-header">{{ tt('Pessoas') }}</h6></li>
+            <li><a class="dropdown-item fw-bold" href="{{ url_for('gerenciar_usuarios') }}"><i class="bi bi-people-fill"></i> {{ t('menu_cadastros') }}</a></li>
+            {% endif %}
+            <li><a class="dropdown-item fw-bold" href="{{ url_for('avaliadores_banca') }}"><i class="bi bi-person-badge"></i> {{ t('aval_titulo') }}</a></li>
+            {% if current_user.tipo_usuario == 'Mentor Administrador' %}
+            <li><a class="dropdown-item fw-bold" href="{{ url_for('gerenciar_solicitacoes') }}"><i class="bi bi-envelope-paper-fill"></i> {{ t('menu_solicitacoes') }}</a></li>
+            {% endif %}
+            <li><hr class="dropdown-divider"></li>
+            <li><h6 class="dropdown-header">{{ tt('Programa') }}</h6></li>
+            {% if current_user.tipo_usuario in ['Administrador', 'Mentor Administrador'] %}
+            <li><a class="dropdown-item fw-bold" href="{{ url_for('gestao_trilha_tcc') }}"><i class="bi bi-mortarboard"></i> {{ t('menu_trilha_tcc') }}</a></li>
+            {% endif %}
+            <li><a class="dropdown-item fw-bold" href="{{ url_for('reunioes') }}"><i class="bi bi-journal-text"></i> {{ t('menu_reunioes') }}</a></li>
+            <li><a class="dropdown-item fw-bold" href="{{ url_for('agenda_bancas') }}"><i class="bi bi-calendar-event"></i> {{ t('menu_agenda_bancas') }}</a></li>
+            <li><a class="dropdown-item fw-bold" href="{{ url_for('indicadores_voluntariado') }}"><i class="bi bi-bar-chart-line"></i> {{ t('menu_indicadores') }}</a></li>
+            {% if current_user.tipo_usuario == 'Administrador' %}
+            <li><hr class="dropdown-divider"></li>
+            <li><h6 class="dropdown-header">{{ tt('Sistema') }}</h6></li>
+            <li><a class="dropdown-item fw-bold" href="{{ url_for('agentes_ia') }}"><i class="bi bi-robot"></i> {{ tt('Agentes IA') }}</a></li>
+            <li><a class="dropdown-item fw-bold text-danger" href="{{ url_for('manutencao_banco') }}"><i class="bi bi-database-fill-gear"></i> {{ t('menu_manutencao') }}</a></li>
+            {% endif %}
+          </ul>
         </li>
         {% endif %}
-
       </ul>
-      
-      <!-- Lado Direito: Seletor de Idioma, Seletor de Tema, Identificação do Usuário e Logout -->
 
-      <div class="d-flex align-items-center gap-2">
+      <!-- Lado direito: notificações, idioma, tema, utilizador, tour e sair -->
+      <div class="d-flex align-items-center flex-wrap gap-2">
           {% if current_user.is_authenticated %}
-          
           <!-- SINO DE NOTIFICAÇÕES -->
-                        <li class="nav-item dropdown position-relative list-unstyled mx-2">
-                            <a class="nav-link text-dark dropdown-toggle" href="#" id="navbarDropdownSino" role="button" data-bs-toggle="dropdown" aria-expanded="false">
-                                🔔
-                                {% if novas_mensagens_count and novas_mensagens_count > 0 %}
-                                <span class="position-absolute top-25 start-75 translate-middle p-1 bg-danger border border-light rounded-circle">
-                                    <span class="visually-hidden">{{ t('nav_sino_novas_mensagens') }}</span>
-                                </span>
-                                {% endif %}
-                            </a>
-                            <ul class="dropdown-menu dropdown-menu-end shadow" aria-labelledby="navbarDropdownSino">
-                                <li><h6 class="dropdown-header">{{ t('nav_sino_titulo') }}</h6></li>
-                                {% if notificacoes_qa %}
-                                    {% for n in notificacoes_qa %}
-                                    <li>
-                                        <a class="dropdown-item small border-bottom py-2" href="{{ n.link }}">
-                                            {{ n.texto }}<br>
-                                            <span class="text-muted" style="font-size: 0.75rem;">
-                                                {{ n.data.strftime('%d/%m/%Y - %H:%M') if n.data else '' }}
-                                            </span>
-                                        </a>
-                                    </li>
-                                    {% endfor %}
-                                {% else %}
-                                    <li><span class="dropdown-item text-muted small">{{ t('nav_sino_vazio') }}</span></li>
-                                {% endif %}
-                                <li><a class="dropdown-item small fw-bold text-primary text-center py-2" href="{{ url_for('central_notificacoes') }}">{{ t('notif_ver_todas') }}</a></li>
-                            </ul>
-                        </li>
-
-          <!-- SELETOR DE IDIOMA NA NAVBAR -->
           <div class="dropdown">
-              <button class="btn btn-outline-secondary dropdown-toggle btn-sm fw-bold" type="button" data-bs-toggle="dropdown">
-                  🌐 {{ t('idioma') }}: 
-                  {% if current_user.idioma == 'en' %}English
-                  {% elif current_user.idioma == 'es' %}Español
-                  {% else %}Português{% endif %}
+              <a class="btn btn-sm btn-outline-secondary position-relative" href="#" id="navbarDropdownSino" role="button" data-bs-toggle="dropdown" aria-expanded="false" title="{{ t('nav_sino_titulo') }}" aria-label="{{ t('nav_sino_titulo') }}">
+                  <i class="bi bi-bell-fill"></i>
+                  {% if novas_mensagens_count and novas_mensagens_count > 0 %}
+                  <span class="position-absolute top-0 start-100 translate-middle p-1 bg-danger border border-light rounded-circle">
+                      <span class="visually-hidden">{{ t('nav_sino_novas_mensagens') }}</span>
+                  </span>
+                  {% endif %}
+              </a>
+              <ul class="dropdown-menu dropdown-menu-end shadow" aria-labelledby="navbarDropdownSino">
+                  <li><h6 class="dropdown-header">{{ t('nav_sino_titulo') }}</h6></li>
+                  {% if notificacoes_qa %}
+                      {% for n in notificacoes_qa %}
+                      <li>
+                          <a class="dropdown-item small border-bottom py-2" href="{{ n.link }}">
+                              {{ n.texto }}<br>
+                              <span class="text-muted" style="font-size: 0.75rem;">{{ n.data.strftime('%d/%m/%Y - %H:%M') if n.data else '' }}</span>
+                          </a>
+                      </li>
+                      {% endfor %}
+                  {% else %}
+                      <li><span class="dropdown-item text-muted small">{{ t('nav_sino_vazio') }}</span></li>
+                  {% endif %}
+                  <li><a class="dropdown-item small fw-bold text-primary text-center py-2" href="{{ url_for('central_notificacoes') }}">{{ t('notif_ver_todas') }}</a></li>
+              </ul>
+          </div>
+
+          <!-- IDIOMA -->
+          <div class="dropdown">
+              <button class="btn btn-outline-secondary dropdown-toggle btn-sm fw-bold" type="button" data-bs-toggle="dropdown" title="{{ t('idioma') }}">
+                  <i class="bi bi-translate"></i> {{ {'en': 'EN', 'es': 'ES'}.get(current_user.idioma, 'PT') }}
               </button>
               <ul class="dropdown-menu dropdown-menu-end shadow">
+                  <li><h6 class="dropdown-header">{{ t('idioma') }}</h6></li>
                   <li><a class="dropdown-item" href="{{ url_for('alterar_idioma', sigla_idioma='pt') }}">🇧🇷 Português (Brasil)</a></li>
                   <li><a class="dropdown-item" href="{{ url_for('alterar_idioma', sigla_idioma='en') }}">🇺🇸 English</a></li>
                   <li><a class="dropdown-item" href="{{ url_for('alterar_idioma', sigla_idioma='es') }}">🇪🇸 Español</a></li>
               </ul>
           </div>
 
-          <!-- SELETOR DE TEMAS ÚNICO NA NAVBAR -->
+          <!-- TEMA -->
           <div class="dropdown">
-              <button class="btn btn-outline-secondary dropdown-toggle btn-sm fw-bold" type="button" data-bs-toggle="dropdown">
-                  🎨 {{ t('tema') }}: 
+              <button class="btn btn-outline-secondary dropdown-toggle btn-sm fw-bold" type="button" data-bs-toggle="dropdown" title="{{ t('tema') }}">
+                  <i class="bi bi-palette"></i>
                   {% if current_user.tema == 'escuro' %}{{ t('tema_escuro') }}
                   {% elif current_user.tema == 'futurista' %}{{ t('tema_futurista') }}
                   {% elif current_user.tema == 'vintage' %}{{ t('tema_vintage') }}
                   {% else %}{{ t('tema_claro') }}{% endif %}
               </button>
               <ul class="dropdown-menu dropdown-menu-end shadow">
+                  <li><h6 class="dropdown-header">{{ t('tema') }}</h6></li>
                   <li><a class="dropdown-item" href="{{ url_for('alterar_tema', nome_tema='claro') }}">☀️ {{ t('tema_claro') }}</a></li>
                   <li><a class="dropdown-item" href="{{ url_for('alterar_tema', nome_tema='escuro') }}">🌙 {{ t('tema_escuro') }}</a></li>
                   <li><a class="dropdown-item" href="{{ url_for('alterar_tema', nome_tema='futurista') }}">🚀 {{ t('tema_futurista') }}</a></li>
@@ -835,23 +790,37 @@
               </ul>
           </div>
 
-          <!-- IDENTIFICAÇÃO DO USUÁRIO -->
-          <span class="small d-none d-lg-inline ms-2">
-              {{ t('conectado') }}: <strong>{{ current_user.nome }}</strong>
+          <!-- UTILIZADOR -->
+          <span class="usuario-topo small align-items-center gap-1" title="{{ t('conectado') }}: {{ current_user.nome }}">
+              <i class="bi bi-person-circle"></i> <strong class="text-truncate" style="max-width: 160px;">{{ current_user.nome }}</strong>
           </span>
 
-          <!-- BOTÃO DE TOUR DA PÁGINA -->
-            <button type="button" class="btn btn-outline-secondary btn-sm fw-bold ms-2" onclick="iniciarTourDaPagina()" title="Fazer um tour por esta tela">
-                🧭 Tour
-            </button>
+          <!-- TOUR DA PÁGINA -->
+          <button type="button" class="btn btn-outline-secondary btn-sm fw-bold" onclick="iniciarTourDaPagina()" title="Fazer um tour por esta tela">
+              🧭 Tour
+          </button>
 
-          <!-- BOTÃO SAIR / LOGOUT -->
-          <a href="{{ url_for('logout') }}" class="btn btn-outline-danger btn-sm fw-bold px-3 ms-2">{{ t('sair') }}</a>
+          <!-- SAIR -->
+          <a href="{{ url_for('logout') }}" class="btn btn-outline-danger btn-sm fw-bold px-3"><i class="bi bi-box-arrow-right"></i> {{ t('sair') }}</a>
           {% endif %}
       </div>
     </div>
   </div>
 </nav>
+<style>
+    /* Menu do topo: itens numa linha só, item ativo destacado e submenus com largura confortável */
+    .menu-topo .nav-link { white-space: nowrap; border-radius: 8px; padding-left: .7rem !important; padding-right: .7rem !important; }
+    .menu-topo .nav-link.ativo { color: var(--bs-primary) !important; background-color: rgba(13, 110, 253, .1); }
+    .menu-topo .dropdown-menu { min-width: 240px; }
+    .menu-topo .dropdown-item { padding-top: .45rem; padding-bottom: .45rem; }
+    .menu-topo .dropdown-item i { width: 1.4rem; display: inline-block; }
+    .menu-topo .dropdown-toggle.btn { white-space: nowrap; }
+    /* Nome do utilizador só em telas largas (no resto fica no título do selo), para os botões não quebrarem linha */
+    .menu-topo .usuario-topo { display: none; }
+    @media (min-width: 1600px) { .menu-topo .usuario-topo { display: inline-flex; } }
+    @media (min-width: 1200px) { .menu-topo .navbar-collapse > .d-flex { flex-wrap: nowrap !important; } }
+    [data-theme="escuro"] .menu-topo .nav-link.ativo, [data-theme="futurista"] .menu-topo .nav-link.ativo { color: #93c5fd !important; background-color: rgba(147, 197, 253, .14); }
+</style>
 
 <!-- ESPAÇO ONDE AS OUTRAS TELAS SERÃO INJETADAS -->
 <div class="container">

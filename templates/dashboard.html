@@ -41,8 +41,6 @@
 </div>
 {% endfor %}
 
-<div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-3">
-
 <!-- ALERTA DE SENHA -->
 {% if dias_restantes_senha <= 15 %}
 <div class="alert alert-warning alert-dismissible fade show border-start border-warning border-4 shadow-sm mb-4" role="alert">
@@ -274,158 +272,130 @@
 {% endif %}
 <!-- FIM DO MÓDULO DE VOLUNTARIADO -->
 
-<!-- CABEÇALHO COM TÍTULO E BOTÕES -->
-<div class="d-flex flex-column flex-xl-row justify-content-between align-items-start align-items-xl-center mb-4 gap-3">
-    <div>
-        <!-- TÍTULO TRADUZIDO -->
-        <h2 class="text-primary fw-bold">{{ t('titulo_dashboard') }}</h2>
-        <!-- Bloco de Nível de Acesso e Mentor (TRADUÇÃO AUTOMÁTICA 3 IDIOMAS) -->
-        <p class="text-muted mb-0">
-            {{ t('nivel_acesso') }}: <strong>
-            {% if current_user.tipo_usuario == 'Aluno' %}
-            {{ t('aluno') }}
-            {% else %}
-            {{ tt(current_user.tipo_usuario) }}
-            {% endif %}
-            </strong>
-            <!-- A regrinha abaixo diz: Só mostre o mentor SE for um Aluno logado -->
-            {% if current_user.tipo_usuario == 'Aluno' %}
-            <span class="ms-3">
-            {% if t('sem_certificado') == 'Uncertified' %}
-            Responsible Mentor:
-            {% elif t('sem_certificado') == 'Sin Certificado' %}
-            Mentor Responsable:
-            {% else %}
-            Mentor Responsável:
-            {% endif %}
-            <strong class="text-primary">
-            {% if nome_mentor == 'Não atribuído' %}
-            {% if t('sem_certificado') == 'Uncertified' %}
-            Not assigned
-            {% elif t('sem_certificado') == 'Sin Certificado' %}
-            No asignado
-            {% else %}
-            Não atribuído
-            {% endif %}
-            {% else %}
-            {{ nome_mentor }}
-            {% endif %}
-            </strong>
-            </span>
-            {% endif %}
-        </p>
-    </div>
-    
-    <!-- ÁREA DOS BOTÕES COM ALINHAMENTO FLEXÍVEL (GAP) -->
-    <div class="d-flex flex-wrap gap-2 justify-content-xl-end mt-3 mt-xl-0">
-        
-        <!-- Esconde os botões operacionais para a Gestão, mostrando apenas para Alunos e Mentores -->
-        {% if current_user.tipo_usuario not in ['Administrador', 'Mentor Administrador'] %}
-            
-            {# Só o Gestor B2B chega aqui com acesso ao Hub (Mentor e Professor são barrados pela rota) #}
-            {% if current_user.tipo_usuario == 'Admin B2B' %}
-            <a href="{{ url_for('gerenciar_turmas') }}" class="btn btn-outline-success fw-bold shadow-sm">{{ t('btn_cursos') }}</a>
-            {% endif %}
-            
-            <a href="{{ url_for('acompanhamento') }}" class="btn btn-info text-white fw-bold shadow-sm">{{ t('btn_acompanhamento') }}</a>
-            
-            <a href="{{ url_for('sessoes') }}" class="btn btn-warning fw-bold shadow-sm">{{ t('btn_sessoes') }}</a>
-            
-        {% endif %}
-        
-    </div>
-</div>
+<!-- CABEÇALHO DO PAINEL: título, perfil, mentor (aluno) e atalhos -->
+<style>
+    .painel-cabecalho { border-left: 4px solid var(--bs-primary) !important; }
+    .kpi-card { transition: transform .15s ease, box-shadow .15s ease; }
+    .kpi-card:hover { transform: translateY(-2px); }
+    .kpi-icone { width: 46px; height: 46px; border-radius: 12px; display: inline-flex; align-items: center; justify-content: center; font-size: 1.35rem; flex: 0 0 46px; }
+    .kpi-icone.azul { background: rgba(13, 110, 253, .14); color: #0d6efd; }
+    .kpi-icone.ciano { background: rgba(13, 202, 240, .16); color: #0aa2c0; }
+    .kpi-icone.verde { background: rgba(25, 135, 84, .14); color: #198754; }
+    .kpi-icone.cinza { background: rgba(108, 117, 125, .16); color: #6c757d; }
+    .kpi-icone.vermelho { background: rgba(220, 53, 69, .14); color: #dc3545; }
+    .kpi-icone.roxo { background: rgba(111, 66, 193, .14); color: #6f42c1; }
+    .kpi-texto small { font-size: .78rem; line-height: 1.15; }
+    .kpi-texto h3 { font-size: 1.6rem; font-variant-numeric: tabular-nums; }
+    .grafico-card .card-header { background: transparent; }
+    .grafico-card canvas { max-height: 280px; }
+    .grafico-tipo-rapido { width: auto; max-width: 210px; }
+    .linha-config-grafico { border: 1px solid rgba(128, 128, 128, .25); border-radius: 10px; padding: 10px; }
+</style>
 
-<!-- CARDS DE RESUMO E CERTIFICAÇÃO (TEXTOS TRADUZIDOS) -->
-<div class="row g-2 mb-4">
-{% if current_user.tipo_usuario != 'Aluno' %}
-<div class="col">
-<div class="card shadow-sm border-0 p-2 text-center h-100">
-<small class="text-muted d-block fw-bold" style="font-size: 0.8rem;">{{ t('total_alunos') }}</small>
-<h3 class="fw-bold text-primary mb-0" style="font-size: 1.5rem;">{{ total_alunos }}</h3>
-</div>
-</div>
-{% if jovens_online_hoje is not none %}
-<!-- Jovens que registraram presença Online hoje (link para a Frequência já filtrada) -->
-<div class="col">
-<a href="{{ url_for('gerenciar_frequencia', tipo_presenca='Online', data_inicio=data_hoje_iso, data_fim=data_hoje_iso) }}" class="card shadow-sm border-0 p-2 text-center h-100 text-decoration-none" title="{{ t('jovens_online_cadastrados') }}: {{ jovens_online_cadastro }}">
-<small class="text-muted d-block fw-bold" style="font-size: 0.8rem;">{{ t('jovens_online_hoje') }}</small>
-<h3 class="fw-bold text-info mb-0" style="font-size: 1.5rem;"><i class="bi bi-laptop"></i> {{ jovens_online_hoje }}</h3>
-<span class="small text-muted">{{ jovens_online_cadastro }} {{ t('jovens_online_cadastrados_curto') }}</span>
-</a>
-</div>
-{% endif %}
-{% endif %}
-<div class="col">
-<div class="card shadow-sm border-0 p-2 text-center h-100">
-<small class="text-muted d-block fw-bold" style="font-size: 0.8rem;">{{ t('finalizados') }}</small>
-<h3 class="fw-bold text-success mb-0" style="font-size: 1.5rem;">{{ total_finalizados }}</h3>
-</div>
-</div>
-<div class="col">
-<div class="card shadow-sm border-0 p-2 text-center h-100">
-<small class="text-muted d-block fw-bold" style="font-size: 0.8rem;">{{ t('com_certificado') }}</small>
-<h3 class="fw-bold text-info mb-0" style="font-size: 1.5rem;">{{ finalizados_com_certificado }}</h3>
-</div>
-</div>
-<div class="col">
-<div class="card shadow-sm border-0 p-2 text-center h-100">
-<small class="text-muted d-block fw-bold" style="font-size: 0.8rem;">{{ t('sem_certificado') }}</small>
-<h3 class="fw-bold text-secondary mb-0" style="font-size: 1.5rem;">{{ finalizados_sem_certificado }}</h3>
-</div>
-</div>
-<div class="col">
-    <div class="card shadow-sm border-0 p-2 text-center h-100">
-        <small class="text-muted d-block fw-bold" style="font-size: 0.8rem;">{{ t('cursos_risco') }}</small>
-        <h3 class="fw-bold text-danger mb-0" style="font-size: 1.5rem;">{{ contador_risco }}</h3>
-    </div>
-</div>
-
-<!-- ========================================================================== -->
-<!-- NOVO CARD: Resumo de Projetos / TCC (Adaptado ao seu grid atual)           -->
-<!-- ========================================================================== -->
-<div class="col">
-    <div class="card shadow-sm border-0 p-2 text-center h-100 border-start border-4 border-info">
-        <small class="text-muted d-block fw-bold" style="font-size: 0.8rem;">{{ tt('PROJETOS (TCC)') }}</small>
-        <h3 class="fw-bold text-dark mb-0" style="font-size: 1.5rem;">{{ total_projetos }}</h3>
-        <div class="mt-1" style="font-size: 0.75rem; line-height: 1.2;">
-            <span class="text-info fw-bold">{{ projetos_andamento }}</span> {{ tt('Andamento') }}<br>
-            <span class="text-success fw-bold">{{ projetos_concluidos }}</span> {{ tt('Concluídos') }}
+<div class="card border-0 shadow-sm mb-4 painel-cabecalho" id="painelCabecalho">
+    <div class="card-body d-flex flex-column flex-lg-row justify-content-between align-items-start align-items-lg-center gap-3">
+        <div>
+            <h2 class="text-primary fw-bold mb-1">{{ t('titulo_dashboard') }}</h2>
+            <p class="text-muted mb-0">
+                <i class="bi bi-person-badge"></i> {{ t('nivel_acesso') }}: <strong>{% if current_user.tipo_usuario == 'Aluno' %}{{ t('aluno') }}{% else %}{{ tt(current_user.tipo_usuario) }}{% endif %}</strong>
+                {% if current_user.tipo_usuario == 'Aluno' %}
+                <span class="ms-3"><i class="bi bi-person-check"></i>
+                    {% if t('sem_certificado') == 'Uncertified' %}Responsible Mentor:{% elif t('sem_certificado') == 'Sin Certificado' %}Mentor Responsable:{% else %}Mentor Responsável:{% endif %}
+                    <strong class="text-primary">{% if nome_mentor == 'Não atribuído' %}{% if t('sem_certificado') == 'Uncertified' %}Not assigned{% elif t('sem_certificado') == 'Sin Certificado' %}No asignado{% else %}Não atribuído{% endif %}{% else %}{{ nome_mentor }}{% endif %}</strong>
+                </span>
+                {% endif %}
+            </p>
+        </div>
+        <div class="d-flex flex-wrap gap-2">
+            {% if current_user.tipo_usuario not in ['Administrador', 'Mentor Administrador'] %}
+                {# Só o Gestor B2B chega aqui com acesso ao Hub (Mentor e Professor são barrados pela rota) #}
+                {% if current_user.tipo_usuario == 'Admin B2B' %}
+                <a href="{{ url_for('gerenciar_turmas') }}" class="btn btn-outline-success fw-bold shadow-sm"><i class="bi bi-diagram-3"></i> {{ t('btn_cursos') }}</a>
+                {% endif %}
+                <a href="{{ url_for('acompanhamento') }}" class="btn btn-info text-white fw-bold shadow-sm"><i class="bi bi-graph-up-arrow"></i> {{ t('btn_acompanhamento') }}</a>
+                <a href="{{ url_for('sessoes') }}" class="btn btn-warning fw-bold shadow-sm"><i class="bi bi-calendar-check"></i> {{ t('btn_sessoes') }}</a>
+            {% endif %}
+            <button type="button" class="btn btn-outline-primary fw-bold shadow-sm" id="btnPersonalizarGraficos" data-bs-toggle="modal" data-bs-target="#modalPersonalizarGraficos">
+                <i class="bi bi-sliders"></i> {{ tt('Personalizar gráficos') }}
+            </button>
         </div>
     </div>
 </div>
 
-</div> <!-- ESSA É A DIV QUE FECHA A ROW (LINHA) DOS CARDS -->
+<!-- INDICADORES (KPIs) -->
+{% macro kpi(rotulo, valor, icone, cor, cor_valor='text-dark') %}
+<div class="col">
+    <div class="card kpi-card shadow-sm border-0 h-100">
+        <div class="card-body d-flex align-items-center gap-3 p-3">
+            <span class="kpi-icone {{ cor }}" aria-hidden="true"><i class="bi {{ icone }}"></i></span>
+            <div class="kpi-texto">
+                <small class="text-muted d-block fw-bold">{{ rotulo }}</small>
+                <h3 class="fw-bold mb-0 {{ cor_valor }}">{{ valor }}</h3>
+                {{ caller() if caller else '' }}
+            </div>
+        </div>
+    </div>
+</div>
+{% endmacro %}
+<div class="row row-cols-1 row-cols-sm-2 row-cols-lg-4 row-cols-xxl-{{ 7 if current_user.tipo_usuario != 'Aluno' else 5 }} g-3 mb-4" id="painelKpis">
+    {% if current_user.tipo_usuario != 'Aluno' %}
+    {% call kpi(t('total_alunos'), total_alunos, 'bi-people-fill', 'azul', 'text-primary') %}{% endcall %}
+    {% if jovens_online_hoje is not none %}
+    <!-- Jovens que registraram presença Online hoje (link para a Frequência já filtrada) -->
+    <div class="col">
+        <a href="{{ url_for('gerenciar_frequencia', tipo_presenca='Online', data_inicio=data_hoje_iso, data_fim=data_hoje_iso) }}" class="card kpi-card shadow-sm border-0 h-100 text-decoration-none" title="{{ t('jovens_online_cadastrados') }}: {{ jovens_online_cadastro }}">
+            <div class="card-body d-flex align-items-center gap-3 p-3">
+                <span class="kpi-icone ciano" aria-hidden="true"><i class="bi bi-laptop"></i></span>
+                <div class="kpi-texto">
+                    <small class="text-muted d-block fw-bold">{{ t('jovens_online_hoje') }}</small>
+                    <h3 class="fw-bold mb-0 text-info">{{ jovens_online_hoje }}</h3>
+                    <span class="small text-muted">{{ jovens_online_cadastro }} {{ t('jovens_online_cadastrados_curto') }}</span>
+                </div>
+            </div>
+        </a>
+    </div>
+    {% endif %}
+    {% endif %}
+    {% call kpi(t('finalizados'), total_finalizados, 'bi-check2-circle', 'verde', 'text-success') %}{% endcall %}
+    {% call kpi(t('com_certificado'), finalizados_com_certificado, 'bi-patch-check-fill', 'ciano', 'text-info') %}{% endcall %}
+    {% call kpi(t('sem_certificado'), finalizados_sem_certificado, 'bi-patch-question', 'cinza', 'text-secondary') %}{% endcall %}
+    {% call kpi(t('cursos_risco'), contador_risco, 'bi-exclamation-triangle-fill', 'vermelho', 'text-danger') %}{% endcall %}
+    {% call kpi(tt('PROJETOS (TCC)'), total_projetos, 'bi-kanban', 'roxo') %}
+        <div class="mt-1" style="font-size: 0.75rem; line-height: 1.25;">
+            <span class="text-info fw-bold">{{ projetos_andamento }}</span> {{ tt('Andamento') }} ·
+            <span class="text-success fw-bold">{{ projetos_concluidos }}</span> {{ tt('Concluídos') }}
+        </div>
+    {% endcall %}
+</div>
 
-<!-- ========================================================================== -->
-<!-- ÁREA DOS GRÁFICOS VISUAIS (EVOLUÇÃO E SKILLS)                              -->
-<!-- ========================================================================== -->
-<div class="row mt-4 mb-4">
-<!-- Gráfico de Evolução no Tempo -->
-<div class="col-md-7 mb-3">
-<div class="card shadow-sm border-0 h-100">
-<div class="card-header bg-white border-bottom-0 pt-3 pb-0">
-<h6 class="mb-0 text-primary fw-bold"> {{ t('titulo_grafico_evolucao') }}</h6>
+<!-- GRÁFICOS PERSONALIZÁVEIS (o utilizador escolhe dado, tipo e cor; a escolha fica salva no perfil) -->
+<div class="d-flex justify-content-between align-items-end flex-wrap gap-2 mb-2">
+    <h5 class="fw-bold text-primary mb-0"><i class="bi bi-bar-chart-line"></i> {{ tt('Meus gráficos') }}</h5>
+    <small class="text-muted">{{ tt('Troque o tipo de cada gráfico no seletor ou escolha outros dados em Personalizar gráficos.') }}</small>
 </div>
-<div class="card-body">
-<canvas id="graficoEvolucao" style="max-height: 250px; "></canvas>
-{% if not evolucao_labels %}<p class="text-muted small text-center mb-0 mt-2 grafico-vazio" data-grafico="graficoEvolucao"><i class="bi bi-bar-chart"></i> {{ tt('Ainda não há dados para este gráfico. Ele aparece quando houver cursos matriculados.') }}</p>{% endif %}
+<div class="row g-3 mb-4" id="gradeGraficos"></div>
+
+<!-- MODAL: PERSONALIZAR GRÁFICOS -->
+<div class="modal fade" id="modalPersonalizarGraficos" tabindex="-1" aria-labelledby="tituloPersonalizarGraficos" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title fw-bold" id="tituloPersonalizarGraficos"><i class="bi bi-sliders"></i> {{ tt('Personalizar gráficos') }}</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="{{ t('fechar') }}"></button>
+            </div>
+            <div class="modal-body">
+                <p class="small text-muted">{{ tt('Escolha até 4 gráficos: o dado, o tipo de gráfico e a cor. A escolha fica salva no seu perfil.') }}</p>
+                <div id="listaConfigGraficos" class="d-flex flex-column gap-2"></div>
+                <button type="button" class="btn btn-sm btn-outline-primary mt-3" id="btnAdicionarGrafico"><i class="bi bi-plus-lg"></i> {{ tt('Adicionar gráfico') }}</button>
+            </div>
+            <div class="modal-footer justify-content-between">
+                <button type="button" class="btn btn-outline-secondary" id="btnRestaurarGraficos"><i class="bi bi-arrow-counterclockwise"></i> {{ tt('Restaurar padrão') }}</button>
+                <button type="button" class="btn btn-primary fw-bold px-4" id="btnSalvarGraficos"><i class="bi bi-save"></i> {{ tt('Salvar gráficos') }}</button>
+            </div>
+        </div>
+    </div>
 </div>
-</div>
-</div>
-<!-- Gráfico Radar: Hard vs Soft Skills -->
-<div class="col-md-5 mb-3">
-<div class="card shadow-sm border-0 h-100">
-<div class="card-header bg-white border-bottom-0 pt-3 pb-0">
-<h6 class="mb-0 text-primary fw-bold"> {{ t('titulo_grafico_skills') }}</h6>
-</div>
-<div class="card-body d-flex flex-column align-items-center justify-content-center">
-<canvas id="graficoSkills" style="max-height: 250px; "></canvas>
-{% if not radar_labels %}<p class="text-muted small text-center mb-0 mt-2 grafico-vazio" data-grafico="graficoSkills"><i class="bi bi-diagram-3"></i> {{ tt('Ainda não há dados para este gráfico. Ele aparece quando houver cursos matriculados.') }}</p>{% endif %}
-</div>
-</div>
-</div>
-</div>
+
 <!-- SEÇÃO DE SAÚDE E MATRIZ DE RISCO DOS CURSOS -->
 <div class="card shadow-sm border-0 mb-5">
 <div class="p-3 mb-0 card border-0 rounded d-flex justify-content-between align-items-center flex-row">
@@ -527,99 +497,199 @@ data-progresso="{{ item.percentual }}">
 </div>
 </div>
 <!-- ==========================================================
-SCRIPTS DE RENDERIZAÇÃO DOS GRÁFICOS (CHART.JS)
+GRÁFICOS DO PAINEL (CHART.JS): dados do perfil + escolha do utilizador
 =========================================================== -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <script>
-document.addEventListener("DOMContentLoaded", function() {
-// ==========================================================
-// 1. GRÁFICO MISTO (ESFORÇO VS RESULTADO) Dados Reais
-// ==========================================================
-const canvasEvolucao = document.getElementById('graficoEvolucao');
-if (canvasEvolucao) {
-const ctxEvolucao = canvasEvolucao.getContext('2d');
-new Chart(ctxEvolucao, {
-type: 'bar',
-data: {
-labels: {{ evolucao_labels | tojson}},
-datasets: [
-{
-type: 'bar',
-label: "{{ t('label_volume_horas') }}",
-data: {{ evolucao_horas | tojson }},
-backgroundColor: 'rgba(13, 110, 253, 0.7)',
-borderColor: 'rgba(13, 110, 253, 1)',
-borderWidth: 1,
-borderRadius: 4,
-yAxisID: 'y'
-},
-{
-type: 'line',
-label: "{{ t('label_cursos_concluidos') }}",
-data: {{ evolucao_cursos | tojson }},
-borderColor: 'rgba(25, 135, 84, 1)',
-backgroundColor: 'rgba(25, 135, 84, 1)',
-borderWidth: 3,
-tension: 0.3,
-fill: false,
-pointRadius: 5,
-pointBackgroundColor: '#fff',
-yAxisID: 'y1'
-}
-]
-},
-options: {
-beginAtZero: true,
-responsive: true,
-maintainAspectRatio: false,
-interaction: { mode: 'index', intersect: false },
-scales: {
-y: {
-type: 'linear', display: true, position: 'left',
-title: { display: true, text: "{{ t('eixo_horas_estudadas') }}", color: 'rgba(13, 110, 253, 1)', font: { weight: 'bold' } }
-},
-y1: {
-type: 'linear', display: true, position: 'right',
-beginAtZero: true,
-title: { display: true, text: "{{ t('eixo_cursos_concluidos') }}", color: 'rgba(25, 135, 84, 1)', font: { weight: 'bold' } },
-grid: { drawOnChartArea: false },
-ticks: { stepSize: 1 }
-}
-}
-}
-});
-}
-// ==========================================================
-// 2. GRÁFICO RADAR (CURSOS ALOCADOS) Dados Reais
-// ==========================================================
-const canvasSkills = document.getElementById('graficoSkills');
-if (canvasSkills) {
-const ctxSkills = canvasSkills.getContext('2d');
-new Chart(ctxSkills, {
-type: 'radar',
-data: {
-labels: {{ radar_labels | tojson}},
-datasets: [
-{
-label: "{{ t('label_progresso_curso') }}",
-data: {{ radar_valores | tojson }},
-backgroundColor: 'rgba(111, 66, 193, 0.4)',
-borderColor: 'rgba(111, 66, 193, 1)',
-borderWidth: 2,
-pointBackgroundColor: 'rgba(111, 66, 193, 1)'
-}
-]
-},
-options: {
-responsive: true,
-maintainAspectRatio: false,
-scales: {
-r: { beginAtZero: true, max: 100}
-}
-}
-});
-}
-});
+(function () {
+    const FONTES = {{ fontes_graficos | tojson }};
+    const PADRAO = {{ graficos_padrao | tojson }};
+    const TIPOS = { simples: {{ tipos_grafico_simples | tojson }}, multi: {{ tipos_grafico_multi | tojson }} };
+    const MAXIMO = {{ max_graficos }};
+    const IDS = ['graficoEvolucao', 'graficoSkills', 'graficoExtra3', 'graficoExtra4'];
+    const URL_SALVAR = "{{ url_for('salvar_graficos_painel') }}";
+    const NOMES_TIPO = {
+        misto: {{ tt('Misto (barras + linha)')|tojson }}, barras: {{ tt('Barras')|tojson }}, barras_h: {{ tt('Barras horizontais')|tojson }},
+        barras_empilhadas: {{ tt('Barras empilhadas')|tojson }}, linhas: {{ tt('Linhas')|tojson }}, area: {{ tt('Área')|tojson }},
+        pizza: {{ tt('Pizza')|tojson }}, rosca: {{ tt('Rosca')|tojson }}, polar: {{ tt('Polar')|tojson }}, radar: {{ tt('Radar')|tojson }}
+    };
+    const TXT = {
+        vazio: {{ tt('Ainda não há dados para este gráfico. Ele aparece quando houver cursos matriculados.')|tojson }},
+        dado: {{ tt('Dado')|tojson }}, tipo: {{ tt('Tipo de gráfico')|tojson }}, cor: {{ tt('Cor')|tojson }}, remover: {{ tt('Remover')|tojson }},
+        salvo: {{ tt('Gráficos salvos.')|tojson }}, erro: {{ tt('Não foi possível salvar os gráficos.')|tojson }},
+        eixoHoras: {{ t('eixo_horas_estudadas')|tojson }}, eixoCursos: {{ t('eixo_cursos_concluidos')|tojson }}
+    };
+    let graficos = {{ graficos_painel | tojson }};
+    const instancias = {};
+
+    // Cores legíveis em qualquer tema (os eixos usam a cor do texto da página)
+    function prepararTema() {
+        if (!window.Chart) return;
+        Chart.defaults.color = getComputedStyle(document.body).color;
+        Chart.defaults.borderColor = 'rgba(128, 128, 128, 0.22)';
+        Chart.defaults.font.family = getComputedStyle(document.body).fontFamily;
+    }
+    function rgba(hex, alfa) {
+        const n = parseInt(hex.slice(1), 16);
+        return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${alfa})`;
+    }
+    function paleta(base, quantidade) {
+        const fixas = [base, '#20c997', '#fd7e14', '#6f42c1', '#0dcaf0', '#dc3545', '#ffc107', '#198754', '#d63384', '#6c757d', '#0d6efd', '#adb5bd'];
+        return Array.from({ length: quantidade }, (_, i) => fixas[i % fixas.length]);
+    }
+    function tiposDa(fonte) { return FONTES[fonte] && FONTES[fonte].multi ? TIPOS.multi : TIPOS.simples; }
+
+    function configuracao(item) {
+        const fonte = FONTES[item.fonte];
+        const tipo = item.tipo, cor = item.cor;
+        const series = fonte.series;
+        const circular = ['pizza', 'rosca', 'polar'].includes(tipo);
+        const tipoChart = { barras: 'bar', barras_h: 'bar', barras_empilhadas: 'bar', linhas: 'line', area: 'line', pizza: 'pie', rosca: 'doughnut', polar: 'polarArea', radar: 'radar', misto: 'bar' }[tipo];
+        let datasets;
+        if (fonte.multi) {
+            const cores = [cor, '#198754'];
+            datasets = series.map((s, i) => {
+                const tipoSerie = tipo === 'misto' ? (i === 0 ? 'bar' : 'line') : tipoChart;
+                return {
+                    type: tipoSerie, label: s.rotulo, data: s.dados,
+                    backgroundColor: tipoSerie === 'line' ? (tipo === 'area' ? rgba(cores[i], .25) : cores[i]) : rgba(cores[i], .75),
+                    borderColor: cores[i], borderWidth: tipoSerie === 'line' ? 3 : 1, borderRadius: 4, tension: .3,
+                    fill: tipo === 'area', pointRadius: tipoSerie === 'line' ? 4 : 0, pointBackgroundColor: '#fff',
+                    yAxisID: (tipo === 'barras_empilhadas') ? 'y' : (i === 0 ? 'y' : 'y1')
+                };
+            });
+        } else {
+            const valores = series[0].dados;
+            const cores = circular ? paleta(cor, valores.length) : cor;
+            datasets = [{
+                label: series[0].rotulo, data: valores,
+                backgroundColor: circular ? cores : (tipo === 'linhas' ? cor : rgba(cor, tipo === 'area' || tipo === 'radar' ? .3 : .75)),
+                borderColor: circular ? 'rgba(255,255,255,.6)' : cor, borderWidth: circular ? 1 : 2, borderRadius: tipo.startsWith('barras') ? 4 : 0,
+                tension: .3, fill: tipo === 'area' || tipo === 'radar', pointBackgroundColor: cor, pointRadius: ['linhas', 'area', 'radar'].includes(tipo) ? 4 : 0
+            }];
+        }
+        const opcoes = { responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false },
+                         plugins: { legend: { display: fonte.multi || circular } } };
+        if (tipo === 'radar') {
+            opcoes.scales = { r: { beginAtZero: true, max: fonte.max, angleLines: { color: 'rgba(128,128,128,.25)' } } };
+        } else if (!circular) {
+            opcoes.indexAxis = tipo === 'barras_h' ? 'y' : 'x';
+            const eixoValor = { beginAtZero: true, max: fonte.max, stacked: tipo === 'barras_empilhadas' };
+            opcoes.scales = tipo === 'barras_h' ? { x: eixoValor, y: {} } : { x: { stacked: tipo === 'barras_empilhadas' }, y: eixoValor };
+            if (fonte.multi && tipo !== 'barras_empilhadas') {
+                opcoes.scales.y.title = { display: true, text: TXT.eixoHoras, color: cor, font: { weight: 'bold' } };
+                opcoes.scales.y1 = { type: 'linear', position: 'right', beginAtZero: true, grid: { drawOnChartArea: false }, ticks: { stepSize: 1 },
+                                     title: { display: true, text: TXT.eixoCursos, color: '#198754', font: { weight: 'bold' } } };
+            }
+        }
+        return { type: tipoChart, data: { labels: fonte.labels, datasets }, options: opcoes };
+    }
+
+    function opcoesDeTipo(fonte, atual) {
+        return tiposDa(fonte).map(t => `<option value="${t}" ${t === atual ? 'selected' : ''}>${NOMES_TIPO[t]}</option>`).join('');
+    }
+
+    function desenharGrade() {
+        const grade = document.getElementById('gradeGraficos');
+        Object.values(instancias).forEach(c => c.destroy());
+        grade.innerHTML = '';
+        graficos.forEach((item, i) => {
+            const fonte = FONTES[item.fonte];
+            if (!fonte) return;
+            const id = IDS[i];
+            const largura = graficos.length === 1 ? 'col-12' : (graficos.length === 2 && i === 0 ? 'col-xl-7' : (graficos.length === 2 ? 'col-xl-5' : 'col-xl-6'));
+            const coluna = document.createElement('div');
+            coluna.className = largura;
+            coluna.innerHTML = `
+                <div class="card grafico-card shadow-sm border-0 h-100">
+                    <div class="card-header border-bottom-0 pt-3 pb-0 d-flex justify-content-between align-items-center gap-2">
+                        <h6 class="mb-0 text-primary fw-bold"></h6>
+                        <label class="visually-hidden" for="tipo_${id}">${TXT.tipo}</label>
+                        <select class="form-select form-select-sm grafico-tipo-rapido" id="tipo_${id}" data-indice="${i}">${opcoesDeTipo(item.fonte, item.tipo)}</select>
+                    </div>
+                    <div class="card-body d-flex flex-column justify-content-center" style="min-height: 300px;">
+                        <div style="position: relative; height: 270px;"><canvas id="${id}" role="img"></canvas></div>
+                        ${fonte.labels.length ? '' : `<p class="text-muted small text-center mb-0 mt-2 grafico-vazio" data-grafico="${id}"><i class="bi bi-bar-chart"></i> ${TXT.vazio}</p>`}
+                    </div>
+                </div>`;
+            coluna.querySelector('h6').textContent = fonte.titulo;
+            coluna.querySelector('canvas').setAttribute('aria-label', fonte.titulo);
+            grade.appendChild(coluna);
+            if (window.Chart) instancias[id] = new Chart(document.getElementById(id), configuracao(item));
+        });
+        grade.querySelectorAll('.grafico-tipo-rapido').forEach(sel => sel.addEventListener('change', () => {
+            graficos[+sel.dataset.indice].tipo = sel.value;
+            desenharGrade();
+            salvar(graficos, false);
+        }));
+    }
+
+    // ---------- Janela "Personalizar gráficos"
+    function linhaConfig(item, i) {
+        const opcoesFonte = Object.entries(FONTES).map(([k, f]) => `<option value="${k}" ${k === item.fonte ? 'selected' : ''}>${f.titulo}</option>`).join('');
+        return `<div class="linha-config-grafico row g-2 align-items-end" data-indice="${i}">
+            <div class="col-md-5"><label class="form-label small fw-bold mb-0" for="cfgFonte${i}">${TXT.dado}</label>
+                <select class="form-select form-select-sm cfg-fonte" id="cfgFonte${i}">${opcoesFonte}</select></div>
+            <div class="col-md-4"><label class="form-label small fw-bold mb-0" for="cfgTipo${i}">${TXT.tipo}</label>
+                <select class="form-select form-select-sm cfg-tipo" id="cfgTipo${i}">${opcoesDeTipo(item.fonte, item.tipo)}</select></div>
+            <div class="col-6 col-md-2"><label class="form-label small fw-bold mb-0" for="cfgCor${i}">${TXT.cor}</label>
+                <input type="color" class="form-control form-control-sm form-control-color w-100 cfg-cor" id="cfgCor${i}" value="${item.cor}"></div>
+            <div class="col-6 col-md-1 d-grid"><button type="button" class="btn btn-sm btn-outline-danger cfg-remover" title="${TXT.remover}" aria-label="${TXT.remover}"><i class="bi bi-trash"></i></button></div>
+        </div>`;
+    }
+    function lerConfig() {
+        return Array.from(document.querySelectorAll('#listaConfigGraficos .linha-config-grafico')).map(l => ({
+            fonte: l.querySelector('.cfg-fonte').value, tipo: l.querySelector('.cfg-tipo').value, cor: l.querySelector('.cfg-cor').value
+        }));
+    }
+    function desenharConfig(lista) {
+        const caixa = document.getElementById('listaConfigGraficos');
+        caixa.innerHTML = lista.map(linhaConfig).join('');
+        caixa.querySelectorAll('.cfg-fonte').forEach(sel => sel.addEventListener('change', () => {
+            const tipoSel = sel.closest('.linha-config-grafico').querySelector('.cfg-tipo');
+            tipoSel.innerHTML = opcoesDeTipo(sel.value, tiposDa(sel.value)[0]);
+        }));
+        caixa.querySelectorAll('.cfg-remover').forEach(btn => btn.addEventListener('click', () => {
+            const atual = lerConfig();
+            if (atual.length <= 1) return;
+            atual.splice(+btn.closest('.linha-config-grafico').dataset.indice, 1);
+            desenharConfig(atual);
+        }));
+        document.getElementById('btnAdicionarGrafico').disabled = lista.length >= MAXIMO;
+    }
+
+    function salvar(lista, restaurar) {
+        return fetch(URL_SALVAR, { method: 'POST', headers: { 'Content-Type': 'application/json' },
+                                   body: JSON.stringify(restaurar ? { restaurar: true } : { graficos: lista }) })
+            .then(r => r.json()).then(resp => {
+                if (!resp.ok) throw new Error(resp.erro || '');
+                graficos = resp.graficos;
+                return resp;
+            });
+    }
+
+    document.addEventListener('DOMContentLoaded', function () {
+        prepararTema();
+        desenharGrade();
+        const modal = document.getElementById('modalPersonalizarGraficos');
+        modal.addEventListener('show.bs.modal', () => desenharConfig(JSON.parse(JSON.stringify(graficos))));
+        document.getElementById('btnAdicionarGrafico').addEventListener('click', () => {
+            const atual = lerConfig();
+            const usadas = new Set(atual.map(a => a.fonte));
+            const proxima = Object.keys(FONTES).find(k => !usadas.has(k)) || Object.keys(FONTES)[0];
+            const cores = ['#0d6efd', '#6f42c1', '#198754', '#fd7e14'];
+            atual.push({ fonte: proxima, tipo: tiposDa(proxima)[0], cor: cores[atual.length % 4] });
+            desenharConfig(atual);
+        });
+        const fechar = () => bootstrap.Modal.getOrCreateInstance(modal).hide();
+        document.getElementById('btnSalvarGraficos').addEventListener('click', () => {
+            salvar(lerConfig(), false).then(() => { desenharGrade(); fechar(); }).catch(() => alert(TXT.erro));
+        });
+        document.getElementById('btnRestaurarGraficos').addEventListener('click', () => {
+            salvar(null, true).then(() => { desenharGrade(); fechar(); }).catch(() => alert(TXT.erro));
+        });
+    });
+})();
 </script>
 <!-- ==========================================================
 SCRIPT DO FILTRO E ORDENAÇÃO DA TABELA
@@ -709,10 +779,10 @@ window.iniciarTourDaPagina = function() {
         { intro: "{{ t('tour_dash_intro') | safe }}" }
     ];
 
-    let topo = document.querySelector('.d-flex.justify-content-between.align-items-center.mb-4');
+    let topo = document.getElementById('painelCabecalho');
     if (topo) passos.push({ element: topo, intro: "{{ t('tour_dash_topo') }}" });
 
-    let cartoes = document.querySelector('.row.g-2');
+    let cartoes = document.getElementById('painelKpis');
     if (cartoes) passos.push({ element: cartoes, intro: "{{ t('tour_dash_cartoes') }}" });
 
     let grafEvolucao = document.getElementById('graficoEvolucao');
@@ -720,6 +790,9 @@ window.iniciarTourDaPagina = function() {
 
     let grafSkills = document.getElementById('graficoSkills');
     if (grafSkills) passos.push({ element: grafSkills, intro: "{{ t('tour_dash_skills') | safe }}" });
+
+    let personalizar = document.getElementById('btnPersonalizarGraficos');
+    if (personalizar) passos.push({ element: personalizar, intro: {{ tt('Personalize os gráficos: escolha os dados, o tipo (barras, linhas, pizza, rosca, radar...) e as cores. A escolha fica salva no seu perfil.')|tojson }} });
 
     let areaFiltros = document.getElementById('filtroBusca');
     if (areaFiltros) passos.push({ element: areaFiltros.parentElement.parentElement, intro: "{{ t('tour_dash_filtros') | safe }}" });

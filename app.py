@@ -444,6 +444,8 @@ def dashboard():
 
     dict_evolucao = {}
     dict_radar = {}
+    # Dados extras para os gráficos personalizáveis do painel
+    contagem_status, carga_por_tipo, progresso_por_aluno, progresso_por_curso = {}, {}, {}, {}
 
     for a in acompanhamentos:
         curso = getattr(a, 'curso', None) or Curso.query.get(a.curso_id)
@@ -510,6 +512,13 @@ def dashboard():
         
         dict_radar[tipo_curso]['soma_progresso'] += percentual
         dict_radar[tipo_curso]['qtd'] += 1
+
+        contagem_status[a.status or 'Iniciado'] = contagem_status.get(a.status or 'Iniciado', 0) + 1
+        carga_por_tipo[tipo_curso] = carga_por_tipo.get(tipo_curso, 0) + (curso.carga_horaria or 0)
+        soma_aluno = progresso_por_aluno.setdefault(aluno.nome, [0, 0])
+        soma_aluno[0] += percentual
+        soma_aluno[1] += 1
+        progresso_por_curso[curso.nome_curso] = percentual
 
     try:
         meses_ordenados = sorted(dict_evolucao.keys(), key=lambda x: datetime.strptime(x, '%m/%Y'))
@@ -587,7 +596,20 @@ def dashboard():
         Projeto.grupo_id.in_(ids_meus_grupos), Banca.status.in_(['Agendada', 'Remarcada']),
         Banca.data_hora >= datetime.now() - timedelta(hours=3)).order_by(Banca.data_hora).all()
 
+    fontes_graficos = montar_fontes_painel(current_user, current_user.idioma, {
+        'evolucao_labels': evolucao_labels, 'evolucao_horas': evolucao_horas, 'evolucao_cursos': evolucao_cursos,
+        'radar_labels': radar_labels, 'radar_valores': radar_valores, 'contagem_status': contagem_status,
+        'saudavel': contador_saudavel, 'atencao': contador_atencao, 'risco': contador_risco,
+        'com_certificado': finalizados_com_certificado, 'sem_certificado': finalizados_sem_certificado,
+        'carga_por_tipo': carga_por_tipo, 'progresso_por_aluno': progresso_por_aluno, 'progresso_por_curso': progresso_por_curso,
+        'projetos_andamento': projetos_andamento, 'projetos_concluidos': projetos_concluidos})
+
     return render_template('dashboard.html',
+                           fontes_graficos=fontes_graficos,
+                           graficos_painel=graficos_do_usuario(current_user, fontes_graficos),
+                           graficos_padrao=graficos_padrao_painel(),
+                           tipos_grafico_simples=TIPOS_GRAFICO_SIMPLES, tipos_grafico_multi=TIPOS_GRAFICO_MULTI,
+                           max_graficos=MAX_GRAFICOS_PAINEL,
                            encaminhamentos_vencidos=encaminhamentos_vencidos,
                            minhas_bancas_grupo=minhas_bancas_grupo,
                            atividades_agora=atividades_agora,
@@ -5663,6 +5685,114 @@ def arquivo_agentes_ia():
 
 
 # ==============================================================================
+# PAINEL GERAL: GRÁFICOS PERSONALIZÁVEIS POR UTILIZADOR
+# Cada perfil vê um catálogo de dados; cada utilizador escolhe até 4 gráficos (dado, tipo e cor).
+# ==============================================================================
+TIPOS_GRAFICO_SIMPLES = ['barras', 'barras_h', 'linhas', 'area', 'pizza', 'rosca', 'polar', 'radar']
+TIPOS_GRAFICO_MULTI = ['misto', 'barras', 'barras_empilhadas', 'linhas', 'area']
+MAX_GRAFICOS_PAINEL = 4
+CORES_PADRAO_PAINEL = ['#0d6efd', '#6f42c1', '#198754', '#fd7e14']
+
+
+def montar_fontes_painel(usuario, idioma, dados):
+    """Catálogo de dados para os gráficos do Painel Geral, conforme o perfil.
+    'dados' traz o que a rota dashboard() já agregou dos acompanhamentos visíveis ao perfil."""
+    def serie(rotulo, valores):
+        return {'rotulo': rotulo, 'dados': valores}
+
+    def simples(titulo, pares, rotulo, traduzir_rotulos=False):
+        pares = list(pares)
+        return {'titulo': titulo, 'multi': False,
+                'labels': [tt(str(k), idioma) if traduzir_rotulos else k for k, _ in pares],
+                'series': [serie(rotulo, [v for _, v in pares])]}
+
+    fontes = {
+        'evolucao': {'titulo': t('titulo_grafico_evolucao', idioma), 'multi': True, 'labels': dados['evolucao_labels'],
+                     'series': [serie(t('label_volume_horas', idioma), dados['evolucao_horas']),
+                                serie(t('label_cursos_concluidos', idioma), dados['evolucao_cursos'])]},
+        'habilidades': {'titulo': t('titulo_grafico_skills', idioma), 'multi': False, 'labels': dados['radar_labels'],
+                        'series': [serie(t('label_progresso_curso', idioma), dados['radar_valores'])], 'max': 100},
+        'status_cursos': simples(tt('Cursos por status', idioma), sorted(dados['contagem_status'].items()), tt('Cursos', idioma), True),
+        'saude_cursos': simples(tt('Saúde dos cursos', idioma),
+                                [(tt('Saudáveis', idioma), dados['saudavel']), (tt('Em atenção', idioma), dados['atencao']), (tt('Em risco', idioma), dados['risco'])],
+                                tt('Cursos', idioma)),
+        'certificacao': simples(tt('Certificação dos cursos finalizados', idioma),
+                                [(t('com_certificado', idioma), dados['com_certificado']), (t('sem_certificado', idioma), dados['sem_certificado'])],
+                                tt('Cursos', idioma)),
+        'carga_por_tipo': simples(tt('Carga horária por tipo de curso', idioma), sorted(dados['carga_por_tipo'].items()), tt('Horas', idioma), True),
+        'projetos': simples(tt('Projetos (TCC) por status', idioma),
+                            [(tt('Em Andamento', idioma), dados['projetos_andamento']), (tt('Concluído', idioma), dados['projetos_concluidos'])],
+                            tt('Projetos', idioma)),
+    }
+    if usuario.tipo_usuario == 'Aluno':
+        fontes['progresso_por_curso'] = simples(tt('Progresso por curso', idioma),
+                                                sorted(dados['progresso_por_curso'].items(), key=lambda x: -x[1])[:12], '%')
+        fontes['progresso_por_curso']['max'] = 100
+    else:
+        medias = sorted(((nome, round(s / q, 1)) for nome, (s, q) in dados['progresso_por_aluno'].items() if q), key=lambda x: -x[1])[:12]
+        fontes['progresso_por_aluno'] = simples(tt('Progresso médio por aluno', idioma), medias, '%')
+        fontes['progresso_por_aluno']['max'] = 100
+        from models import CheckinVoluntariado
+        por_mes = {}
+        for c in CheckinVoluntariado.query.filter(CheckinVoluntariado.usuario_id == usuario.id,
+                                                  CheckinVoluntariado.data_hora_fim.isnot(None)).all():
+            mes = c.data_hora_inicio.strftime('%Y-%m')
+            por_mes[mes] = por_mes.get(mes, 0) + (c.total_minutos or 0)
+        fontes['voluntariado_mes'] = simples(tt('Minhas horas de voluntariado por mês', idioma),
+                                             [(f"{m[5:]}/{m[:4]}", round(v / 60, 1)) for m, v in sorted(por_mes.items())], tt('Horas', idioma))
+    return fontes
+
+
+def graficos_padrao_painel():
+    """Os dois gráficos originais do painel (é o que os agentes de teste conferem)."""
+    return [{'fonte': 'evolucao', 'tipo': 'misto', 'cor': CORES_PADRAO_PAINEL[0]},
+            {'fonte': 'habilidades', 'tipo': 'radar', 'cor': CORES_PADRAO_PAINEL[1]}]
+
+
+def validar_graficos_painel(lista, fontes):
+    """Mantém só configurações válidas para o perfil (fonte disponível, tipo permitido e cor #RRGGBB)."""
+    validos = []
+    for item in (lista or [])[:MAX_GRAFICOS_PAINEL]:
+        if not isinstance(item, dict) or item.get('fonte') not in fontes:
+            continue
+        tipos = TIPOS_GRAFICO_MULTI if fontes[item['fonte']]['multi'] else TIPOS_GRAFICO_SIMPLES
+        tipo = item.get('tipo') if item.get('tipo') in tipos else tipos[0]
+        cor = item.get('cor') if re.fullmatch(r'#[0-9a-fA-F]{6}', str(item.get('cor') or '')) else CORES_PADRAO_PAINEL[len(validos) % 4]
+        validos.append({'fonte': item['fonte'], 'tipo': tipo, 'cor': cor})
+    return validos
+
+
+def graficos_do_usuario(usuario, fontes):
+    try:
+        salvos = json.loads(usuario.preferencias_painel or 'null')
+    except ValueError:
+        salvos = None
+    return validar_graficos_painel(salvos, fontes) or graficos_padrao_painel()
+
+
+@app.route('/painel/graficos', methods=['POST'])
+@login_required
+def salvar_graficos_painel():
+    """Grava (ou restaura) os gráficos escolhidos pelo utilizador no Painel Geral."""
+    corpo = request.get_json(silent=True) or {}
+    if corpo.get('restaurar'):
+        current_user.preferencias_painel = None
+        db.session.commit()
+        return jsonify({'ok': True, 'graficos': graficos_padrao_painel()})
+    fontes = {chave: {'multi': chave == 'evolucao'} for chave in
+              ['evolucao', 'habilidades', 'status_cursos', 'saude_cursos', 'certificacao', 'carga_por_tipo', 'projetos',
+               'progresso_por_curso' if current_user.tipo_usuario == 'Aluno' else 'progresso_por_aluno']}
+    if current_user.tipo_usuario != 'Aluno':
+        fontes['voluntariado_mes'] = {'multi': False}
+    graficos = validar_graficos_painel(corpo.get('graficos'), fontes)
+    if not graficos:
+        return jsonify({'ok': False, 'erro': tt('Escolha pelo menos um gráfico válido.', current_user.idioma)}), 400
+    current_user.preferencias_painel = json.dumps(graficos)
+    db.session.commit()
+    return jsonify({'ok': True, 'graficos': graficos})
+
+
+# ==============================================================================
 # CONTEÚDO INICIAL DA TRILHA DO TCC (editável depois em Onboarding › Gestão da trilha)
 # ==============================================================================
 MODULOS_TRILHA_PADRAO = [
@@ -5726,6 +5856,8 @@ def atualizar_estrutura_banco():
     from sqlalchemy import text
     db.create_all()
     colunas_novas = [
+        # Painel Geral: gráficos personalizados por utilizador
+        "ALTER TABLE usuario ADD COLUMN preferencias_painel TEXT",
         # Manutenção (DB): histórico de execuções com arquivo, tamanho, duração e agendamento de origem
         "ALTER TABLE registro_backup ADD COLUMN arquivo VARCHAR(255)",
         "ALTER TABLE registro_backup ADD COLUMN tamanho_bytes INTEGER",

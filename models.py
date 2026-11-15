@@ -27,6 +27,8 @@ class Usuario(db.Model, UserMixin):
     tentativas_login = db.Column(db.Integer, default=0)
     tema = db.Column(db.String(20), default='claro')
     idioma = db.Column(db.String(10), default='pt')
+    # Gráficos escolhidos no Painel Geral (JSON: [{fonte, tipo, cor}]); vazio = padrão do perfil
+    preferencias_painel = db.Column(db.Text, nullable=True)
     data_ultima_troca_senha = db.Column(db.DateTime, default=datetime.utcnow)
     data_criacao = db.Column(db.DateTime, default=datetime.utcnow)
     criado_por = db.Column(db.String(100), default='Sistema')
