@@ -48,6 +48,13 @@
     .hub-gestor .contador { position: absolute; top: -4px; right: -4px; background: #7c3aed; color: #fff; border-radius: 50%; width: 24px; height: 24px;
                             display: flex; align-items: center; justify-content: center; font-size: .75rem; border: 2px solid #050a14; }
     .hub-gestor .texto { font-size: .78rem; color: #cbd5e1; max-width: 190px; }
+    /* Medidor de saúde (mesmo padrão dos painéis de Funcionalidades, Segurança e Banco de Dados) */
+    .hub-saude { position: absolute; right: 18px; top: 12px; z-index: 4; width: 150px; text-align: center; }
+    .hub-saude svg { width: 150px; height: 84px; }
+    .hub-saude .valor { margin-top: -38px; font-size: 1.45rem; font-weight: 800; color: #fff; line-height: 1; }
+    .hub-saude .legenda { font-size: .68rem; color: #93c5fd; text-transform: uppercase; letter-spacing: .06em; }
+    .hub-saude .contagens { display: flex; justify-content: center; gap: 4px; margin-top: 6px; }
+    .hub-saude .contagens span { min-width: 26px; padding: 1px 5px; border-radius: 4px; font-size: .7rem; font-weight: 700; color: #fff; }
 
     .hub-agente { position: absolute; width: 132px; transform: translate(-50%, -50%); z-index: 3; text-align: center; transition: filter .3s, opacity .3s; }
     .hub-agente .base { position: relative; margin: 0 auto; width: 92px; height: 74px; border-radius: 14px; display: flex; align-items: center; justify-content: center;
@@ -90,6 +97,8 @@
         .hub-servidor, .hub-linhas, .hub-fluxo, .hub-rotulo { display: none !important; }
         .hub-agentes { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 14px; margin-top: 18px; }
         .hub-agente { position: static; transform: none; width: auto; }
+        .hub-saude { right: 10px; top: 8px; width: 120px; } .hub-saude svg { width: 120px; height: 68px; } .hub-saude .valor { margin-top: -30px; font-size: 1.2rem; }
+        .hub-gestor .texto { display: none; }
     }
     @media (prefers-reduced-motion: reduce) {
         .hub-ia *, .hub-ia *::before, .hub-ia *::after { animation: none !important; }
@@ -179,6 +188,18 @@
                 <div class="texto" id="gestorTexto">{{ tt('Aguardando o início dos testes.') }}</div>
             </div>
 
+            <div class="hub-saude" title="{{ tt('Saúde dos testes Fim a Fim: percentual de testes aprovados (alertas contam meio ponto).') }}">
+                <svg viewBox="0 0 150 84" aria-hidden="true">
+                    <path d="M12 78 A63 63 0 0 1 138 78" fill="none" stroke="rgba(148,163,184,.25)" stroke-width="12" stroke-linecap="round"/>
+                    <path id="saudeArco" d="M12 78 A63 63 0 0 1 138 78" fill="none" stroke="#22c55e" stroke-width="12" stroke-linecap="round" pathLength="100" stroke-dasharray="0 100"/>
+                </svg>
+                <div class="valor" id="saudeValor">—</div>
+                <div class="legenda">{{ tt('Saúde') }}</div>
+                <div class="contagens" id="saudeContagens">
+                    {% for campo, cor, rotulo in [('aprovados', '#16a34a', 'Aprovado'), ('falhas', '#dc2626', 'Falha'), ('alertas', '#d97706', 'Alerta')] %}<span style="background: {{ cor }}" title="{{ tt(rotulo) }}" data-campo="{{ campo }}">0</span>{% endfor %}
+                </div>
+            </div>
+
             <div class="hub-monitor">
                 <div class="hub-barra"><i class="ponto" style="background:#ef4444"></i><i class="ponto" style="background:#f59e0b"></i><i class="ponto" style="background:#22c55e"></i>
                     <span class="hub-url" id="monitorUrl" data-conteudo-dinamico>—</span></div>
@@ -191,8 +212,8 @@
 
             <div class="hub-agentes">
                 {% set posicoes = {'administrador': (14, 30), 'aluno': (86, 30), 'professor': (10, 56), 'mentor': (90, 56),
-                                   'mentor_administrador': (17, 84), 'gestor_b2b': (83, 84), 'avaliador': (50, 90),
-                                   'perfis_personalizados': (86, 11)} %}
+                                   'mentor_administrador': (17, 84), 'gestor_b2b': (83, 84), 'avaliador': (63, 90),
+                                   'perfis_personalizados': (37, 90)} %}
                 {% for chave, nome in ordem %}
                 <div class="hub-agente aguardando" id="agente_{{ chave }}" data-chave="{{ chave }}" style="left: {{ posicoes[chave][0] }}%; top: {{ posicoes[chave][1] }}%;">
                     <div class="base"><i class="bi bi-robot"></i><span class="selo"></span></div>
@@ -294,6 +315,22 @@
         return rel ? `<a href="${URL_ARQUIVO}${encodeURIComponent(rel.replace(/\\/g, '/'))}" target="_blank" rel="noopener noreferrer" title="${titulo}" class="me-2"><i class="bi ${icone}"></i></a>` : '';
     }
 
+    // Saúde = % de testes aprovados (alerta conta meio ponto), somando todos os agentes; o agente em execução entra com a contagem ao vivo
+    function desenharSaude(perfis, agente) {
+        const soma = { aprovados: 0, falhas: 0, alertas: 0 };
+        Object.entries(perfis).forEach(([chave, p]) => {
+            const fonte = agente && agente.chave === chave && p.status === 'executando' ? agente : p;
+            Object.keys(soma).forEach(c => { soma[c] += Number(fonte[c]) || 0; });
+        });
+        const total = soma.aprovados + soma.falhas + soma.alertas;
+        const valor = total ? Math.round(100 * (soma.aprovados + 0.5 * soma.alertas) / total) : null;
+        const arco = document.getElementById('saudeArco');
+        arco.setAttribute('stroke-dasharray', `${valor === null ? 0 : valor} 100`);
+        arco.setAttribute('stroke', valor === null || valor >= 75 ? '#22c55e' : valor >= 40 ? '#f59e0b' : '#ef4444');
+        document.getElementById('saudeValor').textContent = valor === null ? '—' : valor;
+        document.querySelectorAll('#saudeContagens span').forEach(s => { s.textContent = soma[s.dataset.campo]; });
+    }
+
     function atualizar(dados) {
         const estado = dados.estado, agente = dados.agente;
         const perfis = estado ? estado.perfis : {};
@@ -310,6 +347,8 @@
             no.querySelector('.situacao').textContent = p ? (TXT[st] || st) + ((st === 'concluido' || st === 'falhas') ? ` · ${p.aprovados}✓ ${p.falhas}✗` : '') : (estado ? '—' : TXT.aguardando);
             no.querySelector('.selo').innerHTML = st === 'concluido' ? '<i class="bi bi-check-lg"></i>' : (st === 'falhas' || st === 'erro') ? '<i class="bi bi-x-lg"></i>' : '';
         });
+
+        desenharSaude(perfis, agente);
 
         // Agente Gestor
         const chaves = Object.keys(perfis);

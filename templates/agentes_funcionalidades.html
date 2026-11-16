@@ -263,7 +263,7 @@
             <div class="fn-radar" aria-hidden="true"><i class="bi bi-diagram-3-fill"></i></div>
 
             <div class="fn-agentes">
-                {% set posicoes = {'administrador': (12, 24), 'mentor_administrador': (11, 50), 'gestor_parceiro': (14, 77), 'professor': (36, 91), 'mentor': (64, 91), 'aluno': (86, 77), 'avaliador': (89, 50), 'encerramento': (88, 24)} %}
+                {% set posicoes = {'administrador': (12, 31), 'mentor_administrador': (11, 54), 'gestor_parceiro': (14, 78), 'professor': (36, 91), 'mentor': (64, 91), 'aluno': (86, 78), 'avaliador': (89, 54), 'encerramento': (88, 31)} %}
                 {% for chave, nome, icone, descricao in ordem %}
                 <div class="fn-agente aguardando" id="fn_agente_{{ chave }}" data-chave="{{ chave }}" title="{{ tt(descricao) }}"
                      style="left: {{ posicoes[chave][0] }}%; top: {{ posicoes[chave][1] }}%;">
