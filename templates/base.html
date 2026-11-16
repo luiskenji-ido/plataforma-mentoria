@@ -624,7 +624,7 @@
       {% set ep = request.endpoint %}
       {% set eh_avaliador = current_user.is_authenticated and current_user.tipo_usuario == 'Avaliador Banca' %}
       {% set grupo_aprendizagem = ['sessoes', 'acompanhamento', 'atividades_extras', 'gerenciar_turmas', 'gerenciar_frequencia', 'gerenciar_notas',
-                                 'ocorrencias', 'nova_ocorrencia', 'detalhe_ocorrencia', 'desistencias'] %}
+                                 'ocorrencias', 'nova_ocorrencia', 'detalhe_ocorrencia', 'desistencias', 'avaliacoes'] %}
       {% set grupo_projetos = ['projetos', 'minhas_bancas', 'biblioteca_tccs', 'meus_certificados', 'painel_banca'] %}
       {% set grupo_admin = ['gerenciar_usuarios', 'gestao_trilha_tcc', 'reunioes', 'agenda_bancas', 'avaliadores_banca', 'indicadores_voluntariado',
                             'gerenciar_solicitacoes', 'agentes_ia', 'agentes_seguranca', 'agentes_banco', 'agentes_funcionalidades', 'manutencao_banco', 'gerenciar_grupos', 'perfis_acesso_view', 'parametros_regras', 'agentes_orquestrador'] %}
@@ -655,6 +655,9 @@
             {% if pode_modulo('sessoes') %}<li><a class="dropdown-item fw-bold" href="{{ url_for('sessoes') }}"><i class="bi bi-calendar-check text-primary"></i> {{ t('sessoes') }}</a></li>{% endif %}
             {% if pode_modulo('acompanhamento') %}<li><a class="dropdown-item fw-bold" href="{{ url_for('acompanhamento') }}"><i class="bi bi-graph-up-arrow text-primary"></i> {{ t('acompanhamento') }}</a></li>{% endif %}
             {% if pode_modulo('atividades_extras') %}<li><a class="dropdown-item fw-bold" href="{{ url_for('atividades_extras') }}"><i class="bi bi-people-fill text-primary"></i> {{ t('menu_extras') }}</a></li>{% endif %}
+            {% if current_user.is_authenticated and pode_modulo('avaliacoes') %}
+            <li><a class="dropdown-item fw-bold" href="{{ url_for('avaliacoes') }}"><i class="bi bi-star-half text-primary"></i> {{ tt('Avaliações') }}</a></li>
+            {% endif %}
             {% if current_user.is_authenticated and current_user.tipo_usuario != 'Aluno' and pode_modulo('ocorrencias') %}
             <li><a class="dropdown-item fw-bold" href="{{ url_for('ocorrencias') }}"><i class="bi bi-exclamation-triangle text-warning"></i> {{ tt('Ocorrências') }}</a></li>
             {% endif %}

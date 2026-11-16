@@ -51,8 +51,9 @@ MODULOS = {
     'parametros': ('Parâmetros de regras', 'bi-sliders', ['parametros_regras'], False),
     'ocorrencias': ('Ocorrências dos jovens', 'bi-exclamation-triangle', ['ocorrencias', 'nova_ocorrencia', 'detalhe_ocorrencia'], False),
     'desistencias': ('Desistências', 'bi-person-dash', ['desistencias', 'decidir_desistencia'], False),
+    'avaliacoes': ('Avaliações 360° e alertas', 'bi-star-half', ['avaliacoes', 'responder_avaliacao', 'ciclos_avaliacao'], False),
     'agentes_ia': ('Agentes IA e governança de aprendizados', 'bi-robot',
-                   ['agentes_ia', 'iniciar_agentes_ia', 'parar_agentes_ia', 'estado_agentes_ia_json', 'quadro_agentes_ia',
+                   ['agentes_ia', 'credenciais_agentes_ia', 'iniciar_agentes_ia', 'parar_agentes_ia', 'estado_agentes_ia_json', 'quadro_agentes_ia',
                     'arquivo_agentes_ia', 'governanca_aprendizados', 'governanca_aprendizados_csv', 'agentes_seguranca',
                     'iniciar_agentes_seguranca', 'parar_agentes_seguranca', 'estado_agentes_seguranca_json', 'aprender_agentes_seguranca',
                     'agentes_banco', 'iniciar_agentes_banco', 'parar_agentes_banco', 'estado_agentes_banco_json', 'aprender_agentes_banco',
@@ -65,7 +66,7 @@ MODULOS = {
 }
 
 _comum = ['painel', 'biblioteca', 'certificados', 'demandas']
-_aprendizagem = ['sessoes', 'acompanhamento', 'atividades_extras', 'projetos']
+_aprendizagem = ['sessoes', 'acompanhamento', 'atividades_extras', 'projetos', 'avaliacoes']
 _gestao = ['hub', 'diario', 'bancas', 'voluntariado', 'reunioes', 'agenda_bancas', 'indicadores', 'ocorrencias', 'desistencias']
 MODULOS_POR_BASE = {
     'Aluno': _comum + _aprendizagem,

@@ -43,6 +43,8 @@ class Usuario(db.Model, UserMixin):
     modalidade_participacao = db.Column(db.String(20), default='Presencial')
     # Aceita receber por e-mail os avisos da plataforma (o sino continua mostrando tudo)
     receber_email = db.Column(db.Boolean, default=True)
+    # Último login (sinal de engajamento para o alerta de desengajamento)
+    ultimo_acesso = db.Column(db.DateTime, nullable=True)
     perfil_aluno = db.Column(db.Text, nullable=True)
     objetivo_principal = db.Column(db.Text, nullable=True)
     expectativa_mentoria = db.Column(db.Text, nullable=True)
@@ -1222,3 +1224,58 @@ def _conta_nova_sem_heranca(mapper, conexao, usuario):
         for fk in tabela.foreign_keys:
             if fk.column.table.name == 'usuario' and tabela.name != 'usuario':
                 conexao.execute(tabela.delete().where(fk.parent == usuario.id))
+
+
+# ==============================================================================
+# AVALIAÇÕES 360° E MICROAVALIAÇÕES (jovem ↔ mentor, gestores ITM/B2B e o programa)
+# ==============================================================================
+class CicloAvaliacao(db.Model):
+    """Período de avaliação: '360' (todos avaliam todos, com mais critérios) ou 'Micro' (quinzenal, jovem ↔ mentor)."""
+    __tablename__ = 'ciclo_avaliacao'
+    id = db.Column(db.Integer, primary_key=True)
+    titulo = db.Column(db.String(150), nullable=False)
+    tipo = db.Column(db.String(10), nullable=False, default='360')
+    inicio = db.Column(db.Date, nullable=False)
+    fim = db.Column(db.Date, nullable=False)
+    empresa_id = db.Column(db.Integer, db.ForeignKey('empresa.id'), nullable=True)  # vazio = todos os parceiros
+    criado_por_id = db.Column(db.Integer, db.ForeignKey('usuario.id'), nullable=True)  # vazio = criado pela rotina automática
+    criado_em = db.Column(db.DateTime, default=datetime.now)
+    encerrado_em = db.Column(db.DateTime, nullable=True)
+
+    empresa = db.relationship('Empresa')
+    criado_por = db.relationship('Usuario')
+    respostas = db.relationship('RespostaAvaliacao', backref='ciclo', lazy=True, cascade="all, delete-orphan")
+
+    def aberto(self, hoje=None):
+        hoje = hoje or datetime.now().date()
+        return self.encerrado_em is None and self.inicio <= hoje <= self.fim
+
+
+class RespostaAvaliacao(db.Model):
+    """Uma avaliação de uma pessoa (ou do programa / da gestão ITM) num ciclo, com nota de 1 a 5 por critério."""
+    __tablename__ = 'resposta_avaliacao'
+    id = db.Column(db.Integer, primary_key=True)
+    ciclo_id = db.Column(db.Integer, db.ForeignKey('ciclo_avaliacao.id'), nullable=False)
+    avaliador_id = db.Column(db.Integer, db.ForeignKey('usuario.id'), nullable=False)
+    alvo_tipo = db.Column(db.String(20), nullable=False)  # Mentor / Jovem / Gestor B2B / Gestão ITM / Programa
+    avaliado_id = db.Column(db.Integer, db.ForeignKey('usuario.id'), nullable=True)  # vazio para Programa e Gestão ITM
+    notas = db.Column(db.Text, nullable=False)  # JSON {critério: nota}
+    media = db.Column(db.Float, nullable=False)
+    comentario = db.Column(db.Text, nullable=True)
+    criado_em = db.Column(db.DateTime, default=datetime.now)
+    atualizado_em = db.Column(db.DateTime, default=datetime.now, onupdate=datetime.now)
+
+    avaliador = db.relationship('Usuario', foreign_keys=[avaliador_id])
+    avaliado = db.relationship('Usuario', foreign_keys=[avaliado_id])
+
+
+class CredencialAgente(db.Model):
+    """Credenciais dos agentes de teste e das IAs (cifradas; só o Administrador cadastra; o valor nunca volta para a tela)."""
+    __tablename__ = 'credencial_agente'
+    id = db.Column(db.Integer, primary_key=True)
+    chave = db.Column(db.String(60), unique=True, nullable=False)
+    valor_cifrado = db.Column(db.Text, nullable=False)
+    atualizado_em = db.Column(db.DateTime, default=datetime.now, onupdate=datetime.now)
+    atualizado_por_id = db.Column(db.Integer, db.ForeignKey('usuario.id'), nullable=True)
+
+    atualizado_por = db.relationship('Usuario')

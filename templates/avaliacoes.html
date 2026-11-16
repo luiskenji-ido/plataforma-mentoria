@@ -1,0 +1,160 @@
+{% extends "base.html" %}
+{% block title %}{{ tt('Avaliações') }}{% endblock %}
+{% block content %}
+<div class="container mt-2 mb-5" style="max-width: 1000px;">
+    <h2 class="text-primary fw-bold mb-1"><i class="bi bi-star-half"></i> {{ tt('Avaliações') }}</h2>
+    <p class="text-muted small mb-3">{{ tt('Avaliação 360° em ciclos (jovens, mentores, gestores ITM e B2B e o programa) e microavaliações quinzenais entre jovem e mentor. Notas de 1 a 5.') }}</p>
+
+    <ul class="nav nav-tabs mb-3" role="tablist">
+        <li class="nav-item"><button class="nav-link active fw-bold" data-bs-toggle="tab" data-bs-target="#pendentes" type="button" role="tab">{{ tt('Para avaliar') }}
+            {% set faltam = pendentes | selectattr(3, 'none') | list %}{% if faltam or reunioes_pendentes %}<span class="badge bg-danger">{{ faltam|length + reunioes_pendentes|length }}</span>{% endif %}</button></li>
+        {% if recebidas %}<li class="nav-item"><button class="nav-link fw-bold" data-bs-toggle="tab" data-bs-target="#recebidas" type="button" role="tab">{{ tt('O que recebi') }}</button></li>{% endif %}
+        {% if alertas or current_user.tipo_usuario not in ['Aluno', 'Avaliador Banca'] %}<li class="nav-item"><button class="nav-link fw-bold" data-bs-toggle="tab" data-bs-target="#alertas" type="button" role="tab">{{ tt('Alertas') }}
+            {% if alertas %}<span class="badge bg-danger">{{ alertas|length }}</span>{% endif %}</button></li>{% endif %}
+        {% if resultados or gestao %}<li class="nav-item"><button class="nav-link fw-bold" data-bs-toggle="tab" data-bs-target="#resultados" type="button" role="tab">{{ tt('Resultados') }}</button></li>{% endif %}
+        {% if ciclos or gestao %}<li class="nav-item"><button class="nav-link fw-bold" data-bs-toggle="tab" data-bs-target="#ciclos" type="button" role="tab">{{ tt('Ciclos') }}</button></li>{% endif %}
+    </ul>
+
+    <div class="tab-content">
+        <!-- Para avaliar -->
+        <div class="tab-pane fade show active" id="pendentes" role="tabpanel">
+            {% for r in reunioes_pendentes %}
+            <div class="alert alert-info small py-2 d-flex justify-content-between align-items-center"><span><i class="bi bi-journal-text"></i> {{ tt('Reunião para avaliar') }}: <b>{{ r.titulo }}</b> · {{ r.data_hora.strftime('%d/%m/%Y') }}</span>
+                <a class="btn btn-sm btn-outline-primary fw-bold rounded-pill" href="{{ url_for('detalhe_reuniao', id=r.id) }}#cardFeedback">{{ tt('Avaliar') }}</a></div>
+            {% endfor %}
+            {% for ciclo, alvo_tipo, pessoa, resposta in pendentes %}
+            {% set criterios = criterios_do_alvo(ciclo, alvo_tipo) %}{% set dadas = json_notas(resposta) %}
+            <form method="POST" action="{{ url_for('responder_avaliacao') }}" class="card shadow-sm border-0 mb-2 {{ 'border-start border-4 border-success' if resposta else '' }}" id="aval_{{ ciclo.id }}_{{ alvo_tipo|replace(' ', '_') }}_{{ pessoa.id if pessoa else 0 }}">
+                <input type="hidden" name="ciclo_id" value="{{ ciclo.id }}"><input type="hidden" name="alvo_tipo" value="{{ alvo_tipo }}">
+                {% if pessoa %}<input type="hidden" name="avaliado_id" value="{{ pessoa.id }}">{% endif %}
+                <div class="card-body py-2">
+                    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-1">
+                        <div><span class="badge bg-light text-dark border">{{ tt(alvo_tipo) }}</span> <b>{{ pessoa.nome if pessoa else tt(alvo_tipo) }}</b>
+                            <span class="small text-muted">· {{ ciclo.titulo }} ({{ tt('até') }} {{ ciclo.fim.strftime('%d/%m') }})</span></div>
+                        {% if resposta %}<span class="badge bg-success"><i class="bi bi-check2"></i> {{ tt('Avaliado') }} · {{ resposta.media }}</span>{% endif %}
+                    </div>
+                    <div class="row g-2 align-items-end">
+                        {% for c in criterios %}
+                        <div class="col-6 col-md"><label class="form-label small fw-bold mb-0" for="n{{ ciclo.id }}_{{ loop.index0 }}_{{ alvo_tipo|replace(' ', '_') }}_{{ pessoa.id if pessoa else 0 }}">{{ tt(c) }}</label>
+                            <select class="form-select form-select-sm" name="nota_{{ loop.index0 }}" id="n{{ ciclo.id }}_{{ loop.index0 }}_{{ alvo_tipo|replace(' ', '_') }}_{{ pessoa.id if pessoa else 0 }}" required>
+                                <option value="">—</option>
+                                {% for n in range(5, 0, -1) %}<option value="{{ n }}" {% if dadas.get(c) == n %}selected{% endif %}>{{ n }}</option>{% endfor %}
+                            </select></div>
+                        {% endfor %}
+                        <div class="col-12 col-md-4"><input class="form-control form-control-sm" name="comentario" maxlength="2000" aria-label="{{ tt('Comentário') }}"
+                               placeholder="{{ tt('Comentário (opcional)') }}" value="{{ resposta.comentario or '' if resposta else '' }}"></div>
+                        <div class="col-12 col-md-auto"><button class="btn btn-primary btn-sm fw-bold w-100" type="submit">{{ tt('Atualizar') if resposta else tt('Avaliar') }}</button></div>
+                    </div>
+                </div>
+            </form>
+            {% else %}
+            {% if not reunioes_pendentes %}<p class="text-muted">{{ tt('Nenhuma avaliação aberta para você agora.') }}</p>{% endif %}
+            {% endfor %}
+        </div>
+
+        <!-- O que recebi (anônimo) -->
+        {% if recebidas %}
+        <div class="tab-pane fade" id="recebidas" role="tabpanel">
+            {% if recebidas.oculto %}
+            <p class="text-muted">{{ tt('Você recebeu {n} avaliação(ões). Os resultados aparecem a partir de {m}, para não identificar quem avaliou.').format(n=recebidas.n, m=recebidas.minimo) }}</p>
+            {% else %}
+            {% for g in recebidas.grupos %}
+            <div class="card shadow-sm border-0 mb-2"><div class="card-body small">
+                <b>{{ tt(g.alvo_tipo) }}</b> · {{ tt('média') }} <span class="badge bg-primary">{{ g.media }}</span> · {{ g.n }} {{ tt('avaliação(ões)') }}
+                <div class="mt-1">{% for c, m in g.criterios.items() %}<span class="badge bg-light text-dark border me-1">{{ tt(c) }}: {{ m }}</span>{% endfor %}</div>
+                {% for texto, autor, tipo in g.comentarios %}<div class="text-muted mt-1">“{{ texto }}”</div>{% endfor %}
+            </div></div>
+            {% endfor %}
+            {% endif %}
+        </div>
+        {% endif %}
+
+        <!-- Alertas (equipe: gestão, gestor B2B e mentores) -->
+        {% if alertas or current_user.tipo_usuario not in ['Aluno', 'Avaliador Banca'] %}
+        <div class="tab-pane fade" id="alertas" role="tabpanel">
+            <p class="small text-muted">{{ tt('Ruído de comunicação e engajamento baixo: média recebida nas avaliações abaixo do limite. Sem atividade: nenhum login, frequência, sessão, entrega ou presença no período. Os limites ficam em Parâmetros de regras.') }}</p>
+            <div class="table-responsive"><table class="table table-sm align-middle">
+                <thead class="table-light"><tr><th>{{ tt('Alerta') }}</th><th>{{ tt('Pessoa') }}</th><th>{{ tt('Detalhe') }}</th><th></th></tr></thead>
+                <tbody>
+                {% for a in alertas %}
+                <tr><td><span class="badge bg-{{ a.cor }}{{ ' text-dark' if a.cor == 'warning' else '' }}">{{ tt({'ruido': 'Ruído de comunicação', 'engajamento': 'Engajamento baixo', 'inativo': 'Sem atividade'}[a.tipo]) }}</span></td>
+                    <td>{{ a.pessoa.nome }} <span class="text-muted small">· {{ a.pessoa.tipo_usuario }}</span></td>
+                    <td class="small">{% if a.tipo == 'inativo' %}{{ a.valor }} {{ tt('dias sem atividade') }}{% else %}{{ tt('média') }} {{ a.valor }} ({{ a.n }} {{ tt('avaliação(ões)') }}){% endif %}</td>
+                    <td class="text-end">{% if a.pessoa.tipo_usuario == 'Aluno' and pode_modulo('ocorrencias') %}<a class="btn btn-sm btn-outline-warning fw-bold rounded-pill" href="{{ url_for('nova_ocorrencia', aluno_id=a.pessoa.id) }}">{{ tt('Registrar ocorrência') }}</a>{% endif %}</td></tr>
+                {% else %}
+                <tr><td colspan="4" class="text-muted">{{ tt('Nenhum alerta no momento.') }}</td></tr>
+                {% endfor %}
+                </tbody>
+            </table></div>
+        </div>
+        {% endif %}
+
+        <!-- Resultados (gestão ITM: todos, com autor; gestor B2B: a empresa, sem autor) -->
+        {% if resultados or gestao %}
+        <div class="tab-pane fade" id="resultados" role="tabpanel">
+            <div class="table-responsive"><table class="table table-sm align-middle">
+                <thead class="table-light"><tr><th>{{ tt('Avaliado') }}</th><th class="text-center">{{ tt('Média') }}</th><th class="text-center">{{ tt('Avaliações') }}</th><th>{{ tt('Por critério') }}</th></tr></thead>
+                <tbody>
+                {% for g in resultados %}
+                <tr><td><span class="badge bg-light text-dark border">{{ tt(g.alvo_tipo) }}</span> {{ g.pessoa.nome if g.pessoa else '' }}</td>
+                    <td class="text-center"><span class="badge {{ 'bg-danger' if g.media < 3 else ('bg-warning text-dark' if g.media < 4 else 'bg-success') }}">{{ g.media }}</span></td>
+                    <td class="text-center">{{ g.n }}</td>
+                    <td class="small">{% for c, m in g.criterios.items() %}<span class="me-2">{{ tt(c) }}: <b>{{ m }}</b></span>{% endfor %}
+                        {% for texto, autor, tipo in g.comentarios %}<div class="text-muted">“{{ texto }}”{% if autor %} — {{ autor }}{% endif %}</div>{% endfor %}</td></tr>
+                {% else %}
+                <tr><td colspan="4" class="text-muted">{{ tt('Ainda não há avaliações.') }}</td></tr>
+                {% endfor %}
+                </tbody>
+            </table></div>
+        </div>
+        {% endif %}
+
+        <!-- Ciclos -->
+        {% if ciclos or gestao %}
+        <div class="tab-pane fade" id="ciclos" role="tabpanel">
+            {% if gestao %}
+            <form method="POST" action="{{ url_for('ciclos_avaliacao') }}" class="card shadow-sm border-0 mb-3" id="formNovoCiclo">
+                <input type="hidden" name="acao" value="criar">
+                <div class="card-body row g-2 align-items-end">
+                    <div class="col-md-4"><label class="form-label small fw-bold mb-0" for="cTitulo">{{ tt('Título do ciclo') }}</label>
+                        <input class="form-control form-control-sm" id="cTitulo" name="titulo" maxlength="150" required placeholder="{{ tt('Ex.: Avaliação 360° do 1º semestre') }}"></div>
+                    <div class="col-md-2"><label class="form-label small fw-bold mb-0" for="cTipo">{{ tt('Tipo') }}</label>
+                        <select class="form-select form-select-sm" id="cTipo" name="tipo">{% for tp in tipos_ciclo %}<option value="{{ tp }}">{{ tt('360°') if tp == '360' else tt('Microavaliação') }}</option>{% endfor %}</select></div>
+                    <div class="col-md-2"><label class="form-label small fw-bold mb-0" for="cInicio">{{ tt('Início') }}</label>
+                        <input type="date" class="form-control form-control-sm" id="cInicio" name="inicio" value="{{ hoje.isoformat() }}" required></div>
+                    <div class="col-md-2"><label class="form-label small fw-bold mb-0" for="cFim">{{ tt('Fim') }}</label>
+                        <input type="date" class="form-control form-control-sm" id="cFim" name="fim" required></div>
+                    <div class="col-md-2"><label class="form-label small fw-bold mb-0" for="cEmpresa">{{ tt('Parceiro B2B') }}</label>
+                        <select class="form-select form-select-sm" id="cEmpresa" name="empresa_id"><option value="">{{ tt('Todos') }}</option>
+                            {% for e in empresas %}<option value="{{ e.id }}">{{ e.nome }}</option>{% endfor %}</select></div>
+                    <div class="col-12 text-end"><button class="btn btn-success btn-sm fw-bold px-3" type="submit"><i class="bi bi-plus-lg"></i> {{ tt('Abrir ciclo e avisar') }}</button></div>
+                </div>
+            </form>
+            {% endif %}
+            <ul class="list-group shadow-sm">
+                {% for c in ciclos %}
+                <li class="list-group-item d-flex justify-content-between align-items-center flex-wrap gap-2 small">
+                    <span><b>{{ c.titulo }}</b> · {{ tt('360°') if c.tipo == '360' else tt('Microavaliação') }} · {{ c.inicio.strftime('%d/%m/%Y') }} – {{ c.fim.strftime('%d/%m/%Y') }}
+                        {% if c.empresa %}· {{ c.empresa.nome }}{% endif %} · {{ c.respostas|length }} {{ tt('resposta(s)') }}{% if not c.criado_por %} · <span class="text-muted">{{ tt('automático') }}</span>{% endif %}</span>
+                    <span>{% if c.aberto(hoje) %}<span class="badge bg-success">{{ tt('Aberto') }}</span>
+                        {% if gestao %}<form method="POST" action="{{ url_for('ciclos_avaliacao') }}" class="d-inline m-0"><input type="hidden" name="acao" value="encerrar"><input type="hidden" name="ciclo_id" value="{{ c.id }}">
+                            <button class="btn btn-sm btn-link text-danger p-0 ms-2" type="submit">{{ tt('Encerrar') }}</button></form>{% endif %}
+                        {% elif c.encerrado_em or c.fim < hoje %}<span class="badge bg-secondary">{{ tt('Encerrado') }}</span>
+                        {% else %}<span class="badge bg-info text-dark">{{ tt('Agendado') }}</span>{% endif %}</span>
+                </li>
+                {% else %}
+                <li class="list-group-item text-muted small">{{ tt('Nenhum ciclo ainda.') }}</li>
+                {% endfor %}
+            </ul>
+        </div>
+        {% endif %}
+    </div>
+</div>
+<script>
+// Abre a aba indicada no endereço (#alertas, #ciclos...)
+(function () {
+    const alvo = location.hash && document.querySelector('[data-bs-target="' + location.hash + '"]');
+    if (alvo && window.bootstrap) bootstrap.Tab.getOrCreateInstance(alvo).show();
+})();
+</script>
+{% endblock %}

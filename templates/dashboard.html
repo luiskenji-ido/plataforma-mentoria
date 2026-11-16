@@ -36,6 +36,31 @@
 </div>
 {% endif %}
 
+<!-- AVALIAÇÕES PENDENTES (ciclo 360°/micro e reuniões em que a pessoa esteve) -->
+{% if avaliacoes_pendentes or reunioes_sem_avaliacao %}
+<div class="alert alert-primary d-flex justify-content-between align-items-center flex-wrap gap-2 shadow-sm border-start border-4 border-primary" id="alertaAvaliacoes">
+    <span><i class="bi bi-star-half"></i> <strong>{{ tt('Avaliações pendentes') }}:</strong>
+        {% if avaliacoes_pendentes %}{{ avaliacoes_pendentes|length }} {{ tt('no ciclo aberto') }} ({{ tt('até') }} {{ avaliacoes_pendentes[0][0].fim.strftime('%d/%m') }}){% endif %}
+        {% if avaliacoes_pendentes and reunioes_sem_avaliacao %} · {% endif %}
+        {% if reunioes_sem_avaliacao %}{{ reunioes_sem_avaliacao|length }} {{ tt('reunião(ões) para avaliar') }}{% endif %}</span>
+    <a href="{{ url_for('avaliacoes') }}#pendentes" class="btn btn-sm btn-primary fw-bold rounded-pill px-3">{{ tt('Avaliar agora') }}</a>
+</div>
+{% endif %}
+
+<!-- ALERTAS DE ACOMPANHAMENTO: ruído de comunicação e desengajamento -->
+{% if alertas_acompanhamento %}
+<div class="alert alert-danger shadow-sm border-start border-4 border-danger" id="alertaAcompanhamento">
+    <strong><i class="bi bi-activity"></i> {{ alertas_acompanhamento|length }} {{ tt('alerta(s) de acompanhamento') }}</strong>
+    <ul class="mb-0 small mt-1">
+        {% for a in alertas_acompanhamento[:5] %}
+        <li><span class="badge bg-{{ a.cor }}{{ ' text-dark' if a.cor == 'warning' else '' }}">{{ tt({'ruido': 'Ruído de comunicação', 'engajamento': 'Engajamento baixo', 'inativo': 'Sem atividade'}[a.tipo]) }}</span>
+            {{ a.pessoa.nome }} · {% if a.tipo == 'inativo' %}{{ a.valor }} {{ tt('dias sem atividade') }}{% else %}{{ tt('média') }} {{ a.valor }}{% endif %}</li>
+        {% endfor %}
+    </ul>
+    <a href="{{ url_for('avaliacoes') }}#alertas" class="alert-link small">{{ tt('Ver todos os alertas') }}</a>
+</div>
+{% endif %}
+
 <!-- ATIVIDADE EXTRA DO GRUPO ACONTECENDO AGORA (check-in/out de jovens e mentores) -->
 {% for a in atividades_agora or [] %}
 {% set minha = (minhas_presencas_agora or {}).get(a.id) %}

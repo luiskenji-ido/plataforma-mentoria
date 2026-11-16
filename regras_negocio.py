@@ -19,6 +19,7 @@ GRUPOS = [
     ('banca', 'Banca do TCC', 'bi-award'),
     ('seguranca', 'Senhas e acesso', 'bi-shield-lock'),
     ('acompanhamento', 'Ocorrências e acompanhamento', 'bi-exclamation-triangle'),
+    ('avaliacoes', 'Avaliações e alertas', 'bi-star-half'),
     ('personalizadas', 'Regras criadas pela gestão', 'bi-plus-square'),
 ]
 
@@ -64,6 +65,18 @@ CATALOGO = {
     'ocorrencia_alerta_dias': ('acompanhamento', 'Aviso antes do prazo da ocorrência',
                                'Sinal amarelo quando faltam estes dias (ou menos) e o responsável ainda não respondeu.',
                                'inteiro', 1, 0, 10, 'dias', 'Ocorrências (sinal amarelo)'),
+    'ruido_comunicacao_limite': ('avaliacoes', 'Limite do alerta de ruído de comunicação',
+                                 'Média de "Comunicação" (e de "Engajamento") recebida nas avaliações abaixo deste valor gera alerta.',
+                                 'decimal', 3.5, 1, 5, 'de 1 a 5', 'Avaliações › Alertas de acompanhamento'),
+    'desengajamento_dias': ('avaliacoes', 'Dias sem atividade para o alerta de desengajamento',
+                            'Jovem ou mentor sem nenhuma atividade na plataforma (login, frequência, sessão, entrega, presença) por estes dias.',
+                            'inteiro', 14, 3, 90, 'dias', 'Avaliações › Alertas de acompanhamento'),
+    'micro_avaliacao_dias': ('avaliacoes', 'Frequência da microavaliação',
+                             'A cada quantos dias abre sozinha uma microavaliação (jovem ↔ mentor, 1 a 5). Zero desliga.',
+                             'inteiro', 15, 0, 90, 'dias', 'Avaliações (rotina de hora em hora)'),
+    'avaliacao_minimo_respostas': ('avaliacoes', 'Mínimo de avaliações para mostrar resultados',
+                                   'A pessoa só vê o que recebeu (sem nomes) e os alertas só disparam a partir deste número de avaliações.',
+                                   'inteiro', 2, 1, 10, 'avaliações', 'Avaliações › Resultados e alertas'),
 }
 
 TIPOS = {'inteiro': 'Número inteiro', 'decimal': 'Número decimal', 'texto': 'Texto', 'sim_nao': 'Sim ou não'}

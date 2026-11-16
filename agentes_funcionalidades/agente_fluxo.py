@@ -128,6 +128,19 @@ class AgenteDoFluxo(AgenteFuncional):
                      f"O perfil {self.perfil} conseguiu disparar o convite.", "Só a gestão envia convites", "Alta")
         self.presenca_na_reuniao(reuniao_id, participante)
 
+    def avaliar(self, alvo_tipo, avaliado_id, notas, comentario=""):
+        """Responde uma avaliação do ciclo 360° aberto pela gestão no fluxo (notas de 1 a 5 por critério)."""
+        ciclo_id = self.contexto["ids"].get("ciclo")
+        dados = {"ciclo_id": ciclo_id, "alvo_tipo": alvo_tipo, "comentario": comentario}
+        if avaliado_id:
+            dados["avaliado_id"] = avaliado_id
+        dados.update({f"nota_{i}": n for i, n in enumerate(notas)})
+        self.post("/avaliacoes/responder", dados)
+        m = _modelos()
+        meu_id = self.banco(lambda: m.Usuario.query.filter_by(email=self.email_logado).first().id)
+        return self.banco(lambda: m.RespostaAvaliacao.query.filter_by(ciclo_id=ciclo_id, avaliador_id=meu_id, alvo_tipo=alvo_tipo,
+                                                                       avaliado_id=avaliado_id).first() is not None)
+
     def presenca_na_reuniao(self, reuniao_id, participante):
         """Reunião de Alinhamento: participante faz check-in/out e avalia; quem não participa não registra presença."""
         m = _modelos()
@@ -201,10 +214,22 @@ class AgenteAdministrador(AgenteDoFluxo):
                          f"Cadastro de usuário recusa {nome}", "Alta")
 
         self.parametros_de_regras()
+        self.credenciais_dos_agentes()
 
         self.etapa("Cria o Mentor Administrador")
         self.criar_usuario("mentoradmin", "Mentor Administrador", "Mentor Administrador")
         self.reportar_cobertura()
+
+    def credenciais_dos_agentes(self):
+        """Área Agentes IA: o quadro de credenciais existe e NUNCA mostra a senha das contas de teste (só a situação).
+        O agente não grava nada aqui: as credenciais reais do servidor não são alteradas pelo teste."""
+        self.etapa("Credenciais dos agentes (só leitura)")
+        status, _, pagina = self.cliente.pedir("GET", "/admin/agentes-ia")
+        senha = senha_de_teste()
+        self.confere(status == 200 and 'id="cardCredenciaisIa"' in pagina and (not senha or senha not in pagina),
+                     "Credenciais dos agentes sem expor a senha", "SEG", "Quadro de credenciais presente; nenhum valor aparece na página.",
+                     "Quadro ausente ou a senha das contas de teste aparece na página.",
+                     "Administrador cadastra as credenciais dos agentes na plataforma, cifradas", "Alta", print_de="/admin/agentes-ia")
 
     def parametros_de_regras(self):
         """Tela Parâmetros de regras: abre com todos os grupos e RECUSA valores inválidos sem gravar nada.
@@ -404,7 +429,30 @@ class AgenteMentorAdministrador(AgenteDoFluxo):
             self.confere(duplicadas == 1, "Segunda banca para o mesmo projeto é recusada", "REG", "Só uma banca por projeto.",
                          f"{duplicadas} bancas para o mesmo projeto.", "Uma banca por projeto", "Média")
         self.reuniao_e_convite()
+        self.abrir_ciclo_360()
         self.reportar_cobertura()
+
+    def abrir_ciclo_360(self):
+        m = _modelos()
+        empresa_id = self.contexto["ids"].get("empresa")
+        self.etapa("Avaliação 360°: abre o ciclo do parceiro")
+        hoje = date.today()
+        titulo = f"{MARCA} Avaliação 360°"
+        base = {"acao": "criar", "titulo": titulo, "tipo": "360", "inicio": hoje.isoformat(), "fim": (hoje + timedelta(days=7)).isoformat(),
+                "empresa_id": empresa_id or ""}
+        self.post("/avaliacoes/ciclos", dict(base, fim=(hoje - timedelta(days=3)).isoformat()))
+        self.post("/avaliacoes/ciclos", base)
+        ciclos = self.banco(lambda: [(c.id, c.empresa_id) for c in m.CicloAvaliacao.query.filter_by(titulo=titulo).all()])
+        self.confere(len(ciclos) == 1 and ciclos[0][1] == empresa_id, "Abre o ciclo de avaliação 360° do parceiro", "FLX",
+                     "Ciclo aberto (o período inválido foi recusado).", f"Ciclos gravados: {ciclos}.",
+                     "Avaliação de todos: jovem, mentor, gestores ITM e B2B e o programa", "Alta", print_de="/avaliacoes#ciclos")
+        if not ciclos:
+            return
+        self.contexto["ids"]["ciclo"] = ciclos[0][0]
+        mentor, aluno1 = self.usuario("mentor"), self.usuario("aluno1")
+        avisados = self.banco(lambda: {n.usuario_id for n in m.Notificacao.query.filter_by(referencia=f"avaliacao-ciclo:{ciclos[0][0]}").all()})
+        self.confere(mentor["id"] in avisados and aluno1["id"] in avisados, "Quem avalia é avisado", "FLX",
+                     f"{len(avisados)} pessoa(s) avisada(s) no sino.", f"Avisados: {sorted(avisados)}.", "Aviso de avaliação aberta", "Média")
 
     def remarcar_reuniao(self, reuniao, base):
         """Remarca a reunião para agora (abre o check-in dos participantes) trocando a modalidade: vira histórico e aviso."""
@@ -558,7 +606,24 @@ class AgenteGestorParceiro(AgenteDoFluxo):
         status, _, corpo = self.cliente.pedir("GET", "/admin/exportar-relatorio-esg")
         self.confere(status == 200, "Exporta o relatório ESG", "FLX", "Relatório gerado.", f"HTTP {status}.", "Relatório ESG da empresa", "Média")
         self.logo_da_empresa()
+        self.avaliacao_do_gestor()
         self.reportar_cobertura()
+
+    def avaliacao_do_gestor(self):
+        mentor = self.usuario("mentor")
+        if not self.contexto["ids"].get("ciclo"):
+            return
+        self.etapa("Avaliação 360°: gestor B2B avalia o mentor, a gestão ITM e o programa")
+        ok = self.avaliar("Mentor", mentor["id"], [3, 4, 4, 4], f"{MARCA} Precisa responder mais rápido") and \
+            self.avaliar("Gestão ITM", None, [4, 4, 5]) and self.avaliar("Programa", None, [5, 4, 4])
+        self.confere(ok, "Gestor B2B avalia mentor, gestão ITM e programa", "FLX", "Três avaliações gravadas.", "Alguma avaliação não foi gravada.",
+                     "Gestores B2B avaliam mentores e o programa", "Alta", print_de="/avaliacoes")
+        professor = self.usuario("professor")
+        if professor:
+            indevida = self.avaliar("Mentor", professor["id"], [1, 1, 1, 1])
+            self.confere(not indevida, "Gestor B2B não avalia quem não é da empresa", "PER", "Avaliação recusada.",
+                         "Avaliou um mentor de fora da empresa.", "Cada um avalia só quem acompanha", "Alta",
+                         "Em responder_avaliacao, conferir o alvo em alvos_da_avaliacao(current_user, ciclo).")
 
     def logo_da_empresa(self):
         """Logo do parceiro B2B no certificado: recusa SVG e arquivo disfarçado; aceita PNG de verdade e o serve sem login."""
@@ -709,7 +774,22 @@ class AgenteMentor(AgenteDoFluxo):
                          "Séries dos gráficos vazias ou incompletas.", "Mentor gera gráficos do projeto para o acompanhamento", "Baixa")
         self.regra_reuniao(participante=True)
         self.ocorrencia_e_desistencia()
+        self.avaliacao_do_mentor()
         self.reportar_cobertura()
+
+    def avaliacao_do_mentor(self):
+        if not self.contexto["ids"].get("ciclo"):
+            return
+        self.etapa("Avaliação 360°: mentor avalia o jovem")
+        aluno1 = self.usuario("aluno1")
+        _, _, painel = self.cliente.pedir("GET", "/dashboard")
+        self.confere('id="alertaAvaliacoes"' in painel, "Painel avisa das avaliações pendentes", "FLX", "Aviso de avaliações no painel.",
+                     "Painel sem o aviso de avaliações pendentes.", "Pendência de avaliação visível", "Média", print_de="/dashboard")
+        self.avaliar("Jovem", aluno1["id"], [7, 3, 3, 4])
+        recusada = not self.avaliar("Jovem", aluno1["id"], [7, 3, 3, 4])
+        gravada = self.avaliar("Jovem", aluno1["id"], [4, 3, 3, 4], f"{MARCA} Bom progresso")
+        self.confere(recusada and gravada, "Mentor avalia o jovem (notas de 1 a 5)", "FLX", "Nota 7 recusada; avaliação gravada.",
+                     "Aceitou nota fora de 1–5 ou não gravou a avaliação.", "Mentor avalia o jovem", "Alta")
 
     def ocorrencia_e_desistencia(self):
         m = _modelos()
@@ -805,6 +885,17 @@ class AgenteAluno(AgenteDoFluxo):
                          "Escrito final e slides entregues (avaliador notificado).", f"Entregas gravadas: {entregas}.", "Entregas do TCC", "Crítica",
                          print_de="/projetos")
 
+        if self.contexto["ids"].get("ciclo"):
+            self.etapa("Avaliação 360°: jovem avalia o mentor e o programa")
+            mentor = self.usuario("mentor")
+            ok = self.avaliar("Mentor", mentor["id"], [2, 3, 4, 4], f"{MARCA} Demora a responder no chat") and self.avaliar("Programa", None, [5, 5, 4])
+            self.confere(ok, "Jovem avalia o mentor e o programa", "FLX", "Avaliações gravadas.", "Avaliação não gravada.",
+                         "Jovem avalia o mentor", "Alta", print_de="/avaliacoes")
+            _, _, pagina = self.cliente.pedir("GET", "/avaliacoes")
+            self.confere('id="resultados"' not in pagina and 'id="ciclos"' not in pagina and "Ruído de comunicação" not in pagina,
+                         "Jovem não vê resultados, ciclos nem alertas", "PER", "Só as avaliações dele.",
+                         "A página mostra resultados, ciclos ou alertas ao jovem.", "Resultados só para a gestão", "Alta")
+
         self.etapa("Regras do perfil Aluno")
         self.post("/projetos", {"nome": f"{MARCA} Projeto do aluno", "descricao": "x", "grupo_id": self.contexto["ids"].get("grupo")})
         criado = self.banco(lambda: m.Projeto.query.filter_by(nome=f"{MARCA} Projeto do aluno").first())
@@ -899,6 +990,7 @@ class AgenteEncerramento(AgenteDoFluxo):
                      f"Login recusado (HTTP {status}).", "Login com a senha definida no primeiro acesso", "Crítica")
         self.desistencia_e_ocorrencia()
         self.presenca_lancada_pela_gestao()
+        self.resultado_da_avaliacao()
         projeto_id, banca_id = self.contexto["ids"].get("projeto"), self.contexto["ids"].get("banca")
         if not (projeto_id and banca_id):
             return
@@ -944,6 +1036,25 @@ class AgenteEncerramento(AgenteDoFluxo):
     def _situacao_jovem(self, usuario_id):
         m = _modelos()
         return self.banco(lambda: (lambda u: (u.status, len(u.turmas_como_aluno), u.mentores.count()))(m.Usuario.query.get(usuario_id)))
+
+    def resultado_da_avaliacao(self):
+        m = _modelos()
+        ciclo_id, mentor = self.contexto["ids"].get("ciclo"), self.usuario("mentor")
+        if not ciclo_id:
+            return
+        self.etapa("Avaliação 360°: alerta de ruído de comunicação, resultados e encerramento")
+        _, _, pagina = self.cliente.pedir("GET", "/avaliacoes")
+        alertas = pagina.split('id="alertas"')[-1].split('id="resultados"')[0]
+        self.confere("Ruído de comunicação" in alertas and f"{MARCA} Mentor" in alertas, "Alerta de ruído de comunicação do mentor", "REG",
+                     "Média de Comunicação 2,5 (jovem 2 e gestor B2B 3) abaixo do limite 3,5: alerta na aba Alertas.",
+                     "O alerta de ruído de comunicação não apareceu.", "Alerta de ruído de comunicação (limite em Parâmetros de regras)", "Alta",
+                     print_de="/avaliacoes#alertas")
+        resultados = pagina.split('id="resultados"')[-1].split('id="ciclos"')[0]
+        self.confere(f"{MARCA} Demora a responder no chat" in resultados, "Gestão ITM vê resultados e comentários", "FLX",
+                     "Médias por critério e comentários na aba Resultados.", "Comentários ausentes nos resultados.", "Resultados da avaliação 360°", "Média")
+        self.post("/avaliacoes/ciclos", {"acao": "encerrar", "ciclo_id": ciclo_id})
+        encerrado = self.banco(lambda: m.CicloAvaliacao.query.get(ciclo_id).encerrado_em is not None)
+        self.confere(encerrado, "Gestão encerra o ciclo", "FLX", "Ciclo encerrado.", "O ciclo continuou aberto.", "Encerramento do ciclo", "Baixa")
 
     def presenca_lancada_pela_gestao(self):
         m = _modelos()

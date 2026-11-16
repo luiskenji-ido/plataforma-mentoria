@@ -267,7 +267,11 @@ def ids_jovens_visiveis(usuario):
 def conta_de_teste_bloqueada(email):
     """Em produção (PythonAnywhere), as contas dos agentes de teste (*_ominitest@local.com e @local.com) não fazem login.
     Para rodar os agentes num ambiente de produção seu, defina OMNITEST_PERMITIR_EM_PRODUCAO=1."""
-    if not seguranca_web.EM_PRODUCAO or os.environ.get('OMNITEST_PERMITIR_EM_PRODUCAO') == '1':
+    if not seguranca_web.EM_PRODUCAO:
+        return False
+    import credenciais_agentes
+    credenciais_agentes.carregar(app.config['SECRET_KEY'])  # a liberação pode ter sido feita na área Agentes IA
+    if os.environ.get('OMNITEST_PERMITIR_EM_PRODUCAO') == '1':
         return False
     return (email or '').lower().endswith(('_ominitest@local.com', '@local.com'))
 
@@ -355,6 +359,7 @@ def login():
             if bcrypt.check_password_hash(usuario.senha, senha_digitada):
                 # Zera as falhas e loga o usuário
                 usuario.tentativas_login = 0
+                usuario.ultimo_acesso = datetime.now()
                 db.session.commit()
                 login_user(usuario)
                 
@@ -692,6 +697,8 @@ def dashboard():
                            tipos_grafico_simples=TIPOS_GRAFICO_SIMPLES, tipos_grafico_multi=TIPOS_GRAFICO_MULTI,
                            max_graficos=MAX_GRAFICOS_PAINEL,
                            encaminhamentos_vencidos=encaminhamentos_vencidos, ocorrencias_alerta=ocorrencias_pendentes_para(current_user),
+                           avaliacoes_pendentes=pendencias_avaliacao(current_user), reunioes_sem_avaliacao=reunioes_sem_avaliacao(current_user),
+                           alertas_acompanhamento=alertas_acompanhamento(current_user),
                            minhas_bancas_grupo=minhas_bancas_grupo,
                            atividades_agora=atividades_agora,
                            minhas_presencas_agora=minhas_presencas_agora,
@@ -2658,7 +2665,14 @@ def editar_reuniao(id=None):
                       link=url_for('detalhe_reuniao', id=reuniao.id), tipo='reuniao',
                       referencia=f"reuniao-alterada:{reuniao.id}:{alteracao.id}")
             if reuniao.convite_enviado_em and not request.form.get('enviar_convite'):
-                flash(tt('A reunião mudou: reenvie o convite para atualizar a agenda dos participantes.', current_user.idioma), 'info')
+                import convites_reuniao
+                via = 'gmail' if reuniao.convite_enviado_via == 'Gmail' and session.get('gmail_token') else \
+                    ('smtp' if convites_reuniao.smtp_configurado() else None)
+                if via:
+                    categoria, texto = enviar_convite_reuniao(reuniao, via)
+                    flash(tt('Convite atualizado reenviado automaticamente.', current_user.idioma) + ' ' + texto, categoria)
+                else:
+                    flash(tt('A reunião mudou: reenvie o convite para atualizar a agenda dos participantes.', current_user.idioma), 'info')
         if nova:
             notificar([p for p in reuniao.participantes if p.id != current_user.id],
                       ('notif_reuniao_titulo', {'titulo': reuniao.titulo}),
@@ -3347,6 +3361,336 @@ def detalhe_ocorrencia(id):
         return redirect(url_for('detalhe_ocorrencia', id=ocorrencia.id))
     return render_template('ocorrencia_detalhe.html', ocorrencia=ocorrencia, sinal=sinal_ocorrencia(ocorrencia),
                            pode_tratar=pode_tratar_ocorrencia(current_user, ocorrencia))
+
+
+# ==============================================================================
+# AVALIAÇÕES 360° E MICROAVALIAÇÕES + ALERTAS DE RUÍDO DE COMUNICAÇÃO E DESENGAJAMENTO
+# ==============================================================================
+CRITERIOS_AVALIACAO = {
+    'Mentor': ['Comunicação', 'Disponibilidade', 'Apoio no aprendizado', 'Pontualidade'],
+    'Jovem': ['Comunicação', 'Engajamento', 'Entregas', 'Pontualidade'],
+    'Gestor B2B': ['Comunicação', 'Organização', 'Apoio ao programa'],
+    'Gestão ITM': ['Comunicação', 'Organização', 'Apoio ao programa'],
+    'Programa': ['Conteúdo', 'Organização', 'Comunicação'],
+}
+# Microavaliação (quinzenal): rápida, só entre jovem e mentor
+CRITERIOS_MICRO = {'Mentor': ['Comunicação', 'Andamento'], 'Jovem': ['Comunicação', 'Engajamento']}
+TIPOS_CICLO = ['360', 'Micro']
+PERFIS_MENTORIA = ['Mentor', 'Professor', 'Mentor Administrador']
+JANELA_RESULTADOS_DIAS = 180
+JANELA_ALERTAS_DIAS = 90
+
+
+def criterios_do_alvo(ciclo, alvo_tipo):
+    return (CRITERIOS_MICRO if ciclo.tipo == 'Micro' else CRITERIOS_AVALIACAO).get(alvo_tipo, [])
+
+
+def _ativos(pessoas):
+    return [p for p in pessoas if p is not None and p.status == 'Ativo']
+
+
+def _na_empresa(pessoa, empresa_id):
+    return empresa_id is None or any(e.id == empresa_id for e in empresas_parceiras(pessoa))
+
+
+def mentores_com_jovens():
+    return Usuario.query.filter(Usuario.tipo_usuario.in_(PERFIS_MENTORIA), Usuario.status == 'Ativo', Usuario.alunos.any()).all()
+
+
+def alvos_da_avaliacao(usuario, ciclo):
+    """Quem (ou o quê) a pessoa avalia no ciclo: [(alvo_tipo, pessoa ou None)].
+    Jovem → mentores (e no 360: gestor B2B, gestão ITM, programa); mentor → jovens (e no 360: gestor B2B, gestão ITM, programa);
+    gestor B2B → mentores da empresa, gestão ITM e programa; gestão ITM → mentores, gestores B2B e programa."""
+    tipo, micro, empresa_id = usuario.tipo_usuario, ciclo.tipo == 'Micro', ciclo.empresa_id
+    if usuario.status != 'Ativo' or tipo == 'Avaliador Banca':
+        return []
+    if tipo not in PERFIS_GESTAO_ITM and not _na_empresa(usuario, empresa_id):
+        return []
+    alvos = []
+    if tipo == 'Aluno':
+        alvos += [('Mentor', m) for m in _ativos(list(usuario.mentores))]
+        if not micro:
+            alvos += [('Gestor B2B', g) for g in _ativos(gestores_b2b_das_empresas(empresas_do_jovem(usuario)))]
+    elif tipo in ('Mentor', 'Professor'):
+        alvos += [('Jovem', a) for a in _ativos(list(usuario.alunos))]
+        if not micro:
+            alvos += [('Gestor B2B', e.gestor) for e in (usuario.empresas_vinculadas or []) if e.gestor and e.gestor.status == 'Ativo']
+    elif tipo == 'Admin B2B' and not micro:
+        for empresa in Empresa.query.filter_by(gestor_id=usuario.id).all():
+            alvos += [('Mentor', m) for m in _ativos(empresa.mentores)]
+    elif tipo in PERFIS_GESTAO_ITM and not micro:
+        alvos += [('Mentor', m) for m in mentores_com_jovens()]
+        alvos += [('Gestor B2B', e.gestor) for e in Empresa.query.filter(Empresa.gestor_id.isnot(None)).all()
+                  if e.gestor and e.gestor.status == 'Ativo']
+    if not micro:
+        if tipo not in PERFIS_GESTAO_ITM:
+            alvos.append(('Gestão ITM', None))
+        alvos.append(('Programa', None))
+    vistos, final = set(), []
+    for alvo_tipo, pessoa in alvos:
+        if pessoa is not None and (pessoa.id == usuario.id or not _na_empresa(pessoa, empresa_id)):
+            continue
+        chave = (alvo_tipo, pessoa.id if pessoa else None)
+        if chave not in vistos:
+            vistos.add(chave)
+            final.append((alvo_tipo, pessoa))
+    return final
+
+
+def ciclos_abertos():
+    from models import CicloAvaliacao
+    hoje = datetime.now().date()
+    return CicloAvaliacao.query.filter(CicloAvaliacao.encerrado_em.is_(None), CicloAvaliacao.inicio <= hoje,
+                                       CicloAvaliacao.fim >= hoje).order_by(CicloAvaliacao.fim).all()
+
+
+def respostas_do_avaliador(usuario, ciclo):
+    from models import RespostaAvaliacao
+    return {(r.alvo_tipo, r.avaliado_id): r for r in RespostaAvaliacao.query.filter_by(ciclo_id=ciclo.id, avaliador_id=usuario.id).all()}
+
+
+def pendencias_avaliacao(usuario):
+    """[(ciclo, alvo_tipo, pessoa)] ainda sem resposta nos ciclos abertos."""
+    pendentes = []
+    for ciclo in ciclos_abertos():
+        feitas = respostas_do_avaliador(usuario, ciclo)
+        pendentes += [(ciclo, a, p) for a, p in alvos_da_avaliacao(usuario, ciclo) if (a, p.id if p else None) not in feitas]
+    return pendentes
+
+
+def reunioes_sem_avaliacao(usuario, dias=14):
+    """Reuniões ITM × B2B em que a pessoa esteve (check-out feito) e que ainda não avaliou."""
+    from models import PresencaReuniao, FeedbackReuniao
+    agora = datetime.now()
+    avaliadas = {f.reuniao_id for f in FeedbackReuniao.query.filter_by(usuario_id=usuario.id).all()}
+    lista = []
+    for p in PresencaReuniao.query.filter(PresencaReuniao.usuario_id == usuario.id, PresencaReuniao.check_out.isnot(None)).all():
+        r = p.reuniao
+        if r and r.id not in avaliadas and agora - timedelta(days=dias) <= r.fim_previsto <= agora:
+            lista.append(r)
+    return sorted(lista, key=lambda r: r.data_hora, reverse=True)
+
+
+def abrir_ciclo_avaliacao(ciclo):
+    """Grava o ciclo e avisa quem tem algo a avaliar. Devolve quantas pessoas foram avisadas."""
+    db.session.add(ciclo)
+    db.session.commit()
+    avaliadores = [u for u in Usuario.query.filter(Usuario.status == 'Ativo').all() if alvos_da_avaliacao(u, ciclo)]
+    notificar(avaliadores, ('notif_avaliacao_titulo', {'titulo': ciclo.titulo}),
+              ('notif_avaliacao_msg', {'fim': ciclo.fim.strftime('%d/%m/%Y')}),
+              link='/avaliacoes', tipo='avaliacao', referencia=f"avaliacao-ciclo:{ciclo.id}",
+              por_email=not eh_conta_de_teste(ciclo.criado_por))  # ciclo aberto pelos agentes de teste: só o sino
+    return len(avaliadores)
+
+
+def _agrupar_respostas(respostas, com_autor):
+    grupos = {}
+    for r in respostas:
+        g = grupos.setdefault((r.alvo_tipo, r.avaliado_id), {'alvo_tipo': r.alvo_tipo, 'pessoa': r.avaliado, 'medias': [],
+                                                             'criterios': {}, 'comentarios': []})
+        g['medias'].append(r.media)
+        for criterio, nota in json.loads(r.notas).items():
+            g['criterios'].setdefault(criterio, []).append(nota)
+        if r.comentario:
+            g['comentarios'].append((r.comentario, r.avaliador.nome if com_autor and r.avaliador else None, r.ciclo.tipo))
+    lista = []
+    for g in grupos.values():
+        g['n'] = len(g['medias'])
+        g['media'] = round(sum(g['medias']) / g['n'], 1)
+        g['criterios'] = {c: round(sum(v) / len(v), 1) for c, v in g['criterios'].items()}
+        lista.append(g)
+    return sorted(lista, key=lambda g: g['media'])
+
+
+def ids_pessoas_da_empresa_gerida(usuario):
+    """Gestor B2B: mentores das suas empresas, jovens das turmas delas e ele mesmo."""
+    ids = set(ids_jovens_visiveis(usuario) or set()) | {usuario.id}
+    for empresa in Empresa.query.filter_by(gestor_id=usuario.id).all():
+        ids |= {m.id for m in empresa.mentores}
+    return ids
+
+
+def resultados_avaliacao(usuario):
+    """Médias recebidas por pessoa/entidade nos últimos 180 dias, no escopo de quem vê (gestão ITM e gestor B2B)."""
+    from models import RespostaAvaliacao
+    tipo = usuario.tipo_usuario
+    if tipo not in PERFIS_GESTAO_ITM + ['Admin B2B']:
+        return []
+    respostas = RespostaAvaliacao.query.filter(RespostaAvaliacao.criado_em >= datetime.now() - timedelta(days=JANELA_RESULTADOS_DIAS)).all()
+    if tipo == 'Admin B2B':
+        ids = ids_pessoas_da_empresa_gerida(usuario)
+        respostas = [r for r in respostas if r.avaliado_id in ids or r.alvo_tipo == 'Programa']
+    return _agrupar_respostas(respostas, com_autor=tipo in PERFIS_GESTAO_ITM)
+
+
+def avaliacoes_recebidas(usuario):
+    """O que a própria pessoa recebeu (anônimo). Só aparece com o mínimo de respostas, para não identificar quem avaliou."""
+    from models import RespostaAvaliacao
+    from regras_negocio import regra
+    respostas = RespostaAvaliacao.query.filter(RespostaAvaliacao.avaliado_id == usuario.id,
+                                               RespostaAvaliacao.criado_em >= datetime.now() - timedelta(days=JANELA_RESULTADOS_DIAS)).all()
+    minimo = int(regra('avaliacao_minimo_respostas', 2) or 1)
+    if not respostas:
+        return None
+    if len(respostas) < minimo:
+        return {'n': len(respostas), 'oculto': True, 'minimo': minimo}
+    grupo = _agrupar_respostas(respostas, com_autor=False)
+    return {'n': len(respostas), 'oculto': False, 'grupos': grupo}
+
+
+def ultima_atividade(ids):
+    """Último sinal de atividade de cada pessoa: login, frequência, aula, sessão, feedback, entrega, presença, voluntariado, avaliação."""
+    from models import (Frequencia, CheckinAula, FeedbackSessao, PresencaAtividadeExtra, PresencaReuniao, SessaoMentoria,
+                        CheckinVoluntariado, RespostaAvaliacao, EntregaTCC)
+    ids = list(ids)
+    if not ids:
+        return {}
+    agora = datetime.now()
+    ultimo = {u.id: u.ultimo_acesso or u.data_criacao for u in Usuario.query.filter(Usuario.id.in_(ids)).all()}
+    fontes = [(Frequencia.usuario_id, Frequencia.data_registro), (CheckinAula.usuario_id, CheckinAula.data_hora_entrada),
+              (FeedbackSessao.autor_id, FeedbackSessao.data_envio), (PresencaAtividadeExtra.usuario_id, PresencaAtividadeExtra.check_in),
+              (PresencaReuniao.usuario_id, PresencaReuniao.check_in), (SessaoMentoria.mentor_id, SessaoMentoria.data_sessao),
+              (CheckinVoluntariado.usuario_id, CheckinVoluntariado.data_hora_inicio), (RespostaAvaliacao.avaliador_id, RespostaAvaliacao.criado_em),
+              (EntregaTCC.enviado_por_id, EntregaTCC.data_envio)]
+    for coluna_usuario, coluna_data in fontes:
+        linhas = db.session.query(coluna_usuario, db.func.max(coluna_data)).filter(coluna_usuario.in_(ids), coluna_data <= agora) \
+            .group_by(coluna_usuario).all()
+        for usuario_id, quando in linhas:
+            if quando and (ultimo.get(usuario_id) is None or quando > ultimo[usuario_id]):
+                ultimo[usuario_id] = quando
+    return ultimo
+
+
+def alertas_acompanhamento(usuario):
+    """Ruído de comunicação (média de 'Comunicação' abaixo do limite), engajamento baixo nas avaliações e
+    desengajamento (dias sem nenhuma atividade). Escopo: gestão ITM vê todos; gestor B2B, a sua empresa; mentor, os seus jovens."""
+    from models import RespostaAvaliacao
+    from regras_negocio import regra
+    tipo = usuario.tipo_usuario
+    if tipo not in PERFIS_EQUIPE:
+        return []
+    limite = float(regra('ruido_comunicacao_limite', 3.5))
+    minimo = int(regra('avaliacao_minimo_respostas', 2) or 1)
+    dias = int(regra('desengajamento_dias', 14))
+    jovens = [j for j in jovens_da_equipe(usuario) if j.status == 'Ativo' and j.turmas_como_aluno]
+    if tipo in PERFIS_GESTAO_ITM:
+        mentores = mentores_com_jovens()
+    elif tipo == 'Admin B2B':
+        mentores = [m for e in Empresa.query.filter_by(gestor_id=usuario.id).all() for m in _ativos(e.mentores)]
+    else:
+        mentores = []
+    pessoas = {p.id: p for p in jovens + mentores if p.id != usuario.id}
+    alertas = []
+    respostas = RespostaAvaliacao.query.filter(RespostaAvaliacao.avaliado_id.in_(list(pessoas) or [-1]),
+                                               RespostaAvaliacao.criado_em >= datetime.now() - timedelta(days=JANELA_ALERTAS_DIAS)).all()
+    notas = {}
+    for r in respostas:
+        for criterio, nota in json.loads(r.notas).items():
+            if criterio in ('Comunicação', 'Engajamento'):
+                notas.setdefault((r.avaliado_id, criterio), []).append(nota)
+    for (pessoa_id, criterio), valores in notas.items():
+        media = sum(valores) / len(valores)
+        if len(valores) >= minimo and media < limite:
+            alertas.append({'tipo': 'ruido' if criterio == 'Comunicação' else 'engajamento', 'pessoa': pessoas[pessoa_id],
+                            'valor': round(media, 1), 'n': len(valores), 'cor': 'danger' if media < limite - 1 else 'warning'})
+    agora = datetime.now()
+    for pessoa_id, quando in ultima_atividade(pessoas).items():
+        parado = (agora - quando).days if quando else None
+        if parado is not None and parado >= dias:
+            alertas.append({'tipo': 'inativo', 'pessoa': pessoas[pessoa_id], 'valor': parado, 'n': None,
+                            'cor': 'danger' if parado >= 2 * dias else 'warning'})
+    return sorted(alertas, key=lambda a: (a['cor'] != 'danger', a['pessoa'].nome))
+
+
+@app.route('/avaliacoes')
+@login_required
+def avaliacoes():
+    from models import CicloAvaliacao
+    pendentes = []  # (ciclo, alvo_tipo, pessoa, resposta já dada ou None)
+    for ciclo in ciclos_abertos():
+        feitas = respostas_do_avaliador(current_user, ciclo)
+        for alvo_tipo, pessoa in alvos_da_avaliacao(current_user, ciclo):
+            pendentes.append((ciclo, alvo_tipo, pessoa, feitas.get((alvo_tipo, pessoa.id if pessoa else None))))
+    gestao = current_user.tipo_usuario in PERFIS_GESTAO_ITM
+    ciclos = CicloAvaliacao.query.order_by(CicloAvaliacao.inicio.desc()).limit(30).all() \
+        if current_user.tipo_usuario in PERFIS_GESTAO_ITM + ['Admin B2B'] else []
+    return render_template('avaliacoes.html', pendentes=pendentes, criterios_do_alvo=criterios_do_alvo,
+                           json_notas=lambda r: json.loads(r.notas) if r else {}, ciclos=ciclos, gestao=gestao,
+                           resultados=resultados_avaliacao(current_user), recebidas=avaliacoes_recebidas(current_user),
+                           alertas=alertas_acompanhamento(current_user), reunioes_pendentes=reunioes_sem_avaliacao(current_user),
+                           empresas=Empresa.query.order_by(Empresa.nome).all() if gestao else [], hoje=datetime.now().date(),
+                           tipos_ciclo=TIPOS_CICLO)
+
+
+@app.route('/avaliacoes/responder', methods=['POST'])
+@login_required
+def responder_avaliacao():
+    from models import CicloAvaliacao, RespostaAvaliacao
+    idioma = current_user.idioma
+    voltar = redirect(url_for('avaliacoes') + '#pendentes')
+    ciclo = db.session.get(CicloAvaliacao, request.form.get('ciclo_id', type=int) or 0)
+    if not ciclo or not ciclo.aberto():
+        flash(tt('Este ciclo de avaliação não está aberto.', idioma), 'warning')
+        return voltar
+    alvo_tipo, avaliado_id = request.form.get('alvo_tipo'), request.form.get('avaliado_id', type=int)
+    if not any(a == alvo_tipo and (p.id if p else None) == avaliado_id for a, p in alvos_da_avaliacao(current_user, ciclo)):
+        flash("Acesso negado.", "danger")
+        return voltar
+    notas = {}
+    for i, criterio in enumerate(criterios_do_alvo(ciclo, alvo_tipo)):
+        nota = request.form.get(f'nota_{i}', type=int)
+        if not nota or not 1 <= nota <= 5:
+            flash(tt('Dê uma nota de 1 a 5 em cada critério.', idioma), 'warning')
+            return voltar
+        notas[criterio] = nota
+    resposta = RespostaAvaliacao.query.filter_by(ciclo_id=ciclo.id, avaliador_id=current_user.id, alvo_tipo=alvo_tipo,
+                                                 avaliado_id=avaliado_id).first()
+    if resposta is None:
+        resposta = RespostaAvaliacao(ciclo_id=ciclo.id, avaliador_id=current_user.id, alvo_tipo=alvo_tipo, avaliado_id=avaliado_id)
+        db.session.add(resposta)
+    resposta.notas = json.dumps(notas, ensure_ascii=False)
+    resposta.media = round(sum(notas.values()) / len(notas), 2)
+    resposta.comentario = (request.form.get('comentario') or '').strip()[:2000] or None
+    db.session.commit()
+    flash(tt('Avaliação registrada. Obrigado!', idioma), 'success')
+    return voltar
+
+
+@app.route('/avaliacoes/ciclos', methods=['POST'])
+@login_required
+def ciclos_avaliacao():
+    """Gestão ITM abre ciclos de avaliação 360° (ou micro) e encerra antes do prazo, se precisar."""
+    from models import CicloAvaliacao
+    idioma = current_user.idioma
+    voltar = redirect(url_for('avaliacoes') + '#ciclos')
+    if current_user.tipo_usuario not in PERFIS_GESTAO_ITM:
+        flash("Acesso negado.", "danger")
+        return voltar
+    if request.form.get('acao') == 'encerrar':
+        ciclo = db.session.get(CicloAvaliacao, request.form.get('ciclo_id', type=int) or 0)
+        if ciclo and ciclo.encerrado_em is None:
+            ciclo.encerrado_em = datetime.now()
+            db.session.commit()
+            flash(tt('Ciclo de avaliação encerrado.', idioma), 'info')
+        return voltar
+    titulo = (request.form.get('titulo') or '').strip()[:150]
+    tipo = request.form.get('tipo') if request.form.get('tipo') in TIPOS_CICLO else '360'
+    try:
+        inicio = datetime.strptime(request.form.get('inicio') or '', '%Y-%m-%d').date()
+        fim = datetime.strptime(request.form.get('fim') or '', '%Y-%m-%d').date()
+    except ValueError:
+        inicio = fim = None
+    empresa_id = request.form.get('empresa_id', type=int) or None
+    if empresa_id and not db.session.get(Empresa, empresa_id):
+        empresa_id = None
+    hoje = datetime.now().date()
+    if len(titulo) < 3 or not inicio or not fim or fim < inicio or fim < hoje or (fim - inicio).days > 90:
+        flash(tt('Informe o título e o período (fim a partir de hoje, até 90 dias de duração).', idioma), 'warning')
+        return voltar
+    ciclo = CicloAvaliacao(titulo=titulo, tipo=tipo, inicio=inicio, fim=fim, empresa_id=empresa_id, criado_por_id=current_user.id)
+    avisados = abrir_ciclo_avaliacao(ciclo)
+    flash(tt('Ciclo de avaliação aberto: {qtd} pessoa(s) avisada(s).', idioma).format(qtd=avisados), 'success')
+    return voltar
 
 
 # ==============================================================================
@@ -6568,6 +6912,61 @@ def _somente_administrador():
     return None
 
 
+def ambiente_dos_agentes():
+    """Ambiente para iniciar uma equipe de agentes: inclui as credenciais cadastradas na área Agentes IA."""
+    import credenciais_agentes
+    credenciais_agentes.carregar(app.config['SECRET_KEY'], forcar=True)
+    return {**os.environ, 'PYTHONIOENCODING': 'utf-8'}
+
+
+@app.route('/admin/agentes-ia/credenciais', methods=['POST'])
+@login_required
+def credenciais_agentes_ia():
+    """Administrador cadastra, troca ou remove as credenciais dos agentes. O valor fica cifrado e nunca é mostrado."""
+    import credenciais_agentes
+    from models import CredencialAgente
+    bloqueio = _somente_administrador()
+    if bloqueio:
+        return bloqueio
+    idioma = current_user.idioma
+    voltar = redirect(url_for('agentes_ia') + '#cardCredenciaisIa')
+    segredo = app.config['SECRET_KEY']
+    alteradas, erros = [], []
+    for chave, (nome, tipo) in credenciais_agentes.CAMPOS.items():
+        registro = CredencialAgente.query.filter_by(chave=chave).first()
+        if request.form.get(f'remover_{chave}'):
+            if registro:
+                db.session.delete(registro)
+                alteradas.append(nome)
+            continue
+        valor = (request.form.get(chave) or '').strip()
+        if not valor:
+            continue
+        erro = credenciais_agentes.validar(chave, valor)
+        if erro:
+            erros.append(f"{tt(nome, idioma)}: {tt(erro, idioma)}")
+            continue
+        if tipo == 'sim_nao' and registro and credenciais_agentes.decifrar(registro.valor_cifrado, segredo) == valor:
+            continue
+        if registro is None:
+            registro = CredencialAgente(chave=chave)
+            db.session.add(registro)
+        registro.valor_cifrado = credenciais_agentes.cifrar(valor, segredo)
+        registro.atualizado_por_id = current_user.id
+        registro.atualizado_em = datetime.now()
+        alteradas.append(nome)
+    db.session.commit()
+    credenciais_agentes.carregar(segredo, forcar=True)
+    if alteradas:
+        app.logger.info("Credenciais dos agentes alteradas por %s: %s", current_user.email, ', '.join(alteradas))
+        flash(tt('Credenciais dos agentes atualizadas: {lista}.', idioma).format(lista=', '.join(tt(a, idioma) for a in alteradas)), 'success')
+    for erro in erros:
+        flash(erro, 'warning')
+    if not alteradas and not erros:
+        flash(tt('Nada foi alterado.', idioma), 'info')
+    return voltar
+
+
 @app.route('/admin/agentes-ia')
 @login_required
 def agentes_ia():
@@ -6575,8 +6974,10 @@ def agentes_ia():
     bloqueio = _somente_administrador()
     if bloqueio:
         return bloqueio
+    import credenciais_agentes
     return render_template('agentes_ia.html', ordem=ORDEM_AGENTES_IA, estado=estado_agentes_ia(), arvore=arvore_agentes_ia(),
-                           playwright_ok=importlib.util.find_spec('playwright') is not None)
+                           playwright_ok=importlib.util.find_spec('playwright') is not None,
+                           credenciais=credenciais_agentes.situacao(app.config['SECRET_KEY']))
 
 
 @app.route('/admin/agentes-ia/iniciar', methods=['POST'])
@@ -6611,7 +7012,7 @@ def iniciar_agentes_ia():
             pass
     opcoes = {'creationflags': subprocess.CREATE_NEW_PROCESS_GROUP | subprocess.CREATE_NO_WINDOW} if os.name == 'nt' else {'start_new_session': True}
     log = open(os.path.join(PASTA_AO_VIVO_IA, 'gestor.log'), 'w', encoding='utf-8')
-    subprocess.Popen(cmd, cwd=raiz, stdout=log, stderr=subprocess.STDOUT, env={**os.environ, 'PYTHONIOENCODING': 'utf-8'}, **opcoes)
+    subprocess.Popen(cmd, cwd=raiz, stdout=log, stderr=subprocess.STDOUT, env=ambiente_dos_agentes(), **opcoes)
     flash(tt('Agente Gestor iniciado: os testes começam pelo Administrador.', current_user.idioma), "success")
     return redirect(url_for('agentes_ia'))
 
@@ -6766,7 +7167,7 @@ def iniciar_agentes_seguranca():
             pass
     opcoes = {'creationflags': subprocess.CREATE_NEW_PROCESS_GROUP | subprocess.CREATE_NO_WINDOW} if os.name == 'nt' else {'start_new_session': True}
     log = open(os.path.join(PASTA_AO_VIVO_SEG, 'gestor.log'), 'w', encoding='utf-8')
-    subprocess.Popen(cmd, cwd=raiz, stdout=log, stderr=subprocess.STDOUT, env={**os.environ, 'PYTHONIOENCODING': 'utf-8'}, **opcoes)
+    subprocess.Popen(cmd, cwd=raiz, stdout=log, stderr=subprocess.STDOUT, env=ambiente_dos_agentes(), **opcoes)
     flash(tt('Gerente de Segurança iniciado: a auditoria começa pela configuração.', current_user.idioma), "success")
     return redirect(url_for('agentes_seguranca'))
 
@@ -6939,7 +7340,7 @@ def iniciar_agentes_banco():
             pass
     opcoes = {'creationflags': subprocess.CREATE_NEW_PROCESS_GROUP | subprocess.CREATE_NO_WINDOW} if os.name == 'nt' else {'start_new_session': True}
     log = open(os.path.join(PASTA_AO_VIVO_BANCO, 'gestor.log'), 'w', encoding='utf-8')
-    subprocess.Popen(cmd, cwd=raiz, stdout=log, stderr=subprocess.STDOUT, env={**os.environ, 'PYTHONIOENCODING': 'utf-8'}, **opcoes)
+    subprocess.Popen(cmd, cwd=raiz, stdout=log, stderr=subprocess.STDOUT, env=ambiente_dos_agentes(), **opcoes)
     flash(tt('Gerente de Banco de Dados iniciado: a análise começa pelas consultas.', current_user.idioma), "success")
     return redirect(url_for('agentes_banco'))
 
@@ -7047,7 +7448,7 @@ def iniciar_agentes_funcionalidades():
             pass
     opcoes = {'creationflags': subprocess.CREATE_NEW_PROCESS_GROUP | subprocess.CREATE_NO_WINDOW} if os.name == 'nt' else {'start_new_session': True}
     log = open(os.path.join(PASTA_AO_VIVO_FUNC, 'gestor.log'), 'w', encoding='utf-8')
-    subprocess.Popen(cmd, cwd=raiz, stdout=log, stderr=subprocess.STDOUT, env={**os.environ, 'PYTHONIOENCODING': 'utf-8'}, **opcoes)
+    subprocess.Popen(cmd, cwd=raiz, stdout=log, stderr=subprocess.STDOUT, env=ambiente_dos_agentes(), **opcoes)
     flash(tt('Gerente de Funcionalidades iniciado: o Administrador começa o fluxo e passa a vez para o Mentor Administrador.', current_user.idioma), "success")
     return redirect(url_for('agentes_funcionalidades'))
 
@@ -7128,7 +7529,7 @@ def iniciar_orquestrador():
            '--usuario', current_user.nome, '--ids', *ids, '--equipes', *equipes]
     opcoes = {'creationflags': subprocess.CREATE_NEW_PROCESS_GROUP | subprocess.CREATE_NO_WINDOW} if os.name == 'nt' else {'start_new_session': True}
     log = open(os.path.join(executor.PASTA_AO_VIVO, 'executor.log'), 'w', encoding='utf-8')
-    subprocess.Popen(cmd, cwd=raiz, stdout=log, stderr=subprocess.STDOUT, env={**os.environ, 'PYTHONIOENCODING': 'utf-8'}, **opcoes)
+    subprocess.Popen(cmd, cwd=raiz, stdout=log, stderr=subprocess.STDOUT, env=ambiente_dos_agentes(), **opcoes)
     flash(tt('Orquestrador iniciado: as correções são feitas numa cópia do código e validadas pelas equipes antes de qualquer commit.', idioma), 'success')
     return redirect(url_for('agentes_orquestrador'))
 
@@ -7916,7 +8317,8 @@ def atualizar_estrutura_banco():
         "ALTER TABLE reuniao_institucional ADD COLUMN tipo VARCHAR(30)",
         "ALTER TABLE reuniao_institucional ADD COLUMN pontos_parceiro TEXT",
         "ALTER TABLE reuniao_institucional ADD COLUMN link_gravacao VARCHAR(500)",
-        "ALTER TABLE reuniao_institucional ADD COLUMN controle_presenca BOOLEAN"
+        "ALTER TABLE reuniao_institucional ADD COLUMN controle_presenca BOOLEAN",
+        "ALTER TABLE usuario ADD COLUMN ultimo_acesso DATETIME"
     ]
     
     for comando in colunas_novas:

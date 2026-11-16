@@ -119,6 +119,55 @@ def fechar_checkin_banca_esquecido(agora):
     return fechados
 
 
+def abrir_microavaliacao(agora):
+    """Abre sozinha a microavaliação (jovem ↔ mentor) a cada N dias (Parâmetros de regras; zero desliga). Dura 7 dias."""
+    from models import CicloAvaliacao
+    from app import abrir_ciclo_avaliacao
+    from regras_negocio import regra
+    dias = int(regra('micro_avaliacao_dias', 15) or 0)
+    if dias <= 0:
+        return 0
+    hoje = datetime.now().date()
+    ultimo = CicloAvaliacao.query.filter_by(tipo='Micro').order_by(CicloAvaliacao.inicio.desc()).first()
+    if ultimo and (hoje - ultimo.inicio).days < dias:
+        return 0
+    return abrir_ciclo_avaliacao(CicloAvaliacao(titulo=f"Microavaliação {hoje:%d/%m/%Y}", tipo='Micro', inicio=hoje, fim=hoje + timedelta(days=6)))
+
+
+def lembrar_avaliacao_pendente(agora):
+    """Faltando 2 dias (ou menos) para fechar o ciclo, lembra uma vez quem ainda tem avaliações pendentes."""
+    from app import ciclos_abertos, alvos_da_avaliacao, respostas_do_avaliador
+    hoje, enviados = datetime.now().date(), 0
+    for ciclo in ciclos_abertos():
+        if (ciclo.fim - hoje).days > 2:
+            continue
+        pendentes = []
+        for pessoa in Usuario.query.filter(Usuario.status == 'Ativo').all():
+            alvos = alvos_da_avaliacao(pessoa, ciclo)
+            if alvos and len(respostas_do_avaliador(pessoa, ciclo)) < len(alvos):
+                pendentes.append(pessoa)
+        enviados += notificar(pendentes, ('notif_avaliacao_lembrete_titulo', {'titulo': ciclo.titulo}),
+                              ('notif_avaliacao_lembrete_msg', {'fim': ciclo.fim.strftime('%d/%m/%Y')}),
+                              link='/avaliacoes', tipo='lembrete', referencia=f"avaliacao-lembrete:{ciclo.id}")
+    return enviados
+
+
+def lembrar_avaliacao_reuniao(agora):
+    """Reunião ITM × B2B: 1 hora depois do fim, lembra quem esteve presente e ainda não avaliou (uma vez)."""
+    from models import PresencaReuniao, FeedbackReuniao
+    local, enviados = datetime.now(), 0
+    for presenca in PresencaReuniao.query.filter(PresencaReuniao.check_out.isnot(None)).all():
+        reuniao = presenca.reuniao
+        if not reuniao or not (local - timedelta(days=7) <= reuniao.fim_previsto <= local - timedelta(hours=1)):
+            continue
+        if FeedbackReuniao.query.filter_by(reuniao_id=reuniao.id, usuario_id=presenca.usuario_id).first():
+            continue
+        enviados += notificar([presenca.usuario], ('notif_reuniao_feedback_titulo', {'titulo': reuniao.titulo}),
+                              ('notif_reuniao_feedback_msg', {}), link=f"/reunioes/{reuniao.id}#cardFeedback", tipo='lembrete',
+                              referencia=f"reuniao-feedback:{reuniao.id}", por_email=not eh_conta_de_teste(presenca.usuario))
+    return enviados
+
+
 def fechar_presenca_reuniao_esquecida(agora):
     """Reunião ITM × B2B: check-out esquecido fecha no fim previsto, 2 h depois do fim (marcado como automático)."""
     from models import PresencaReuniao
@@ -177,7 +226,7 @@ def aprender_funcionalidades(agora):
 
 
 TAREFAS = [lembrar_checkout_esquecido, lembrar_encaminhamentos_vencidos, avisar_ocorrencias_atrasadas, enviar_formulario_banca, fechar_checkin_banca_esquecido,
-           fechar_presenca_reuniao_esquecida,
+           fechar_presenca_reuniao_esquecida, abrir_microavaliacao, lembrar_avaliacao_pendente, lembrar_avaliacao_reuniao,
            executar_backups_agendados, aprender_mudancas_da_plataforma, aprender_seguranca, aprender_banco_de_dados, aprender_funcionalidades]
 
 
