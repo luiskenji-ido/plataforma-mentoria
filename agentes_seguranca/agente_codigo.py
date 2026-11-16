@@ -136,6 +136,9 @@ class AgenteCodigo(AgenteSeguranca):
                             contagem["sql_interno"].append(f"{rel}:{no.lineno}")
                     if nome == "redirect" and no.args and usa_request(no.args[0]):
                         trecho = ast.get_source_segment(fonte, no.args[0]) or ""
+                        # destino_interno() (seguranca_web) só devolve endereços do próprio site: o redirect já está protegido
+                        if re.match(r"\s*(seguranca_web\.)?destino_interno\(", trecho):
+                            continue
                         so_referrer = "referrer" in trecho and not re.search(r"request\.(args|form|values)", trecho)
                         contagem["redirect_referrer" if so_referrer else "redirect_param"].append(f"{rel}:{no.lineno}")
                     if nome in ("send_file", "send_from_directory") and any(usa_request(a) for a in no.args):

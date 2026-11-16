@@ -538,11 +538,11 @@ TEXTOS_ADEQUACOES['es'].update({
 })
 
 # ------------------------------------------------------------------------------
-# P05 — Reuniões institucionais ITM × Aon
+# P05 — Reuniões institucionais ITM × B2B
 # ------------------------------------------------------------------------------
 TEXTOS_ADEQUACOES['pt'].update({
-    'menu_reunioes': 'Reuniões ITM × Aon',
-    'reuniao_titulo': 'Reuniões ITM × Aon',
+    'menu_reunioes': 'Reuniões ITM × B2B',
+    'reuniao_titulo': 'Reuniões ITM × B2B',
     'reuniao_subtitulo': 'Todo alinhamento entre as instituições fica registrado: participantes, pauta, deliberações e encaminhamentos.',
     'reuniao_nova': 'Registrar reunião',
     'reuniao_editar': 'Editar reunião',
@@ -592,8 +592,8 @@ TEXTOS_ADEQUACOES['pt'].update({
     'notif_enc_msg': '"{descricao}" (reunião {reuniao}) venceu em {prazo}. Atualize o status na plataforma.',
 })
 TEXTOS_ADEQUACOES['en'].update({
-    'menu_reunioes': 'ITM × Aon meetings',
-    'reuniao_titulo': 'ITM × Aon meetings',
+    'menu_reunioes': 'ITM × B2B meetings',
+    'reuniao_titulo': 'ITM × B2B meetings',
     'reuniao_subtitulo': 'Every alignment between the institutions is recorded: participants, agenda, decisions and follow-ups.',
     'reuniao_nova': 'Record meeting',
     'reuniao_editar': 'Edit meeting',
@@ -643,8 +643,8 @@ TEXTOS_ADEQUACOES['en'].update({
     'notif_enc_msg': '"{descricao}" (meeting {reuniao}) was due on {prazo}. Update its status on the platform.',
 })
 TEXTOS_ADEQUACOES['es'].update({
-    'menu_reunioes': 'Reuniones ITM × Aon',
-    'reuniao_titulo': 'Reuniones ITM × Aon',
+    'menu_reunioes': 'Reuniones ITM × B2B',
+    'reuniao_titulo': 'Reuniones ITM × B2B',
     'reuniao_subtitulo': 'Todo alineamiento entre las instituciones queda registrado: participantes, agenda, decisiones y acciones.',
     'reuniao_nova': 'Registrar reunión',
     'reuniao_editar': 'Editar reunión',
@@ -983,4 +983,77 @@ TEXTOS_ADEQUACOES['es'].update({
     'acervo_aprovado': 'Versión final enviada al repositorio de TCC.', 'acervo_erro_importar': 'Indique el título y un archivo PDF válido.',
     'acervo_importado': 'TCC histórico importado al acervo.', 'acervo_atualizado': 'Datos del acervo actualizados.',
     'acervo_erro_material': 'Indique el título y un archivo PDF, DOCX, PPTX o XLSX.', 'acervo_material_ok': 'Material de apoyo publicado.',
+})
+
+# ------------------------------------------------------------------------------
+# Reuniões ITM × B2B — convite por e-mail (Gmail conectado ou SMTP) e "salvar na agenda"
+# ------------------------------------------------------------------------------
+TEXTOS_ADEQUACOES['pt'].update({
+    'reuniao_participantes_externos': 'Outros participantes (um por linha: Nome – Instituição – e-mail)',
+    'convite_titulo': 'Convite e agenda', 'convite_salvar_agenda': 'Salvar na minha agenda',
+    'convite_enviar_ao_salvar': 'Enviar convite por e-mail aos participantes ao salvar', 'convite_enviar_por': 'Enviar por',
+    'convite_via_gmail': 'Meu Gmail', 'convite_via_smtp': 'E-mail da plataforma', 'convite_conectar_gmail': 'Conectar Gmail',
+    'convite_desconectar_gmail': 'Desconectar Gmail', 'convite_gmail_conectado_como': 'Gmail conectado: {email}',
+    'convite_dica_gmail': 'O Google abre em outra aba; depois é só voltar e salvar. A plataforma recebe permissão apenas para ENVIAR e-mails (não lê a sua caixa).',
+    'convite_dica_externos': 'Para convidar alguém de fora, inclua o e-mail na linha: Nome – Instituição – email@empresa.com',
+    'convite_dica_provedores': 'O convite vai com o arquivo .ics: Gmail, Outlook, Yahoo e Apple mostram Sim / Não / Talvez e salvam o evento na agenda.',
+    'convite_enviar': 'Enviar convite', 'convite_reenviar': 'Reenviar convite atualizado',
+    'convite_ultimo_envio': 'Último convite: {data} via {via} para {qtd} pessoa(s).', 'convite_nunca_enviado': 'Convite ainda não enviado.',
+    'convite_destinatarios': 'Quem recebe', 'convite_ignorados_lista': 'Sem convite (conta de teste ou sem e-mail)',
+    'convite_sem_meio': 'Para enviar convites, conecte um Gmail ou configure o e-mail da plataforma (SMTP).',
+    'convite_gmail_nao_conectado': 'Conecte o seu Gmail para enviar o convite (botão Conectar Gmail).',
+    'convite_smtp_nao_configurado': 'O e-mail da plataforma (SMTP) não está configurado. Use o seu Gmail.',
+    'convite_escolha_envio': 'Escolha por onde enviar o convite.', 'convite_sem_destinatarios': 'Nenhum participante com e-mail válido para convidar.',
+    'convite_gmail_reconectar': 'O Google pediu uma nova autorização. Conecte o Gmail de novo e reenvie o convite.',
+    'convite_falha_envio': 'Não foi possível enviar o convite agora. A reunião ficou salva; tente reenviar pela página da reunião.',
+    'convite_enviado': 'Convite enviado para {qtd} pessoa(s) via {via}.', 'convite_ignorados': '{qtd} sem convite (conta de teste ou sem e-mail).',
+    'gmail_conectado': 'Gmail conectado: {email}. Os convites sairão desta conta.', 'gmail_desconectado': 'Gmail desconectado da plataforma.',
+    'gmail_erro_conectar': 'A conexão com o Google não foi concluída. Tente de novo.',
+    'gmail_sem_configuracao': 'A integração com o Google ainda não foi configurada neste servidor (client_secret.json).',
+})
+TEXTOS_ADEQUACOES['en'].update({
+    'reuniao_participantes_externos': 'Other participants (one per line: Name – Institution – e-mail)',
+    'convite_titulo': 'Invitation and calendar', 'convite_salvar_agenda': 'Save to my calendar',
+    'convite_enviar_ao_salvar': 'E-mail the invitation to participants when saving', 'convite_enviar_por': 'Send with',
+    'convite_via_gmail': 'My Gmail', 'convite_via_smtp': 'Platform e-mail', 'convite_conectar_gmail': 'Connect Gmail',
+    'convite_desconectar_gmail': 'Disconnect Gmail', 'convite_gmail_conectado_como': 'Gmail connected: {email}',
+    'convite_dica_gmail': 'Google opens in another tab; then come back and save. The platform only gets permission to SEND e-mails (it does not read your inbox).',
+    'convite_dica_externos': 'To invite someone from outside, add the e-mail to the line: Name – Institution – email@company.com',
+    'convite_dica_provedores': 'The invitation carries the .ics file: Gmail, Outlook, Yahoo and Apple show Yes / No / Maybe and save the event to the calendar.',
+    'convite_enviar': 'Send invitation', 'convite_reenviar': 'Resend updated invitation',
+    'convite_ultimo_envio': 'Last invitation: {data} via {via} to {qtd} person(s).', 'convite_nunca_enviado': 'Invitation not sent yet.',
+    'convite_destinatarios': 'Recipients', 'convite_ignorados_lista': 'No invitation (test account or no e-mail)',
+    'convite_sem_meio': 'To send invitations, connect a Gmail account or configure the platform e-mail (SMTP).',
+    'convite_gmail_nao_conectado': 'Connect your Gmail to send the invitation (Connect Gmail button).',
+    'convite_smtp_nao_configurado': 'The platform e-mail (SMTP) is not configured. Use your Gmail.',
+    'convite_escolha_envio': 'Choose how to send the invitation.', 'convite_sem_destinatarios': 'No participant with a valid e-mail to invite.',
+    'convite_gmail_reconectar': 'Google asked for a new authorization. Connect Gmail again and resend the invitation.',
+    'convite_falha_envio': 'The invitation could not be sent now. The meeting was saved; try resending from the meeting page.',
+    'convite_enviado': 'Invitation sent to {qtd} person(s) via {via}.', 'convite_ignorados': '{qtd} without invitation (test account or no e-mail).',
+    'gmail_conectado': 'Gmail connected: {email}. Invitations will be sent from this account.', 'gmail_desconectado': 'Gmail disconnected from the platform.',
+    'gmail_erro_conectar': 'The Google connection was not completed. Please try again.',
+    'gmail_sem_configuracao': 'The Google integration is not configured on this server yet (client_secret.json).',
+})
+TEXTOS_ADEQUACOES['es'].update({
+    'reuniao_participantes_externos': 'Otros participantes (uno por línea: Nombre – Institución – e-mail)',
+    'convite_titulo': 'Invitación y agenda', 'convite_salvar_agenda': 'Guardar en mi agenda',
+    'convite_enviar_ao_salvar': 'Enviar la invitación por e-mail a los participantes al guardar', 'convite_enviar_por': 'Enviar por',
+    'convite_via_gmail': 'Mi Gmail', 'convite_via_smtp': 'E-mail de la plataforma', 'convite_conectar_gmail': 'Conectar Gmail',
+    'convite_desconectar_gmail': 'Desconectar Gmail', 'convite_gmail_conectado_como': 'Gmail conectado: {email}',
+    'convite_dica_gmail': 'Google se abre en otra pestaña; después vuelva y guarde. La plataforma solo recibe permiso para ENVIAR e-mails (no lee su bandeja).',
+    'convite_dica_externos': 'Para invitar a alguien de fuera, incluya el e-mail en la línea: Nombre – Institución – email@empresa.com',
+    'convite_dica_provedores': 'La invitación lleva el archivo .ics: Gmail, Outlook, Yahoo y Apple muestran Sí / No / Quizás y guardan el evento en la agenda.',
+    'convite_enviar': 'Enviar invitación', 'convite_reenviar': 'Reenviar invitación actualizada',
+    'convite_ultimo_envio': 'Última invitación: {data} vía {via} a {qtd} persona(s).', 'convite_nunca_enviado': 'Invitación aún no enviada.',
+    'convite_destinatarios': 'Quién recibe', 'convite_ignorados_lista': 'Sin invitación (cuenta de prueba o sin e-mail)',
+    'convite_sem_meio': 'Para enviar invitaciones, conecte un Gmail o configure el e-mail de la plataforma (SMTP).',
+    'convite_gmail_nao_conectado': 'Conecte su Gmail para enviar la invitación (botón Conectar Gmail).',
+    'convite_smtp_nao_configurado': 'El e-mail de la plataforma (SMTP) no está configurado. Use su Gmail.',
+    'convite_escolha_envio': 'Elija por dónde enviar la invitación.', 'convite_sem_destinatarios': 'Ningún participante con e-mail válido para invitar.',
+    'convite_gmail_reconectar': 'Google pidió una nueva autorización. Conecte Gmail de nuevo y reenvíe la invitación.',
+    'convite_falha_envio': 'No fue posible enviar la invitación ahora. La reunión quedó guardada; intente reenviarla desde la página de la reunión.',
+    'convite_enviado': 'Invitación enviada a {qtd} persona(s) vía {via}.', 'convite_ignorados': '{qtd} sin invitación (cuenta de prueba o sin e-mail).',
+    'gmail_conectado': 'Gmail conectado: {email}. Las invitaciones saldrán de esta cuenta.', 'gmail_desconectado': 'Gmail desconectado de la plataforma.',
+    'gmail_erro_conectar': 'La conexión con Google no se completó. Inténtelo de nuevo.',
+    'gmail_sem_configuracao': 'La integración con Google aún no está configurada en este servidor (client_secret.json).',
 })

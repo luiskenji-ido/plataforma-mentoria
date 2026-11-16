@@ -672,7 +672,7 @@ class PresencaAtividadeExtra(db.Model):
 
 
 # ==============================================================================
-# TABELAS: Reuniões institucionais ITM × Aon (ata, participantes e encaminhamentos)
+# TABELAS: Reuniões institucionais ITM × B2B (ata, participantes e encaminhamentos)
 # Objetivo: nada corre por fora; todo alinhamento fica registrado na plataforma.
 # ==============================================================================
 reuniao_participante = db.Table('reuniao_participante',
@@ -697,6 +697,11 @@ class ReuniaoInstitucional(db.Model):
     criado_por_id = db.Column(db.Integer, db.ForeignKey('usuario.id'), nullable=False)
     data_criacao = db.Column(db.DateTime, default=datetime.utcnow)
     data_atualizacao = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    # Convite por e-mail (.ics): a sequência sobe a cada reenvio para as agendas trocarem o evento em vez de duplicar
+    convite_sequencia = db.Column(db.Integer, default=0)
+    convite_enviado_em = db.Column(db.DateTime, nullable=True)
+    convite_enviado_via = db.Column(db.String(20), nullable=True)  # Gmail / SMTP
+    convite_destinatarios = db.Column(db.Text, nullable=True)  # e-mails convidados no último envio, um por linha
 
     participantes = db.relationship('Usuario', secondary=reuniao_participante, lazy='subquery')
     criado_por = db.relationship('Usuario', foreign_keys=[criado_por_id])

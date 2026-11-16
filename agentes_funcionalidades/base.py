@@ -245,6 +245,7 @@ class AgenteFuncional:
 
     # ------------------------------------------------------------------ login e primeiro acesso
     def entrar(self, email, senha):
+        self.email_logado = email
         self.cliente = Cliente()
         status, destino, _ = self.cliente.pedir("POST", "/", {"email": email, "senha": senha})
         return status, destino
@@ -329,7 +330,13 @@ class AgenteFuncional:
         meus = set(regras.get(base, []))
         rotas = self.regras.get("rotas_get", {})
         abertas, bloqueadas_errado, liberadas_errado = 0, [], []
+        # Exceção da plataforma: quem PARTICIPOU de uma reunião ITM × B2B vê a lista e a ata, mesmo sem o módulo de gestão
+        por_participacao = self._modulos_por_participacao()
+        if por_participacao:
+            self.log(f"Acesso por participação (permitido): {', '.join(sorted(por_participacao))}")
         for modulo, endpoints in sorted(modulos.items()):
+            if modulo in por_participacao and modulo not in meus:
+                continue
             for endpoint in endpoints:
                 caminho = rotas.get(endpoint)
                 if not caminho:
@@ -360,6 +367,20 @@ class AgenteFuncional:
         self.confere(not bloqueadas_errado, f"{base} acessa os módulos do seu perfil ({abertas} página(s))", "PER",
                      f"{abertas} página(s) dos módulos do perfil abriram.", "Bloqueadas por engano: " + "; ".join(bloqueadas_errado[:10]),
                      "Perfil usa todos os módulos definidos para ele", "Média", alerta=True)
+
+    def _modulos_por_participacao(self):
+        """Módulos liberados por participação, não pelo perfil (regra de pode_ver_reuniao no app.py)."""
+        email = getattr(self, "email_logado", None)
+        if not email:
+            return set()
+        try:
+            def consulta():
+                import models
+                u = models.Usuario.query.filter_by(email=email).first()
+                return bool(u) and models.ReuniaoInstitucional.query.filter(models.ReuniaoInstitucional.participantes.any(id=u.id)).count() > 0
+            return {"reunioes"} if self.banco(consulta) else set()
+        except Exception:
+            return set()
 
     # ------------------------------------------------------------------ aprendizados
     def carregar_aprendizados(self):

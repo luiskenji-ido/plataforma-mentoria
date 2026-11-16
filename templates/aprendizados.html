@@ -1,6 +1,18 @@
 {% extends "base.html" %}
 {% block title %}{{ tt('Governança de aprendizados') }}{% endblock %}
 {% block content %}
+<style>
+    /* Tabela de aprendizados: cabe na tela sem esconder as ações (que ficam fixas à direita se ainda precisar rolar) */
+    .tabela-aprendizados .col-aprendizado { min-width: 220px; }
+    .tabela-aprendizados .col-tipo { min-width: 90px; }
+    .tabela-aprendizados .col-agentes { min-width: 150px; max-width: 200px; }
+    .tabela-aprendizados .col-agentes .badge { font-weight: 600; white-space: normal; line-height: 1.25; }
+    .tabela-aprendizados .col-origem { min-width: 120px; max-width: 180px; }
+    .tabela-aprendizados .col-acoes { position: sticky; right: 0; z-index: 1; background: var(--bs-body-bg); white-space: nowrap;
+                                      box-shadow: -6px 0 8px -6px rgba(0,0,0,.25); }
+    .tabela-aprendizados .col-acoes form, .tabela-aprendizados .col-acoes > .btn { margin: 1px 0; }
+    .tabela-aprendizados tr:hover .col-acoes { background: var(--bs-tertiary-bg); }
+</style>
 {% macro selo(status) %}
     {% set cor = {'Aplicado': 'success', 'Pendente': 'warning text-dark', 'Revogado': 'secondary', 'Rejeitado': 'danger'}.get(status, 'secondary') %}
     <span class="badge bg-{{ cor }}">{{ tt(status) }}</span>
@@ -14,7 +26,7 @@
                       'seg_vulnerabilidade': tt('Vulnerabilidade conhecida'), 'db_linha_base': tt('Linha de base do banco'),
                       'db_esquema': tt('Esquema mudou'), 'db_backup': tt('Agendamento de backup mudou'), 'db_motor': tt('Motor do banco mudou'),
                       'fn_linha_base': tt('Linha de base das regras de negócio'), 'fn_regra': tt('Regra de negócio mudou'),
-                      'fn_rota_nova': tt('Função nova sem teste')} %}
+                      'fn_rota_nova': tt('Função nova sem teste'), 'regra_verificada': tt('Regra de negócio ensinada')} %}
 {% set nomes_agentes = {'todos': tt('Todos os agentes'), 'administrador': tt('Administrador'), 'aluno': tt('Aluno'), 'professor': tt('Professor'),
                         'mentor': tt('Mentor'), 'mentor_administrador': tt('Mentor Administrador'), 'gestor_b2b': tt('Gestor B2B'),
                         'avaliador': tt('Avaliador Banca'), 'perfis_personalizados': tt('Perfis personalizados'),
@@ -55,10 +67,23 @@
     {% endfor %}
     <div class="col"><div class="card shadow-sm border-0 h-100"><div class="card-body p-3">
         <small class="text-muted d-block fw-bold">{{ tt('Última detecção') }}</small>
-        <span class="fw-bold" data-conteudo-dinamico>{{ ultima.em.replace('T', ' ')[:16] if ultima else '—' }}</span>
-        {% if ultima %}<small class="d-block text-muted" data-conteudo-dinamico>{{ ultima.origem }} · {{ ultima.novos }} {{ tt('novo(s)') }}</small>{% endif %}
+        {% if deteccoes %}
+        {% set recente = deteccoes[0] %}
+        <span class="fw-bold" data-conteudo-dinamico>{{ recente.em.replace('T', ' ')[:16] }}</span>
+        <small class="d-block text-muted" data-conteudo-dinamico>{{ recente.gerente }} · {{ recente.novos }} {{ tt('novo(s)') }}</small>
+        {% else %}<span class="fw-bold">—</span>{% endif %}
     </div></div></div>
 </div>
+{% if deteccoes %}
+<div class="d-flex flex-wrap gap-2 align-items-center small mb-3" id="ultimasDeteccoes">
+    <span class="text-muted fw-bold">{{ tt('Última detecção de cada gerente') }}:</span>
+    {% for d in deteccoes %}
+    <span class="badge rounded-pill bg-body border text-body fw-normal" title="{{ d.origem }}" data-conteudo-dinamico>
+        {{ d.gerente }} · {{ d.em[8:10] }}/{{ d.em[5:7] }} {{ d.em[11:16] }} ·
+        {% if d.novos %}<b class="text-success">+{{ d.novos }}</b>{% else %}0{% endif %} {{ tt('novo(s)') }}</span>
+    {% endfor %}
+</div>
+{% endif %}
 <div class="alert alert-light border small"><i class="bi bi-info-circle"></i> {{ tt('Aprendizados de detecção interna são aplicados automaticamente (e podem ser revogados). Os que vêm de fontes oficiais da internet ficam pendentes até um administrador aprovar.') }}</div>
 
 <!-- Aprendizados -->
@@ -84,21 +109,21 @@
             <a href="{{ url_for('governanca_aprendizados_csv', tipo='aprendizados', formato='csv') }}" class="btn btn-sm btn-outline-success"><i class="bi bi-file-earmark-spreadsheet"></i> {{ tt('Exportar CSV') }}</a>
             <a href="{{ url_for('governanca_aprendizados_csv', tipo='aprendizados', formato='json') }}" class="btn btn-sm btn-outline-success"><i class="bi bi-filetype-json"></i> {{ tt('Exportar JSON') }}</a>
         </div>
-        <div class="table-responsive">
+        <div class="table-responsive tabela-aprendizados">
             <table class="table table-hover align-middle small mb-0">
-                <thead><tr><th>{{ tt('Código') }}</th><th>{{ tt('Aprendizado') }}</th><th>{{ tt('Tipo') }}</th><th>{{ tt('Agentes') }}</th><th>{{ tt('Origem') }}</th><th>{{ tt('Status') }}</th><th>{{ tt('Criado em') }}</th><th>{{ tt('Usos') }}</th><th></th></tr></thead>
+                <thead><tr><th>{{ tt('Código') }}</th><th>{{ tt('Aprendizado') }}</th><th>{{ tt('Tipo') }}</th><th>{{ tt('Agentes') }}</th><th>{{ tt('Origem') }}</th><th>{{ tt('Status') }}</th><th>{{ tt('Criado em') }}</th><th class="text-center">{{ tt('Usos') }}</th><th class="col-acoes"><span class="visually-hidden">{{ tt('Ação') }}</span></th></tr></thead>
                 <tbody>
                     {% for a in itens %}
                     <tr>
                         <td class="fw-bold text-nowrap">{{ a.codigo }}</td>
-                        <td><span data-conteudo-dinamico>{{ a.titulo }}</span>{% if a.descricao %}<div class="text-muted" data-conteudo-dinamico>{{ a.descricao[:160] }}</div>{% endif %}</td>
-                        <td>{{ nomes_tipos.get(a.tipo, a.tipo) }}</td>
-                        <td>{% for d in carregar_json(a.agentes_destino) %}<span class="badge bg-light text-dark border me-1">{{ nomes_agentes.get(d, d) }}</span>{% endfor %}</td>
-                        <td data-conteudo-dinamico>{{ a.origem }}{% if a.fonte_url %}<br><a href="{{ a.fonte_url }}" target="_blank" rel="noopener noreferrer" class="small">{{ a.fonte_url[:50] }}</a>{% endif %}</td>
+                        <td class="col-aprendizado"><span data-conteudo-dinamico>{{ a.titulo }}</span>{% if a.descricao %}<div class="text-muted" data-conteudo-dinamico>{{ a.descricao[:160] }}</div>{% endif %}</td>
+                        <td class="col-tipo">{{ nomes_tipos.get(a.tipo, a.tipo) }}</td>
+                        <td class="col-agentes">{% for d in carregar_json(a.agentes_destino) %}<span class="badge bg-light text-dark border text-wrap text-start mb-1">{{ nomes_agentes.get(d, d) }}</span> {% endfor %}</td>
+                        <td class="col-origem" data-conteudo-dinamico>{{ a.origem }}{% if a.fonte_url %}<br><a href="{{ a.fonte_url }}" target="_blank" rel="noopener noreferrer" class="small text-break" title="{{ a.fonte_url }}"><i class="bi bi-box-arrow-up-right"></i> {{ a.fonte_url.split('//')[-1].split('/')[0] }}</a>{% endif %}</td>
                         <td>{{ selo(a.status) }}</td>
-                        <td class="text-nowrap">{{ a.criado_em.strftime('%d/%m/%Y %H:%M') if a.criado_em else '' }}</td>
-                        <td>{{ a.vezes_consumido or 0 }}</td>
-                        <td class="text-nowrap">
+                        <td class="text-nowrap">{% if a.criado_em %}{{ a.criado_em.strftime('%d/%m/%Y') }}<div class="text-muted">{{ a.criado_em.strftime('%H:%M') }}</div>{% endif %}</td>
+                        <td class="text-center">{{ a.vezes_consumido or 0 }}</td>
+                        <td class="col-acoes">
                             <button class="btn btn-sm btn-outline-primary" type="button" data-bs-toggle="collapse" data-bs-target="#det{{ a.id }}" title="{{ tt('Detalhes') }}" aria-label="{{ tt('Detalhes') }}"><i class="bi bi-eye"></i></button>
                             {% set acoes = {'Pendente': [('aprovar', 'btn-outline-success', 'bi-check-lg'), ('rejeitar', 'btn-outline-danger', 'bi-x-lg')],
                                             'Aplicado': [('revogar', 'btn-outline-danger', 'bi-slash-circle')], 'Revogado': [('reaplicar', 'btn-outline-success', 'bi-arrow-repeat')]}.get(a.status, []) %}

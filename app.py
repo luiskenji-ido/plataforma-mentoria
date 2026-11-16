@@ -42,6 +42,8 @@ os.environ['OAUTHLIB_INSECURE_TRANSPORT'] = '1'
 
 # Dizemos ao Google que só queremos criar/ver eventos na agenda
 SCOPES = ['https://www.googleapis.com/auth/calendar.events']
+# O Google pode devolver também permissões já concedidas antes (Agenda + Gmail): isso não é erro
+os.environ.setdefault('OAUTHLIB_RELAX_TOKEN_SCOPE', '1')
 
 # Thread (Tarefa em Segundo Plano)
 import threading
@@ -2452,7 +2454,7 @@ def relatorio_atividade_extra(id):
 
 
 # ==============================================================================
-# REUNIÕES INSTITUCIONAIS ITM × AON (ata, participantes, encaminhamentos e horas)
+# REUNIÕES INSTITUCIONAIS ITM × B2B (ata, participantes, encaminhamentos e horas)
 # ==============================================================================
 PERFIS_GESTAO_REUNIOES = ['Administrador', 'Mentor Administrador', 'Admin B2B']
 
@@ -2573,12 +2575,15 @@ def editar_reuniao(id=None):
                       ('notif_reuniao_msg', {'autor': current_user.nome, 'data': reuniao.data_hora.strftime('%d/%m/%Y %H:%M')}),
                       link=url_for('detalhe_reuniao', id=reuniao.id), tipo='reuniao', referencia=f"reuniao:{reuniao.id}")
         flash(t('reuniao_salva', current_user.idioma), "success")
+        if request.form.get('enviar_convite'):
+            categoria, texto = enviar_convite_reuniao(reuniao, request.form.get('convite_via'))
+            flash(texto, categoria)
         return redirect(url_for('detalhe_reuniao', id=reuniao.id))
 
     demanda = db.session.get(DemandaInstitucional, request.args.get('demanda_id', type=int) or 0)
     demandas = DemandaInstitucional.query.order_by(DemandaInstitucional.data_criacao.desc()).limit(100).all()
     return render_template('reuniao_form.html', reuniao=reuniao, pessoas=pessoas_internas_reuniao(),
-                           demandas=demandas, demanda_inicial=demanda)
+                           demandas=demandas, demanda_inicial=demanda, **opcoes_envio_convite())
 
 
 @app.route('/reunioes/<int:id>', methods=['GET', 'POST'])
@@ -2602,8 +2607,147 @@ def detalhe_reuniao(id):
         return redirect(url_for('detalhe_reuniao', id=reuniao.id))
 
     imprimir = request.args.get('imprimir') == '1'
-    return render_template('reuniao_ata.html' if imprimir else 'reuniao_detalhe.html', reuniao=reuniao, hoje=datetime.now().date(),
-                           pode_editar=current_user.tipo_usuario in PERFIS_GESTAO_REUNIOES)
+    if imprimir:
+        return render_template('reuniao_ata.html', reuniao=reuniao, hoje=datetime.now().date(),
+                               pode_editar=current_user.tipo_usuario in PERFIS_GESTAO_REUNIOES)
+    import convites_reuniao
+    validos, ignorados = convites_reuniao.destinatarios(reuniao, session.get('gmail_email'))
+    link = url_for('detalhe_reuniao', id=reuniao.id, _external=True)
+    return render_template('reuniao_detalhe.html', reuniao=reuniao, hoje=datetime.now().date(),
+                           pode_editar=current_user.tipo_usuario in PERFIS_GESTAO_REUNIOES,
+                           links_agenda=convites_reuniao.links_agenda(reuniao, link, url_for('agenda_reuniao_ics', id=reuniao.id)),
+                           provedores=convites_reuniao.PROVEDORES, convidados=validos, convidados_ignorados=ignorados,
+                           convite_enviado_local=(reuniao.convite_enviado_em - timedelta(hours=3)).strftime('%d/%m/%Y %H:%M')
+                           if reuniao.convite_enviado_em else '', **opcoes_envio_convite())
+
+
+# ------------------------------------------------------------------------------ convites por e-mail e agenda
+def opcoes_envio_convite():
+    """Como o convite pode sair: pelo Gmail conectado nesta sessão e/ou pelo SMTP da plataforma."""
+    import convites_reuniao
+    return {'gmail_email': session.get('gmail_email') if session.get('gmail_token') else None,
+            'gmail_disponivel': os.path.exists(os.path.join(app.root_path, 'client_secret.json')),
+            'smtp_disponivel': convites_reuniao.smtp_configurado()}
+
+
+def enviar_convite_reuniao(reuniao, via, emails_escolhidos=None):
+    """Envia o convite (.ics) aos participantes. Devolve (categoria do flash, mensagem já traduzida)."""
+    import convites_reuniao
+    idioma = current_user.idioma
+    if via == 'gmail':
+        if not session.get('gmail_token'):
+            return 'warning', t('convite_gmail_nao_conectado', idioma)
+        remetente = (current_user.nome, session.get('gmail_email') or current_user.email)
+    elif via == 'smtp':
+        if not convites_reuniao.smtp_configurado():
+            return 'warning', t('convite_smtp_nao_configurado', idioma)
+        remetente = (f"{current_user.nome} · {convites_reuniao.remetente_smtp()[0]}", convites_reuniao.remetente_smtp()[1])
+    else:
+        return 'warning', t('convite_escolha_envio', idioma)
+
+    validos, ignorados = convites_reuniao.destinatarios(reuniao, remetente[1])
+    if emails_escolhidos is not None:
+        escolhidos = {e.strip().lower() for e in emails_escolhidos}
+        validos = [c for c in validos if c[1] in escolhidos]
+    if not validos:
+        return 'warning', t('convite_sem_destinatarios', idioma)
+
+    atualizacao = reuniao.convite_enviado_em is not None
+    reuniao.convite_sequencia = (reuniao.convite_sequencia or 0) + (1 if atualizacao else 0)
+    link = url_for('detalhe_reuniao', id=reuniao.id, _external=True)
+    mensagem = convites_reuniao.montar_email(reuniao, remetente, validos, link,
+                                             url_for('agenda_reuniao_ics', id=reuniao.id, _external=True), atualizacao)
+    if via == 'smtp' and current_user.email:
+        mensagem['Reply-To'] = current_user.email
+    try:
+        if via == 'gmail':
+            credenciais = convites_reuniao.credenciais_gmail(session['gmail_token'], session.get('gmail_refresh_token'),
+                                                             os.path.join(app.root_path, 'client_secret.json'))
+            convites_reuniao.enviar_gmail(mensagem, credenciais)
+            if credenciais.token and credenciais.token != session['gmail_token']:
+                session['gmail_token'] = credenciais.token  # o Google renovou o acesso
+        else:
+            convites_reuniao.enviar_smtp(mensagem)
+    except Exception as erro:
+        db.session.rollback()
+        app.logger.warning("Convite da reunião %s não enviado (%s): %s", reuniao.id, via, erro)
+        if via == 'gmail' and any(p in str(erro).lower() for p in ('invalid_grant', 'unauthorized', '401', '403', 'insufficient')):
+            for chave in ('gmail_token', 'gmail_refresh_token', 'gmail_email'):
+                session.pop(chave, None)
+            return 'warning', t('convite_gmail_reconectar', idioma)
+        return 'danger', t('convite_falha_envio', idioma)
+
+    reuniao.convite_enviado_em = datetime.utcnow()
+    reuniao.convite_enviado_via = 'Gmail' if via == 'gmail' else 'SMTP'
+    reuniao.convite_destinatarios = '\n'.join(email for _, email in validos)
+    db.session.commit()
+    texto = t('convite_enviado', idioma).format(qtd=len(validos), via=reuniao.convite_enviado_via)
+    if ignorados:
+        texto += ' ' + t('convite_ignorados', idioma).format(qtd=len(ignorados))
+    return 'success', texto
+
+
+@app.route('/reunioes/<int:id>/agenda.ics')
+@login_required
+def agenda_reuniao_ics(id):
+    """Arquivo para salvar a reunião em qualquer agenda (Outlook, Apple, Thunderbird, Yahoo, Google...)."""
+    from flask import Response
+    from models import ReuniaoInstitucional
+    import convites_reuniao
+    reuniao = db.session.get(ReuniaoInstitucional, id)
+    if not reuniao or not pode_ver_reuniao(current_user, reuniao):
+        flash("Acesso negado.", "danger")
+        return redirect(url_for('dashboard'))
+    conteudo = convites_reuniao.gerar_ics(reuniao, url_for('detalhe_reuniao', id=reuniao.id, _external=True))
+    return Response(conteudo.encode('utf-8'), mimetype='text/calendar',
+                    headers={'Content-Disposition': f'attachment; filename=reuniao_{reuniao.id}.ics'})
+
+
+@app.route('/reunioes/<int:id>/convite', methods=['POST'])
+@login_required
+def enviar_convite(id):
+    from models import ReuniaoInstitucional
+    if current_user.tipo_usuario not in PERFIS_GESTAO_REUNIOES:
+        flash("Acesso negado.", "danger")
+        return redirect(url_for('dashboard'))
+    reuniao = db.session.get(ReuniaoInstitucional, id)
+    if not reuniao:
+        return redirect(url_for('reunioes'))
+    categoria, texto = enviar_convite_reuniao(reuniao, request.form.get('via'), request.form.getlist('convidados'))
+    flash(texto, categoria)
+    return redirect(url_for('detalhe_reuniao', id=reuniao.id))
+
+
+@app.route('/conectar-gmail')
+@login_required
+def conectar_gmail():
+    """Conecta o Gmail da pessoa só para ENVIAR convites (permissão gmail.send: não lê a caixa de entrada)."""
+    import convites_reuniao
+    if current_user.tipo_usuario not in PERFIS_GESTAO_REUNIOES:
+        flash("Acesso negado.", "danger")
+        return redirect(url_for('dashboard'))
+    caminho_secreto = os.path.join(app.root_path, 'client_secret.json')
+    if not os.path.exists(caminho_secreto):
+        flash(t('gmail_sem_configuracao', current_user.idioma), "warning")
+        return redirect(seguranca_web.destino_interno(request.args.get('voltar'), url_for('reunioes')))
+    flow = Flow.from_client_secrets_file(caminho_secreto, scopes=convites_reuniao.SCOPES_GMAIL,
+                                         redirect_uri=url_for('oauth2callback', _external=True))
+    authorization_url, state = flow.authorization_url(access_type='offline', include_granted_scopes='false',
+                                                      prompt='consent select_account')
+    session['state'] = state
+    session['code_verifier'] = flow.code_verifier
+    session['oauth_destino'] = 'gmail'
+    session['oauth_voltar'] = seguranca_web.destino_interno(request.args.get('voltar'), url_for('reunioes'))
+    return redirect(authorization_url)
+
+
+@app.route('/desconectar-gmail', methods=['POST'])
+@login_required
+def desconectar_gmail():
+    for chave in ('gmail_token', 'gmail_refresh_token', 'gmail_email'):
+        session.pop(chave, None)
+    flash(t('gmail_desconectado', current_user.idioma), "info")
+    return voltar('reunioes')
 
 
 def encaminhamentos_atrasados(usuario):
@@ -3653,24 +3797,39 @@ def conectar_agenda():
 @app.route('/oauth2callback')
 @login_required
 def oauth2callback():
+    import convites_reuniao
     state = session.get('state')
     caminho_secreto = os.path.join(app.root_path, 'client_secret.json')
-    
+    # O mesmo endereço de retorno serve à Agenda e ao Gmail (só um endereço cadastrado no Google Cloud)
+    destino = session.pop('oauth_destino', 'agenda')
+
     flow = Flow.from_client_secrets_file(
         caminho_secreto,
-        scopes=SCOPES,
+        scopes=convites_reuniao.SCOPES_GMAIL if destino == 'gmail' else SCOPES,
         state=state,
         redirect_uri=url_for('oauth2callback', _external=True)
     )
-    
+
     # 2. RECUPERAMOS O "CÓDIGO VERIFICADOR" PARA DEVOLVER AO GOOGLE
     flow.code_verifier = session.get('code_verifier')
-    
+
     authorization_response = request.url
-    flow.fetch_token(authorization_response=authorization_response)
-    
+    try:
+        flow.fetch_token(authorization_response=authorization_response)
+    except Exception as erro:
+        app.logger.warning("Conexão com o Google não concluída (%s): %s", destino, erro)
+        flash(t('gmail_erro_conectar', current_user.idioma), "warning")
+        return redirect(url_for('reunioes') if destino == 'gmail' else url_for('acompanhamento'))
+
     credenciais = flow.credentials
-    
+
+    if destino == 'gmail':
+        session['gmail_token'] = credenciais.token
+        session['gmail_refresh_token'] = credenciais.refresh_token
+        session['gmail_email'] = convites_reuniao.email_do_id_token(getattr(credenciais, 'id_token', None) or '') or ''
+        flash(t('gmail_conectado', current_user.idioma).format(email=session['gmail_email'] or 'Gmail'), "success")
+        return redirect(seguranca_web.destino_interno(session.pop('oauth_voltar', None), url_for('reunioes')))
+
     # Salvamos o acesso na sessão!
     session['google_token'] = credenciais.token
     session['google_refresh_token'] = credenciais.refresh_token
@@ -6598,9 +6757,20 @@ def governanca_aprendizados():
     todos = AprendizadoAgente.query.all()
     resumo = {s: sum(1 for a in todos if a.status == s) for s in ('Aplicado', 'Pendente', 'Revogado', 'Rejeitado')}
     eventos = EventoAprendizado.query.order_by(EventoAprendizado.data.desc()).limit(200).all()
-    ultima = db.session.get(EstadoConhecimento, 'ultima_deteccao')
+    # Última detecção de CADA gerente (antes só aparecia a do Gerente Técnico), da mais recente para a mais antiga
+    deteccoes = []
+    for chave, gerente in (('ultima_deteccao', 'Gerente Técnico'), ('ultima_deteccao_seguranca', 'Gerente de Segurança'),
+                           ('ultima_deteccao_banco', 'Gerente de Banco de Dados'), ('ultima_deteccao_funcional', 'Gerente de Funcionalidades')):
+        registro = db.session.get(EstadoConhecimento, chave)
+        try:
+            valor = json.loads(registro.valor) if registro and registro.valor else None
+        except ValueError:
+            valor = None
+        if valor and valor.get('em'):
+            deteccoes.append({**valor, 'gerente': tt(gerente, idioma)})
+    deteccoes.sort(key=lambda d: d['em'], reverse=True)
     return render_template('aprendizados.html', itens=itens, resumo=resumo, eventos=eventos, fontes=FonteConfiavel.query.order_by(FonteConfiavel.dominio).all(),
-                           agentes=conhecimento.AGENTES, ultima=json.loads(ultima.valor) if ultima and ultima.valor else None,
+                           agentes=conhecimento.AGENTES, deteccoes=deteccoes,
                            filtros={'status': filtro_status, 'tipo': filtro_tipo, 'agente': filtro_agente},
                            tipos=sorted({a.tipo for a in todos}), carregar_json=json.loads)
 
@@ -6761,7 +6931,12 @@ def atualizar_estrutura_banco():
         "ALTER TABLE qa_banca ADD COLUMN banca_id INTEGER REFERENCES banca(id)",
         "ALTER TABLE qa_banca ADD COLUMN ordem INTEGER DEFAULT 0",
         # Segurança: token que invalida a sessão no logout
-        "ALTER TABLE usuario ADD COLUMN token_sessao VARCHAR(64)"
+        "ALTER TABLE usuario ADD COLUMN token_sessao VARCHAR(64)",
+        # Reuniões ITM × B2B: convite por e-mail
+        "ALTER TABLE reuniao_institucional ADD COLUMN convite_sequencia INTEGER DEFAULT 0",
+        "ALTER TABLE reuniao_institucional ADD COLUMN convite_enviado_em DATETIME",
+        "ALTER TABLE reuniao_institucional ADD COLUMN convite_enviado_via VARCHAR(20)",
+        "ALTER TABLE reuniao_institucional ADD COLUMN convite_destinatarios TEXT"
     ]
     
     for comando in colunas_novas:

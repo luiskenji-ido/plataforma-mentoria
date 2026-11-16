@@ -357,8 +357,8 @@ LITERAIS = {
     'Abra o formulário para lançar as notas da banca.': ('Open the form to enter the panel grades.', 'Abra el formulario para registrar las notas del tribunal.'),
     'Notificações: avisos de bancas, entregas, tickets e reuniões.': ('Notifications: alerts about panels, submissions, tickets and meetings.', 'Notificaciones: avisos de tribunales, entregas, tickets y reuniones.'),
     'Escolha se também quer receber os avisos por e-mail.': ('Choose whether you also want the alerts by email.', 'Elija si también quiere recibir los avisos por correo.'),
-    'Reuniões ITM × Aon: pautas, atas, decisões e encaminhamentos com responsáveis e prazos.': (
-        'ITM × Aon meetings: agendas, minutes, decisions and action items with owners and deadlines.', 'Reuniones ITM × Aon: agendas, actas, decisiones y acciones con responsables y plazos.'),
+    'Reuniões ITM × B2B: pautas, atas, decisões e encaminhamentos com responsáveis e prazos.': (
+        'ITM × B2B meetings: agendas, minutes, decisions and action items with owners and deadlines.', 'Reuniones ITM × B2B: agendas, actas, decisiones y acciones con responsables y plazos.'),
     'Filtre as reuniões por período.': ('Filter meetings by period.', 'Filtre las reuniones por período.'),
     'Abra uma reunião para ver a ata e acompanhar os encaminhamentos.': (
         'Open a meeting to see the minutes and follow the action items.', 'Abra una reunión para ver el acta y seguir las acciones.'),
@@ -400,7 +400,7 @@ LITERAIS = {
     'Biblioteca de TCCs': ('Final paper library', 'Biblioteca de TCC'), 'Certificados': ('Certificates', 'Certificados'),
     'Portal de Demandas': ('Requests Portal', 'Portal de Solicitudes'), 'Relógio de voluntariado e relatórios ESG': ('Volunteering clock and ESG reports', 'Reloj de voluntariado e informes ESG'),
     'Cadastros e grupos': ('Users and groups', 'Registros y grupos'), 'Solicitações de mentoria': ('Mentoring requests', 'Solicitudes de mentoría'),
-    'Gestão da trilha do TCC': ('Final paper track management', 'Gestión de la ruta del TCC'), 'Reuniões ITM × Aon': ('ITM × Aon meetings', 'Reuniones ITM × Aon'),
+    'Gestão da trilha do TCC': ('Final paper track management', 'Gestión de la ruta del TCC'), 'Reuniões ITM × B2B': ('ITM × B2B meetings', 'Reuniones ITM × B2B'),
     'Agenda de bancas e avaliadores': ('Panel schedule and evaluators', 'Agenda de tribunales y evaluadores'), 'Indicadores de voluntariado': ('Volunteering indicators', 'Indicadores de voluntariado'),
     'Agentes IA e governança de aprendizados': ('AI agents and learning governance', 'Agentes IA y gobernanza de aprendizajes'),
     'Manutenção do banco de dados': ('Database maintenance', 'Mantenimiento de la base de datos'),
@@ -900,6 +900,8 @@ LITERAIS = {
     'Primeiro acesso; cria cursos, perfis, empresa, grupo e turma; matricula, cria projeto e tarefa e agenda a banca.': ('First access; creates courses, profiles, company, group and class; enrolls, creates project and task and schedules the panel.', 'Primer acceso; crea cursos, perfiles, empresa, grupo y clase; matricula, crea proyecto y tarea y agenda el tribunal.'),
     'Registro do Gerente de Funcionalidades': ('Functionality Manager log', 'Registro del Gerente de Funcionalidades'),
     'Regra de negócio mudou': ('Business rule changed', 'La regla de negocio cambió'),
+    'Regra de negócio ensinada': ('Taught business rule', 'Regla de negocio enseñada'),
+    'Última detecção de cada gerente': ('Last detection by each manager', 'Última detección de cada gerente'),
     'Saúde dos testes Fim a Fim: percentual de testes aprovados (alertas contam meio ponto).': ('End-to-end test health: percentage of passed tests (alerts count half a point).', 'Salud de las pruebas de extremo a extremo: porcentaje de pruebas aprobadas (las alertas cuentan medio punto).'),
     'Saúde funcional: percentual de testes aprovados (alertas contam meio ponto).': ('Functional health: percentage of passed tests (alerts count half a point).', 'Salud funcional: porcentaje de pruebas aprobadas (las alertas cuentan medio punto).'),
     'Todos os agentes de funcionalidades': ('All functionality agents', 'Todos los agentes de funcionalidades'),

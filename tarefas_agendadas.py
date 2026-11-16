@@ -37,7 +37,7 @@ def lembrar_checkout_esquecido(agora):
 
 
 def lembrar_encaminhamentos_vencidos(agora):
-    """Encaminhamento de reunião ITM × Aon com prazo vencido: avisa o responsável uma vez."""
+    """Encaminhamento de reunião ITM × B2B com prazo vencido: avisa o responsável uma vez."""
     vencidos = EncaminhamentoReuniao.query.filter(EncaminhamentoReuniao.status == 'Pendente',
                                                   EncaminhamentoReuniao.prazo < agora.date(),
                                                   EncaminhamentoReuniao.responsavel_id.isnot(None)).all()

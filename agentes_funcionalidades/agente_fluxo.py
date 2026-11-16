@@ -82,6 +82,28 @@ class AgenteDoFluxo(AgenteFuncional):
                            ", ".join(novas), "Toda função nova entra no fluxo de teste", "Baixa",
                            "O Gerente de Funcionalidades aprendeu estas funções novas; criar o passo de teste correspondente.")
 
+    def regra_reuniao(self, participante):
+        """Reuniões ITM × B2B fora da gestão: participante vê a ata e salva na agenda; quem não participou não vê nada;
+        ninguém fora da gestão envia convite (o envio dispara e-mails em nome da coordenação)."""
+        m = _modelos()
+        reuniao_id = self.contexto["ids"].get("reuniao")
+        if not reuniao_id:
+            return
+        self.etapa(f"Regra: reunião ITM × B2B para o perfil {self.perfil}")
+        status_ics, _, ics = self.cliente.pedir("GET", f"/reunioes/{reuniao_id}/agenda.ics")
+        abriu = status_ics == 200 and "BEGIN:VCALENDAR" in ics
+        if participante:
+            self.confere(abriu, f"{self.perfil} participante salva a reunião na agenda", "PER", "Baixou o .ics da reunião.",
+                         f"HTTP {status_ics}: o participante não conseguiu baixar o .ics.", "Participante salva a reunião na agenda", "Média")
+        else:
+            self.confere(not abriu, f"{self.perfil} que não participou não vê a reunião", "PER", "Acesso ao .ics recusado.",
+                         "Baixou o .ics de uma reunião da qual não participou.", "Só participantes e gestão veem a reunião", "Alta",
+                         "Em agenda_reuniao_ics, conferir pode_ver_reuniao antes de gerar o arquivo.")
+        self.post(f"/reunioes/{reuniao_id}/convite", {"via": "smtp"})
+        enviado = self.banco(lambda: m.ReuniaoInstitucional.query.get(reuniao_id).convite_enviado_em)
+        self.confere(enviado is None, f"{self.perfil} não envia convite de reunião", "PER", "Envio de convite recusado.",
+                     f"O perfil {self.perfil} conseguiu disparar o convite.", "Só a gestão envia convites", "Alta")
+
     def gerar_relatorio(self):
         dados = super().gerar_relatorio()
         dados["cobertura"] = sorted(self.cobertura)
@@ -136,7 +158,8 @@ class AgenteMentorAdministrador(AgenteDoFluxo):
                "Regra: Mentor Administrador não cria Administrador", "Cria os cursos do catálogo",
                "Cria Gestor Parceiro, Mentor, Professor, 2 Alunos e o Avaliador da banca",
                "Cria a empresa parceira (gestor e mentor), o grupo e a turma (matrícula automática)",
-               "Matricula outro aluno, cria o projeto, a tarefa e agenda a banca com o avaliador"]
+               "Matricula outro aluno, cria o projeto, a tarefa e agenda a banca com o avaliador",
+               'Reunião ITM × B2B: ata, arquivo .ics, Salvar na agenda e convite que nunca vai para contas de teste']
 
     def rodar(self):
         m = _modelos()
@@ -301,7 +324,65 @@ class AgenteMentorAdministrador(AgenteDoFluxo):
             duplicadas = self.banco(lambda: m.Banca.query.filter_by(projeto_id=projeto.id).count())
             self.confere(duplicadas == 1, "Segunda banca para o mesmo projeto é recusada", "REG", "Só uma banca por projeto.",
                          f"{duplicadas} bancas para o mesmo projeto.", "Uma banca por projeto", "Média")
+        self.reuniao_e_convite()
         self.reportar_cobertura()
+
+    def reuniao_e_convite(self):
+        """Reuniões ITM × B2B: registra a ata, confere o arquivo de agenda (.ics) e os links "Salvar na agenda", e garante que
+        o convite NUNCA sai para contas de teste — o agente não dispara e-mail de verdade (só contas @local.com e domínios .test)."""
+        m = _modelos()
+        self.etapa("Reunião ITM × B2B e convite por e-mail")
+        mentor, gestor = self.usuario("mentor"), self.usuario("gestor")
+        quando = (datetime.now() + timedelta(days=5)).replace(hour=14, minute=30, second=0, microsecond=0)
+        titulo = f"{MARCA} Alinhamento ITM × B2B"
+        self.post("/reunioes/nova", {"titulo": titulo, "data_hora": quando.strftime("%Y-%m-%dT%H:%M"), "duracao_minutos": "45",
+                                     "modalidade": "Online", "local_ou_link": "https://meet.google.com/funcional-teste",
+                                     "pauta": "Cronograma, bancas; certificados", "participantes": [x["id"] for x in (mentor, gestor) if x],
+                                     "participantes_externos": "Parceiro Externo – Empresa Teste – parceiro@empresa-funcional.test",
+                                     "enviar_convite": "1", "convite_via": "smtp"})
+        reuniao = self.banco(lambda: m.ReuniaoInstitucional.query.filter_by(titulo=titulo).first())
+        participantes = self.banco(lambda: sorted(p.id for p in m.ReuniaoInstitucional.query.get(reuniao.id).participantes)) if reuniao else []
+        self.confere(reuniao is not None and all(x["id"] in participantes for x in (mentor, gestor) if x), "Registra a reunião ITM × B2B com participantes",
+                     "FLX", f"Reunião gravada com {len(participantes)} participante(s) da plataforma.", "Reunião não gravada ou sem os participantes.",
+                     "Gestão registra reuniões com participantes internos e externos", "Alta", print_de="/reunioes")
+        if not reuniao:
+            return
+        self.contexto["ids"]["reuniao"] = reuniao.id
+        self.confere(reuniao.convite_enviado_em is None, "Convite não vai para contas de teste", "REG",
+                     "Nenhum convite enviado: todos os convidados são contas de teste ou domínios .test.",
+                     f"Convite registrado como enviado ({reuniao.convite_enviado_via}) para: {reuniao.convite_destinatarios}.",
+                     "Contas de teste (@local.com, .test) nunca recebem convite", "Crítica",
+                     "Em convites_reuniao.destinatarios, ignorar DOMINIOS_DE_TESTE antes de montar a lista.")
+
+        status, _, ics = self.cliente.pedir("GET", f"/reunioes/{reuniao.id}/agenda.ics")
+        inicio_utc = (quando + timedelta(hours=3)).strftime("%Y%m%dT%H%M%SZ")
+        fim_utc = (quando + timedelta(hours=3, minutes=45)).strftime("%Y%m%dT%H%M%SZ")
+        partes_ok = all(p in ics for p in ("BEGIN:VCALENDAR", "METHOD:PUBLISH", f"DTSTART:{inicio_utc}", f"DTEND:{fim_utc}",
+                                           f"UID:reuniao-{reuniao.id}@", "SUMMARY:"))
+        linhas_ok = all(len(linha.encode("utf-8")) <= 75 for linha in ics.split("\r\n"))
+        self.confere(status == 200 and partes_ok and linhas_ok and "ATTENDEE" not in ics, "Arquivo de agenda (.ics) da reunião", "FLX",
+                     f"iCalendar válido: 14:30 de Brasília = {inicio_utc[9:13]} UTC, 45 min, linhas de até 75 bytes.",
+                     f"HTTP {status}; campos obrigatórios {'ok' if partes_ok else 'faltando'}; linhas {'ok' if linhas_ok else 'acima de 75 bytes'}.",
+                     "Salvar a reunião no Outlook, Apple e outros pelo .ics (RFC 5545)", "Alta")
+        self.confere("\\;" in ics and "\\," in ics, "Texto da pauta escapado no .ics", "VAL", "Ponto e vírgula e vírgula escapados.",
+                     "Pauta sem escape: agendas podem cortar o texto.", "Texto escapado conforme a RFC 5545", "Baixa")
+
+        _, _, pagina = self.cliente.pedir("GET", f"/reunioes/{reuniao.id}")
+        provedores = {"Google Agenda": "calendar.google.com", "Outlook.com": "outlook.live.com", "Microsoft 365": "outlook.office.com",
+                      "Yahoo Agenda": "calendar.yahoo.com", ".ics": f"/reunioes/{reuniao.id}/agenda.ics"}
+        faltando = [nome for nome, alvo in provedores.items() if alvo not in pagina]
+        self.confere(not faltando, "Salvar na agenda: Google, Outlook, Microsoft 365, Yahoo e .ics", "FLX",
+                     "Os 5 destinos de agenda aparecem na página da reunião.", f"Faltando: {', '.join(faltando)}.",
+                     "Botão Salvar na minha agenda com os provedores mais usados", "Média", print_de=f"/reunioes/{reuniao.id}")
+        self.confere("cardConvite" in pagina and "Sem convite" in pagina and "Parceiro Externo" in pagina,
+                     "Painel de convite separa contas de teste", "REG",
+                     "As contas de teste e o domínio .test aparecem em 'Sem convite'.", "Painel de convite ausente ou sem a lista de contas de teste.",
+                     "Painel de convite mostra quem recebe e quem fica de fora", "Média")
+
+        self.post(f"/reunioes/{reuniao.id}/convite", {"via": "smtp", "convidados": ["parceiro@empresa-funcional.test", self.usuario("mentor")["email"]]})
+        depois = self.banco(lambda: m.ReuniaoInstitucional.query.get(reuniao.id).convite_enviado_em)
+        self.confere(depois is None, "Reenvio manual também ignora contas de teste", "REG", "Nada foi enviado.",
+                     "O reenvio disparou convite para conta de teste.", "Contas de teste nunca recebem convite", "Crítica")
 
 
 # ==============================================================================
@@ -351,7 +432,8 @@ class AgenteGestorParceiro(AgenteDoFluxo):
 class AgenteProfessor(AgenteDoFluxo):
     chave, nome, perfil = "professor", "Agente Professor (Funcional)", "Professor"
     ROTEIRO = ["Primeiro acesso: perguntas, termo e trilha do TCC", "Matriz de acesso do perfil",
-               "Lança as notas da turma no diário de classe", "Regra: notas de 0 a 10", "Regra: Professor não cria grupos"]
+               "Lança as notas da turma no diário de classe", "Regra: notas de 0 a 10", "Regra: Professor não cria grupos",
+               'Regra: quem não participou não vê a reunião nem envia convite']
 
     def rodar(self):
         m = _modelos()
@@ -387,6 +469,7 @@ class AgenteProfessor(AgenteDoFluxo):
         indevido = self.banco(lambda: m.Grupo.query.filter_by(nome=f"{MARCA} Grupo indevido").first())
         self.confere(indevido is None, "Professor não cria grupos", "PER", "Criação de grupo recusada.", "O Professor criou um grupo.",
                      "Só a gestão cria grupos", "Alta")
+        self.regra_reuniao(participante=False)
         self.reportar_cobertura()
 
 
@@ -397,7 +480,8 @@ class AgenteMentor(AgenteDoFluxo):
     chave, nome, perfil = "mentor", "Agente Mentor (Funcional)", "Mentor"
     ROTEIRO = ["Primeiro acesso: perguntas, termo e trilha do TCC", "Matriz de acesso do perfil",
                "Agenda uma sessão de mentoria com o aluno (notificação)", "Registra o parecer no acompanhamento",
-               "Lança horas de voluntariado do TCC (ESG)", "Regra: lançamento no futuro é recusado"]
+               "Lança horas de voluntariado do TCC (ESG)", "Regra: lançamento no futuro é recusado",
+               'Regra: participante salva a reunião na agenda, mas não envia convite']
 
     def rodar(self):
         m = _modelos()
@@ -439,6 +523,7 @@ class AgenteMentor(AgenteDoFluxo):
         depois = self.banco(lambda: m.CheckinVoluntariado.query.filter_by(usuario_id=eu["id"]).count())
         self.confere(depois == antes, "Lançamento no futuro é recusado", "VAL", "Data futura recusada.", "Aceitou horas numa data futura.",
                      "Nada de horas no futuro", "Média")
+        self.regra_reuniao(participante=True)
         self.reportar_cobertura()
 
 

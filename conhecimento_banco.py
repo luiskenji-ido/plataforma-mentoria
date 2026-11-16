@@ -142,7 +142,9 @@ def detectar_mudancas(origem=GERENTE_BANCO):
     for chave in ('colunas_novas', 'indices_novos', 'indices_removidos'):
         mudancas[chave] = {t: v for t, v in mudancas[chave].items() if v}
     if any(mudancas.values()):
-        partes = [f"{len(v)} {k.replace('_', ' ')}" for k, v in mudancas.items() if v]
+        # Tabelas são listas; colunas e índices vêm agrupados por tabela: conta os itens, não as tabelas
+        partes = [f"{sum(map(len, v.values())) if isinstance(v, dict) else len(v)} {k.replace('_', ' ')}"
+                  + (f" em {len(v)} tabela(s)" if isinstance(v, dict) else '') for k, v in mudancas.items() if v]
         criados.append(_criar('Esquema do banco mudou', 'db_esquema', mudancas, ['db_esquema', 'db_consultas', 'db_dba'],
                               'Para revisar índices e consultas: ' + ', '.join(partes) + '.', origem))
 

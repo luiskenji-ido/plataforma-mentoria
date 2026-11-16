@@ -13,7 +13,17 @@
                 · {{ t('extra_criada_por') }} {{ reuniao.criado_por.nome if reuniao.criado_por else '—' }}
             </div>
         </div>
-        <div class="d-flex gap-2">
+        <div class="d-flex gap-2 flex-wrap">
+            <div class="dropdown">
+                <button class="btn btn-outline-primary fw-bold rounded-pill px-3 dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                    <i class="bi bi-calendar-plus"></i> {{ t('convite_salvar_agenda') }}
+                </button>
+                <ul class="dropdown-menu shadow-sm">
+                    {% for chave, nome, icone in provedores %}{% if links_agenda.get(chave) %}
+                    <li><a class="dropdown-item" href="{{ links_agenda[chave] }}" {% if chave != 'ics' %}target="_blank" rel="noopener noreferrer"{% endif %}><i class="bi {{ icone }}"></i> {{ nome }}</a></li>
+                    {% endif %}{% endfor %}
+                </ul>
+            </div>
             <a href="{{ url_for('detalhe_reuniao', id=reuniao.id, imprimir=1) }}" target="_blank" rel="noopener noreferrer" class="btn btn-outline-secondary fw-bold rounded-pill px-3"><i class="bi bi-printer"></i> {{ t('reuniao_imprimir') }}</a>
             {% if pode_editar %}<a href="{{ url_for('editar_reuniao', id=reuniao.id) }}" class="btn btn-primary fw-bold rounded-pill px-3"><i class="bi bi-pencil"></i> {{ t('trilha_editar') }}</a>{% endif %}
         </div>
@@ -73,6 +83,61 @@
                 </ul>
             </div>
         </div>
+
+        {% if pode_editar %}
+        <!-- Convite por e-mail aos participantes (Gmail conectado ou e-mail da plataforma) -->
+        <div class="col-12">
+            <div class="card shadow-sm border-0" id="cardConvite">
+                <div class="card-header bg-white d-flex justify-content-between align-items-center flex-wrap gap-2">
+                    <span class="fw-bold text-primary"><i class="bi bi-envelope-paper"></i> {{ t('convite_titulo') }}</span>
+                    {% if gmail_email %}
+                    <form method="POST" action="{{ url_for('desconectar_gmail') }}" class="m-0 d-flex align-items-center gap-2">
+                        <span class="small text-success fw-bold"><i class="bi bi-check-circle-fill"></i> {{ t('convite_gmail_conectado_como').format(email=gmail_email) }}</span>
+                        <button class="btn btn-sm btn-link text-danger p-0" type="submit">{{ t('convite_desconectar_gmail') }}</button>
+                    </form>
+                    {% elif gmail_disponivel %}
+                    <a class="btn btn-sm btn-outline-danger fw-bold rounded-pill" href="{{ url_for('conectar_gmail', voltar=url_for('detalhe_reuniao', id=reuniao.id)) }}"><i class="bi bi-google"></i> {{ t('convite_conectar_gmail') }}</a>
+                    {% endif %}
+                </div>
+                <div class="card-body">
+                    <p class="small mb-2 {{ 'text-success' if reuniao.convite_enviado_em else 'text-muted' }}">
+                        {% if reuniao.convite_enviado_em %}<i class="bi bi-send-check"></i> {{ t('convite_ultimo_envio').format(data=convite_enviado_local, via=reuniao.convite_enviado_via, qtd=(reuniao.convite_destinatarios or '').splitlines()|length) }}
+                        {% else %}{{ t('convite_nunca_enviado') }}{% endif %}
+                    </p>
+                    {% if gmail_email or smtp_disponivel %}
+                    <form method="POST" action="{{ url_for('enviar_convite', id=reuniao.id) }}">
+                        <div class="fw-bold small mb-1">{{ t('convite_destinatarios') }}</div>
+                        <div class="row g-1 mb-2">
+                            {% for nome, email in convidados %}
+                            <div class="col-md-6"><div class="form-check small">
+                                <input class="form-check-input" type="checkbox" name="convidados" value="{{ email }}" id="conv{{ loop.index }}" checked>
+                                <label class="form-check-label" for="conv{{ loop.index }}">{{ nome }} <span class="text-muted">&lt;{{ email }}&gt;</span></label>
+                            </div></div>
+                            {% else %}
+                            <div class="col-12 small text-muted">{{ t('convite_sem_destinatarios') }}</div>
+                            {% endfor %}
+                        </div>
+                        <div class="d-flex flex-wrap gap-2 align-items-center">
+                            <select class="form-select form-select-sm w-auto" name="via" aria-label="{{ t('convite_enviar_por') }}">
+                                {% if gmail_email %}<option value="gmail">{{ t('convite_enviar_por') }}: {{ t('convite_via_gmail') }} ({{ gmail_email }})</option>{% endif %}
+                                {% if smtp_disponivel %}<option value="smtp">{{ t('convite_enviar_por') }}: {{ t('convite_via_smtp') }}</option>{% endif %}
+                            </select>
+                            <button class="btn btn-primary btn-sm fw-bold rounded-pill px-3" type="submit" {% if not convidados %}disabled{% endif %}>
+                                <i class="bi bi-send"></i> {{ t('convite_reenviar') if reuniao.convite_enviado_em else t('convite_enviar') }}
+                            </button>
+                        </div>
+                    </form>
+                    {% else %}
+                    <p class="small text-muted mb-1">{{ t('convite_sem_meio') }}</p>
+                    {% endif %}
+                    {% if convidados_ignorados %}
+                    <div class="small text-muted mt-2">{{ t('convite_ignorados_lista') }}: {{ convidados_ignorados | map('first') | join(', ') }}</div>
+                    {% endif %}
+                    <div class="form-text">{{ t('convite_dica_provedores') }}</div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
     </div>
 </div>
 {% endblock %}
