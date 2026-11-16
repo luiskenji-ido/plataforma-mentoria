@@ -43,6 +43,7 @@ class AgenteDados(AgenteSeguranca):
             self.perfis()
             self.ciclo_de_vida()
             self.integridade()
+            self.regras_de_negocio_aprendidas()
             self.dados_aprendidos()
 
     def dados_aprendidos(self):
@@ -88,6 +89,59 @@ class AgenteDados(AgenteSeguranca):
                         "Mapa das colunas com dados pessoais, mantido pelo Gerente de Segurança a cada mudança no banco.",
                         "Manter no Registro de Operações de Tratamento (LGPD art. 37) e conferir a base legal e o prazo de retenção de cada dado.",
                         ["https://www.gov.br/anpd/pt-br"])
+
+    def regras_de_negocio_aprendidas(self):
+        """Regras ensinadas pelo Gerente de Funcionalidades: os dados gravados respeitam as faixas válidas?"""
+        import conhecimento_funcional as cf
+        from models import db
+        verificacoes = cf.verificacoes_para(self.aprendizados, "seg_dados")
+        self.etapa("Regras de negócio aprendidas com o Gerente de Funcionalidades")
+        if not verificacoes:
+            self.log("Nenhuma regra de negócio ensinada ainda")
+            return
+        tabelas = db.metadata.tables
+        for v in verificacoes:
+            if v["tipo"] == "credenciais_orfas":
+                con = db.engine.raw_connection()
+                try:
+                    orfas = []
+                    for tabela in v["tabelas"]:
+                        if tabela in tabelas:
+                            n = con.cursor().execute('SELECT COUNT(*) FROM "' + tabela + '" WHERE usuario_id NOT IN (SELECT id FROM usuario)').fetchone()[0]
+                            if n:
+                                orfas.append(f"{tabela}: {n}")
+                finally:
+                    con.close()
+                if orfas:
+                    self.achado("Credenciais de usuários apagados ficaram no banco", "Alta", "A07", "CWE-459", "; ".join(orfas),
+                                f"Regra aprendida em {v['codigo']}: {v['regra']}. Uma conta nova com o mesmo id herdaria perguntas e termo.",
+                                "Apagar essas linhas (com backup) e sempre remover os dados ligados ao usuário junto com ele.")
+                else:
+                    self.ok(f"Nenhuma credencial órfã de usuário apagado ({v['codigo']})")
+                continue
+            if v["tipo"] != "faixa_numerica":
+                continue
+            fora = []
+            con = db.engine.raw_connection()
+            try:
+                for tabela, colunas in v["colunas"].items():
+                    if tabela not in tabelas:
+                        continue
+                    for coluna in colunas:
+                        if coluna not in tabelas[tabela].columns:
+                            continue
+                        n = con.cursor().execute('SELECT COUNT(*) FROM "' + tabela + '" WHERE "' + coluna + '" IS NOT NULL AND ("' + coluna + '" < ? OR "'
+                                                 + coluna + '" > ?)', (v["min"], v["max"])).fetchone()[0]
+                        if n:
+                            fora.append(f"{tabela}.{coluna}: {n}")
+            finally:
+                con.close()
+            if fora:
+                self.achado(f"Valores fora da faixa {v['min']}–{v['max']} gravados", "Média", "A04", "CWE-20", "; ".join(fora),
+                            f"Regra aprendida em {v['codigo']}: {v['regra']}. Esses registros entraram antes da validação ou por outro caminho.",
+                            "Corrigir os registros e validar a faixa em todas as rotas que gravam esses campos.")
+            else:
+                self.ok(f"Nenhum valor fora de {v['min']}–{v['max']} nas colunas da regra ({v['codigo']})")
 
     def credenciais(self):
         from models import Usuario, SegurancaUsuario

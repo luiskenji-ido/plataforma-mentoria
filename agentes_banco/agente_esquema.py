@@ -67,6 +67,7 @@ class AgenteEsquema(AgenteBanco):
             self.indices()
             self.integridade_e_tipos()
             self.mudancas_aprendidas()
+            self.regras_de_negocio_aprendidas()
 
     def modelo_x_banco(self):
         self.etapa("Modelo × banco real")
@@ -190,6 +191,49 @@ class AgenteEsquema(AgenteBanco):
                         "Os ALTER TABLE ficam numa lista no app.py, sem versão nem volta (rollback).",
                         "Adotar Flask-Migrate (Alembic): cada mudança vira uma migração versionada, com upgrade e downgrade.",
                         ["https://flask-migrate.readthedocs.io/", "https://alembic.sqlalchemy.org/"])
+
+    def regras_de_negocio_aprendidas(self):
+        """Regras ensinadas pelo Gerente de Funcionalidades: o banco também garante a faixa (CHECK) ou só a aplicação?"""
+        import conhecimento_funcional as cf
+        verificacoes = cf.verificacoes_para(self.aprendizados, "db_esquema")
+        self.etapa("Regras de negócio aprendidas com o Gerente de Funcionalidades")
+        if not verificacoes:
+            self.log("Nenhuma regra de negócio ensinada ainda")
+            return
+        con = self.db.engine.raw_connection()
+        try:
+            for v in verificacoes:
+                if v["tipo"] != "faixa_numerica":
+                    continue
+                sem_check, fora = [], []
+                for tabela, colunas in v["colunas"].items():
+                    if tabela not in self.tabelas:
+                        continue
+                    existentes = [c["name"] for c in self.insp.get_columns(tabela)]
+                    ddl = (con.cursor().execute("SELECT sql FROM sqlite_master WHERE type='table' AND name=?", (tabela,)).fetchone() or [""])[0] or ""
+                    for coluna in colunas:
+                        if coluna not in existentes:
+                            continue
+                        if not re.search(r"CHECK\s*\([^)]*" + coluna, ddl, re.I):
+                            sem_check.append(f"{tabela}.{coluna}")
+                        n = con.cursor().execute('SELECT COUNT(*) FROM "' + tabela + '" WHERE "' + coluna + '" < ? OR "' + coluna + '" > ?',
+                                                 (v["min"], v["max"])).fetchone()[0]
+                        if n:
+                            fora.append(f"{tabela}.{coluna}: {n}")
+                if fora:
+                    self.achado("Dados fora da faixa da regra de negócio", "Média", "INT", "; ".join(fora),
+                                f"Regra aprendida em {v['codigo']}: {v['regra']}.", "Corrigir os registros (com backup antes).")
+                if sem_check:
+                    scripts = [f'-- {c}: CHECK ({c.split(".")[1]} BETWEEN {v["min"]} AND {v["max"]})' for c in sem_check[:12]]
+                    self.achado(f"Regra {v['min']}–{v['max']} garantida só pela aplicação ({len(sem_check)} coluna(s))", "Informativa", "ESQ",
+                                ", ".join(sem_check[:12]), f"Regra aprendida em {v['codigo']}: {v['regra']}. O banco aceitaria valores fora da faixa "
+                                "vindos de importações, scripts ou rotas novas.",
+                                "Na próxima migração (Flask-Migrate), criar as colunas com CHECK; no SQLite isso exige recriar a tabela.",
+                                ["https://www.sqlite.org/lang_createtable.html#ckconst"], "\n".join(scripts))
+                else:
+                    self.ok(f"Regra {v['min']}–{v['max']} garantida também pelo banco ({v['codigo']})")
+        finally:
+            con.close()
 
     def mudancas_aprendidas(self):
         self.etapa("Mudanças de esquema aprendidas")

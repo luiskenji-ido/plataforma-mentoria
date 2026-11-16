@@ -270,6 +270,45 @@ def conta_de_teste_bloqueada(email):
     return (email or '').lower().endswith(('_ominitest@local.com', '@local.com'))
 
 
+ENDPOINTS_LIVRES_TROCA_SENHA = {'trocar_senha_obrigatoria', 'logout', 'static', 'login', 'alterar_tema', 'alterar_idioma'}
+
+
+@app.before_request
+def exigir_troca_de_senha():
+    """Troca de senha obrigatória vale para todas as páginas (não só para a tela de login): quem tem a troca pendente —
+    senha provisória criada pela gestão ou recuperação de senha aprovada — só usa a plataforma depois de trocar."""
+    if current_user.is_authenticated and getattr(current_user, 'forcar_troca_senha', False) \
+            and request.endpoint and request.endpoint not in ENDPOINTS_LIVRES_TROCA_SENHA:
+        if request.is_json or request.method != 'GET':
+            return jsonify({'erro': tt('Troque a sua senha antes de continuar.', current_user.idioma)}), 403
+        return redirect(url_for('trocar_senha_obrigatoria'))
+
+
+PADRAO_SENHA_FORTE = r'^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[\W_]).{10,}$'
+PADRAO_EMAIL = r'^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$'
+PERFIS_GESTAO_PROJETO = ['Administrador', 'Mentor Administrador']
+
+
+def gerar_senha_provisoria():
+    """Senha aleatória que atende à política (10+ caracteres com maiúscula, minúscula, número e especial)."""
+    import string
+    gerador = secrets.SystemRandom()
+    partes = [gerador.choice(string.ascii_uppercase), gerador.choice(string.ascii_lowercase), gerador.choice(string.digits),
+              gerador.choice('#@!%&*')] + [gerador.choice(string.ascii_letters + string.digits) for _ in range(10)]
+    gerador.shuffle(partes)
+    return ''.join(partes)
+
+
+def pode_atribuir_nivel(usuario_logado, tipo_usuario):
+    """Só o Administrador cria, promove ou altera Administradores (evita escalada de privilégio pelo Mentor Administrador)."""
+    return tipo_usuario != 'Administrador' or usuario_logado.tipo_usuario == 'Administrador'
+
+
+def pode_mexer_no_projeto(usuario, projeto):
+    """Tarefas e exclusão do projeto: membros do grupo do projeto e a gestão (nunca outro grupo)."""
+    return projeto is not None and (usuario.tipo_usuario in PERFIS_GESTAO_PROJETO or usuario in membros_do_projeto(projeto))
+
+
 @app.route('/', methods=['GET', 'POST'])
 def login():
     # ==============================================================================
@@ -840,6 +879,9 @@ def gerenciar_usuarios():
             flash(tt('Escolha um nível de acesso válido.', current_user.idioma), "danger")
             return redirect(url_for('gerenciar_usuarios'))
         tipo_usuario, perfil_personalizado_id = nivel
+        if not pode_atribuir_nivel(current_user, tipo_usuario):
+            flash(tt('Acesso negado: só o Administrador cadastra Administradores.', current_user.idioma), "danger")
+            return redirect(url_for('gerenciar_usuarios'))
         status = request.form.get('status')
         senha_plana = request.form.get('senha')
         forcar_troca = request.form.get('forcar_troca_senha') == 'True'
@@ -913,6 +955,9 @@ def editar_usuario(id):
         return "Acesso Negado"
     
     usuario = db.session.get(Usuario, id)
+    if usuario and not pode_atribuir_nivel(current_user, usuario.tipo_usuario):
+        flash(tt('Acesso negado: só o Administrador altera contas de Administrador.', current_user.idioma), "danger")
+        return redirect(url_for('gerenciar_usuarios'))
     if usuario:
         novo_email = request.form.get('email').strip()
         padrao_email = r'^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$'
@@ -926,6 +971,9 @@ def editar_usuario(id):
         nivel = perfis_acesso.resolver_nivel(request.form.get('tipo_usuario'))
         if not nivel:
             flash(tt('Escolha um nível de acesso válido.', current_user.idioma), "danger")
+            return redirect(url_for('gerenciar_usuarios'))
+        if not pode_atribuir_nivel(current_user, nivel[0]):
+            flash(tt('Acesso negado: só o Administrador cadastra Administradores.', current_user.idioma), "danger")
             return redirect(url_for('gerenciar_usuarios'))
         usuario.tipo_usuario, usuario.perfil_personalizado_id = nivel
         if usuario.tipo_usuario == 'Aluno' and request.form.get('modalidade_participacao'):
@@ -1531,6 +1579,9 @@ def recalcular_progresso_projeto(projeto_id):
 @login_required
 def nova_tarefa():
     projeto_id = request.form.get('projeto_id')
+    if not pode_mexer_no_projeto(current_user, db.session.get(Projeto, request.form.get('projeto_id', type=int) or 0)):
+        flash(tt('Acesso negado: só o grupo do projeto e a gestão mexem nas tarefas.', current_user.idioma), 'danger')
+        return redirect(url_for('projetos'))
     tarefa_pai_id = request.form.get('tarefa_pai_id') or None # Identifica se é subtarefa
     
     # Recebe a lista de apoio (Múltipla escolha) e transforma em texto separado por vírgula
@@ -1566,7 +1617,10 @@ def nova_tarefa():
 def atualizar_tarefa():
     tarefa_id = request.form.get('tarefa_id')
     tarefa = db.session.get(Tarefa, int(tarefa_id)) if tarefa_id else None
-    
+    if tarefa and not pode_mexer_no_projeto(current_user, tarefa.projeto):
+        flash(tt('Acesso negado: só o grupo do projeto e a gestão mexem nas tarefas.', current_user.idioma), 'danger')
+        return redirect(url_for('projetos'))
+
     if tarefa:
         tarefa.descricao = request.form.get('descricao')
         tarefa.responsavel = request.form.get('responsavel')
@@ -1687,6 +1741,9 @@ def atualizar_tarefa():
 @login_required
 def deletar_tarefa(id):
     tarefa = db.session.get(Tarefa, id)
+    if tarefa and not pode_mexer_no_projeto(current_user, tarefa.projeto):
+        flash(tt('Acesso negado: só o grupo do projeto e a gestão mexem nas tarefas.', current_user.idioma), 'danger')
+        return redirect(url_for('projetos'))
     if tarefa:
         p_id = tarefa.projeto_id
         db.session.delete(tarefa)
@@ -1710,6 +1767,9 @@ def deletar_projeto(id):
         return redirect(url_for('projetos'))
 
     projeto = db.session.get(Projeto, id)
+    if projeto and not pode_mexer_no_projeto(current_user, projeto):
+        flash(tt('Acesso negado: mentores e professores só excluem projetos do próprio grupo.', current_user.idioma), 'danger')
+        return redirect(url_for('projetos'))
     if projeto:
         # 2. Segurança do Banco: Apaga todas as tarefas e subtarefas do projeto primeiro
         tarefas = Tarefa.query.filter_by(projeto_id=projeto.id).all()
@@ -4291,8 +4351,12 @@ def gerenciar_turmas():
             tipo_usuario = nivel_rapido[0] if nivel_rapido else None
             senha_plana = request.form.get('senha_usuario')
 
-            if not nivel_rapido:
+            if not nivel_rapido or not pode_atribuir_nivel(current_user, tipo_usuario):
                 flash(tt('Escolha um nível de acesso válido.', current_user.idioma), "danger")
+            elif not re.match(PADRAO_EMAIL, email or ''):
+                flash("Erro: O e-mail digitado não é válido.", "danger")
+            elif not re.match(PADRAO_SENHA_FORTE, senha_plana or ''):
+                flash("Segurança: A senha deve ter no mínimo 10 caracteres e incluir letras maiúsculas, minúsculas, números e caracteres especiais.", "danger")
             elif Usuario.query.filter_by(email=email).first():
                 flash(f"Erro: O e-mail '{email}' já está cadastrado no sistema.", "danger")
             else:
@@ -4330,37 +4394,48 @@ def gerenciar_turmas():
                     
                     sucessos = 0
                     ignorados = 0
-                    
+                    credenciais = []
+
                     for linha in leitor_csv:
                         # Procura pelas colunas 'nome' e 'email' (ignorando maiúsculas/minúsculas)
                         nome_csv = linha.get('nome') or linha.get('Nome') or linha.get('NOME')
                         email_csv = linha.get('email') or linha.get('Email') or linha.get('EMAIL')
-                        
+
                         if nome_csv and email_csv:
                             email_limpo = email_csv.strip().lower()
-                            
-                            # Só cria o aluno se o e-mail não existir no sistema
-                            if not Usuario.query.filter_by(email=email_limpo).first():
-                                senha_padrao = bcrypt.generate_password_hash("Mudar@123").decode('utf-8')
+
+                            # Só cria o aluno se o e-mail for válido e ainda não existir no sistema
+                            if re.match(PADRAO_EMAIL, email_limpo) and not Usuario.query.filter_by(email=email_limpo).first():
+                                # Senha provisória aleatória e forte para cada aluno (nada de senha fixa no código)
+                                senha_provisoria = gerar_senha_provisoria()
                                 novo_aluno = Usuario(
                                     nome=nome_csv.strip(),
                                     email=email_limpo,
                                     tipo_usuario='Aluno',
                                     status='Ativo',
-                                    senha=senha_padrao,
+                                    senha=bcrypt.generate_password_hash(senha_provisoria).decode('utf-8'),
                                     forcar_troca_senha=True
                                 )
                                 db.session.add(novo_aluno)
+                                credenciais.append((nome_csv.strip(), email_limpo, senha_provisoria))
                                 sucessos += 1
                             else:
                                 ignorados += 1
-                                
+
                     db.session.commit()
-                    
+
                     mensagem = f'{sucessos} novos alunos importados com sucesso!'
                     if ignorados > 0:
-                        mensagem += f' ({ignorados} e-mails já existiam e foram ignorados).'
+                        mensagem += f' ({ignorados} linha(s) com e-mail inválido ou já cadastrado foram ignoradas).'
                     flash(mensagem, 'success')
+                    if credenciais:
+                        # Entrega as senhas provisórias numa planilha (uma única vez); a troca é obrigatória no primeiro acesso
+                        saida = io.StringIO()
+                        escritor = csv.writer(saida, delimiter=';')
+                        escritor.writerow(['nome', 'email', 'senha_provisoria'])
+                        escritor.writerows(credenciais)
+                        return send_file(io.BytesIO(('﻿' + saida.getvalue()).encode('utf-8')), mimetype='text/csv', as_attachment=True,
+                                         download_name=f"senhas_provisorias_{datetime.now().strftime('%Y%m%d_%H%M')}.csv")
                     
                 except Exception as e:
                     flash(f'Erro ao ler o arquivo. Certifique-se de que é um CSV válido. Detalhe: {str(e)}', 'danger')
@@ -4475,6 +4550,20 @@ def gerenciar_notas():
                 })
 
     if request.method == 'POST':
+        # Valida antes de gravar: notas de 0 a 10 (vírgula ou ponto); com qualquer nota inválida, nada é gravado
+        invalidas = []
+        for chave, valor in request.form.items():
+            if chave.startswith(('nota_tecnica_', 'nota_postura_')) and valor.strip():
+                try:
+                    numero = float(valor.replace(',', '.'))
+                except ValueError:
+                    numero = None
+                if numero is None or not 0 <= numero <= 10:
+                    invalidas.append(valor)
+        if invalidas:
+            flash(tt('Notas devem estar entre 0 e 10. Nada foi gravado; confira: {valores}', current_user.idioma)
+                  .format(valores=', '.join(invalidas[:5])), 'danger')
+            return redirect(url_for('gerenciar_notas', turma_id=turma_selecionada_id))
         # Varre todos os campos enviados pelo formulário e salva as notas
         for chave, valor in request.form.items():
             if chave.startswith('nota_tecnica_'):
@@ -5520,6 +5609,9 @@ PASTAS_SEGURANCA_IA = ['Agente Configuração e Segredos', 'Agente Inconsistênc
 # Agentes de Banco de Dados (mesmos nomes que o agentes_banco/gestor_banco.py usa)
 PASTAS_BANCO_IA = ['Agente Consultas e Desempenho', 'Agente Esquema e Índices', 'Agente Backup e Recuperação',
                    'Agente DBA Manutenção e Logs', 'Agente Multi-banco', 'Consolidado']
+# Agentes de Funcionalidades (mesmos nomes que o agentes_funcionalidades/gestor_funcionalidades.py usa), na ordem do fluxo
+PASTAS_FUNC_IA = ['Agente Administrador', 'Agente Mentor Administrador', 'Agente Gestor Parceiro', 'Agente Professor', 'Agente Mentor',
+                  'Agente Aluno', 'Agente Avaliador da Banca', 'Agente Encerramento do Ciclo', 'Consolidado']
 
 
 def _ler_json_ia(nome):
@@ -5556,6 +5648,7 @@ def arvore_agentes_ia():
     e2e = os.path.join(PASTA_AGENTES_IA, 'Agentes Teste Fim a Fim')
     seg = os.path.join(PASTA_AGENTES_IA, 'Agentes Teste de Segurança')
     bd = os.path.join(PASTA_AGENTES_IA, 'Agentes Banco de Dados')
+    fn = os.path.join(PASTA_AGENTES_IA, 'Agentes Funcionalidades')
     return [
         {'nome': 'Agentes Teste Fim a Fim', 'pastas': [
             {'nome': 'Relatórios de Testes Fim a Fim e Evidencias', 'subpastas': subpastas(os.path.join(e2e, 'Relatórios de Testes Fim a Fim e Evidencias'))},
@@ -5566,6 +5659,10 @@ def arvore_agentes_ia():
         {'nome': 'Agentes Banco de Dados', 'pagina': 'agentes_banco', 'pastas': [
             {'nome': 'Relatórios de Banco de Dados', 'subpastas': subpastas(os.path.join(bd, 'Relatórios de Banco de Dados'), PASTAS_BANCO_IA)},
             {'nome': 'Prompt de melhoria LLM', 'subpastas': subpastas(os.path.join(bd, 'Prompt de melhoria LLM'), PASTAS_BANCO_IA)}]},
+        {'nome': 'Agentes Funcionalidades', 'pagina': 'agentes_funcionalidades', 'pastas': [
+            {'nome': 'Relatórios de Funcionalidades e Evidências',
+             'subpastas': subpastas(os.path.join(fn, 'Relatórios de Funcionalidades e Evidências'), PASTAS_FUNC_IA)},
+            {'nome': 'Prompt de correção LLM', 'subpastas': subpastas(os.path.join(fn, 'Prompt de correção LLM'), PASTAS_FUNC_IA)}]},
     ]
 
 
@@ -5840,6 +5937,34 @@ def estado_agentes_seguranca_json():
 # ADMINISTRAÇÃO › AGENTES DE BANCO DE DADOS: Gerente de Banco de Dados + 5 especialistas e as ações do DBA
 # ==============================================================================
 PASTA_AO_VIVO_BANCO = os.path.join(PASTA_AGENTES_IA, '.ao_vivo_banco')
+PASTA_AO_VIVO_FUNC = os.path.join(PASTA_AGENTES_IA, '.ao_vivo_funcionalidades')
+# (chave, nome, ícone, o que testa) — na ordem do fluxo: cada um cria os usuários e os dados do próximo
+ORDEM_AGENTES_FUNC = [
+    ('administrador', 'Administrador', 'bi-shield-fill-check', 'Matriz de acesso, validações do cadastro e cria o Mentor Administrador.'),
+    ('mentor_administrador', 'Mentor Administrador', 'bi-person-gear',
+     'Primeiro acesso; cria cursos, perfis, empresa, grupo e turma; matricula, cria projeto e tarefa e agenda a banca.'),
+    ('gestor_parceiro', 'Gestor Parceiro', 'bi-building', 'Vê só os dados da sua empresa, cadastra avaliadores dela e exporta o ESG.'),
+    ('professor', 'Professor', 'bi-journal-check', 'Lança as notas no diário de classe e valida as regras de notas e de grupos.'),
+    ('mentor', 'Mentor', 'bi-people', 'Agenda sessão com o aluno, registra parecer e lança horas de voluntariado.'),
+    ('aluno', 'Aluno', 'bi-mortarboard', 'Frequência, anotações, retorno da sessão e entregas do TCC; valida o que o aluno não pode fazer.'),
+    ('avaliador', 'Avaliador da Banca', 'bi-award', 'Troca a senha, avalia as etapas escrita e oral e confere a fórmula da nota final.'),
+    ('encerramento', 'Encerramento do Ciclo', 'bi-patch-check', 'Publica o resultado, leva o TCC ao acervo e emite e verifica o certificado.'),
+]
+
+
+def _ler_json_func(nome):
+    try:
+        with open(os.path.join(PASTA_AO_VIVO_FUNC, nome), encoding='utf-8') as f:
+            return json.load(f)
+    except (OSError, ValueError):
+        return None
+
+
+def estado_agentes_funcionalidades():
+    estado = _ler_json_func('estado.json')
+    if estado and estado.get('status') == 'executando' and time.time() - estado.get('batimento', 0) > 30:
+        estado['status'] = 'interrompido'
+    return estado
 # (chave, nome, ícone, o que verifica)
 ORDEM_AGENTES_BANCO = [
     ('consultas', 'Consultas e Desempenho', 'bi-speedometer',
@@ -5981,6 +6106,126 @@ def aprender_agentes_banco():
         db.session.rollback()
         flash(tt('Detecção falhou: {erro}', idioma).format(erro=e), 'danger')
     return redirect(url_for('agentes_banco'))
+
+
+@app.route('/admin/agentes-funcionalidades')
+@login_required
+def agentes_funcionalidades():
+    import importlib.util
+    import conhecimento_funcional
+    bloqueio = _somente_administrador()
+    if bloqueio:
+        return bloqueio
+    grupo = next(g for g in arvore_agentes_ia() if g['nome'] == 'Agentes Funcionalidades')
+    try:
+        aprendizado = conhecimento_funcional.resumo_para_tela()
+    except Exception as e:
+        db.session.rollback()
+        app.logger.warning(f"Agentes de Funcionalidades: {e}")
+        aprendizado = None
+    return render_template('agentes_funcionalidades.html', ordem=ORDEM_AGENTES_FUNC, estado=estado_agentes_funcionalidades(), grupo=grupo,
+                           aprendizado=aprendizado, playwright_ok=importlib.util.find_spec('playwright') is not None)
+
+
+@app.route('/admin/agentes-funcionalidades/iniciar', methods=['POST'])
+@login_required
+def iniciar_agentes_funcionalidades():
+    """O Gerente de Funcionalidades roda em segundo plano e passa a vez de agente em agente, pelo fluxo da plataforma."""
+    import subprocess
+    import sys as _sys
+    bloqueio = _somente_administrador()
+    if bloqueio:
+        return bloqueio
+    estado = estado_agentes_funcionalidades()
+    if estado and estado.get('status') == 'executando':
+        flash(tt('Já existe uma execução em andamento.', current_user.idioma), "warning")
+        return redirect(url_for('agentes_funcionalidades'))
+    raiz = os.path.dirname(os.path.abspath(__file__))
+    cmd = [_sys.executable, os.path.join(raiz, 'agentes_funcionalidades', 'gestor_funcionalidades.py'), '--url', request.host_url.rstrip('/')]
+    if request.form.get('manter_dados'):
+        cmd.append('--manter-dados')
+    os.makedirs(PASTA_AO_VIVO_FUNC, exist_ok=True)
+    for nome in ('estado.json', 'agente.json', 'frame.png', 'frame.json'):
+        try:
+            os.remove(os.path.join(PASTA_AO_VIVO_FUNC, nome))
+        except OSError:
+            pass
+    opcoes = {'creationflags': subprocess.CREATE_NEW_PROCESS_GROUP | subprocess.CREATE_NO_WINDOW} if os.name == 'nt' else {'start_new_session': True}
+    log = open(os.path.join(PASTA_AO_VIVO_FUNC, 'gestor.log'), 'w', encoding='utf-8')
+    subprocess.Popen(cmd, cwd=raiz, stdout=log, stderr=subprocess.STDOUT, env={**os.environ, 'PYTHONIOENCODING': 'utf-8'}, **opcoes)
+    flash(tt('Gerente de Funcionalidades iniciado: o Administrador começa o fluxo e passa a vez para o Mentor Administrador.', current_user.idioma), "success")
+    return redirect(url_for('agentes_funcionalidades'))
+
+
+@app.route('/admin/agentes-funcionalidades/parar', methods=['POST'])
+@login_required
+def parar_agentes_funcionalidades():
+    import subprocess
+    import signal
+    bloqueio = _somente_administrador()
+    if bloqueio:
+        return bloqueio
+    estado = _ler_json_func('estado.json')
+    if estado and estado.get('pid'):
+        try:
+            if os.name == 'nt':
+                subprocess.run(['taskkill', '/PID', str(estado['pid']), '/T', '/F'], capture_output=True, timeout=20)
+            else:
+                os.killpg(os.getpgid(estado['pid']), signal.SIGTERM)
+        except Exception:
+            pass
+        estado.update(status='parado', fim=datetime.now().isoformat(timespec='seconds'))
+        estado['log'] = (estado.get('log') or []) + [f"{datetime.now().strftime('%H:%M:%S')}  ■ {current_user.nome} parou a execução "
+                                                     "(os dados [Funcional] serão removidos no início da próxima execução)"]
+        with open(os.path.join(PASTA_AO_VIVO_FUNC, 'estado.json'), 'w', encoding='utf-8') as f:
+            json.dump(estado, f, ensure_ascii=False)
+        flash(tt('Execução interrompida.', current_user.idioma), "info")
+    return redirect(url_for('agentes_funcionalidades'))
+
+
+@app.route('/admin/agentes-funcionalidades/estado')
+@login_required
+def estado_agentes_funcionalidades_json():
+    if current_user.tipo_usuario != 'Administrador':
+        return jsonify({'erro': 'acesso negado'}), 403
+    quadro = os.path.join(PASTA_AO_VIVO_FUNC, 'frame.png')
+    return jsonify({'estado': estado_agentes_funcionalidades(), 'agente': _ler_json_func('agente.json'), 'frame': _ler_json_func('frame.json'),
+                    'quadro': os.path.getmtime(quadro) if os.path.exists(quadro) else None, 'agora': datetime.now().isoformat(timespec='seconds')})
+
+
+@app.route('/admin/agentes-funcionalidades/quadro')
+@login_required
+def quadro_agentes_funcionalidades():
+    """Último print capturado pelo agente em execução."""
+    if current_user.tipo_usuario != 'Administrador':
+        return '', 403
+    quadro = os.path.join(PASTA_AO_VIVO_FUNC, 'frame.png')
+    if not os.path.exists(quadro):
+        return '', 204
+    try:
+        with open(quadro, 'rb') as f:
+            dados = f.read()
+    except OSError:
+        return '', 204
+    resposta = app.response_class(dados, mimetype='image/png')
+    resposta.headers['Cache-Control'] = 'no-store'
+    return resposta
+
+
+@app.route('/admin/agentes-funcionalidades/aprender', methods=['POST'])
+@login_required
+def aprender_agentes_funcionalidades():
+    import conhecimento_funcional
+    bloqueio = _somente_administrador()
+    if bloqueio:
+        return bloqueio
+    try:
+        novos = conhecimento_funcional.detectar_mudancas(f"Solicitado por {current_user.nome}")
+        flash(tt('Gerente de Funcionalidades: {n} aprendizado(s) novo(s) aplicado(s) aos agentes.', current_user.idioma).format(n=len(novos)), 'success')
+    except Exception as e:
+        db.session.rollback()
+        flash(tt('Detecção falhou: {erro}', current_user.idioma).format(erro=e), 'danger')
+    return redirect(url_for('agentes_funcionalidades'))
 
 
 @app.route('/admin/agentes-banco/manutencao', methods=['POST'])
@@ -6165,6 +6410,12 @@ def aprender_mudancas(origem):
     except Exception as e:
         db.session.rollback()
         app.logger.warning(f"Detecção de aprendizados de banco de dados falhou: {e}")
+    try:
+        import conhecimento_funcional
+        criados += conhecimento_funcional.detectar_mudancas(origem)
+    except Exception as e:
+        db.session.rollback()
+        app.logger.warning(f"Detecção de aprendizados funcionais falhou: {e}")
     return criados
 
 
@@ -6319,7 +6570,7 @@ def governanca_aprendizados():
             total, arquivo = conhecimento.limpar(consulta.all(), current_user.id, current_user.nome, escopo)
             if escopo == 'todos':
                 # Recomeça do zero: o próximo retrato vira a nova linha de base (dos dois gerentes)
-                EstadoConhecimento.query.filter(EstadoConhecimento.chave.in_(['retrato', 'retrato_seguranca', 'retrato_banco'])).delete(synchronize_session=False)
+                EstadoConhecimento.query.filter(EstadoConhecimento.chave.in_(['retrato', 'retrato_seguranca', 'retrato_banco', 'retrato_funcional'])).delete(synchronize_session=False)
                 db.session.commit()
             flash(tt('{n} aprendizado(s) removido(s). Cópia de auditoria: {arquivo}', idioma).format(n=total, arquivo=arquivo or '—'), 'success')
         return redirect(url_for('governanca_aprendizados'))
@@ -6333,6 +6584,10 @@ def governanca_aprendizados():
     if filtro_agente == 'seguranca':
         # Grupo de segurança: aprendizados do grupo e de cada um dos 5 agentes de segurança (seg_*)
         consulta = consulta.filter(AprendizadoAgente.agentes_destino.like('%"seg%') | AprendizadoAgente.agentes_destino.like('%"todos"%'))
+    elif filtro_agente == 'funcionalidades':
+        # Grupo funcional: aprendizados do grupo e de cada agente de perfil do fluxo (fn_*)
+        consulta = consulta.filter(AprendizadoAgente.agentes_destino.like('%"fn_%') | AprendizadoAgente.agentes_destino.like('%"funcionalidades"%')
+                                   | AprendizadoAgente.agentes_destino.like('%"todos"%'))
     elif filtro_agente == 'banco':
         # Grupo de banco de dados: aprendizados do grupo e de cada um dos 5 agentes de banco (db_*)
         consulta = consulta.filter(AprendizadoAgente.agentes_destino.like('%"db_%') | AprendizadoAgente.agentes_destino.like('%"banco"%')

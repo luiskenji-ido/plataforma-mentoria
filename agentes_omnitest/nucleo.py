@@ -1699,6 +1699,17 @@ class AgenteOmniTest:
                            esperado="Redirecionar para /trocar-senha com 2 ou mais acertos")
             return
         self.registrar("Recuperação de Senha", "2 de 3 acertos liberam a troca", APROVADO, "Redirecionado para /trocar-senha.", evidencia=False)
+        for v in self.regras_ensinadas("troca_senha_global_ui"):
+            # Regra ensinada pelo Gerente de Funcionalidades: sem trocar a senha, nenhuma outra página abre
+            self.page.goto(BASE_URL + v["pagina"], wait_until="domcontentloaded")
+            if self.caminho_atual() == "/trocar-senha":
+                self.registrar("Recuperação de Senha", "Troca obrigatória cobrada em todas as páginas", APROVADO,
+                               f"{v['pagina']} voltou para a troca de senha ({v['codigo']}).", evidencia=False)
+            else:
+                self.registrar("Recuperação de Senha", "Troca obrigatória cobrada em todas as páginas", FALHA,
+                               f"{v['pagina']} abriu ({self.caminho_atual()}) sem trocar a senha ({v['codigo']}: {v['regra']}).",
+                               esperado="Redirecionar para /trocar-senha até a troca", arquivos="app.py")
+                self.page.goto(BASE_URL + "/trocar-senha", wait_until="domcontentloaded")
 
         self.page.fill('input[name="nova_senha"]', "fraca123")
         self.page.locator('form[action$="/trocar-senha"] button[type="submit"]').click()
@@ -1840,8 +1851,52 @@ class AgenteOmniTest:
             self.aprendizados = []
             print(f"   (aprendizados indisponíveis: {e})")
 
+    def regras_ensinadas(self, tipo=None):
+        """Verificações de regras de negócio ensinadas pelo Gerente de Funcionalidades para este agente."""
+        saida = []
+        for a in self.aprendizados or []:
+            if a["tipo"] == "regra_verificada":
+                for v in a["conteudo"].get("verificacoes", []):
+                    if v["agente"] == self.chave_perfil and (tipo is None or v["tipo"] == tipo):
+                        saida.append({**v, "regra": a["conteudo"].get("titulo", ""), "codigo": a["codigo"]})
+        return saida
+
+    def aplicar_regras_ensinadas(self):
+        """Executa as regras de negócio ensinadas pelo Gerente de Funcionalidades que se verificam pela tela."""
+        for v in self.regras_ensinadas("opcao_proibida"):
+            self.page.goto(BASE_URL + v["pagina"], wait_until="domcontentloaded")
+            oferecida = self.page.locator(f"{v['seletor']} option[value=\"{v['valor']}\"]").count()
+            if oferecida:
+                self.registrar("Regras de negócio", f"Opção '{v['valor']}' não oferecida", FALHA,
+                               f"A tela {v['pagina']} oferece '{v['valor']}' ({v['codigo']}: {v['regra']}).",
+                               esperado="A opção não aparece para este perfil", arquivos="templates/admin_usuarios.html")
+            else:
+                self.registrar("Regras de negócio", f"Opção '{v['valor']}' não oferecida", APROVADO, f"{v['codigo']}: {v['regra']}.", evidencia=False)
+        for v in self.regras_ensinadas("campos_com_faixa"):
+            turma = consultar_banco(lambda: next((t.id for t in __import__("models").Turma.query.filter_by(status="Ativa").all() if t.alunos), None))
+            if not turma:
+                self.registrar("Regras de negócio", "Campos de nota limitados a 0–10", PULADO, "Nenhuma turma ativa com alunos.", evidencia=False)
+                continue
+            self.page.goto(BASE_URL + f"{v['pagina']}?turma_id={turma}", wait_until="domcontentloaded")
+            campos = self.page.locator(", ".join(f"input[name^='{p}']" for p in v["prefixos"]))
+            total = campos.count()
+            errados = sum(1 for i in range(total) if campos.nth(i).get_attribute("min") != v["min"] or campos.nth(i).get_attribute("max") != v["max"])
+            if not total:
+                self.registrar("Regras de negócio", "Campos de nota limitados a 0–10", PULADO, "A turma não tem acompanhamentos.", evidencia=False)
+            elif errados:
+                self.registrar("Regras de negócio", "Campos de nota limitados a 0–10", FALHA, f"{errados} de {total} campos sem min/max.",
+                               esperado=f"min={v['min']} e max={v['max']} em todos os campos de nota", arquivos="templates/admin_notas.html")
+            else:
+                self.registrar("Regras de negócio", "Campos de nota limitados a 0–10", APROVADO,
+                               f"{total} campo(s) com min {v['min']} e max {v['max']} ({v['codigo']}).", evidencia=False)
+
     def aplicar_aprendizados(self):
         """Usa o que foi aprendido. Rotas novas: o agente confere se abrem sem erro de servidor."""
+        if self.aprendizados:
+            try:
+                self.aplicar_regras_ensinadas()
+            except Exception as e:
+                self.registrar("Regras de negócio", "Regras ensinadas pelo Gerente de Funcionalidades", ALERTA, f"Não verificadas: {e}", evidencia=False)
         if not self.aprendizados:
             self.registrar("Aprendizados", "Aprendizados do Gerente Técnico", PULADO, "Nenhum aprendizado aplicado para este agente.", evidencia=False)
             return

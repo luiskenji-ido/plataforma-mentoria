@@ -49,7 +49,8 @@ MODULOS = {
                     'arquivo_agentes_ia', 'governanca_aprendizados', 'governanca_aprendizados_csv', 'agentes_seguranca',
                     'iniciar_agentes_seguranca', 'parar_agentes_seguranca', 'estado_agentes_seguranca_json', 'aprender_agentes_seguranca',
                     'agentes_banco', 'iniciar_agentes_banco', 'parar_agentes_banco', 'estado_agentes_banco_json', 'aprender_agentes_banco',
-                    'manutencao_agentes_banco'], False),
+                    'manutencao_agentes_banco', 'agentes_funcionalidades', 'iniciar_agentes_funcionalidades', 'parar_agentes_funcionalidades',
+                    'estado_agentes_funcionalidades_json', 'quadro_agentes_funcionalidades', 'aprender_agentes_funcionalidades'], False),
     'manutencao': ('Manutenção do banco de dados', 'bi-database-fill-gear', ['manutencao_banco', 'baixar_backup', 'relatorio_auditoria_backup'], False),
 }
 

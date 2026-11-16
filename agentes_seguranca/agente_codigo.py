@@ -58,6 +58,7 @@ class AgenteCodigo(AgenteSeguranca):
         self.python()
         self.templates()
         self.pyflakes()
+        self.regras_de_negocio_aprendidas()
         self.rotas_aprendidas()
 
     def rotas_aprendidas(self):
@@ -226,6 +227,52 @@ class AgenteCodigo(AgenteSeguranca):
                         "A página aberta pode controlar a aba original (reverse tabnabbing).", "Adicionar rel=\"noopener noreferrer\" nos links target=\"_blank\".")
 
     # ------------------------------------------------------------------ pyflakes
+    def regras_de_negocio_aprendidas(self):
+        """Regras ensinadas pelo Gerente de Funcionalidades que a análise de código consegue vigiar."""
+        import conhecimento_funcional as cf
+        verificacoes = cf.verificacoes_para(self.aprendizados, "seg_codigo")
+        self.etapa("Regras de negócio aprendidas com o Gerente de Funcionalidades")
+        if not verificacoes:
+            self.log("Nenhuma regra de negócio ensinada ainda")
+            return
+        for v in verificacoes:
+            if v["tipo"] == "politica_senha_codigo":
+                self._politica_de_senha(v)
+
+    def _politica_de_senha(self, v):
+        """Toda função que grava senha vinda de formulário valida a política de senha forte; nenhuma senha fixa no código."""
+        politica = re.compile(re.escape(v.get("padrao", "PADRAO_SENHA_FORTE")) + r"|padrao_senha|\(\?=\.\*\[a-z\]\)")
+        sem_politica, fixas = [], []
+        for caminho, rel in self.arquivos((".py",)):
+            if rel.startswith(("agentes_omnitest/", "agentes_seguranca/", "agentes_banco/", "agentes_funcionalidades/")):
+                continue
+            try:
+                fonte = open(caminho, encoding="utf-8").read()
+                arvore = ast.parse(fonte)
+            except (SyntaxError, UnicodeDecodeError):
+                continue
+            for funcao in ast.walk(arvore):
+                if not isinstance(funcao, ast.FunctionDef) or "resposta" in funcao.name:
+                    continue
+                corpo = ast.get_source_segment(fonte, funcao) or ""
+                for no in ast.walk(funcao):
+                    if isinstance(no, ast.Call) and nome_da_chamada(no.func).endswith("generate_password_hash") and no.args:
+                        argumento = no.args[0]
+                        if isinstance(argumento, ast.Constant) and isinstance(argumento.value, str):
+                            fixas.append(f"{rel}:{no.lineno} {funcao.name}()")
+                        elif "request.form" in corpo and not politica.search(corpo):
+                            sem_politica.append(f"{rel}:{no.lineno} {funcao.name}()")
+        if sem_politica:
+            self.achado(f"{len(sem_politica)} cadastro(s)/troca(s) de senha sem a política de senha forte", "Alta", "A07", "CWE-521",
+                        "; ".join(sorted(set(sem_politica))[:8]), f"Regra aprendida em {v['codigo']}: {v['regra']}.",
+                        "Validar a senha com PADRAO_SENHA_FORTE antes de gravar.")
+        else:
+            self.ok(f"Toda gravação de senha vinda de formulário valida a política ({v['codigo']})")
+        if fixas:
+            self.achado(f"{len(fixas)} senha(s) padrão fixa(s) no código", "Média", "A07", "CWE-798", "; ".join(sorted(set(fixas))[:8]),
+                        f"Regra aprendida em {v['codigo']}: {v['regra']}. Quem lê o código conhece a senha inicial dessas contas.",
+                        "Gerar uma senha provisória aleatória para cada conta (secrets) e entregá-la ao responsável, com troca obrigatória no primeiro acesso.")
+
     def pyflakes(self):
         self.etapa("Nomes indefinidos e erros lógicos (pyflakes)")
         try:

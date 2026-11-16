@@ -133,8 +133,14 @@ def aprender_banco_de_dados(agora):
     return len(conhecimento_banco.detectar_mudancas('Gerente de Banco de Dados (tarefa de hora em hora)'))
 
 
+def aprender_funcionalidades(agora):
+    """Gerente de Funcionalidades: aprende as regras de negócio (módulos dos perfis, regras do app) e as funções novas."""
+    import conhecimento_funcional
+    return len(conhecimento_funcional.detectar_mudancas('Gerente de Funcionalidades (tarefa de hora em hora)'))
+
+
 TAREFAS = [lembrar_checkout_esquecido, lembrar_encaminhamentos_vencidos, enviar_formulario_banca, fechar_checkin_banca_esquecido,
-           executar_backups_agendados, aprender_mudancas_da_plataforma, aprender_seguranca, aprender_banco_de_dados]
+           executar_backups_agendados, aprender_mudancas_da_plataforma, aprender_seguranca, aprender_banco_de_dados, aprender_funcionalidades]
 
 
 def executar_tarefas():

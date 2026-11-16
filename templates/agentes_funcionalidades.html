@@ -1,0 +1,592 @@
+{% extends "base.html" %}
+{% block title %}{{ tt('Agentes de Funcionalidades') }}{% endblock %}
+{% block content %}
+<style>
+    /* Título: cor do tema (contraste garantido nos 4 temas); só o ícone leva a cor do banco de dados */
+    .titulo-func i { color: #7c3aed; }
+    /* ---------- Centro de operações do banco de dados (sempre escuro, em qualquer tema) ---------- */
+    .fn-hub { position: relative; height: 700px; border-radius: 16px; overflow: hidden; color: #e2e8f0; background-color: #0d0817;
+               background-image: radial-gradient(ellipse at 50% 40%, #2e1065 0%, #12081f 52%, #07030d 100%); box-shadow: inset 0 0 90px rgba(0,0,0,.7); }
+    .fn-hub::before { content: ""; position: absolute; inset: 0; pointer-events: none; opacity: .35;
+                       background-image: radial-gradient(rgba(167,139,250,.35) 1px, transparent 1.4px); background-size: 22px 22px; }
+    .fn-hub::after { content: ""; position: absolute; left: -20%; right: -20%; bottom: -10%; height: 50%; pointer-events: none;
+                      background-image: linear-gradient(rgba(139,92,246,.12) 1px, transparent 1px), linear-gradient(90deg, rgba(139,92,246,.12) 1px, transparent 1px);
+                      background-size: 46px 46px; transform: perspective(520px) rotateX(62deg); transform-origin: bottom; }
+    .fn-varredura { position: absolute; left: 0; right: 0; height: 2px; top: 0; z-index: 1; pointer-events: none; opacity: 0;
+                     background: linear-gradient(90deg, transparent, rgba(167,139,250,.9), transparent); box-shadow: 0 0 14px rgba(139,92,246,.8); }
+    .fn-hub.ativo .fn-varredura { opacity: 1; animation: segVarrer 3.2s linear infinite; }
+    @keyframes segVarrer { from { top: 0; } to { top: 100%; } }
+
+    .fn-linhas { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 1; }
+    .fn-linhas path { fill: none; stroke: rgba(167,139,250,.28); stroke-width: 1.6; stroke-dasharray: 4 10; animation: segTracejado 1.8s linear infinite; }
+    .fn-linhas path.ativa { stroke: #f59e0b; stroke-width: 3; filter: drop-shadow(0 0 6px #f59e0b); animation-duration: .5s; }
+    .fn-linhas path.concluido { stroke: rgba(34,197,94,.75); }
+    .fn-linhas path.falhas, .fn-linhas path.erro { stroke: rgba(245,158,11,.9); }
+    @keyframes segTracejado { to { stroke-dashoffset: -28; } }
+
+    /* Console de varredura no centro */
+    .fn-console { position: absolute; left: 50%; top: 46px; width: 46%; height: 300px; transform: translateX(-50%); z-index: 3; display: flex; flex-direction: column;
+                   border: 2px solid #8b5cf6; border-radius: 10px; background: rgba(10,6,18,.94); box-shadow: 0 0 30px rgba(139,92,246,.45); overflow: hidden; }
+    .fn-barra { display: flex; align-items: center; gap: 6px; padding: 5px 9px; background: #1a1030; font-size: .72rem; color: #c4b5fd; }
+    .fn-barra i.ponto { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
+    .fn-titulo { flex: 1; font-family: Consolas, 'Courier New', monospace; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .fn-etapa { padding: 4px 10px; font-size: .72rem; color: #fde68a; background: rgba(245,158,11,.08); border-bottom: 1px solid rgba(245,158,11,.2);
+                 white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .fn-saida { flex: 1; overflow-y: auto; padding: 6px 10px; font-family: Consolas, 'Courier New', monospace; font-size: .72rem; line-height: 1.45; color: #cbd5e1; }
+    .fn-saida div { white-space: pre-wrap; word-break: break-word; }
+    .fn-saida .ok { color: #4ade80; } .fn-saida .passo { color: #fbbf24; font-weight: 700; } .fn-saida .tempo { color: #64748b; }
+    .fn-saida .sev-Crítica { color: #fff; background: #5b21b6; } .fn-saida .sev-Alta { color: #a78bfa; font-weight: 700; }
+    .fn-saida .sev-Média { color: #fbbf24; } .fn-saida .sev-Baixa { color: #93c5fd; } .fn-saida .sev-Informativa { color: #94a3b8; }
+    .fn-cursor::after { content: "▌"; color: #a78bfa; animation: segPiscar 1s steps(2) infinite; }
+    @keyframes segPiscar { 50% { opacity: 0; } }
+    .fn-vazio { margin: auto; text-align: center; color: #94a3b8; font-size: .85rem; padding: 0 16px; font-family: inherit; }
+    .fn-vazio i { font-size: 2.2rem; display: block; margin-bottom: 6px; color: #4c1d95; }
+
+    /* Radar central */
+    .fn-radar { position: absolute; left: 50%; top: 65%; width: 150px; height: 150px; transform: translate(-50%, -50%); z-index: 2; border-radius: 50%;
+                 background: radial-gradient(circle, rgba(76,29,149,.35) 0 30%, transparent 31%), repeating-radial-gradient(circle, transparent 0 22px, rgba(167,139,250,.28) 23px 24px);
+                 border: 1px solid rgba(167,139,250,.5); box-shadow: 0 0 28px rgba(139,92,246,.35); display: flex; align-items: center; justify-content: center; }
+    .fn-radar::before { content: ""; position: absolute; inset: 0; border-radius: 50%; opacity: .25;
+                         background: conic-gradient(from 0deg, rgba(167,139,250,.0), rgba(167,139,250,.65) 60deg, transparent 61deg); }
+    .fn-hub.ativo .fn-radar::before { opacity: 1; animation: segGirar 2.6s linear infinite; }
+    @keyframes segGirar { to { transform: rotate(360deg); } }
+    .fn-radar i { font-size: 2.6rem; color: #ede9fe; text-shadow: 0 0 14px rgba(139,92,246,.9); position: relative; }
+
+    /* Gerente de Banco de Dados e nota de saúde */
+    .fn-gerente { position: absolute; left: 18px; top: 16px; z-index: 4; display: flex; align-items: center; gap: 10px; }
+    .fn-gerente .circulo { width: 80px; height: 80px; border-radius: 50%; background-color: #5b21b6; background-image: radial-gradient(circle at 35% 30%, #a78bfa, #4c1d95);
+                            display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: .64rem; line-height: 1.1;
+                            text-align: center; font-weight: 700; color: #fff; box-shadow: 0 0 22px rgba(139,92,246,.6); position: relative; }
+    .fn-gerente .circulo i { font-size: 1.35rem; }
+    .fn-gerente .contador { position: absolute; top: -4px; right: -4px; background: #0f172a; color: #fff; border-radius: 50%; width: 25px; height: 25px;
+                             display: flex; align-items: center; justify-content: center; font-size: .75rem; border: 2px solid #8b5cf6; }
+    .fn-gerente .texto { font-size: .78rem; color: #ede9fe; max-width: 170px; }
+    .fn-risco { position: absolute; right: 18px; top: 12px; z-index: 4; width: 150px; text-align: center; }
+    .fn-risco svg { width: 150px; height: 84px; }
+    .fn-risco .valor { margin-top: -38px; font-size: 1.45rem; font-weight: 800; color: #fff; line-height: 1; }
+    .fn-risco .legenda { font-size: .68rem; color: #c4b5fd; text-transform: uppercase; letter-spacing: .06em; }
+    .fn-severidades { display: flex; justify-content: center; gap: 4px; margin-top: 6px; }
+    .fn-severidades span { min-width: 26px; padding: 1px 5px; border-radius: 4px; font-size: .7rem; font-weight: 700; color: #fff; }
+
+    /* Agentes especialistas (escudos) */
+    .fn-agente { position: absolute; width: 150px; transform: translate(-50%, -50%); z-index: 3; text-align: center; transition: opacity .3s; }
+    .fn-agente .escudo { position: relative; margin: 0 auto; width: 76px; height: 84px; display: flex; align-items: center; justify-content: center;
+                          clip-path: polygon(50% 0, 100% 16%, 100% 58%, 50% 100%, 0 58%, 0 16%); background: linear-gradient(160deg, #475569, #150d24);
+                          padding: 2px; }
+    .fn-agente .escudo .miolo { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center;
+                                 clip-path: polygon(50% 0, 100% 16%, 100% 58%, 50% 100%, 0 58%, 0 16%); background: linear-gradient(160deg, #22163d, #0e0919); }
+    .fn-agente .escudo i { font-size: 1.9rem; color: #f5f3ff; margin-top: -8px; text-shadow: 0 0 10px rgba(167,139,250,.7); }
+    .fn-agente .halo { position: absolute; left: 50%; top: 42px; width: 96px; height: 96px; transform: translate(-50%, -50%); border-radius: 50%; pointer-events: none; }
+    .fn-agente .selo { position: absolute; left: calc(50% + 26px); top: -6px; width: 26px; height: 26px; border-radius: 50%; display: none; z-index: 2;
+                        align-items: center; justify-content: center; font-size: .85rem; color: #fff; border: 2px solid #07030d; }
+    .fn-agente .nome { margin-top: 6px; font-size: .74rem; font-weight: 700; color: #f8fafc; line-height: 1.15; }
+    .fn-agente .situacao { font-size: .68rem; color: #94a3b8; }
+    .fn-agente .pontos { display: flex; justify-content: center; gap: 3px; margin-top: 3px; min-height: 16px; }
+    .fn-agente .pontos span { font-size: .62rem; font-weight: 700; color: #fff; border-radius: 3px; padding: 0 4px; }
+    .fn-agente .mini { height: 4px; margin: 4px auto 0; width: 80px; border-radius: 2px; background: rgba(148,163,184,.25); overflow: hidden; display: none; }
+    .fn-agente .mini span { display: block; height: 100%; width: 0; background: #f59e0b; transition: width .6s; }
+    .fn-agente.aguardando { opacity: .55; }
+    .fn-agente.executando .escudo { background: linear-gradient(160deg, #fbbf24, #b45309); }
+    .fn-agente.executando .halo { border: 2px solid rgba(245,158,11,.8); animation: segPulso 1.3s ease-out infinite; }
+    .fn-agente.executando .situacao { color: #fbbf24; font-weight: 700; } .fn-agente.executando .mini { display: block; }
+    .fn-agente.concluido .escudo { background: linear-gradient(160deg, #4ade80, #15803d); } .fn-agente.concluido .situacao { color: #4ade80; }
+    .fn-agente.concluido .selo { display: flex; background: #16a34a; }
+    .fn-agente.falhas .escudo, .fn-agente.erro .escudo { background: linear-gradient(160deg, #fb923c, #c2410c); }
+    .fn-agente.falhas .situacao, .fn-agente.erro .situacao { color: #fb923c; }
+    .fn-agente.falhas .selo, .fn-agente.erro .selo { display: flex; background: #dc2626; }
+    @keyframes segPulso { from { transform: translate(-50%, -50%) scale(.75); opacity: 1; } to { transform: translate(-50%, -50%) scale(1.35); opacity: 0; } }
+
+    .fn-log { font-family: Consolas, 'Courier New', monospace; font-size: .76rem; background: #0d0817; color: #cbd5e1; border-radius: 8px;
+               padding: 10px 12px; height: 220px; overflow-y: auto; white-space: pre-wrap; }
+    .sev-pill { display: inline-block; color: #fff; border-radius: 4px; padding: 0 6px; font-size: .72rem; font-weight: 700; white-space: nowrap; }
+    .arvore-ia summary { cursor: pointer; font-weight: 700; padding: 3px 0; }
+    .arvore-ia .bi-folder-fill { color: #dc2626; }
+    .arvore-ia ul { list-style: none; padding-left: 16px; margin: 0; border-left: 1px solid #94a3b8; }
+    .arvore-ia li { padding: 2px 0; font-size: .85rem; word-break: break-word; }
+    .lista-especialistas li { font-size: .82rem; margin-bottom: 6px; }
+
+    @media (max-width: 991.98px) {
+        .fn-hub { height: auto; padding: 120px 10px 16px; }
+        .fn-console { position: relative; left: auto; top: auto; transform: none; width: 100%; }
+        .fn-radar, .fn-linhas, .fn-varredura { display: none !important; }
+        .fn-risco { right: 10px; top: 8px; width: 120px; } .fn-risco svg { width: 120px; height: 68px; } .fn-risco .valor { margin-top: -30px; font-size: 1.2rem; }
+        .fn-gerente .texto { display: none; }
+        .fn-agentes { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 14px; margin-top: 18px; }
+        .fn-agente { position: static; transform: none; width: auto; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+        .fn-hub *, .fn-hub *::before, .fn-hub *::after, .fn-hub.ativo .fn-varredura { animation: none !important; }
+    }
+</style>
+
+{% set cores = {'Aprovado': '#16a34a', 'Falha': '#dc2626', 'Alerta': '#d97706'} %}
+<div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-3">
+    <div>
+        <h2 class="fw-bold mb-1 titulo-func"><i class="bi bi-diagram-3-fill"></i> {{ tt('Agentes de Funcionalidades') }}</h2>
+        <a href="{{ url_for('agentes_ia') }}" class="small fw-bold me-3"><i class="bi bi-robot"></i> {{ tt('Agentes de testes fim a fim') }}</a>
+        <a href="{{ url_for('agentes_seguranca') }}" class="small fw-bold me-3 text-danger"><i class="bi bi-shield-lock-fill"></i> {{ tt('Agentes de Segurança') }}</a>
+        <a href="{{ url_for('manutencao_banco') }}" class="small fw-bold me-3"><i class="bi bi-person-workspace"></i> {{ t('menu_manutencao') }}</a>
+        <a href="{{ url_for('agentes_banco') }}" class="small fw-bold me-3"><i class="bi bi-database-fill-check"></i> {{ tt('Agentes de Banco de Dados') }}</a>
+        <a href="{{ url_for('governanca_aprendizados') }}" class="small fw-bold"><i class="bi bi-mortarboard"></i> {{ tt('Governança de aprendizados') }}</a>
+        <p class="text-muted mb-0">{{ tt('O Gerente de Funcionalidades conduz o fluxo completo da plataforma como uma corrida de revezamento: cada agente entra com o seu perfil, testa todas as funções do seu acesso, valida as regras de negócio, cria os usuários e os dados do próximo e passa a vez. No fim, gera os relatórios com evidências e os prompts de correção.') }}</p>
+    </div>
+</div>
+<div class="alert alert-light border small py-2"><i class="bi bi-shield-check"></i> {{ tt('Tudo o que o fluxo cria leva a marca [Funcional] e e-mails *_funcional@local.com. Antes de começar é feito um backup e, ao final, os dados do teste são removidos (sem órfãos).') }}</div>
+{% if not playwright_ok %}
+<div class="alert alert-warning small"><i class="bi bi-exclamation-triangle"></i> {{ tt('Sem o Playwright neste servidor, os relatórios saem só como prompt (.md), sem o PDF.') }}</div>
+{% endif %}
+
+<div class="row g-3">
+    <!-- Pastas e especialistas -->
+    <div class="col-xl-3">
+        <div class="card shadow-sm border-0 mb-3" id="cardArvoreFunc">
+            <div class="card-body arvore-ia">
+                <h6 class="fw-bold mb-2">{{ tt('Estrutura') }}</h6>
+                <details open><summary><i class="bi bi-gear-fill"></i> {{ t('menu_administracao') }}</summary>
+                <ul><li><details open><summary><i class="bi bi-robot"></i> {{ tt('Agentes de IA') }}</summary>
+                    <ul><li><details open><summary><i class="bi bi-diagram-3-fill text-primary"></i> {{ tt(grupo.nome) }}</summary>
+                        <ul>
+                        {% for pasta in grupo.pastas %}
+                            {% set total = pasta.subpastas | map(attribute='arquivos') | map('length') | sum %}
+                            <li><details {% if loop.first %}open{% endif %}><summary><i class="bi bi-folder-fill"></i> {{ tt(pasta.nome) }} <span class="text-muted fw-normal">({{ total }})</span></summary>
+                                <ul>
+                                {% for sub in pasta.subpastas %}
+                                    <li><details><summary><i class="bi bi-folder-fill"></i> {{ tt(sub.nome) }} <span class="text-muted fw-normal">({{ sub.arquivos|length }})</span></summary>
+                                        <ul>{% for a in sub.arquivos[:15] %}
+                                            <li><a href="{{ url_for('arquivo_agentes_ia', f=a.relativo) }}" {% if a.nome.endswith('.pdf') %}target="_blank" rel="noopener"{% endif %}>
+                                                <i class="bi {{ 'bi-file-earmark-pdf text-danger' if a.nome.endswith('.pdf') else 'bi-file-earmark-text' }}"></i> {{ a.data.strftime('%d/%m %H:%M') }}</a></li>
+                                        {% else %}<li class="text-muted">{{ tt('vazia') }}</li>{% endfor %}</ul>
+                                    </details></li>
+                                {% endfor %}
+                                </ul>
+                            </details></li>
+                        {% endfor %}
+                        </ul>
+                    </details></li></ul>
+                </details></li></ul>
+                </details>
+            </div>
+        </div>
+        <div class="card shadow-sm border-0">
+            <div class="card-body">
+                <h6 class="fw-bold mb-2">{{ tt('Especialistas') }}</h6>
+                <ol class="lista-especialistas ps-3 mb-2">
+                    {% for chave, nome, icone, descricao in ordem %}
+                    <li><b><i class="bi {{ icone }} text-primary"></i> {{ tt(nome) }}</b><br><span class="text-muted">{{ tt(descricao) }}</span></li>
+                    {% endfor %}
+                </ol>
+                <small class="text-muted"><i class="bi bi-patch-check"></i> {{ tt('As expectativas vêm das regras de negócio da própria plataforma (módulos de cada perfil e regras do app), aprendidas pelo Gerente.') }}</small>
+            </div>
+        </div>
+        <!-- Aprendizado autônomo do Gerente de Banco de Dados -->
+        <div class="card shadow-sm border-0 mt-3" id="cardAprendizadoFunc">
+            <div class="card-body">
+                <h6 class="fw-bold mb-1"><i class="bi bi-mortarboard text-primary"></i> {{ tt('Aprendizado do Gerente de Funcionalidades') }}</h6>
+                <small class="text-muted d-block mb-2">{{ tt('Ele aprende sozinho as regras de negócio (módulos de cada perfil, quem cadastra, quem avalia, versão do termo) e as funções novas, e ensina cada agente. Para as falhas, propõe só referências oficiais, que esperam a sua aprovação.') }}</small>
+                {% if aprendizado %}
+                {% set nomes_seg = {'funcionalidades': tt('Todos os agentes de funcionalidades'), 'fn_administrador': tt('Administrador'), 'fn_mentor_administrador': tt('Mentor Administrador'), 'fn_gestor_parceiro': tt('Gestor Parceiro'), 'fn_professor': tt('Professor'), 'fn_mentor': tt('Mentor'), 'fn_aluno': tt('Aluno'), 'fn_avaliador': tt('Avaliador da Banca'), 'fn_encerramento': tt('Encerramento do ciclo')} %}
+                <table class="table table-sm small mb-2">
+                    <thead><tr><th>{{ tt('Agente') }}</th><th class="text-center" title="{{ tt('Aplicados') }}"><i class="bi bi-check2-circle text-success"></i></th>
+                        <th class="text-center" title="{{ tt('Pendentes de aprovação') }}"><i class="bi bi-hourglass-split text-warning"></i></th></tr></thead>
+                    <tbody>
+                    {% for chave, n in aprendizado.contagem.items() %}
+                        <tr><td><a href="{{ url_for('governanca_aprendizados', agente=chave) }}">{{ nomes_seg.get(chave, chave) }}</a></td>
+                            <td class="text-center fw-bold text-success">{{ n['Aplicado'] }}</td><td class="text-center fw-bold text-warning-emphasis">{{ n['Pendente'] }}</td></tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+                <div class="small text-muted mb-2" data-conteudo-dinamico>
+                    {% if aprendizado.ultima %}<div><i class="bi bi-clock-history"></i> {{ tt('Última detecção') }}: {{ aprendizado.ultima.em.replace('T', ' ')[:16] }} · {{ aprendizado.ultima.novos }} {{ tt('novo(s)') }}</div>{% endif %}
+                </div>
+                {% endif %}
+                <div class="d-flex gap-2 flex-wrap mb-3">
+                    <form method="POST" action="{{ url_for('aprender_agentes_funcionalidades') }}" class="m-0">
+                        <button class="btn btn-sm btn-primary fw-bold" type="submit" id="btnAprenderFunc"><i class="bi bi-lightning-charge"></i> {{ tt('Aprender agora') }}</button></form>
+                    <a href="{{ url_for('governanca_aprendizados', agente='funcionalidades') }}" class="btn btn-sm btn-outline-secondary fw-bold"><i class="bi bi-mortarboard"></i> {{ tt('Governança de aprendizados') }}</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-xl-9">
+        <!-- Comandos -->
+        <form method="POST" action="{{ url_for('iniciar_agentes_funcionalidades') }}" class="card shadow-sm border-0 mb-3" id="cardComandosFunc">
+            <div class="card-body d-flex flex-wrap gap-3 align-items-center">
+                <div class="d-flex flex-wrap gap-1 align-items-center small" aria-label="{{ tt('Ordem do fluxo') }}">
+                    {% for chave, nome, icone, descricao in ordem %}
+                    <span class="badge rounded-pill text-bg-light border fw-semibold" title="{{ tt(descricao) }}"><i class="bi {{ icone }} text-primary"></i> {{ loop.index }}. {{ tt(nome) }}</span>
+                    {% if not loop.last %}<i class="bi bi-arrow-right text-muted"></i>{% endif %}
+                    {% endfor %}
+                </div>
+                <div class="form-check form-switch m-0">
+                    <input class="form-check-input" type="checkbox" role="switch" id="manterDados" name="manter_dados">
+                    <label class="form-check-label small" for="manterDados">{{ tt('Manter os dados do teste para inspeção') }}</label>
+                </div>
+                <div class="ms-auto d-flex gap-2">
+                    <button class="btn btn-primary fw-bold px-3" type="submit" id="btnIniciarFunc"><i class="bi bi-play-fill"></i> {{ tt('Iniciar teste do fluxo completo') }}</button>
+                    <button class="btn btn-outline-secondary fw-bold" type="submit" form="formPararFunc" id="btnPararFunc" disabled><i class="bi bi-stop-fill"></i> {{ tt('Parar') }}</button>
+                </div>
+            </div>
+        </form>
+        <form method="POST" action="{{ url_for('parar_agentes_funcionalidades') }}" id="formPararFunc" class="d-none"></form>
+
+        <!-- Centro de operações: console ao centro, especialistas ao redor -->
+        <div class="fn-hub mb-3" id="fnHub" aria-label="{{ tt('Painel ao vivo dos agentes de funcionalidades') }}">
+            <div class="fn-varredura"></div>
+            <svg class="fn-linhas" id="fnLinhas" aria-hidden="true"></svg>
+
+            <div class="fn-gerente">
+                <div class="circulo"><i class="bi bi-person-workspace"></i>{{ tt('Gerente de Funcionalidades') }}<span class="contador" id="gerenteContadorFunc">0</span></div>
+                <div class="texto" id="gerenteTexto">{{ tt('Aguardando o início do teste.') }}</div>
+            </div>
+
+            <div class="fn-risco" title="{{ tt('Saúde funcional: percentual de testes aprovados (alertas contam meio ponto).') }}">
+                <svg viewBox="0 0 150 84" aria-hidden="true">
+                    <path d="M12 78 A63 63 0 0 1 138 78" fill="none" stroke="rgba(148,163,184,.25)" stroke-width="12" stroke-linecap="round"/>
+                    <path id="riscoArco" d="M12 78 A63 63 0 0 1 138 78" fill="none" stroke="#22c55e" stroke-width="12" stroke-linecap="round" pathLength="100" stroke-dasharray="0 100"/>
+                </svg>
+                <div class="valor" id="riscoValor">—</div>
+                <div class="legenda">{{ tt('Saúde') }}</div>
+                <div class="fn-severidades" id="riscoSeveridades">
+                    {% for s in ['Aprovado', 'Falha', 'Alerta'] %}<span style="background: {{ cores[s] }}" title="{{ tt(s) }}" data-sev="{{ s }}">0</span>{% endfor %}
+                </div>
+            </div>
+
+            <div class="fn-console">
+                <div class="fn-barra"><i class="ponto" style="background:#8b5cf6"></i><i class="ponto" style="background:#f59e0b"></i><i class="ponto" style="background:#22c55e"></i>
+                    <span class="fn-titulo" id="consoleTitulo" data-conteudo-dinamico>qa@mentoria:~$</span></div>
+                <div class="fn-etapa" id="consoleEtapa" data-conteudo-dinamico>—</div>
+                <div class="fn-saida" id="consoleSaida" aria-live="polite" data-conteudo-dinamico>
+                    <div class="fn-vazio" id="consoleVazio"><i class="bi bi-diagram-3"></i>{{ tt('Nenhum teste em execução. Cada função testada e cada regra validada aparecem aqui ao vivo.') }}</div>
+                </div>
+            </div>
+            <div class="fn-radar" aria-hidden="true"><i class="bi bi-diagram-3-fill"></i></div>
+
+            <div class="fn-agentes">
+                {% set posicoes = {'administrador': (12, 24), 'mentor_administrador': (11, 50), 'gestor_parceiro': (14, 77), 'professor': (36, 91), 'mentor': (64, 91), 'aluno': (86, 77), 'avaliador': (89, 50), 'encerramento': (88, 24)} %}
+                {% for chave, nome, icone, descricao in ordem %}
+                <div class="fn-agente aguardando" id="fn_agente_{{ chave }}" data-chave="{{ chave }}" title="{{ tt(descricao) }}"
+                     style="left: {{ posicoes[chave][0] }}%; top: {{ posicoes[chave][1] }}%;">
+                    <span class="halo"></span>
+                    <div class="escudo"><div class="miolo"><i class="bi {{ icone }}"></i></div></div><span class="selo"></span>
+                    <div class="nome">{{ tt('Agente') }} {{ tt(nome) }}</div>
+                    <div class="situacao">{{ tt('aguardando') }}</div>
+                    <div class="pontos"></div>
+                    <div class="mini"><span></span></div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- Progresso por agente, com tempo estimado -->
+        <div class="card shadow-sm border-0 mb-3" id="cardProgressoFunc">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-end flex-wrap gap-2 mb-1">
+                    <h6 class="fw-bold mb-0">{{ tt('Progresso por agente') }}</h6>
+                    <small class="text-muted">{{ tt('Tempo estimado pelas execuções anteriores de cada agente.') }}</small>
+                </div>
+                <div class="d-flex justify-content-between small fw-bold mt-2"><span>{{ tt('Execução total') }} <span id="totalContagem" data-conteudo-dinamico></span></span><span id="totalRestante" data-conteudo-dinamico></span></div>
+                <div class="progress mb-3" style="height: 14px;" role="progressbar" aria-label="{{ tt('Execução total') }}">
+                    <div class="progress-bar bg-primary" id="totalBarra" style="width: 0%"></div>
+                </div>
+                <div class="d-flex flex-column gap-2">
+                    {% for chave, nome, icone, descricao in ordem %}
+                    <div class="linha-progresso" data-chave="{{ chave }}">
+                        <div class="d-flex justify-content-between align-items-center small gap-2">
+                            <span class="fw-bold text-nowrap"><i class="bi {{ icone }} text-primary"></i> {{ tt(nome) }}</span>
+                            <span class="text-muted text-end tempo" data-conteudo-dinamico>—</span>
+                        </div>
+                        <div class="d-flex align-items-center gap-2">
+                            <div class="progress flex-grow-1" style="height: 10px;" role="progressbar" aria-label="{{ tt(nome) }}">
+                                <div class="progress-bar bg-secondary" style="width: 0%"></div>
+                            </div>
+                            <span class="small fw-bold pct" style="width: 38px; text-align: right; font-variant-numeric: tabular-nums;">0%</span>
+                            <span class="small contagem text-nowrap" style="min-width: 150px;" data-conteudo-dinamico></span>
+                            <span class="small links text-nowrap" style="min-width: 40px;"></span>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <div class="row g-3">
+            <!-- Resultado consolidado -->
+            <div class="col-lg-6">
+                <div class="card shadow-sm border-0 h-100" id="cardConsolidadoFunc"><div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start gap-2 mb-2">
+                        <h6 class="fw-bold mb-0">{{ tt('Resultado consolidado') }}</h6>
+                        <span id="consolidadoLinks" class="text-nowrap"></span>
+                    </div>
+                    <div id="consolidadoCorpo" class="small text-muted" data-conteudo-dinamico>{{ tt('O resultado aparece ao final do fluxo.') }}</div>
+                </div></div>
+            </div>
+            <!-- Log do Gerente -->
+            <div class="col-lg-6">
+                <div class="card shadow-sm border-0 h-100"><div class="card-body">
+                    <h6 class="fw-bold mb-2">{{ tt('Registro do Gerente de Funcionalidades') }}</h6>
+                    <div class="fn-log" id="logFunc" aria-live="polite" data-conteudo-dinamico></div>
+                </div></div>
+            </div>
+        </div>
+
+        <div class="row g-3 mt-0">
+            <!-- Última evidência -->
+            <div class="col-12">
+                <div class="card shadow-sm border-0" id="cardEvidenciaFunc"><div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start gap-2 mb-2">
+                        <h6 class="fw-bold mb-0"><i class="bi bi-camera text-primary"></i> {{ tt('Última evidência capturada') }}</h6>
+                        <small class="text-muted" id="evidenciaLegenda" data-conteudo-dinamico>—</small>
+                    </div>
+                    <img id="evidenciaImagem" class="img-fluid border rounded d-none" alt="{{ tt('Última tela capturada pelo agente') }}">
+                    <div id="evidenciaVazia" class="small text-muted">{{ tt('Os prints de cada etapa aparecem aqui durante o teste e vão para o PDF de cada agente.') }}</div>
+                </div></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+(function () {
+    const URL_ESTADO = "{{ url_for('estado_agentes_funcionalidades_json') }}";
+    const URL_QUADRO = "{{ url_for('quadro_agentes_funcionalidades') }}";
+    const URL_ARQUIVO = "{{ url_for('arquivo_agentes_ia') }}?f=";
+    const CORES = {{ cores | tojson }};
+    const SEVERIDADES = ['Aprovado', 'Falha', 'Alerta'];
+    const TXT = {
+        aguardando: {{ tt('aguardando')|tojson }}, executando: {{ tt('testando…')|tojson }}, concluido: {{ tt('sem falhas')|tojson }},
+        falhas: {{ tt('com falhas')|tojson }}, erro: {{ tt('erro')|tojson }}, agente: {{ tt('Agente')|tojson }},
+        aguardandoInicio: {{ tt('Aguardando o início do teste.')|tojson }}, executandoGerente: {{ tt('Testando')|tojson }},
+        concluidoGerente: {{ tt('Fluxo concluído.')|tojson }}, parado: {{ tt('Execução interrompida.')|tojson }},
+        verificacoes: {{ tt('verificações')|tojson }}, restantes: {{ tt('restantes')|tojson }}, estimado: {{ tt('estimado')|tojson }},
+        concluidoEm: {{ tt('concluído em')|tojson }}, foraExecucao: {{ tt('fora desta execução')|tojson }},
+        preparando: {{ tt('Preparando o agente…')|tojson }}, risco: {{ tt('Saúde')|tojson }}, prioridades: {{ tt('Corrigir primeiro')|tojson }},
+        nenhumaGrave: {{ tt('Nenhuma falha nem alerta.')|tojson }}, aoFinal: {{ tt('O resultado aparece ao final do fluxo.')|tojson }},
+        sevs: { 'Aprovado': {{ tt('Aprovado')|tojson }}, 'Falha': {{ tt('Falha')|tojson }}, 'Alerta': {{ tt('Alerta')|tojson }} }
+    };
+    {% set nomes_js = {} %}{% for chave, nome, icone, descricao in ordem %}{% set _ = nomes_js.update({chave: tt(nome)}) %}{% endfor %}
+    const NOMES_AGENTES = {{ nomes_js | tojson }};
+    const hub = document.getElementById('fnHub');
+    const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+    function desenharLinhas(agentes) {
+        const svg = document.getElementById('fnLinhas');
+        const caixa = hub.getBoundingClientRect();
+        const radar = hub.querySelector('.fn-radar').getBoundingClientRect();
+        if (!radar.width) { svg.innerHTML = ''; return; }
+        const rx = radar.left + radar.width / 2 - caixa.left, ry = radar.top + radar.height / 2 - caixa.top;
+        svg.setAttribute('viewBox', `0 0 ${caixa.width} ${caixa.height}`);
+        svg.innerHTML = '';
+        hub.querySelectorAll('.fn-agente').forEach(no => {
+            const r = no.querySelector('.escudo').getBoundingClientRect();
+            const x = r.left + r.width / 2 - caixa.left, y = r.top + r.height / 2 - caixa.top;
+            const caminho = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+            caminho.setAttribute('d', `M${x},${y} Q${(x + rx) / 2},${y} ${rx},${ry}`);
+            const st = agentes && agentes[no.dataset.chave] ? agentes[no.dataset.chave].status : '';
+            caminho.setAttribute('class', st === 'executando' ? 'ativa' : st);
+            svg.appendChild(caminho);
+        });
+    }
+
+    function link(rel, icone, titulo) {
+        return rel ? `<a href="${URL_ARQUIVO}${encodeURIComponent(rel.replace(/\\/g, '/'))}" target="_blank" rel="noopener" title="${titulo}" class="me-2"><i class="bi ${icone}"></i></a>` : '';
+    }
+
+    function pontos(contagem) {
+        return contagem ? SEVERIDADES.filter(s => contagem[s]).map(s => `<span style="background:${CORES[s]}" title="${esc(TXT.sevs[s])}">${contagem[s]}</span>`).join('') : '';
+    }
+
+    function linhaConsole(texto) {
+        const m = texto.match(/^(\d\d:\d\d:\d\d)\s+(.*)$/);
+        const hora = m ? m[1] : '', corpo = m ? m[2] : texto;
+        let classe = '';
+        if (corpo.startsWith('✗')) classe = 'sev-Alta';
+        else if (corpo.startsWith('⚠')) classe = 'sev-Média';
+        else if (corpo.startsWith('✓')) classe = 'ok';
+        else if (corpo.startsWith('▶')) classe = 'passo';
+        return `<div><span class="tempo">${hora}</span> <span class="${classe}">${esc(corpo)}</span></div>`;
+    }
+
+    // Print mais recente do agente em execução (vai também para o PDF)
+    let ultimoQuadro = null;
+    function atualizarEvidencia(dados) {
+        const img = document.getElementById('evidenciaImagem'), vazio = document.getElementById('evidenciaVazia');
+        if (!dados.quadro) return;
+        if (dados.quadro !== ultimoQuadro) { ultimoQuadro = dados.quadro; img.src = URL_QUADRO + '?t=' + dados.quadro; }
+        img.classList.remove('d-none'); vazio.classList.add('d-none');
+        document.getElementById('evidenciaLegenda').textContent = dados.frame ? `${dados.frame.agente} · ${dados.frame.titulo} · ${dados.frame.url}` : '';
+    }
+
+    // O medidor mostra a SAÚDE funcional (100 − risco): quanto maior, melhor
+    function desenharRisco(risco, contagem) {
+        const arco = document.getElementById('riscoArco');
+        const valor = typeof risco === 'number' ? 100 - risco : null;
+        arco.setAttribute('stroke-dasharray', `${valor === null ? 0 : valor} 100`);
+        arco.setAttribute('stroke', valor === null ? '#22c55e' : valor >= 75 ? '#22c55e' : valor >= 40 ? '#f59e0b' : '#ef4444');
+        document.getElementById('riscoValor').textContent = valor === null ? '—' : valor;
+        document.querySelectorAll('#riscoSeveridades span').forEach(s => { s.textContent = contagem ? (contagem[s.dataset.sev] || 0) : 0; });
+    }
+
+    function atualizar(dados) {
+        const estado = dados.estado, agente = dados.agente;
+        const agentes = estado ? estado.agentes : {};
+        const rodando = estado && estado.status === 'executando';
+        hub.classList.toggle('ativo', !!rodando);
+        document.getElementById('btnIniciarFunc').disabled = !!rodando;
+        document.getElementById('btnPararFunc').disabled = !rodando;
+
+        // Especialistas ao redor
+        hub.querySelectorAll('.fn-agente').forEach(no => {
+            const a = agentes[no.dataset.chave];
+            const st = a ? a.status : 'aguardando';
+            no.className = 'fn-agente ' + st;
+            no.style.opacity = a || !estado ? '' : '.3';
+            const vivo = st === 'executando' && agente && agente.chave === no.dataset.chave;
+            no.querySelector('.situacao').textContent = a ? (TXT[st] || st) + (vivo ? ` · ${agente.verificacoes} ${TXT.verificacoes}` : '') : (estado ? '—' : TXT.aguardando);
+            no.querySelector('.pontos').innerHTML = pontos(vivo ? agente.contagem : (a && st !== 'aguardando' ? a.contagem : null));
+            no.querySelector('.selo').innerHTML = st === 'concluido' ? '<i class="bi bi-check-lg"></i>' : (st === 'falhas' || st === 'erro') ? '<i class="bi bi-exclamation-lg"></i>' : '';
+        });
+
+        // Gerente de Segurança
+        const chaves = Object.keys(agentes);
+        const feitos = chaves.filter(c => !['aguardando', 'executando'].includes(agentes[c].status)).length;
+        document.getElementById('gerenteContadorFunc').textContent = feitos;
+        let texto = TXT.aguardandoInicio;
+        if (rodando) texto = `${TXT.executandoGerente} ${Math.min(feitos + 1, chaves.length)}/${chaves.length}` + (estado.atual ? ` · ${TXT.agente} ${NOMES_AGENTES[estado.atual]}` : '');
+        else if (estado && estado.status === 'concluido') texto = `${TXT.concluidoGerente} ${feitos}/${chaves.length}`;
+        else if (estado && ['parado', 'interrompido', 'erro'].includes(estado.status)) texto = TXT.parado;
+        document.getElementById('gerenteTexto').textContent = texto;
+
+        // Nota de risco: consolidada no fim; durante a execução, a soma do que já foi encontrado
+        if (estado && estado.consolidado) {
+            desenharRisco(100 - estado.consolidado.saude, estado.consolidado.contagem);
+        } else if (estado) {
+            const soma = {};
+            SEVERIDADES.forEach(s => soma[s] = 0);
+            chaves.forEach(c => {
+                const cont = (rodando && agente && agente.chave === c) ? agente.contagem : (agentes[c].status !== 'aguardando' ? agentes[c].contagem : null);
+                if (cont) SEVERIDADES.forEach(s => soma[s] += cont[s] || 0);
+            });
+            const total = soma['Aprovado'] + soma['Falha'] + soma['Alerta'];
+            desenharRisco(total ? 100 - Math.round(100 * (soma['Aprovado'] + 0.5 * soma['Alerta']) / total) : null, total ? soma : null);
+        } else {
+            desenharRisco(null, null);
+        }
+
+        // Console central
+        const vivo = rodando && agente && estado.atual === agente.chave;
+        document.getElementById('consoleTitulo').textContent = vivo ? `qa@mentoria:~$ agente_${agente.chave}.py — ${NOMES_AGENTES[agente.chave]}` : 'qa@mentoria:~$';
+        document.getElementById('consoleEtapa').textContent = vivo ? `▶ ${agente.etapa || '…'}` : (rodando ? TXT.preparando : '—');
+        const saida = document.getElementById('consoleSaida');
+        const linhas = vivo ? agente.feed : (!rodando && agente ? agente.feed : null);
+        if (linhas && linhas.length) {
+            const html = linhas.map(linhaConsole).join('') + (vivo ? '<div class="fn-cursor"></div>' : '');
+            if (saida.dataset.ultimo !== html) { saida.innerHTML = html; saida.dataset.ultimo = html; saida.scrollTop = saida.scrollHeight; }
+        } else if (saida.dataset.ultimo !== 'vazio') {
+            saida.innerHTML = `<div class="fn-vazio"><i class="bi bi-diagram-3"></i>${esc(rodando ? TXT.preparando : {{ tt('Nenhum teste em execução. Cada função testada e cada regra validada aparecem aqui ao vivo.')|tojson }})}</div>`;
+            saida.dataset.ultimo = 'vazio';
+        }
+
+        // Consolidado
+        const corpo = document.getElementById('consolidadoCorpo');
+        const cons = estado && estado.consolidado;
+        if (cons) {
+            const lista = cons.principais.length
+                ? cons.principais.map(p => `<li class="mb-1"><span class="sev-pill" style="background:${CORES[p.resultado]}">${esc(TXT.sevs[p.resultado] || p.resultado)} · ${esc(p.severidade)}</span> ${esc(p.titulo)} <span class="text-muted">· ${esc(p.agente)}</span></li>`).join('')
+                : `<li class="text-success">${esc(TXT.nenhumaGrave)}</li>`;
+            corpo.className = 'small';
+            corpo.innerHTML = `<div class="mb-2"><b>${esc(TXT.risco)}: ${cons.saude}/100</b> · ${SEVERIDADES.map(s => `<span class="sev-pill" style="background:${CORES[s]}">${cons.contagem[s]} ${esc(TXT.sevs[s])}</span>`).join(' ')}</div>`
+                + `<div class="fw-bold mb-1">${esc(TXT.prioridades)}</div><ul class="ps-3 mb-0">${lista}</ul>`;
+            document.getElementById('consolidadoLinks').innerHTML = link(cons.pdf, 'bi-file-earmark-pdf text-danger fs-5', 'PDF') + link(cons.prompt, 'bi-file-earmark-text fs-5', 'Prompt');
+        } else {
+            corpo.className = 'small text-muted';
+            corpo.textContent = TXT.aoFinal;
+            document.getElementById('consolidadoLinks').innerHTML = '';
+        }
+
+        const log = document.getElementById('logFunc');
+        const novoLog = estado ? estado.log.slice(-20).join('\n') : '';
+        if (log.textContent !== novoLog) { log.textContent = novoLog; log.scrollTop = log.scrollHeight; }
+
+        atualizarProgresso(estado, agente, dados.agora);
+        desenharLinhas(agentes);
+        return rodando;
+    }
+
+    function formatar(segundos) {
+        segundos = Math.max(0, Math.round(segundos));
+        const m = Math.floor(segundos / 60), s = segundos % 60;
+        return m ? `${m} min ${String(s).padStart(2, '0')} s` : `${s} s`;
+    }
+
+    function atualizarProgresso(estado, agente, agoraIso) {
+        const agentes = estado ? estado.agentes : {};
+        const estimativas = (estado && estado.estimativas) || {};
+        const agora = Date.parse(agoraIso);
+        let totalPrevisto = 0, totalFeito = 0, totalRestante = 0, terminados = 0;
+        document.querySelectorAll('.linha-progresso').forEach(linha => {
+            const chave = linha.dataset.chave, a = agentes[chave];
+            const est = estimativas[chave] || 15;
+            const barra = linha.querySelector('.progress-bar');
+            let pct = 0, texto = '—', cor = 'bg-secondary', restante = 0, cont = null;
+            if (!a) {
+                texto = estado ? TXT.foraExecucao : '—';
+            } else if (a.status === 'executando') {
+                const decorrido = Math.max(0, (agora - Date.parse(a.inicio)) / 1000);
+                pct = Math.min(0.97, decorrido / est);
+                restante = Math.max(est - decorrido, 2);
+                texto = `≈ ${formatar(restante)} ${TXT.restantes}`;
+                cor = 'bg-warning progress-bar-striped progress-bar-animated';
+                const mini = document.querySelector(`#fn_agente_${chave} .mini span`);
+                if (mini) mini.style.width = Math.round(pct * 100) + '%';
+                if (agente && agente.chave === chave) cont = agente;
+            } else if (a.status === 'aguardando') {
+                restante = est;
+                texto = `${TXT.estimado} ≈ ${formatar(est)}`;
+            } else {
+                pct = 1; terminados++;
+                texto = `${TXT.concluidoEm} ${a.duracao || ''}`;
+                cor = a.status === 'concluido' ? 'bg-success' : 'bg-primary';
+                cont = a;
+            }
+            if (a) { totalPrevisto += est; totalFeito += pct * est; totalRestante += restante; }
+            barra.className = 'progress-bar ' + cor;
+            barra.style.width = Math.round(pct * 100) + '%';
+            linha.querySelector('.pct').textContent = Math.round(pct * 100) + '%';
+            linha.querySelector('.tempo').textContent = texto;
+            linha.querySelector('.contagem').innerHTML = cont ? `` + SEVERIDADES.map(s => `<span class="sev-pill" style="background:${CORES[s]}" title="${esc(TXT.sevs[s])}">${cont.contagem[s]}</span>`).join(' ') : '';
+            linha.querySelector('.links').innerHTML = a ? link(a.pdf, 'bi-file-earmark-pdf text-danger', 'PDF') + link(a.prompt, 'bi-file-earmark-text', 'Prompt') : '';
+            linha.style.opacity = a || !estado ? '' : '.5';
+        });
+        const chaves = Object.keys(agentes);
+        const pctTotal = totalPrevisto ? totalFeito / totalPrevisto : 0;
+        const rodando = estado && estado.status === 'executando';
+        document.getElementById('totalBarra').style.width = Math.round(pctTotal * 100) + '%';
+        document.getElementById('totalBarra').className = 'progress-bar ' + (rodando ? 'bg-primary progress-bar-striped progress-bar-animated' : 'bg-primary');
+        document.getElementById('totalContagem').textContent = chaves.length ? `· ${terminados}/${chaves.length} · ${Math.round(pctTotal * 100)}%` : '';
+        document.getElementById('totalRestante').textContent = rodando ? `≈ ${formatar(totalRestante)} ${TXT.restantes}` : '';
+    }
+
+    let intervalo = null, ultimoEstado = null, falhasSeguidas = 0;
+    function consultar() {
+        fetch(URL_ESTADO, { cache: 'no-store' }).then(r => { if (!r.ok) throw new Error(r.status); return r.json(); }).then(dados => {
+            if (!dados.estado && ultimoEstado && ultimoEstado.status === 'executando' && ++falhasSeguidas < 5) {
+                dados.estado = ultimoEstado;
+            } else {
+                falhasSeguidas = 0;
+            }
+            if (dados.estado) ultimoEstado = dados.estado;
+            const rodando = atualizar(dados);
+            atualizarEvidencia(dados);
+            const desejado = rodando ? 800 : 5000;
+            if (intervalo === null || intervalo.ms !== desejado) {
+                if (intervalo) clearInterval(intervalo.id);
+                intervalo = { ms: desejado, id: setInterval(consultar, desejado) };
+            }
+        }).catch(() => {});
+    }
+    window.addEventListener('resize', () => desenharLinhas(ultimoEstado ? ultimoEstado.agentes : null));
+    consultar();
+})();
+</script>
+{% endblock %}

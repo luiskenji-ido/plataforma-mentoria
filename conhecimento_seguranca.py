@@ -199,7 +199,8 @@ def detectar_mudancas(origem=GERENTE_SEGURANCA):
 def para_agente(chave_agente, tipos=None):
     """Aprendizados aplicados para um agente de segurança (dele, do grupo 'seguranca' ou de todos)."""
     alvo = f"seg_{chave_agente}"
-    itens = [a for a in aprendizados_para(alvo, tipos) if a.tipo.startswith('seg_') or a.tipo in ('referencia_externa', 'linha_base')]
+    itens = [a for a in aprendizados_para(alvo, tipos) if a.tipo.startswith('seg_') or a.tipo in ('referencia_externa', 'linha_base')
+             or (a.tipo == 'regra_verificada' and alvo in json.loads(a.agentes_destino or '[]'))]
     grupo = [a for a in aprendizados_para(GRUPO, tipos) if a not in itens and GRUPO in json.loads(a.agentes_destino or '[]')]
     return sorted(itens + grupo, key=lambda a: a.id)
 

@@ -33,7 +33,10 @@ AGENTES = ['administrador', 'aluno', 'professor', 'mentor', 'mentor_administrado
            # Agentes de Segurança (ensinados pelo Gerente de Segurança, conhecimento_seguranca.py)
            'seguranca', 'seg_configuracao', 'seg_dados', 'seg_codigo', 'seg_dependencias', 'seg_pentest',
            # Agentes de Banco de Dados (ensinados pelo Gerente de Banco de Dados, conhecimento_banco.py)
-           'banco', 'db_consultas', 'db_esquema', 'db_backup', 'db_dba', 'db_portabilidade']
+           'banco', 'db_consultas', 'db_esquema', 'db_backup', 'db_dba', 'db_portabilidade',
+           # Agentes de Funcionalidades (ensinados pelo Gerente de Funcionalidades, conhecimento_funcional.py)
+           'funcionalidades', 'fn_administrador', 'fn_mentor_administrador', 'fn_gestor_parceiro', 'fn_professor', 'fn_mentor', 'fn_aluno',
+           'fn_avaliador', 'fn_encerramento']
 FONTES_PADRAO = [
     ('docs.python.org', 'Documentação oficial do Python'), ('flask.palletsprojects.com', 'Documentação oficial do Flask'),
     ('jinja.palletsprojects.com', 'Documentação oficial do Jinja'), ('docs.sqlalchemy.org', 'Documentação oficial do SQLAlchemy'),

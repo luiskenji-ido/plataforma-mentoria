@@ -91,6 +91,13 @@
             { sel: '.hub-agente', texto: {{ tt('Cada robô é o agente de um perfil: brilha enquanto testa e recebe ✓ ou ✗ ao terminar.')|tojson }} },
             { sel: '#cardArvoreIa', texto: {{ tt('Os relatórios em PDF com as evidências e os prompts de correção ficam nestas pastas, separados por perfil.')|tojson }} },
         ],
+        'agentes_funcionalidades': [
+            { texto: {{ tt('Agentes de Funcionalidades: o Gerente conduz o fluxo completo da plataforma, perfil a perfil, como uma corrida de revezamento.')|tojson }} },
+            { sel: '#cardComandosFunc', texto: {{ tt('Inicie o teste: o Administrador começa, cria o Mentor Administrador e passa a vez; cada agente cria os dados do próximo.')|tojson }} },
+            { sel: '.fn-console', texto: {{ tt('No centro, cada função testada e cada regra de negócio validada, ao vivo.')|tojson }} },
+            { sel: '#cardEvidenciaFunc', texto: {{ tt('O print de cada etapa aparece aqui e vai para o PDF de cada agente.')|tojson }} },
+            { sel: '#cardConsolidadoFunc', texto: {{ tt('O resultado consolidado traz a saúde funcional, as falhas, o PDF e o prompt de correção para qualquer LLM.')|tojson }} },
+        ],
         'agentes_banco': [
             { texto: {{ tt('Agentes de Banco de Dados: o Gerente de Banco de Dados coordena 5 especialistas e mostra a análise ao vivo.')|tojson }} },
             { sel: '#cardComandosBanco', texto: {{ tt('Escolha os agentes e inicie a análise: eles só leem o banco e medem as páginas sem alterar dados.')|tojson }} },

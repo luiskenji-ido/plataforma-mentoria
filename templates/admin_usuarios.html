@@ -84,7 +84,7 @@
                             <option value="Professor">{{ tt('Professor') }}</option>
                             <option value="Mentor">{{ tt('Mentor') }}</option>
                             <option value="Mentor Administrador">{{ tt('Mentor Administrador') }}</option>
-                            <option value="Administrador">{{ tt('Administrador') }}</option>
+                            {% if current_user.tipo_usuario == 'Administrador' %}<option value="Administrador">{{ tt('Administrador') }}</option>{% endif %}
                             <option value="Admin B2B">{{ tt('Gestor Parceiro (Admin B2B)') }}</option>
                             <option value="Avaliador Banca">{{ tt('Avaliador da Banca (executivo convidado)') }}</option>
                             {% set personalizados = perfis_personalizados_ativos() %}
@@ -255,7 +255,7 @@
                                     <option value="Professor" {% if u.tipo_usuario == 'Professor' %}selected{% endif %}>{{ tt('Professor') }}</option>
                                     <option value="Mentor" {% if u.tipo_usuario == 'Mentor' %}selected{% endif %}>{{ t('nivel_mentor') }}</option>
                                     <option value="Mentor Administrador" {% if u.tipo_usuario == 'Mentor Administrador' %}selected{% endif %}>{{ t('nivel_mentor_admin') }}</option>
-                                    <option value="Administrador" {% if u.tipo_usuario == 'Administrador' %}selected{% endif %}>{{ t('nivel_administrador') }}</option>
+                                    {% if current_user.tipo_usuario == 'Administrador' %}<option value="Administrador" {% if u.tipo_usuario == 'Administrador' %}selected{% endif %}>{{ t('nivel_administrador') }}</option>{% endif %}
                                     <option value="Admin B2B" {% if u.tipo_usuario == 'Admin B2B' %}selected{% endif %}>{{ tt('Gestor Parceiro (Admin B2B)') }}</option>
                                     <option value="Avaliador Banca" {% if u.tipo_usuario == 'Avaliador Banca' and not u.perfil_personalizado_id %}selected{% endif %}>{{ tt('Avaliador da Banca (executivo convidado)') }}</option>
                                     {% set personalizados = perfis_personalizados_ativos() %}

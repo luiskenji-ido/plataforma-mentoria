@@ -1033,3 +1033,21 @@ class EstadoConhecimento(db.Model):
     chave = db.Column(db.String(60), primary_key=True)
     valor = db.Column(db.Text, nullable=True)
     atualizado_em = db.Column(db.DateTime, default=datetime.now)
+
+
+# ==============================================================================
+# CONTA NOVA NASCE LIMPA
+# O SQLite reaproveita o id do último usuário apagado. Se alguma rotina apagou um usuário sem apagar os dados ligados
+# a ele (perguntas de segurança, termo, histórico de senhas…), a conta nova herdaria esses dados — e quem conhecesse
+# as respostas antigas recuperaria a conta nova. Logo após inserir um usuário, apagamos qualquer linha órfã que já
+# aponte para o id recém-criado (nenhuma linha legítima pode existir antes do próprio usuário).
+# ==============================================================================
+from sqlalchemy import event as _evento
+
+
+@_evento.listens_for(Usuario, 'after_insert')
+def _conta_nova_sem_heranca(mapper, conexao, usuario):
+    for tabela in list(db.metadata.tables.values()):
+        for fk in tabela.foreign_keys:
+            if fk.column.table.name == 'usuario' and tabela.name != 'usuario':
+                conexao.execute(tabela.delete().where(fk.parent == usuario.id))

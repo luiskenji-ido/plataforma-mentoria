@@ -12,7 +12,9 @@
                       'seg_perfil': tt('Perfil de acesso (segurança)'), 'seg_perfil_removido': tt('Perfil removido (segurança)'),
                       'seg_dado_sensivel': tt('Dado sensível novo'), 'seg_dependencia': tt('Componente novo/atualizado'),
                       'seg_vulnerabilidade': tt('Vulnerabilidade conhecida'), 'db_linha_base': tt('Linha de base do banco'),
-                      'db_esquema': tt('Esquema mudou'), 'db_backup': tt('Agendamento de backup mudou'), 'db_motor': tt('Motor do banco mudou')} %}
+                      'db_esquema': tt('Esquema mudou'), 'db_backup': tt('Agendamento de backup mudou'), 'db_motor': tt('Motor do banco mudou'),
+                      'fn_linha_base': tt('Linha de base das regras de negócio'), 'fn_regra': tt('Regra de negócio mudou'),
+                      'fn_rota_nova': tt('Função nova sem teste')} %}
 {% set nomes_agentes = {'todos': tt('Todos os agentes'), 'administrador': tt('Administrador'), 'aluno': tt('Aluno'), 'professor': tt('Professor'),
                         'mentor': tt('Mentor'), 'mentor_administrador': tt('Mentor Administrador'), 'gestor_b2b': tt('Gestor B2B'),
                         'avaliador': tt('Avaliador Banca'), 'perfis_personalizados': tt('Perfis personalizados'),
@@ -21,18 +23,23 @@
                         'seg_dependencias': tt('Segurança · Dependências e Tecnologias'), 'seg_pentest': tt('Segurança · Pentest'),
                         'banco': tt('Todos os agentes de banco de dados'), 'db_consultas': tt('Banco · Consultas e Desempenho'),
                         'db_esquema': tt('Banco · Esquema e Índices'), 'db_backup': tt('Banco · Backup e Recuperação'),
-                        'db_dba': tt('Banco · DBA (Manutenção e Logs)'), 'db_portabilidade': tt('Banco · Multi-banco')} %}
+                        'db_dba': tt('Banco · DBA (Manutenção e Logs)'), 'db_portabilidade': tt('Banco · Multi-banco'),
+                        'funcionalidades': tt('Todos os agentes de funcionalidades'), 'fn_administrador': tt('Funcional · Administrador'),
+                        'fn_mentor_administrador': tt('Funcional · Mentor Administrador'), 'fn_gestor_parceiro': tt('Funcional · Gestor Parceiro'),
+                        'fn_professor': tt('Funcional · Professor'), 'fn_mentor': tt('Funcional · Mentor'), 'fn_aluno': tt('Funcional · Aluno'),
+                        'fn_avaliador': tt('Funcional · Avaliador da Banca'), 'fn_encerramento': tt('Funcional · Encerramento do ciclo')} %}
 
 <div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-3">
     <div>
         <h2 class="text-primary fw-bold mb-1"><i class="bi bi-mortarboard"></i> {{ tt('Governança de aprendizados') }}</h2>
         <p class="text-muted mb-0">{{ tt('O Agente Gerente Técnico percebe as mudanças da plataforma e ensina os agentes de teste. Aqui você audita, revoga e limpa esses aprendizados.') }}
-            {{ tt('O Gerente de Segurança faz o mesmo com os agentes de segurança.') }} {{ tt('E o Gerente de Banco de Dados, com os agentes de banco.') }}</p>
+            {{ tt('O Gerente de Segurança faz o mesmo com os agentes de segurança.') }} {{ tt('E o Gerente de Banco de Dados, com os agentes de banco.') }} {{ tt('E o Gerente de Funcionalidades, com os agentes do fluxo.') }}</p>
     </div>
     <div class="d-flex gap-2 flex-wrap">
         <a href="{{ url_for('agentes_ia') }}" class="btn btn-outline-secondary fw-bold"><i class="bi bi-robot"></i> {{ tt('Agentes IA') }}</a>
         <a href="{{ url_for('agentes_seguranca') }}" class="btn btn-outline-danger fw-bold"><i class="bi bi-shield-lock-fill"></i> {{ tt('Agentes de Segurança') }}</a>
         <a href="{{ url_for('agentes_banco') }}" class="btn btn-outline-info fw-bold"><i class="bi bi-database-fill-check"></i> {{ tt('Agentes de Banco de Dados') }}</a>
+        <a href="{{ url_for('agentes_funcionalidades') }}" class="btn btn-outline-primary fw-bold"><i class="bi bi-diagram-3-fill"></i> {{ tt('Agentes de Funcionalidades') }}</a>
         <form method="POST" class="m-0"><input type="hidden" name="acao" value="detectar">
             <button class="btn btn-primary fw-bold" type="submit" id="btnDetectar"><i class="bi bi-lightning-charge"></i> {{ tt('Aprender agora') }}</button></form>
     </div>
