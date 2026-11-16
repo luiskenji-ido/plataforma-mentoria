@@ -368,15 +368,25 @@ class AgenteAluno(AgenteOmniTest):
 
     def acompanhamento_conectar_agenda(self):
         self.visitar("/acompanhamento")
-        botao = self.page.locator('a[href="/conectar-agenda"]')
-        if botao.count() == 0 or not botao.first.is_visible():
-            self.registrar("Acompanhamento", "Botão Conectar Agenda", FALHA, "Botão 'Conectar Agenda' não está visível.",
-                           esperado="Botão visível enquanto a conta Google não está conectada")
+        # A agenda é uma lista (menu) com Google Agenda e Microsoft 365: abre a lista antes de procurar as opções
+        lista = self.page.locator('#menuAgenda')
+        if lista.count() == 0 or not lista.first.is_visible():
+            self.registrar("Acompanhamento", "Lista Agenda (Google / Microsoft 365)", FALHA, "A lista 'Agenda' não está visível.",
+                           esperado="Lista Agenda no topo do Acompanhamento")
             return
-        self.registrar("Acompanhamento", "Botão Conectar Agenda", APROVADO, evidencia=False)
-        # Um só ícone no botão: o ícone do Bootstrap; o texto traduzido não pode repetir o 📅
-        texto = botao.first.inner_text()
-        icones = botao.first.locator("i.bi").count()
+        lista.first.click()
+        botao = self.page.locator('a[href="/conectar-agenda"]')
+        microsoft = self.page.locator('#opcaoAgendaMicrosoft')
+        if botao.count() == 0 or not botao.first.is_visible() or microsoft.count() == 0 or not microsoft.first.is_visible():
+            self.registrar("Acompanhamento", "Lista Agenda (Google / Microsoft 365)", FALHA,
+                           "A lista não mostra as duas opções (Google Agenda e Microsoft 365).",
+                           esperado="Google Agenda e Microsoft 365 (Outlook) na lista enquanto nenhuma está conectada")
+            return
+        self.registrar("Acompanhamento", "Lista Agenda (Google / Microsoft 365)", APROVADO, evidencia=False)
+        self.page.keyboard.press("Escape")
+        # Um só ícone na lista: o ícone do Bootstrap; o texto traduzido não pode repetir o 📅
+        texto = lista.first.inner_text()
+        icones = lista.first.locator("i.bi").count()
         if "📅" in texto or icones != 1:
             self.registrar("Acompanhamento", "Ícone único no botão Conectar Agenda", FALHA,
                            f"O botão mostra {icones} ícone(s) do Bootstrap e o texto '{texto.strip()}'.",

@@ -226,21 +226,35 @@
             <div class="card shadow-sm border-0" id="cardConvite">
                 <div class="card-header bg-white d-flex justify-content-between align-items-center flex-wrap gap-2">
                     <span class="fw-bold text-primary"><i class="bi bi-envelope-paper"></i> {{ t('convite_titulo') }}</span>
-                    {% if gmail_email %}
-                    <form method="POST" action="{{ url_for('desconectar_gmail') }}" class="m-0 d-flex align-items-center gap-2">
-                        <span class="small text-success fw-bold"><i class="bi bi-check-circle-fill"></i> {{ t('convite_gmail_conectado_como').format(email=gmail_email) }}</span>
-                        <button class="btn btn-sm btn-link text-danger p-0" type="submit">{{ t('convite_desconectar_gmail') }}</button>
-                    </form>
-                    {% elif gmail_disponivel %}
-                    <a class="btn btn-sm btn-outline-danger fw-bold rounded-pill" href="{{ url_for('conectar_gmail', voltar=url_for('detalhe_reuniao', id=reuniao.id)) }}"><i class="bi bi-google"></i> {{ t('convite_conectar_gmail') }}</a>
-                    {% endif %}
+<div class="dropdown" id="listaContasConvite">
+                        <button class="btn btn-sm btn-outline-primary fw-bold rounded-pill dropdown-toggle" type="button" id="menuContasConvite" data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class="bi bi-person-badge"></i> {{ tt('Contas conectadas') }}{% if gmail_email or microsoft_email %} <span class="badge bg-success">{{ [gmail_email, microsoft_email] | select | list | length }}</span>{% endif %}
+                        </button>
+                        <ul class="dropdown-menu dropdown-menu-end shadow-sm" aria-labelledby="menuContasConvite">
+                            <li><h6 class="dropdown-header">{{ tt('Enviar convites pela sua conta') }}</h6></li>
+                            {% if gmail_email %}
+                            <li><span class="dropdown-item-text small text-success"><i class="bi bi-check-circle-fill"></i> Gmail · {{ gmail_email }}</span></li>
+                            <li><form method="POST" action="{{ url_for('desconectar_gmail') }}" class="m-0"><button class="dropdown-item small text-danger" type="submit"><i class="bi bi-x-circle"></i> {{ t('convite_desconectar_gmail') }}</button></form></li>
+                            {% elif gmail_disponivel %}
+                            <li><a class="dropdown-item" href="{{ url_for('conectar_gmail', voltar=url_for('detalhe_reuniao', id=reuniao.id)) }}" id="opcaoContaGmail"><i class="bi bi-google"></i> Gmail</a></li>
+                            {% endif %}
+                            <li><hr class="dropdown-divider"></li>
+                            {% if microsoft_email %}
+                            <li><span class="dropdown-item-text small text-success"><i class="bi bi-check-circle-fill"></i> Microsoft 365 · {{ microsoft_email }}</span></li>
+                            <li><form method="POST" action="{{ url_for('desconectar_microsoft') }}" class="m-0"><input type="hidden" name="voltar" value="{{ url_for('detalhe_reuniao', id=reuniao.id) }}">
+                                <button class="dropdown-item small text-danger" type="submit"><i class="bi bi-x-circle"></i> {{ tt('Desconectar Microsoft 365') }}</button></form></li>
+                            {% else %}
+                            <li><a class="dropdown-item" href="{{ url_for('conectar_microsoft', voltar=url_for('detalhe_reuniao', id=reuniao.id)) }}" id="opcaoContaMicrosoft"><i class="bi bi-microsoft"></i> Microsoft 365 (Outlook)</a></li>
+                            {% endif %}
+                        </ul>
+                    </div>
                 </div>
                 <div class="card-body">
                     <p class="small mb-2 {{ 'text-success' if reuniao.convite_enviado_em else 'text-muted' }}">
                         {% if reuniao.convite_enviado_em %}<i class="bi bi-send-check"></i> {{ t('convite_ultimo_envio').format(data=convite_enviado_local, via=reuniao.convite_enviado_via, qtd=(reuniao.convite_destinatarios or '').splitlines()|length) }}
                         {% else %}{{ t('convite_nunca_enviado') }}{% endif %}
                     </p>
-                    {% if gmail_email or smtp_disponivel %}
+                    {% if gmail_email or smtp_disponivel or microsoft_email %}
                     <form method="POST" action="{{ url_for('enviar_convite', id=reuniao.id) }}">
                         <div class="fw-bold small mb-1">{{ t('convite_destinatarios') }}</div>
                         <div class="row g-1 mb-2">
@@ -255,6 +269,7 @@
                         </div>
                         <div class="d-flex flex-wrap gap-2 align-items-center">
                             <select class="form-select form-select-sm w-auto" name="via" aria-label="{{ t('convite_enviar_por') }}">
+                                {% if microsoft_email %}<option value="microsoft" {% if reuniao.convite_enviado_via == 'Microsoft 365' %}selected{% endif %}>{{ t('convite_enviar_por') }}: Microsoft 365 / Outlook ({{ microsoft_email }})</option>{% endif %}
                                 {% if gmail_email %}<option value="gmail">{{ t('convite_enviar_por') }}: {{ t('convite_via_gmail') }} ({{ gmail_email }})</option>{% endif %}
                                 {% if smtp_disponivel %}<option value="smtp">{{ t('convite_enviar_por') }}: {{ t('convite_via_smtp') }}</option>{% endif %}
                             </select>

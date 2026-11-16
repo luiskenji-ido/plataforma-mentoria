@@ -246,25 +246,32 @@
     <!-- Botões na Direita -->
     <div class="d-flex flex-wrap gap-2 align-items-center">
         
-        <!-- Botão Google Agenda Inteligente (Automático) -->
-        {% if session.get('google_token') %}
-            <div class="d-flex gap-2">
-                <!-- Botão inativo que serve apenas como um selo de status -->
-                <button type="button" class="btn btn-success fw-bold shadow-sm" style="cursor: default;" title="{{ tt('Os prazos que você salvar serão enviados automaticamente para o Google Agenda.') }}">
-                    <i class="bi bi-calendar-check"></i> {{ tt('Sincronização Automática Ativa') }}
-                </button>
-                
-                <!-- Novo Botão de Desconectar -->
-                <a href="{{ url_for('desconectar_agenda') }}" class="btn btn-outline-danger fw-bold shadow-sm" title="{{ tt('Desconectar do Google') }}">
-                    <i class="bi bi-x-circle"></i> {{ tt('Desconectar') }}
-                </a>
-            </div>
-        {% else %}
-            <!-- Botão original com sistema de tradução -->
-            <a href="{{ url_for('conectar_agenda') }}" class="btn btn-integra-agenda-off fw-bold shadow-sm">
-                <i class="bi bi-calendar3"></i> {{ t('btn_conectar_agenda') }}
-            </a>
-        {% endif %}
+        <!-- Agenda conectada: Google ou Microsoft 365, numa lista para ocupar menos espaço -->
+        {% set agenda = agenda_conectada() %}{% set conta_ms = conta_microsoft_atual() %}
+        <div class="dropdown" id="listaAgenda">
+            <button class="btn {{ 'btn-success' if agenda else 'btn-integra-agenda-off' }} fw-bold shadow-sm dropdown-toggle" type="button" id="menuAgenda"
+                    data-bs-toggle="dropdown" aria-expanded="false" title="{{ tt('Os prazos e sessões que você salvar vão para a agenda conectada.') }}">
+                <i class="bi bi-calendar3"></i>
+                {% if agenda == 'microsoft' %}{{ tt('Agenda: Microsoft 365') }}{% elif agenda == 'google' %}{{ tt('Agenda: Google') }}{% else %}{{ t('btn_conectar_agenda') }}{% endif %}
+            </button>
+            <ul class="dropdown-menu dropdown-menu-end shadow-sm" aria-labelledby="menuAgenda">
+                <li><h6 class="dropdown-header">{{ tt('Onde salvar seus prazos e sessões') }}</h6></li>
+                {% if session.get('google_token') %}
+                <li><span class="dropdown-item-text small text-success"><i class="bi bi-check-circle-fill"></i> Google Agenda</span></li>
+                <li><a class="dropdown-item small text-danger" href="{{ url_for('desconectar_agenda') }}"><i class="bi bi-x-circle"></i> {{ tt('Desconectar Google') }}</a></li>
+                {% else %}
+                <li><a class="dropdown-item" href="{{ url_for('conectar_agenda') }}" id="opcaoAgendaGoogle"><i class="bi bi-google"></i> Google Agenda</a></li>
+                {% endif %}
+                <li><hr class="dropdown-divider"></li>
+                {% if conta_ms %}
+                <li><span class="dropdown-item-text small text-success"><i class="bi bi-check-circle-fill"></i> Microsoft 365 · {{ conta_ms.email }}</span></li>
+                <li><form method="POST" action="{{ url_for('desconectar_microsoft') }}" class="m-0"><input type="hidden" name="voltar" value="{{ url_for('acompanhamento') }}">
+                    <button class="dropdown-item small text-danger" type="submit"><i class="bi bi-x-circle"></i> {{ tt('Desconectar Microsoft 365') }}</button></form></li>
+                {% else %}
+                <li><a class="dropdown-item" href="{{ url_for('conectar_microsoft', voltar=url_for('acompanhamento')) }}" id="opcaoAgendaMicrosoft"><i class="bi bi-microsoft"></i> Microsoft 365 (Outlook)</a></li>
+                {% endif %}
+            </ul>
+        </div>
         
         <!-- Botão Gemini Notebook -->
         <button type="button" class="btn btn-integra-notebook fw-bold shadow-sm" data-bs-toggle="modal" data-bs-target="#modalNotebookLM">
@@ -623,10 +630,10 @@
                                     <i class="bi bi-calendar-check"></i> {{ tt('Horários Guardados:') }}
                                 </span>
                                 
-                                {% if 'google_token' in session %}
+                                {% if agenda_conectada() %}
                                     <!-- Botão para forçar sincronização se já estiver conectado -->
                                     <form action="{{ url_for('sincronizar_agenda_acompanhamento', acomp_id=item.reg.id) }}" method="POST" class="m-0 p-0">
-                                        <button type="submit" class="btn btn-sm btn-outline-primary fw-bold rounded-pill shadow-sm px-3" title="{{ tt('Forçar o envio destes horários para o Google') }}">
+                                        <button type="submit" class="btn btn-sm btn-outline-primary fw-bold rounded-pill shadow-sm px-3" title="{{ tt('Enviar estes horários para a agenda conectada') }}">
                                             <i class="bi bi-calendar-plus"></i> {{ tt('Sincronizar na Agenda') }}
                                         </button>
                                     </form>

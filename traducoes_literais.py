@@ -1524,6 +1524,35 @@ LITERAIS.update({
     'Lembretes automáticos (e-mail)': ('Automatic reminders (e-mail)', 'Recordatorios automáticos (e-mail)'),
 })
 
+
+# Microsoft 365 (Outlook/Agenda) ao lado do Google
+LITERAIS.update({
+    'Conecte sua conta Microsoft 365 (lista Contas conectadas) para enviar pelo Outlook.': ('Connect your Microsoft 365 account (Connected accounts list) to send through Outlook.', 'Conecte su cuenta de Microsoft 365 (lista Cuentas conectadas) para enviar por Outlook.'),
+    'Sala do Teams criada e gravada na reunião.': ('Teams room created and saved in the meeting.', 'Sala de Teams creada y guardada en la reunión.'),
+    'A conexão com o Microsoft 365 ainda não foi configurada pelo Administrador.': ('The Microsoft 365 connection has not been set up by the Administrator yet.', 'El Administrador todavía no configuró la conexión con Microsoft 365.'),
+    'Conexão com o Microsoft 365 recusada: a resposta não corresponde ao pedido. Tente de novo.': ('Microsoft 365 connection refused: the response does not match the request. Try again.', 'Conexión con Microsoft 365 rechazada: la respuesta no corresponde al pedido. Inténtelo de nuevo.'),
+    'A empresa precisa aprovar o aplicativo: peça ao administrador do Microsoft 365 o consentimento (veja o guia).': ('Your company must approve the app: ask your Microsoft 365 administrator for consent (see the guide).', 'La empresa debe aprobar la aplicación: pida al administrador de Microsoft 365 el consentimiento (vea la guía).'),
+    'Conexão com o Microsoft 365 cancelada.': ('Microsoft 365 connection cancelled.', 'Conexión con Microsoft 365 cancelada.'),
+    'Não foi possível concluir a conexão com o Microsoft 365. Tente de novo.': ('The Microsoft 365 connection could not be completed. Try again.', 'No fue posible completar la conexión con Microsoft 365. Inténtelo de nuevo.'),
+    'Microsoft 365 conectado: {email}.': ('Microsoft 365 connected: {email}.', 'Microsoft 365 conectado: {email}.'),
+    'Microsoft 365 desconectado.': ('Microsoft 365 disconnected.', 'Microsoft 365 desconectado.'),
+    'Conecte sua agenda (Google ou Microsoft 365) na lista Agenda, em Acompanhamento.': ('Connect your calendar (Google or Microsoft 365) in the Calendar list, under Follow-up.', 'Conecte su calendario (Google o Microsoft 365) en la lista Calendario, en Seguimiento.'),
+    'Sessão salva na sua agenda!': ('Session saved to your calendar!', '¡Sesión guardada en su calendario!'),
+    'Os prazos e sessões que você salvar vão para a agenda conectada.': ('The deadlines and sessions you save go to the connected calendar.', 'Los plazos y sesiones que guarde van al calendario conectado.'),
+    'Agenda: Microsoft 365': ('Calendar: Microsoft 365', 'Calendario: Microsoft 365'),
+    'Agenda: Google': ('Calendar: Google', 'Calendario: Google'),
+    'Onde salvar seus prazos e sessões': ('Where to save your deadlines and sessions', 'Dónde guardar sus plazos y sesiones'),
+    'Desconectar Google': ('Disconnect Google', 'Desconectar Google'),
+    'Desconectar Microsoft 365': ('Disconnect Microsoft 365', 'Desconectar Microsoft 365'),
+    'Enviar estes horários para a agenda conectada': ('Send these times to the connected calendar', 'Enviar estos horarios al calendario conectado'),
+    'Contas conectadas': ('Connected accounts', 'Cuentas conectadas'),
+    'Enviar convites pela sua conta': ('Send invitations from your account', 'Enviar invitaciones desde su cuenta'),
+    'Credenciais dos agentes e integrações': ('Agent and integration credentials', 'Credenciales de los agentes e integraciones'),
+    'ID do aplicativo Microsoft 365 (Entra ID)': ('Microsoft 365 application ID (Entra ID)', 'ID de la aplicación de Microsoft 365 (Entra ID)'),
+    'Segredo do aplicativo Microsoft 365': ('Microsoft 365 application secret', 'Secreto de la aplicación de Microsoft 365'),
+    'Locatário Microsoft 365 (organizations = qualquer empresa)': ('Microsoft 365 tenant (organizations = any company)', 'Inquilino de Microsoft 365 (organizations = cualquier empresa)'),
+})
+
 _POR_IDIOMA = {'en': {pt: v[0] for pt, v in LITERAIS.items()}, 'es': {pt: v[1] for pt, v in LITERAIS.items()}}
 
 

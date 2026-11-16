@@ -21,6 +21,10 @@ CAMPOS = {
     'OMNITEST_PERMITIR_EM_PRODUCAO': ('Permitir que os agentes entrem neste servidor de produção', 'sim_nao'),
     'ANTHROPIC_API_KEY': ('Chave da API do Claude (Agente Orquestrador)', 'chave'),
     'GEMINI_API_KEY': ('Chave da API do Gemini (Agente Orquestrador)', 'chave'),
+    # Integração com o Microsoft 365 (Outlook/Agenda): aplicativo registrado no Microsoft Entra ID
+    'MS365_CLIENT_ID': ('ID do aplicativo Microsoft 365 (Entra ID)', 'chave'),
+    'MS365_CLIENT_SECRET': ('Segredo do aplicativo Microsoft 365', 'chave'),
+    'MS365_TENANT': ('Locatário Microsoft 365 (organizations = qualquer empresa)', 'texto'),
 }
 TEMPO_CACHE = 60  # segundos: cada processo do servidor relê o banco no máximo uma vez por minuto
 _cache = {'quando': 0.0}
@@ -54,6 +58,10 @@ def validar(chave, valor):
     elif tipo == 'chave':
         if not 20 <= len(valor) <= 400 or any(c.isspace() for c in valor):
             return 'A chave da API parece incompleta: confira e cole de novo (sem espaços).'
+    elif tipo == 'texto':
+        import re
+        if not re.fullmatch(r'[A-Za-z0-9.\-]{3,100}', valor):
+            return 'Valor inválido.'
     elif valor not in ('0', '1'):
         return 'Valor inválido.'
     return None

@@ -120,21 +120,35 @@
                 <div class="border rounded-3 p-3 bg-light" id="blocoConvite">
                     <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-2">
                         <h6 class="fw-bold text-primary mb-0"><i class="bi bi-envelope-paper"></i> {{ t('convite_titulo') }}</h6>
-                        {% if gmail_email %}
-                        <span class="small text-success fw-bold"><i class="bi bi-check-circle-fill"></i> {{ t('convite_gmail_conectado_como').format(email=gmail_email) }}</span>
-                        {% elif gmail_disponivel %}
-                        <a class="btn btn-sm btn-outline-danger fw-bold rounded-pill" target="_blank" rel="noopener"
-                           href="{{ url_for('conectar_gmail', voltar=request.full_path) }}"><i class="bi bi-google"></i> {{ t('convite_conectar_gmail') }}</a>
-                        {% endif %}
+<div class="dropdown" id="listaContasConvite">
+                        <button class="btn btn-sm btn-outline-primary fw-bold rounded-pill dropdown-toggle" type="button" id="menuContasConvite" data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class="bi bi-person-badge"></i> {{ tt('Contas conectadas') }}{% if gmail_email or microsoft_email %} <span class="badge bg-success">{{ [gmail_email, microsoft_email] | select | list | length }}</span>{% endif %}
+                        </button>
+                        <ul class="dropdown-menu dropdown-menu-end shadow-sm" aria-labelledby="menuContasConvite">
+                            <li><h6 class="dropdown-header">{{ tt('Enviar convites pela sua conta') }}</h6></li>
+                            {% if gmail_email %}
+                            <li><span class="dropdown-item-text small text-success"><i class="bi bi-check-circle-fill"></i> Gmail · {{ gmail_email }}</span></li>
+                            {% elif gmail_disponivel %}
+                            <li><a class="dropdown-item" href="{{ url_for('conectar_gmail', voltar=request.full_path) }}" target="_blank" rel="noopener" id="opcaoContaGmail"><i class="bi bi-google"></i> Gmail</a></li>
+                            {% endif %}
+                            <li><hr class="dropdown-divider"></li>
+                            {% if microsoft_email %}
+                            <li><span class="dropdown-item-text small text-success"><i class="bi bi-check-circle-fill"></i> Microsoft 365 · {{ microsoft_email }}</span></li>
+                            {% else %}
+                            <li><a class="dropdown-item" href="{{ url_for('conectar_microsoft', voltar=request.full_path) }}" target="_blank" rel="noopener" id="opcaoContaMicrosoft"><i class="bi bi-microsoft"></i> Microsoft 365 (Outlook)</a></li>
+                            {% endif %}
+                        </ul>
+                    </div>
                     </div>
                     <div class="row g-2 align-items-center">
                         <div class="col-md-7 form-check ms-2">
                             <input class="form-check-input" type="checkbox" id="rEnviarConvite" name="enviar_convite" value="1"
-                                   {% if not gmail_disponivel and not smtp_disponivel %}disabled{% endif %}>
+                                   {% if not gmail_disponivel and not smtp_disponivel and not microsoft_email %}disabled{% endif %}>
                             <label class="form-check-label" for="rEnviarConvite">{{ t('convite_enviar_ao_salvar') }}</label>
                         </div>
                         <div class="col-md-4">
                             <select class="form-select form-select-sm" name="convite_via" aria-label="{{ t('convite_enviar_por') }}">
+                                {% if microsoft_email %}<option value="microsoft" selected>{{ t('convite_enviar_por') }}: Microsoft 365 / Outlook ({{ microsoft_email }})</option>{% endif %}
                                 {% if gmail_email or gmail_disponivel %}<option value="gmail" {% if gmail_email %}selected{% endif %}>{{ t('convite_enviar_por') }}: {{ t('convite_via_gmail') }}{% if gmail_email %} ({{ gmail_email }}){% endif %}</option>{% endif %}
                                 {% if smtp_disponivel %}<option value="smtp" {% if not gmail_email %}selected{% endif %}>{{ t('convite_enviar_por') }}: {{ t('convite_via_smtp') }}</option>{% endif %}
                             </select>

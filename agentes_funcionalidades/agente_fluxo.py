@@ -487,6 +487,28 @@ class AgenteMentorAdministrador(AgenteDoFluxo):
                      f"Tipo {r.tipo}; pontos {bool(r.pontos_parceiro)}; gravação {r.link_gravacao}.",
                      "B2B pontua as falhas do programa na Reunião de Alinhamento", "Média")
 
+    def contas_microsoft(self, reuniao_id):
+        """Microsoft 365 ao lado do Gmail: a lista "Contas conectadas" oferece as duas contas; o login vai para a Microsoft
+        (o agente NÃO segue o redirecionamento: nenhuma conta real é usada) e resposta forjada é recusada."""
+        m = _modelos()
+        self.etapa("Contas conectadas: Gmail e Microsoft 365")
+        _, _, pagina = self.cliente.pedir("GET", f"/reunioes/{reuniao_id}")
+        self.confere('id="listaContasConvite"' in pagina and 'id="opcaoContaMicrosoft"' in pagina, "Lista de contas com Gmail e Microsoft 365", "FLX",
+                     "A lista 'Contas conectadas' oferece o Microsoft 365 (Outlook).", "Lista de contas ausente ou sem o Microsoft 365.",
+                     "Cliente usa Office 365: convite pelo Outlook", "Alta", print_de=f"/reunioes/{reuniao_id}")
+        status, destino, _ = self.cliente.pedir("GET", f"/conectar-microsoft?voltar=/reunioes/{reuniao_id}")
+        microsoft = bool(destino) and "/oauth2/v2.0/authorize" in destino
+        interno = bool(destino) and destino.startswith("/reunioes")
+        self.confere(status in (302, 303) and (microsoft or interno), "Conectar Microsoft 365 leva ao login oficial (ou avisa que falta configurar)", "FLX",
+                     "Redireciona para o login da Microsoft." if microsoft else "Aplicativo ainda não configurado: volta para a reunião com aviso.",
+                     f"HTTP {status}; destino {destino}.", "Login oficial da Microsoft, sem senha na plataforma", "Alta")
+        meu_id = self.banco(lambda: m.Usuario.query.filter_by(email=self.email_logado).first().id)
+        self.cliente.pedir("GET", "/oauth-microsoft/callback?code=forjado&state=forjado")
+        conectada = self.banco(lambda: m.ContaConectada.query.filter_by(usuario_id=meu_id).count())
+        self.confere(conectada == 0, "Resposta forjada do Microsoft 365 é recusada", "SEG", "Sem o 'state' do pedido, nada é salvo.",
+                     "Uma resposta forjada conectou uma conta.", "Proteção contra CSRF no retorno do login", "Crítica",
+                     "Em oauth_microsoft, comparar o state recebido com o guardado na sessão (hmac.compare_digest).")
+
     def reuniao_e_convite(self):
         """Reuniões ITM × B2B: registra a ata, confere o arquivo de agenda (.ics) e os links "Salvar na agenda", e garante que
         o convite NUNCA sai para contas de teste — o agente não dispara e-mail de verdade (só contas @local.com e domínios .test)."""
@@ -556,6 +578,8 @@ class AgenteMentorAdministrador(AgenteDoFluxo):
         depois = self.banco(lambda: m.ReuniaoInstitucional.query.get(reuniao.id).convite_enviado_em)
         self.confere(depois is None, "Reenvio manual também ignora contas de teste", "REG", "Nada foi enviado.",
                      "O reenvio disparou convite para conta de teste.", "Contas de teste nunca recebem convite", "Crítica")
+
+        self.contas_microsoft(reuniao.id)
 
         # Desconectar o Gmail só limpa a conexão desta sessão (o agente nunca conecta um Gmail de verdade)
         _, _, html = self.post("/desconectar-gmail", {})

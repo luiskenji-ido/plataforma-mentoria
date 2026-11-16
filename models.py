@@ -714,6 +714,9 @@ class ReuniaoInstitucional(db.Model):
     convite_enviado_em = db.Column(db.DateTime, nullable=True)
     convite_enviado_via = db.Column(db.String(20), nullable=True)  # Gmail / SMTP
     convite_destinatarios = db.Column(db.Text, nullable=True)  # e-mails convidados no último envio, um por linha
+    # Convite como evento do Outlook (Microsoft 365): o evento fica na agenda de quem organizou e é atualizado ao remarcar
+    outlook_evento_id = db.Column(db.String(300), nullable=True)
+    outlook_organizador_id = db.Column(db.Integer, db.ForeignKey('usuario.id'), nullable=True)
     # Reunião de Alinhamento: tipo, pontos levantados pelo parceiro B2B, gravação e presença real
     tipo = db.Column(db.String(30), default='Alinhamento')  # reuniões antigas ficam sem tipo (= Institucional)
     pontos_parceiro = db.Column(db.Text, nullable=True)  # falhas/pontos que o parceiro B2B trouxe para o programa
@@ -1290,3 +1293,20 @@ class CredencialAgente(db.Model):
     atualizado_por_id = db.Column(db.Integer, db.ForeignKey('usuario.id'), nullable=True)
 
     atualizado_por = db.relationship('Usuario')
+
+
+class ContaConectada(db.Model):
+    """Conta externa conectada pela própria pessoa (hoje: Microsoft 365). Tokens cifrados; a senha nunca passa pela plataforma."""
+    __tablename__ = 'conta_conectada'
+    id = db.Column(db.Integer, primary_key=True)
+    usuario_id = db.Column(db.Integer, db.ForeignKey('usuario.id'), nullable=False, index=True)
+    provedor = db.Column(db.String(20), nullable=False, default='microsoft')
+    email = db.Column(db.String(200), nullable=True)
+    nome = db.Column(db.String(150), nullable=True)
+    acesso_cifrado = db.Column(db.Text, nullable=True)
+    renovacao_cifrada = db.Column(db.Text, nullable=True)
+    expira_em = db.Column(db.DateTime, nullable=True)
+    conectado_em = db.Column(db.DateTime, default=datetime.utcnow)
+
+    usuario = db.relationship('Usuario')
+    __table_args__ = (db.UniqueConstraint('usuario_id', 'provedor', name='uq_conta_conectada_usuario_provedor'),)

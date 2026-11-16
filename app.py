@@ -1327,7 +1327,7 @@ def acompanhamento():
                             horarios_salvos[data_br] = f"{data_br}::{slot_inicios[i]}::{slot_fims[i]}"
                             
                             try:
-                                sincronizar_evento_google(
+                                sincronizar_evento_agenda(
                                     titulo=f"Estudo: {curso_obj.nome_curso}",
                                     descricao=f"Sessão focada no curso: {curso_obj.nome_curso}.",
                                     data_inicio=datetime.strptime(slot_datas[i], '%Y-%m-%d'),
@@ -1727,7 +1727,7 @@ def atualizar_tarefa():
                             projeto_pai = db.session.get(Projeto, tarefa.projeto_id)
                             nome_proj = projeto_pai.nome if projeto_pai else "Projeto"
                             
-                            sincronizar_evento_google(
+                            sincronizar_evento_agenda(
                                 titulo=f"Tarefa: {tarefa.descricao[:25]}",
                                 descricao=f"Projeto: {nome_proj}\nAtividade: {tarefa.descricao}",
                                 data_inicio=data_slot,
@@ -1921,7 +1921,7 @@ def sessoes():
                 descricao_evento = f"Pauta da Sessão: {observacoes}" if observacoes else "Sessão de mentoria."
                 
                 # Usa os horários exatos definidos por você na tela
-                sincronizar_evento_google(
+                sincronizar_evento_agenda(
                     titulo=titulo_evento,
                     descricao=descricao_evento,
                     data_inicio=data_sessao,
@@ -2048,10 +2048,10 @@ def sincronizar_sessao_aluno(id):
     if current_user.tipo_usuario != 'Aluno':
         return redirect(url_for('sessoes'))
         
-    # Exige que o aluno conecte o Google antes de tentar salvar
-    if 'google_token' not in session:
-        flash("Você precisa conectar sua conta do Google Agenda primeiro!", "warning")
-        return redirect(url_for('conectar_agenda'))
+    # Exige uma agenda conectada (Google ou Microsoft 365) antes de tentar salvar
+    if not agenda_conectada():
+        flash(tt('Conecte sua agenda (Google ou Microsoft 365) na lista Agenda, em Acompanhamento.', current_user.idioma), "warning")
+        return redirect(url_for('acompanhamento'))
         
     sessao = db.session.get(SessaoMentoria, id)
     if sessao and sessao.aluno_id == current_user.id:
@@ -2062,7 +2062,7 @@ def sincronizar_sessao_aluno(id):
         from datetime import timedelta
         data_fim = sessao.data_sessao + timedelta(hours=1)
         
-        sucesso = sincronizar_evento_google(
+        sucesso = sincronizar_evento_agenda(
             titulo=f"Mentoria com {nome_mentor}",
             descricao=f"Pauta: {sessao.observacoes}",
             data_inicio=sessao.data_sessao,
@@ -2071,7 +2071,7 @@ def sincronizar_sessao_aluno(id):
         )
         
         if sucesso:
-            flash("Sessão salva com sucesso na sua Google Agenda!", "success")
+            flash(tt('Sessão salva na sua agenda!', current_user.idioma), "success")
         else:
             flash("Erro ao salvar. Tente desconectar e conectar o Google novamente.", "danger")
             
@@ -2710,8 +2710,12 @@ def editar_reuniao(id=None):
                       referencia=f"reuniao-alterada:{reuniao.id}:{alteracao.id}")
             if reuniao.convite_enviado_em and not request.form.get('enviar_convite'):
                 import convites_reuniao
-                via = 'gmail' if reuniao.convite_enviado_via == 'Gmail' and session.get('gmail_token') else \
-                    ('smtp' if convites_reuniao.smtp_configurado() else None)
+                if reuniao.convite_enviado_via == 'Microsoft 365' and conta_microsoft(current_user):
+                    via = 'microsoft'
+                elif reuniao.convite_enviado_via == 'Gmail' and session.get('gmail_token'):
+                    via = 'gmail'
+                else:
+                    via = 'smtp' if convites_reuniao.smtp_configurado() else None
                 if via:
                     categoria, texto = enviar_convite_reuniao(reuniao, via)
                     flash(tt('Convite atualizado reenviado automaticamente.', current_user.idioma) + ' ' + texto, categoria)
@@ -2910,15 +2914,91 @@ def feedback_reuniao(id):
 def opcoes_envio_convite():
     """Como o convite pode sair: pelo Gmail conectado nesta sessão e/ou pelo SMTP da plataforma."""
     import convites_reuniao
+    import microsoft365
+    import credenciais_agentes
+    credenciais_agentes.carregar(app.config['SECRET_KEY'])
+    conta = conta_microsoft(current_user)
     return {'gmail_email': session.get('gmail_email') if session.get('gmail_token') else None,
             'gmail_disponivel': os.path.exists(os.path.join(app.root_path, 'client_secret.json')),
-            'smtp_disponivel': convites_reuniao.smtp_configurado()}
+            'smtp_disponivel': convites_reuniao.smtp_configurado(),
+            'microsoft_email': conta.email if conta else None, 'microsoft_disponivel': microsoft365.configurado()}
+
+
+def conta_microsoft(usuario):
+    from models import ContaConectada
+    return ContaConectada.query.filter_by(usuario_id=usuario.id, provedor='microsoft').first() if usuario and usuario.is_authenticated else None
+
+
+def agenda_conectada():
+    """Agenda em que a pessoa salva prazos e sessões: 'microsoft', 'google' ou None."""
+    if current_user.is_authenticated and conta_microsoft(current_user):
+        return 'microsoft'
+    return 'google' if session.get('google_token') else None
+
+
+app.jinja_env.globals.update(agenda_conectada=agenda_conectada, conta_microsoft_atual=lambda: conta_microsoft(current_user))
+
+
+def token_microsoft(usuario):
+    import microsoft365
+    import credenciais_agentes
+    credenciais_agentes.carregar(app.config['SECRET_KEY'])
+    return microsoft365.token_valido(db, conta_microsoft(usuario), app.config['SECRET_KEY'])
+
+
+def enviar_convite_microsoft(reuniao, emails_escolhidos=None):
+    """Cria (ou atualiza) a reunião como evento na agenda do Outlook de quem organiza: o próprio Outlook envia o convite
+    aos participantes, com aceitar/recusar, e as atualizações. Reunião on-line sem link ganha sala do Teams."""
+    import convites_reuniao
+    import microsoft365
+    idioma = current_user.idioma
+    conta = conta_microsoft(current_user)
+    token = token_microsoft(current_user)
+    if not token:
+        return 'warning', tt('Conecte sua conta Microsoft 365 (lista Contas conectadas) para enviar pelo Outlook.', idioma)
+    validos, ignorados = convites_reuniao.destinatarios(reuniao, conta.email if conta else None)
+    if emails_escolhidos is not None:
+        escolhidos = {e.strip().lower() for e in emails_escolhidos}
+        validos = [c for c in validos if c[1] in escolhidos]
+    if not validos:
+        return 'warning', t('convite_sem_destinatarios', idioma)
+    inicio, fim = convites_reuniao.inicio_fim(reuniao)
+    link = url_for('detalhe_reuniao', id=reuniao.id, _external=True)
+    online = reuniao.modalidade in ('Online', 'Híbrido') and not (reuniao.local_ou_link or '').startswith('http')
+    evento = microsoft365.montar_evento(reuniao.titulo, convites_reuniao.descricao(reuniao, link), inicio, fim,
+                                        reuniao.local_ou_link, validos, reuniao_online=online)
+    try:
+        if reuniao.outlook_evento_id and reuniao.outlook_organizador_id == current_user.id:
+            resposta = microsoft365.atualizar_evento(token, reuniao.outlook_evento_id, evento)
+        else:
+            resposta = microsoft365.criar_evento(token, evento)
+    except microsoft365.ErroMicrosoft as erro:
+        app.logger.warning("Convite da reunião %s não enviado pelo Microsoft 365: %s (%s)", reuniao.id, erro, erro.codigo)
+        return 'danger', t('convite_falha_envio', idioma)
+    reuniao.outlook_evento_id = resposta.get('id') or reuniao.outlook_evento_id
+    reuniao.outlook_organizador_id = current_user.id
+    sala = ((resposta.get('onlineMeeting') or {}).get('joinUrl') or '').strip()
+    if sala and not reuniao.local_ou_link:
+        reuniao.local_ou_link = sala[:500]
+    reuniao.convite_sequencia = (reuniao.convite_sequencia or 0) + (1 if reuniao.convite_enviado_em else 0)
+    reuniao.convite_enviado_em = datetime.utcnow()
+    reuniao.convite_enviado_via = 'Microsoft 365'
+    reuniao.convite_destinatarios = '\n'.join(email for _, email in validos)
+    db.session.commit()
+    texto = t('convite_enviado', idioma).format(qtd=len(validos), via='Microsoft 365 (Outlook)')
+    if sala:
+        texto += ' ' + tt('Sala do Teams criada e gravada na reunião.', idioma)
+    if ignorados:
+        texto += ' ' + t('convite_ignorados', idioma).format(qtd=len(ignorados))
+    return 'success', texto
 
 
 def enviar_convite_reuniao(reuniao, via, emails_escolhidos=None):
     """Envia o convite (.ics) aos participantes. Devolve (categoria do flash, mensagem já traduzida)."""
     import convites_reuniao
     idioma = current_user.idioma
+    if via == 'microsoft':
+        return enviar_convite_microsoft(reuniao, emails_escolhidos)
     if via == 'gmail':
         if not session.get('gmail_token'):
             return 'warning', t('convite_gmail_nao_conectado', idioma)
@@ -3024,6 +3104,67 @@ def conectar_gmail():
     session['oauth_destino'] = 'gmail'
     session['oauth_voltar'] = seguranca_web.destino_interno(request.args.get('voltar'), url_for('reunioes'))
     return redirect(authorization_url)
+
+
+@app.route('/conectar-microsoft')
+@login_required
+def conectar_microsoft():
+    """Login oficial da Microsoft (OAuth 2.0 + PKCE). A senha fica com a Microsoft; a plataforma guarda só os tokens, cifrados."""
+    import microsoft365
+    import credenciais_agentes
+    credenciais_agentes.carregar(app.config['SECRET_KEY'])
+    voltar_para = seguranca_web.destino_interno(request.args.get('voltar'), url_for('dashboard'))
+    if not microsoft365.configurado():
+        flash(tt('A conexão com o Microsoft 365 ainda não foi configurada pelo Administrador.', current_user.idioma), 'warning')
+        return redirect(voltar_para)
+    verificador, desafio = microsoft365.novo_pkce()
+    estado = secrets.token_urlsafe(24)
+    session['ms_state'], session['ms_verificador'], session['ms_voltar'] = estado, verificador, voltar_para
+    return redirect(microsoft365.url_login(url_for('oauth_microsoft', _external=True), estado, desafio, current_user.email))
+
+
+@app.route('/oauth-microsoft/callback')
+@login_required
+def oauth_microsoft():
+    import hmac
+    import microsoft365
+    import credenciais_agentes
+    from models import ContaConectada
+    idioma = current_user.idioma
+    estado, verificador = session.pop('ms_state', None), session.pop('ms_verificador', None)
+    voltar_para = seguranca_web.destino_interno(session.pop('ms_voltar', None), url_for('dashboard'))
+    recebido = request.args.get('state') or ''
+    if not estado or not verificador or not hmac.compare_digest(estado, recebido):
+        flash(tt('Conexão com o Microsoft 365 recusada: a resposta não corresponde ao pedido. Tente de novo.', idioma), 'danger')
+        return redirect(voltar_para)
+    if request.args.get('error'):
+        descricao = (request.args.get('error_description') or '').lower()
+        if request.args.get('error') == 'consent_required' or 'admin' in descricao or 'aadsts65001' in descricao or 'aadsts90094' in descricao:
+            flash(tt('A empresa precisa aprovar o aplicativo: peça ao administrador do Microsoft 365 o consentimento (veja o guia).', idioma), 'warning')
+        else:
+            flash(tt('Conexão com o Microsoft 365 cancelada.', idioma), 'info')
+        return redirect(voltar_para)
+    credenciais_agentes.carregar(app.config['SECRET_KEY'])
+    try:
+        tokens = microsoft365.trocar_codigo(request.args.get('code') or '', url_for('oauth_microsoft', _external=True), verificador)
+        nome, email = microsoft365.quem_sou(tokens['access_token'])
+    except microsoft365.ErroMicrosoft as erro:
+        app.logger.warning("Conexão com o Microsoft 365 não concluída: %s (%s)", erro, erro.codigo)
+        flash(tt('Não foi possível concluir a conexão com o Microsoft 365. Tente de novo.', idioma), 'warning')
+        return redirect(voltar_para)
+    microsoft365.salvar_conta(db, ContaConectada, current_user.id, tokens, nome, email, app.config['SECRET_KEY'])
+    flash(tt('Microsoft 365 conectado: {email}.', idioma).format(email=email or nome), 'success')
+    return redirect(voltar_para)
+
+
+@app.route('/desconectar-microsoft', methods=['POST'])
+@login_required
+def desconectar_microsoft():
+    from models import ContaConectada
+    ContaConectada.query.filter_by(usuario_id=current_user.id, provedor='microsoft').delete()
+    db.session.commit()
+    flash(tt('Microsoft 365 desconectado.', current_user.idioma), 'info')
+    return redirect(seguranca_web.destino_interno(request.form.get('voltar'), url_for('dashboard')))
 
 
 @app.route('/desconectar-gmail', methods=['POST'])
@@ -5079,6 +5220,28 @@ def desconectar_agenda():
     flash("Sua conta do Google Agenda foi desconectada do sistema.", "info")
     return voltar('acompanhamento')
 
+def sincronizar_evento_agenda(titulo, descricao, data_inicio, horario_str="09:00", horario_fim_str="10:00"):
+    """Grava o evento na agenda conectada pela pessoa: Microsoft 365 (Outlook) ou Google Agenda."""
+    if conta_microsoft(current_user):
+        import microsoft365
+        token = token_microsoft(current_user)
+        if not token:
+            return False
+        try:
+            hora_i, min_i = map(int, horario_str.split(':'))
+            hora_f, min_f = map(int, horario_fim_str.split(':'))
+            inicio = data_inicio.replace(hour=hora_i, minute=min_i, second=0, microsecond=0)
+            fim = data_inicio.replace(hour=hora_f, minute=min_f, second=0, microsecond=0)
+            if fim <= inicio:
+                fim = inicio + timedelta(hours=1)
+            microsoft365.criar_evento(token, microsoft365.montar_evento(titulo, descricao, inicio, fim))
+            return True
+        except (microsoft365.ErroMicrosoft, ValueError) as erro:
+            app.logger.warning("Agenda do Microsoft 365 não sincronizada: %s", erro)
+            return False
+    return sincronizar_evento_google(titulo, descricao, data_inicio, horario_str, horario_fim_str)
+
+
 def sincronizar_evento_google(titulo, descricao, data_inicio, horario_str="09:00", horario_fim_str="10:00"):
     # Regra 1: Se o usuário não conectou a agenda, aborta silenciosamente
     if 'google_token' not in session:
@@ -5201,10 +5364,10 @@ def sincronizar_agenda_acompanhamento(acomp_id):
         flash("Acompanhamento não encontrado.", "danger")
         return redirect(url_for('acompanhamento'))
 
-    # Exige que a conta do Google esteja conectada
-    if 'google_token' not in session:
-        flash("Você precisa conectar sua conta do Google Agenda primeiro!", "warning")
-        return redirect(url_for('conectar_agenda'))
+    # Exige uma agenda conectada (Google ou Microsoft 365)
+    if not agenda_conectada():
+        flash(tt('Conecte sua agenda (Google ou Microsoft 365) na lista Agenda, em Acompanhamento.', current_user.idioma), "warning")
+        return redirect(url_for('acompanhamento'))
 
     if regstro.planejamento_estudos:
         curso_obj = db.session.get(Curso, regstro.curso_id)
@@ -5226,7 +5389,7 @@ def sincronizar_agenda_acompanhamento(acomp_id):
                     data_obj = datetime.strptime(data_br, '%d/%m/%Y').date()
                     
                     if data_obj >= hoje:
-                        sucesso = sincronizar_evento_google(
+                        sucesso = sincronizar_evento_agenda(
                             titulo=f"Estudo: {curso_obj.nome_curso}",
                             descricao=f"Sessão focada no curso: {curso_obj.nome_curso}.",
                             data_inicio=datetime.strptime(data_br, '%d/%m/%Y'),
@@ -8489,7 +8652,9 @@ def atualizar_estrutura_banco():
         "ALTER TABLE sessao_mentoria ADD COLUMN ata_proximo_encontro DATE",
         "ALTER TABLE sessao_mentoria ADD COLUMN ata_registrada_em DATETIME",
         "ALTER TABLE sessao_mentoria ADD COLUMN ata_registrada_por_id INTEGER REFERENCES usuario(id)",
-        "ALTER TABLE sessao_mentoria ADD COLUMN proximos_passos_enviados_em DATETIME"
+        "ALTER TABLE sessao_mentoria ADD COLUMN proximos_passos_enviados_em DATETIME",
+        "ALTER TABLE reuniao_institucional ADD COLUMN outlook_evento_id VARCHAR(300)",
+        "ALTER TABLE reuniao_institucional ADD COLUMN outlook_organizador_id INTEGER REFERENCES usuario(id)"
     ]
     
     for comando in colunas_novas:

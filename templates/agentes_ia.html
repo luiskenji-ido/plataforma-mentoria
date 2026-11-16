@@ -122,7 +122,7 @@
 
 <!-- Credenciais dos agentes: cifradas no banco, nunca exibidas de volta (só o Administrador vê esta área) -->
 <details class="card shadow-sm border-0 mb-3" id="cardCredenciaisIa" {% if credenciais | selectattr('ilegivel') | list or not (credenciais | selectattr('origem') | list) %}open{% endif %}>
-    <summary class="card-header bg-white fw-bold text-primary" style="cursor: pointer;"><i class="bi bi-key-fill"></i> {{ tt('Credenciais dos agentes') }}
+    <summary class="card-header bg-white fw-bold text-primary" style="cursor: pointer;"><i class="bi bi-key-fill"></i> {{ tt('Credenciais dos agentes e integrações') }}
         <span class="small text-muted fw-normal">· {{ credenciais | selectattr('origem') | list | length }}/{{ credenciais | length }} {{ tt('configurada(s)') }}</span></summary>
     <form method="POST" action="{{ url_for('credenciais_agentes_ia') }}" class="card-body" autocomplete="off">
         <p class="small text-muted">{{ tt('Ficam cifradas no banco e nunca aparecem na tela depois de salvas. Deixe em branco para manter o valor atual. O que estiver no .env vale enquanto nada for cadastrado aqui.') }}</p>
@@ -142,7 +142,7 @@
                     <option value="1">{{ tt('Sim') }}</option><option value="0">{{ tt('Não') }}</option>
                 </select>
                 {% else %}
-                <input type="password" class="form-control form-control-sm" id="cred_{{ c.chave }}" name="{{ c.chave }}" autocomplete="new-password"
+                <input type="{{ 'text' if c.tipo == 'texto' else 'password' }}" class="form-control form-control-sm" id="cred_{{ c.chave }}" name="{{ c.chave }}" autocomplete="new-password"
                        placeholder="{{ tt('•••••• (deixe em branco para manter)') if c.origem else '' }}">
                 {% endif %}
             </div>
