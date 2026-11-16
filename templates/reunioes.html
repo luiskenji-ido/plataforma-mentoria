@@ -41,7 +41,7 @@
                 {% set atrasados = pendentes | selectattr('prazo') | selectattr('prazo', 'lt', hoje) | list %}
                 <tr>
                     <td class="text-nowrap">{{ r.data_hora.strftime('%d/%m/%Y %H:%M') }}<br><span class="small text-muted">{{ r.duracao_minutos }} min · {{ r.modalidade }}</span></td>
-                    <td class="fw-bold">{{ r.titulo }}{% if r.empresa %}<br><span class="badge bg-primary-subtle text-primary-emphasis border fw-normal"><i class="bi bi-buildings"></i> {{ r.empresa.nome }}</span>{% endif %}{% if r.demanda %}<br><span class="small text-muted fw-normal">Ticket #{{ r.demanda.id }}</span>{% endif %}</td>
+                    <td class="fw-bold"><span class="badge bg-light text-dark border fw-normal">{{ tt(r.tipo or 'Institucional') }}</span> {{ r.titulo }}{% if r.empresa %}<br><span class="badge bg-primary-subtle text-primary-emphasis border fw-normal"><i class="bi bi-buildings"></i> {{ r.empresa.nome }}</span>{% endif %}{% if r.demanda %}<br><span class="small text-muted fw-normal">Ticket #{{ r.demanda.id }}</span>{% endif %}</td>
                     <td class="small">{{ r.participantes | length }} {{ t('reuniao_internos') }}{% if r.participantes_externos %} · {{ r.participantes_externos.strip().split('\n') | length }} {{ t('reuniao_externos') }}{% endif %}</td>
                     <td class="text-center">
                         {% if atrasados %}<span class="badge bg-danger">{{ atrasados|length }} {{ t('reuniao_atrasados') }}</span>

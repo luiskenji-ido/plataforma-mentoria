@@ -25,6 +25,7 @@
     <div class="header">
         <h1>Ata de reunião — {{ reuniao.titulo }}</h1>
         <p>{{ reuniao.data_hora.strftime('%d/%m/%Y às %H:%M') }} · {{ reuniao.duracao_minutos }} min · {{ reuniao.modalidade }}{% if reuniao.local_ou_link %} · {{ reuniao.local_ou_link }}{% endif %}</p>
+        <p>Tipo: {{ reuniao.tipo or 'Institucional' }}{% if reuniao.empresa %} · Parceiro B2B: {{ reuniao.empresa.nome }}{% endif %}{% if reuniao.link_gravacao %} · Gravação: {{ reuniao.link_gravacao }}{% endif %}</p>
         {% if reuniao.demanda %}<p>Ticket relacionado: #{{ reuniao.demanda.id }} · {{ reuniao.demanda.titulo }}</p>{% endif %}
     </div>
 
@@ -36,6 +37,11 @@
 
     <h2>Pauta</h2>
     <p class="pre">{{ reuniao.pauta or '—' }}</p>
+
+    {% if reuniao.pontos_parceiro %}
+    <h2>Pontos levantados pelo parceiro B2B</h2>
+    <p class="pre">{{ reuniao.pontos_parceiro }}</p>
+    {% endif %}
 
     <h2>Deliberações</h2>
     <p class="pre">{{ reuniao.deliberacoes or '—' }}</p>
@@ -51,6 +57,30 @@
             {% endfor %}
         </tbody>
     </table>
+    {% if reuniao.presencas %}
+    <h2>Presença (check-in e check-out)</h2>
+    <table>
+        <thead><tr><th>Participante</th><th>Entrada</th><th>Saída</th><th>Minutos</th></tr></thead>
+        <tbody>
+            {% for p in reuniao.presencas %}
+            <tr><td>{{ p.usuario.nome }}{% if p.registro_manual %} (lançada pela gestão){% endif %}{% if p.checkout_automatico %} (check-out automático){% endif %}</td>
+                <td>{{ p.check_in.strftime('%H:%M') }}</td><td>{{ p.check_out.strftime('%H:%M') if p.check_out else '—' }}</td><td>{{ p.total_minutos or 0 }}</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% endif %}
+
+    {% if reuniao.alteracoes %}
+    <h2>Histórico de alterações</h2>
+    <ul>{% for a in reuniao.alteracoes %}<li>{{ a.criado_em.strftime('%d/%m/%Y %H:%M') }} · {{ a.autor.nome if a.autor else '—' }}: {{ a.mudancas | replace('\n', '; ') }}{% if a.motivo %} (motivo: {{ a.motivo }}){% endif %}</li>{% endfor %}</ul>
+    {% endif %}
+
+    {% if reuniao.feedbacks %}
+    <h2>Avaliação dos participantes</h2>
+    <p>Média {{ '%.1f' | format((reuniao.feedbacks | sum(attribute='nota')) / (reuniao.feedbacks | length)) }} / 5 ({{ reuniao.feedbacks | length }} avaliação(ões))</p>
+    <ul>{% for f in reuniao.feedbacks if f.comentario %}<li>{{ f.nota }}/5 · {{ f.comentario }}</li>{% endfor %}</ul>
+    {% endif %}
+
     <p style="margin-top: 28px; color: #888; font-size: 0.8em;">Registrada na plataforma Jovem Seguro 2026 por {{ reuniao.criado_por.nome if reuniao.criado_por else '—' }}.</p>
 </body>
 </html>

@@ -588,6 +588,8 @@ TEXTOS_ADEQUACOES['pt'].update({
     'reuniao_alerta_atrasados': 'encaminhamento(s) de reuniões com prazo vencido',
     'notif_reuniao_titulo': 'Ata de reunião registrada: {titulo}',
     'notif_reuniao_msg': '{autor} registrou a reunião de {data} com você como participante. Confira a ata e os encaminhamentos.',
+    'notif_reuniao_alterada_titulo': 'Reunião alterada: {titulo}',
+    'notif_reuniao_alterada_msg': '{autor} alterou a reunião: {mudancas}. Motivo: {motivo}',
     'notif_enc_titulo': 'Encaminhamento com prazo vencido',
     'notif_enc_msg': '"{descricao}" (reunião {reuniao}) venceu em {prazo}. Atualize o status na plataforma.',
 })
@@ -639,6 +641,8 @@ TEXTOS_ADEQUACOES['en'].update({
     'reuniao_alerta_atrasados': 'meeting follow-up(s) past due',
     'notif_reuniao_titulo': 'Meeting minutes recorded: {titulo}',
     'notif_reuniao_msg': '{autor} recorded the {data} meeting with you as a participant. Check the minutes and follow-ups.',
+    'notif_reuniao_alterada_titulo': 'Meeting changed: {titulo}',
+    'notif_reuniao_alterada_msg': '{autor} changed the meeting: {mudancas}. Reason: {motivo}',
     'notif_enc_titulo': 'Follow-up past due',
     'notif_enc_msg': '"{descricao}" (meeting {reuniao}) was due on {prazo}. Update its status on the platform.',
 })
@@ -690,6 +694,8 @@ TEXTOS_ADEQUACOES['es'].update({
     'reuniao_alerta_atrasados': 'acción(es) de reuniones con plazo vencido',
     'notif_reuniao_titulo': 'Acta de reunión registrada: {titulo}',
     'notif_reuniao_msg': '{autor} registró la reunión del {data} con usted como participante. Revise el acta y las acciones.',
+    'notif_reuniao_alterada_titulo': 'Reunión modificada: {titulo}',
+    'notif_reuniao_alterada_msg': '{autor} modificó la reunión: {mudancas}. Motivo: {motivo}',
     'notif_enc_titulo': 'Acción con plazo vencido',
     'notif_enc_msg': '"{descricao}" (reunión {reuniao}) venció el {prazo}. Actualice el estado en la plataforma.',
 })
@@ -1068,6 +1074,7 @@ TEXTOS_ADEQUACOES['pt'].update({
     'reuniao_parceiro_mostrando': 'Mostrando {qtd} pessoa(s) de {parceiro}.',
     'reuniao_parceiro_vazio': 'Nenhuma pessoa da plataforma está vinculada a este parceiro. Vincule o gestor B2B e os mentores na empresa (Hub Educacional) ou cadastre os participantes em "Outros participantes".',
     'reuniao_erro_parceiro': 'Escolha um parceiro B2B válido.',
+    'reuniao_erro_gravacao': 'O link da gravação precisa começar com https:// (Meet, Teams, Zoom ou Drive).',
 })
 TEXTOS_ADEQUACOES['en'].update({
     'reuniao_campo_parceiro': 'B2B partner',
@@ -1076,6 +1083,7 @@ TEXTOS_ADEQUACOES['en'].update({
     'reuniao_parceiro_mostrando': 'Showing {qtd} person(s) from {parceiro}.',
     'reuniao_parceiro_vazio': 'Nobody on the platform is linked to this partner. Link the B2B manager and mentors to the company (Education Hub) or add the participants under "Other participants".',
     'reuniao_erro_parceiro': 'Choose a valid B2B partner.',
+    'reuniao_erro_gravacao': 'The recording link must start with https:// (Meet, Teams, Zoom or Drive).',
 })
 TEXTOS_ADEQUACOES['es'].update({
     'reuniao_campo_parceiro': 'Socio B2B',
@@ -1084,6 +1092,7 @@ TEXTOS_ADEQUACOES['es'].update({
     'reuniao_parceiro_mostrando': 'Mostrando {qtd} persona(s) de {parceiro}.',
     'reuniao_parceiro_vazio': 'Ninguna persona de la plataforma está vinculada a este socio. Vincule al gestor B2B y a los mentores con la empresa (Hub Educativo) o registre a los participantes en "Otros participantes".',
     'reuniao_erro_parceiro': 'Elija un socio B2B válido.',
+    'reuniao_erro_gravacao': 'El enlace de la grabación debe empezar con https:// (Meet, Teams, Zoom o Drive).',
 })
 
 # ------------------------------------------------------------------------------

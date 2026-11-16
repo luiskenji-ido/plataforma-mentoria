@@ -2467,25 +2467,44 @@ def relatorio_atividade_extra(id):
 # REUNIÕES INSTITUCIONAIS ITM × B2B (ata, participantes, encaminhamentos e horas)
 # ==============================================================================
 PERFIS_GESTAO_REUNIOES = ['Administrador', 'Mentor Administrador', 'Admin B2B']
+TIPOS_REUNIAO = ['Alinhamento', 'Acompanhamento do programa', 'Planejamento', 'Institucional']
+CHECKIN_REUNIAO_ANTES_MIN = 30   # o check-in abre 30 min antes do início
+CHECKIN_REUNIAO_DEPOIS_MIN = 60  # e fecha 1 h depois do fim previsto
+CHECKOUT_REUNIAO_AUTOMATICO_H = 2  # check-out esquecido: fecha no fim previsto 2 h depois do fim
 
 
 def pode_ver_reuniao(usuario, reuniao):
     return usuario.tipo_usuario in PERFIS_GESTAO_REUNIOES or usuario in reuniao.participantes
 
 
+def fechar_presenca_reuniao(presenca, saida, automatico=False):
+    presenca.check_out = max(saida, presenca.check_in)
+    presenca.total_minutos = int((presenca.check_out - presenca.check_in).total_seconds() // 60)
+    presenca.checkout_automatico = automatico
+
+
 def sincronizar_voluntariado_reuniao(reuniao):
-    """Mantém um lançamento ESG (categoria Extra) por participante interno, sem duplicar ao editar."""
+    """Mantém um lançamento ESG (categoria Extra) por participante interno, sem duplicar ao editar.
+    Com controle de presença, só conta quem fez check-in e check-out, pelo tempo real; reuniões antigas
+    (sem controle de presença) continuam com a duração prevista para todos os participantes."""
     from models import CheckinVoluntariado
     existentes = {c.usuario_id: c for c in CheckinVoluntariado.query.filter_by(reuniao_id=reuniao.id).all()}
-    contar = {p.id for p in reuniao.participantes if p.tipo_usuario != 'Aluno'} if reuniao.contar_voluntariado else set()
-    fim = reuniao.data_hora + timedelta(minutes=reuniao.duracao_minutos or 0)
-    for usuario_id in contar:
+    internos = {p.id for p in reuniao.participantes if p.tipo_usuario != 'Aluno'}
+    periodos = {}
+    if reuniao.contar_voluntariado:
+        if reuniao.controle_presenca:
+            periodos = {p.usuario_id: (p.check_in, p.check_out, p.total_minutos) for p in reuniao.presencas
+                        if p.usuario_id in internos and p.check_out and (p.total_minutos or 0) > 0}
+        else:
+            fim = reuniao.data_hora + timedelta(minutes=reuniao.duracao_minutos or 0)
+            periodos = {uid: (reuniao.data_hora, fim, reuniao.duracao_minutos or 0) for uid in internos}
+    for usuario_id, (inicio, fim, minutos) in periodos.items():
         lancamento = existentes.pop(usuario_id, None) or CheckinVoluntariado(usuario_id=usuario_id, reuniao_id=reuniao.id)
         lancamento.tipo_atividade = 'Reunião Institucional'
         lancamento.categoria = 'Extra'
-        lancamento.data_hora_inicio = reuniao.data_hora
+        lancamento.data_hora_inicio = inicio
         lancamento.data_hora_fim = fim
-        lancamento.total_minutos = reuniao.duracao_minutos or 0
+        lancamento.total_minutos = minutos
         lancamento.observacoes = f"Reunião #{reuniao.id}: {reuniao.titulo}"[:1000]
         db.session.add(lancamento)
     # Quem saiu da lista (ou "contar como voluntariado" desligado) perde o lançamento
@@ -2511,6 +2530,15 @@ def salvar_reuniao_do_formulario(reuniao, formulario, usuario):
         return 'reuniao_erro_campos'
     if not 5 <= duracao <= 12 * 60:
         return 'vol_erro_duracao'
+    gravacao = (formulario.get('link_gravacao') or '').strip()
+    if gravacao:
+        from urllib.parse import urlparse
+        partes = urlparse(gravacao)
+        if partes.scheme not in ('http', 'https') or not partes.netloc or len(gravacao) > 500:
+            return 'reuniao_erro_gravacao'
+    reuniao.tipo = formulario.get('tipo') if formulario.get('tipo') in TIPOS_REUNIAO else 'Alinhamento'
+    reuniao.pontos_parceiro = (formulario.get('pontos_parceiro') or '').strip()[:5000] or None
+    reuniao.link_gravacao = gravacao or None
     reuniao.titulo = titulo
     reuniao.data_hora = data_hora
     reuniao.duracao_minutos = duracao
@@ -2602,17 +2630,35 @@ def editar_reuniao(id=None):
         return redirect(url_for('reunioes'))
 
     if request.method == 'POST':
+        from models import ReuniaoAlteracao
         nova = reuniao is None
         if nova:
             reuniao = ReuniaoInstitucional(criado_por_id=current_user.id)
+        antes = None if nova else {'data': reuniao.data_hora, 'duracao': reuniao.duracao_minutos,
+                                   'modalidade': reuniao.modalidade, 'local': reuniao.local_ou_link}
         erro = salvar_reuniao_do_formulario(reuniao, request.form, current_user)
         if erro:
             flash(t(erro, current_user.idioma), "warning")
             return redirect(url_for('editar_reuniao', id=id))
+        mudancas = descrever_mudancas_reuniao(antes, reuniao) if antes else []
+        alteracao = None
+        if mudancas:
+            alteracao = ReuniaoAlteracao(autor_id=current_user.id, mudancas='\n'.join(mudancas),
+                                         motivo=(request.form.get('motivo_alteracao') or '').strip()[:1000] or None)
+            reuniao.alteracoes.append(alteracao)
         db.session.add(reuniao)
         db.session.flush()
         sincronizar_voluntariado_reuniao(reuniao)
         db.session.commit()
+        if alteracao:
+            notificar([p for p in reuniao.participantes if p.id != current_user.id],
+                      ('notif_reuniao_alterada_titulo', {'titulo': reuniao.titulo}),
+                      ('notif_reuniao_alterada_msg', {'autor': current_user.nome, 'mudancas': '; '.join(mudancas),
+                                                      'motivo': alteracao.motivo or '—'}),
+                      link=url_for('detalhe_reuniao', id=reuniao.id), tipo='reuniao',
+                      referencia=f"reuniao-alterada:{reuniao.id}:{alteracao.id}")
+            if reuniao.convite_enviado_em and not request.form.get('enviar_convite'):
+                flash(tt('A reunião mudou: reenvie o convite para atualizar a agenda dos participantes.', current_user.idioma), 'info')
         if nova:
             notificar([p for p in reuniao.participantes if p.id != current_user.id],
                       ('notif_reuniao_titulo', {'titulo': reuniao.titulo}),
@@ -2633,7 +2679,7 @@ def editar_reuniao(id=None):
     parceiros_da_pessoa = {p.id: [eid for eid, ids in membros.items() if p.id in ids] for p in pessoas}
     return render_template('reuniao_form.html', reuniao=reuniao, pessoas=pessoas,
                            demandas=demandas, demanda_inicial=demanda, empresas=empresas, parceiros_da_pessoa=parceiros_da_pessoa,
-                           **opcoes_envio_convite())
+                           tipos_reuniao=TIPOS_REUNIAO, **opcoes_envio_convite())
 
 
 @app.route('/reunioes/<int:id>', methods=['GET', 'POST'])
@@ -2663,12 +2709,143 @@ def detalhe_reuniao(id):
     import convites_reuniao
     validos, ignorados = convites_reuniao.destinatarios(reuniao, session.get('gmail_email'))
     link = url_for('detalhe_reuniao', id=reuniao.id, _external=True)
+    agora = datetime.now()
+    participante = current_user in reuniao.participantes
+    notas = [f.nota for f in reuniao.feedbacks]
+    ultima_alteracao = reuniao.alteracoes[0].criado_em if reuniao.alteracoes else None
     return render_template('reuniao_detalhe.html', reuniao=reuniao, hoje=datetime.now().date(),
                            pode_editar=current_user.tipo_usuario in PERFIS_GESTAO_REUNIOES,
+                           participante=participante,
+                           minha_presenca=next((p for p in reuniao.presencas if p.usuario_id == current_user.id), None),
+                           meu_feedback=next((f for f in reuniao.feedbacks if f.usuario_id == current_user.id), None),
+                           checkin_aberto=reuniao.data_hora - timedelta(minutes=CHECKIN_REUNIAO_ANTES_MIN) <= agora
+                           <= reuniao.fim_previsto + timedelta(minutes=CHECKIN_REUNIAO_DEPOIS_MIN),
+                           feedback_aberto=agora >= reuniao.data_hora,
+                           media_feedback=round(sum(notas) / len(notas), 1) if notas else None,
+                           reenviar_convite=bool(reuniao.convite_enviado_em and ultima_alteracao
+                                                 and ultima_alteracao > reuniao.convite_enviado_em + (datetime.now() - datetime.utcnow())),
                            links_agenda=convites_reuniao.links_agenda(reuniao, link, url_for('agenda_reuniao_ics', id=reuniao.id)),
                            provedores=convites_reuniao.PROVEDORES, convidados=validos, convidados_ignorados=ignorados,
                            convite_enviado_local=(reuniao.convite_enviado_em - timedelta(hours=3)).strftime('%d/%m/%Y %H:%M')
                            if reuniao.convite_enviado_em else '', **opcoes_envio_convite())
+
+
+def descrever_mudancas_reuniao(antes, reuniao):
+    """Linhas do histórico de alterações: data/hora, duração, modalidade e local/link."""
+    mudancas = []
+    if antes['data'] != reuniao.data_hora:
+        mudancas.append(f"Data: {antes['data']:%d/%m/%Y %H:%M} → {reuniao.data_hora:%d/%m/%Y %H:%M}")
+    if antes['duracao'] != reuniao.duracao_minutos:
+        mudancas.append(f"Duração: {antes['duracao']} → {reuniao.duracao_minutos} min")
+    if (antes['modalidade'] or '') != (reuniao.modalidade or ''):
+        mudancas.append(f"Modalidade: {antes['modalidade'] or '—'} → {reuniao.modalidade}")
+    if (antes['local'] or '') != (reuniao.local_ou_link or ''):
+        mudancas.append(f"Local/link: {antes['local'] or '—'} → {reuniao.local_ou_link or '—'}")
+    return mudancas
+
+
+@app.route('/reunioes/<int:id>/presenca', methods=['POST'])
+@login_required
+def presenca_reuniao(id):
+    """Check-in/check-out do participante; a gestão registra ou remove a presença de quem esqueceu."""
+    from models import ReuniaoInstitucional, PresencaReuniao
+    reuniao = db.session.get(ReuniaoInstitucional, id)
+    if not reuniao or not pode_ver_reuniao(current_user, reuniao):
+        flash("Acesso negado.", "danger")
+        return redirect(url_for('dashboard'))
+    idioma, agora, acao = current_user.idioma, datetime.now(), request.form.get('acao')
+    voltar = redirect(url_for('detalhe_reuniao', id=reuniao.id) + '#cardPresenca')
+    modalidade = request.form.get('modalidade') if request.form.get('modalidade') in ('Online', 'Presencial') else \
+        ('Online' if reuniao.modalidade == 'Online' else 'Presencial')
+
+    if acao in ('checkin', 'checkout'):
+        if current_user not in reuniao.participantes:
+            flash(tt('Só os participantes da reunião registram presença.', idioma), 'warning')
+            return voltar
+        presenca = next((p for p in reuniao.presencas if p.usuario_id == current_user.id), None)
+        if acao == 'checkin':
+            if not (reuniao.data_hora - timedelta(minutes=CHECKIN_REUNIAO_ANTES_MIN) <= agora
+                    <= reuniao.fim_previsto + timedelta(minutes=CHECKIN_REUNIAO_DEPOIS_MIN)):
+                flash(tt('O check-in abre 30 minutos antes da reunião e fecha 1 hora depois do fim previsto.', idioma), 'warning')
+            elif presenca:
+                flash(tt('Sua presença nesta reunião já foi registrada.', idioma), 'info')
+            else:
+                reuniao.presencas.append(PresencaReuniao(usuario_id=current_user.id, check_in=agora, modalidade=modalidade))
+                db.session.commit()
+                flash(tt('Check-in registrado. Não esqueça o check-out ao sair.', idioma), 'success')
+        elif not presenca or presenca.check_out:
+            flash(tt('Faça o check-in antes do check-out.', idioma), 'warning')
+        else:
+            fechar_presenca_reuniao(presenca, agora)
+            sincronizar_voluntariado_reuniao(reuniao)
+            db.session.commit()
+            flash(tt('Check-out registrado: {minutos} minutos na reunião.', idioma).format(minutos=presenca.total_minutos), 'success')
+        return voltar
+
+    if current_user.tipo_usuario not in PERFIS_GESTAO_REUNIOES or acao not in ('manual', 'remover'):
+        flash("Acesso negado.", "danger")
+        return voltar
+    usuario = db.session.get(Usuario, request.form.get('usuario_id', type=int) or 0)
+    if not usuario or usuario not in reuniao.participantes:
+        flash(tt('Escolha um participante interno da reunião.', idioma), 'warning')
+        return voltar
+    presenca = next((p for p in reuniao.presencas if p.usuario_id == usuario.id), None)
+    if acao == 'remover':
+        if presenca:
+            reuniao.presencas.remove(presenca)
+            sincronizar_voluntariado_reuniao(reuniao)
+            db.session.commit()
+            flash(tt('Presença removida.', idioma), 'info')
+        return voltar
+    try:
+        dia = reuniao.data_hora.date()
+        entrada = datetime.combine(dia, datetime.strptime(request.form.get('entrada') or '', '%H:%M').time())
+        saida = datetime.combine(dia, datetime.strptime(request.form.get('saida') or '', '%H:%M').time())
+    except ValueError:
+        entrada = saida = None
+    if not entrada or saida <= entrada or saida - entrada > timedelta(hours=12) or saida > agora + timedelta(minutes=5):
+        flash(tt('Informe a entrada e a saída (a saída depois da entrada e nada no futuro).', idioma), 'warning')
+        return voltar
+    if presenca is None:
+        presenca = PresencaReuniao(usuario_id=usuario.id, check_in=entrada)
+        reuniao.presencas.append(presenca)
+    presenca.check_in, presenca.modalidade = entrada, modalidade
+    fechar_presenca_reuniao(presenca, saida)
+    presenca.registro_manual, presenca.registrado_por_id = True, current_user.id
+    sincronizar_voluntariado_reuniao(reuniao)
+    db.session.commit()
+    flash(tt('Presença de {nome} registrada pela gestão.', idioma).format(nome=usuario.nome), 'success')
+    return voltar
+
+
+@app.route('/reunioes/<int:id>/feedback', methods=['POST'])
+@login_required
+def feedback_reuniao(id):
+    """Cada participante avalia a reunião (nota de 1 a 5 e comentário) a partir do início; pode corrigir depois."""
+    from models import ReuniaoInstitucional, FeedbackReuniao
+    reuniao = db.session.get(ReuniaoInstitucional, id)
+    if not reuniao or not pode_ver_reuniao(current_user, reuniao):
+        flash("Acesso negado.", "danger")
+        return redirect(url_for('dashboard'))
+    idioma = current_user.idioma
+    voltar = redirect(url_for('detalhe_reuniao', id=reuniao.id) + '#cardFeedback')
+    nota = request.form.get('nota', type=int)
+    if current_user not in reuniao.participantes:
+        flash(tt('Só os participantes avaliam a reunião.', idioma), 'warning')
+    elif datetime.now() < reuniao.data_hora:
+        flash(tt('A avaliação abre quando a reunião começa.', idioma), 'warning')
+    elif not nota or not 1 <= nota <= 5:
+        flash(tt('Dê uma nota de 1 a 5.', idioma), 'warning')
+    else:
+        feedback = next((f for f in reuniao.feedbacks if f.usuario_id == current_user.id), None)
+        if feedback is None:
+            feedback = FeedbackReuniao(usuario_id=current_user.id, nota=nota)
+            reuniao.feedbacks.append(feedback)
+        feedback.nota = nota
+        feedback.comentario = (request.form.get('comentario') or '').strip()[:2000] or None
+        db.session.commit()
+        flash(tt('Obrigado! Sua avaliação da reunião foi registrada.', idioma), 'success')
+    return voltar
 
 
 # ------------------------------------------------------------------------------ convites por e-mail e agenda
@@ -7735,7 +7912,11 @@ def atualizar_estrutura_banco():
         "ALTER TABLE reuniao_institucional ADD COLUMN convite_enviado_via VARCHAR(20)",
         "ALTER TABLE reuniao_institucional ADD COLUMN convite_destinatarios TEXT",
         "ALTER TABLE reuniao_institucional ADD COLUMN empresa_id INTEGER REFERENCES empresa(id)",
-        "ALTER TABLE empresa ADD COLUMN logo_arquivo VARCHAR(255)"
+        "ALTER TABLE empresa ADD COLUMN logo_arquivo VARCHAR(255)",
+        "ALTER TABLE reuniao_institucional ADD COLUMN tipo VARCHAR(30)",
+        "ALTER TABLE reuniao_institucional ADD COLUMN pontos_parceiro TEXT",
+        "ALTER TABLE reuniao_institucional ADD COLUMN link_gravacao VARCHAR(500)",
+        "ALTER TABLE reuniao_institucional ADD COLUMN controle_presenca BOOLEAN"
     ]
     
     for comando in colunas_novas:

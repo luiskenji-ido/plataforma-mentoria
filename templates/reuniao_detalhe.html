@@ -7,6 +7,7 @@
         <div>
             <a href="{{ url_for('reunioes') }}" class="small fw-bold text-decoration-none"><i class="bi bi-arrow-left"></i> {{ t('reuniao_titulo') }}</a>
             <h2 class="text-primary fw-bold mb-1 mt-1">{{ reuniao.titulo }}</h2>
+            <span class="badge bg-light text-dark border mb-1" id="tipoReuniao">{{ tt(reuniao.tipo or 'Institucional') }}</span>
             <div class="text-muted small">
                 {{ reuniao.data_hora.strftime('%d/%m/%Y %H:%M') }} · {{ reuniao.duracao_minutos }} min · {{ reuniao.modalidade }}
                 {% if reuniao.local_ou_link %} · {% if reuniao.local_ou_link.startswith('http') %}<a href="{{ reuniao.local_ou_link }}" target="_blank" rel="noopener">{{ t('extra_link_sala') }}</a>{% else %}{{ reuniao.local_ou_link }}{% endif %}{% endif %}
@@ -25,11 +26,15 @@
                     {% endif %}{% endfor %}
                 </ul>
             </div>
+            {% if reuniao.link_gravacao %}<a href="{{ reuniao.link_gravacao }}" target="_blank" rel="noopener noreferrer" class="btn btn-outline-danger fw-bold rounded-pill px-3" id="linkGravacao"><i class="bi bi-camera-video"></i> {{ tt('Gravação') }}</a>{% endif %}
             <a href="{{ url_for('detalhe_reuniao', id=reuniao.id, imprimir=1) }}" target="_blank" rel="noopener noreferrer" class="btn btn-outline-secondary fw-bold rounded-pill px-3"><i class="bi bi-printer"></i> {{ t('reuniao_imprimir') }}</a>
             {% if pode_editar %}<a href="{{ url_for('editar_reuniao', id=reuniao.id) }}" class="btn btn-primary fw-bold rounded-pill px-3"><i class="bi bi-pencil"></i> {{ t('trilha_editar') }}</a>{% endif %}
         </div>
     </div>
 
+    {% if reenviar_convite and pode_editar %}
+    <div class="alert alert-info small py-2"><i class="bi bi-info-circle"></i> {{ tt('A reunião mudou depois do último convite: reenvie o convite para atualizar a agenda dos participantes.') }}</div>
+    {% endif %}
     {% if reuniao.demanda %}
     <div class="alert alert-light border small"><i class="bi bi-ticket-detailed"></i> {{ t('reuniao_campo_ticket') }}: <a href="{{ url_for('portal_demandas') }}">#{{ reuniao.demanda.id }} · {{ reuniao.demanda.titulo }}</a></div>
     {% endif %}
@@ -51,6 +56,10 @@
             <div class="card shadow-sm border-0"><div class="card-body">
                 <h6 class="fw-bold text-primary">{{ t('reuniao_campo_pauta') }}</h6>
                 <p class="small" style="white-space: pre-line;">{{ reuniao.pauta or '—' }}</p>
+                {% if reuniao.pontos_parceiro %}
+                <h6 class="fw-bold text-primary"><i class="bi bi-flag"></i> {{ tt('Pontos levantados pelo parceiro B2B') }}</h6>
+                <p class="small" style="white-space: pre-line;" id="pontosParceiro">{{ reuniao.pontos_parceiro }}</p>
+                {% endif %}
                 <h6 class="fw-bold text-primary">{{ t('reuniao_campo_deliberacoes') }}</h6>
                 <p class="small mb-0" style="white-space: pre-line;">{{ reuniao.deliberacoes or '—' }}</p>
             </div></div>
@@ -84,6 +93,132 @@
                 </ul>
             </div>
         </div>
+
+        <!-- Presença real (check-in/check-out): base das horas ESG da reunião -->
+        <div class="col-12">
+            <div class="card shadow-sm border-0" id="cardPresenca">
+                <div class="card-header bg-white d-flex justify-content-between align-items-center flex-wrap gap-2">
+                    <span class="fw-bold text-primary"><i class="bi bi-clock-history"></i> {{ tt('Presença na reunião') }}</span>
+                    {% if participante %}
+                    {% if not minha_presenca %}
+                    <form method="POST" action="{{ url_for('presenca_reuniao', id=reuniao.id) }}" class="m-0 d-flex gap-2 align-items-center">
+                        <input type="hidden" name="acao" value="checkin">
+                        {% if reuniao.modalidade == 'Híbrido' %}
+                        <select class="form-select form-select-sm w-auto" name="modalidade" aria-label="{{ t('modalidade_participacao') }}">
+                            <option value="Presencial">{{ tt('Presencial') }}</option><option value="Online">{{ tt('Online') }}</option>
+                        </select>
+                        {% endif %}
+                        <button class="btn btn-success btn-sm fw-bold rounded-pill px-3" type="submit" {% if not checkin_aberto %}disabled{% endif %}><i class="bi bi-box-arrow-in-right"></i> {{ tt('Fazer check-in') }}</button>
+                    </form>
+                    {% elif not minha_presenca.check_out %}
+                    <form method="POST" action="{{ url_for('presenca_reuniao', id=reuniao.id) }}" class="m-0">
+                        <input type="hidden" name="acao" value="checkout">
+                        <button class="btn btn-danger btn-sm fw-bold rounded-pill px-3" type="submit"><i class="bi bi-box-arrow-right"></i> {{ tt('Fazer check-out') }}</button>
+                    </form>
+                    {% endif %}
+                    {% endif %}
+                </div>
+                <div class="card-body small">
+                    {% if participante and not minha_presenca and not checkin_aberto %}<p class="text-muted mb-2">{{ tt('O check-in abre 30 minutos antes da reunião e fecha 1 hora depois do fim previsto.') }}</p>{% endif %}
+                    {% if reuniao.controle_presenca %}<p class="text-muted mb-2">{{ tt('As horas de voluntariado (ESG) desta reunião contam pelo check-in e check-out de cada participante.') }}</p>{% endif %}
+                    <div class="table-responsive">
+                        <table class="table table-sm align-middle mb-0">
+                            <thead class="table-light"><tr><th>{{ tt('Participante') }}</th><th>{{ tt('Entrada') }}</th><th>{{ tt('Saída') }}</th><th class="text-end">{{ tt('Minutos') }}</th>{% if pode_editar %}<th></th>{% endif %}</tr></thead>
+                            <tbody>
+                                {% for p in reuniao.presencas %}
+                                <tr>
+                                    <td>{{ p.usuario.nome }} {% if p.modalidade %}<span class="text-muted">· {{ tt(p.modalidade) }}</span>{% endif %}
+                                        {% if p.registro_manual %}<span class="badge bg-secondary">{{ tt('lançada pela gestão') }}</span>{% endif %}
+                                        {% if p.checkout_automatico %}<span class="badge bg-warning text-dark">{{ tt('check-out automático') }}</span>{% endif %}</td>
+                                    <td>{{ p.check_in.strftime('%H:%M') }}</td>
+                                    <td>{{ p.check_out.strftime('%H:%M') if p.check_out else tt('em andamento') }}</td>
+                                    <td class="text-end">{{ p.total_minutos or 0 }}</td>
+                                    {% if pode_editar %}<td class="text-end">
+                                        <form method="POST" action="{{ url_for('presenca_reuniao', id=reuniao.id) }}" class="m-0">
+                                            <input type="hidden" name="acao" value="remover"><input type="hidden" name="usuario_id" value="{{ p.usuario_id }}">
+                                            <button class="btn btn-sm btn-link text-danger p-0" type="submit" aria-label="{{ tt('Remover presença') }}"><i class="bi bi-trash"></i></button>
+                                        </form></td>{% endif %}
+                                </tr>
+                                {% else %}
+                                <tr><td colspan="5" class="text-muted">{{ tt('Ninguém fez check-in ainda.') }}</td></tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% if pode_editar and reuniao.participantes %}
+                    <form method="POST" action="{{ url_for('presenca_reuniao', id=reuniao.id) }}" class="row g-2 align-items-end mt-2" id="formPresencaManual">
+                        <input type="hidden" name="acao" value="manual">
+                        <div class="col-md-4"><label class="form-label small fw-bold mb-0" for="pmUsuario">{{ tt('Lançar presença de quem esqueceu') }}</label>
+                            <select class="form-select form-select-sm" id="pmUsuario" name="usuario_id">
+                                {% for p in reuniao.participantes %}<option value="{{ p.id }}">{{ p.nome }}</option>{% endfor %}
+                            </select></div>
+                        <div class="col-md-2"><label class="form-label small fw-bold mb-0" for="pmEntrada">{{ tt('Entrada') }}</label>
+                            <input type="time" class="form-control form-control-sm" id="pmEntrada" name="entrada" value="{{ reuniao.data_hora.strftime('%H:%M') }}" required></div>
+                        <div class="col-md-2"><label class="form-label small fw-bold mb-0" for="pmSaida">{{ tt('Saída') }}</label>
+                            <input type="time" class="form-control form-control-sm" id="pmSaida" name="saida" value="{{ reuniao.fim_previsto.strftime('%H:%M') }}" required></div>
+                        <div class="col-md-2"><select class="form-select form-select-sm" name="modalidade" aria-label="{{ t('modalidade_participacao') }}">
+                            <option value="Presencial">{{ tt('Presencial') }}</option><option value="Online" {% if reuniao.modalidade == 'Online' %}selected{% endif %}>{{ tt('Online') }}</option></select></div>
+                        <div class="col-md-2"><button class="btn btn-outline-primary btn-sm fw-bold w-100" type="submit">{{ tt('Lançar') }}</button></div>
+                    </form>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Avaliação da reunião pelos participantes -->
+        <div class="col-12">
+            <div class="card shadow-sm border-0" id="cardFeedback">
+                <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                    <span class="fw-bold text-primary"><i class="bi bi-star-half"></i> {{ tt('Avaliação da reunião') }}</span>
+                    {% if media_feedback is not none %}<span class="badge bg-primary" id="mediaFeedback">{{ tt('Média') }} {{ media_feedback }} / 5 · {{ reuniao.feedbacks | length }}</span>{% endif %}
+                </div>
+                <div class="card-body small">
+                    {% if participante %}
+                    {% if feedback_aberto %}
+                    <form method="POST" action="{{ url_for('feedback_reuniao', id=reuniao.id) }}" class="row g-2 align-items-end mb-2">
+                        <div class="col-md-3"><label class="form-label small fw-bold mb-0" for="fbNota">{{ tt('Sua nota (1 a 5)') }}</label>
+                            <select class="form-select form-select-sm" id="fbNota" name="nota" required>
+                                {% for n in range(5, 0, -1) %}<option value="{{ n }}" {% if meu_feedback and meu_feedback.nota == n %}selected{% endif %}>{{ n }} {{ '★' * n }}</option>{% endfor %}
+                            </select></div>
+                        <div class="col-md-7"><label class="form-label small fw-bold mb-0" for="fbComentario">{{ tt('Comentário') }}</label>
+                            <input class="form-control form-control-sm" id="fbComentario" name="comentario" maxlength="2000" value="{{ meu_feedback.comentario or '' if meu_feedback else '' }}" placeholder="{{ tt('O que funcionou e o que melhorar na próxima.') }}"></div>
+                        <div class="col-md-2"><button class="btn btn-primary btn-sm fw-bold w-100" type="submit">{{ tt('Atualizar') if meu_feedback else tt('Avaliar') }}</button></div>
+                    </form>
+                    {% else %}
+                    <p class="text-muted">{{ tt('A avaliação abre quando a reunião começa.') }}</p>
+                    {% endif %}
+                    {% endif %}
+                    {% if pode_editar %}
+                    <ul class="list-group list-group-flush">
+                        {% for f in reuniao.feedbacks %}
+                        <li class="list-group-item px-0"><b>{{ f.usuario.nome }}</b> <span class="text-warning">{{ '★' * f.nota }}</span><span class="text-muted">{{ '☆' * (5 - f.nota) }}</span>
+                            {% if f.comentario %}<div style="white-space: pre-line;">{{ f.comentario }}</div>{% endif %}</li>
+                        {% else %}
+                        <li class="list-group-item px-0 text-muted">{{ tt('Nenhuma avaliação ainda.') }}</li>
+                        {% endfor %}
+                    </ul>
+                    {% elif meu_feedback %}
+                    <p class="text-muted mb-0">{{ tt('Sua avaliação foi registrada. A gestão vê as avaliações de todos.') }}</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        {% if reuniao.alteracoes %}
+        <!-- Histórico de remarcações e mudanças de modalidade/local -->
+        <div class="col-12">
+            <div class="card shadow-sm border-0" id="cardAlteracoes">
+                <div class="card-header bg-white fw-bold text-primary"><i class="bi bi-arrow-repeat"></i> {{ tt('Histórico de alterações') }}</div>
+                <ul class="list-group list-group-flush small">
+                    {% for a in reuniao.alteracoes %}
+                    <li class="list-group-item"><span class="text-muted">{{ a.criado_em.strftime('%d/%m/%Y %H:%M') }} · {{ a.autor.nome if a.autor else '—' }}</span>
+                        <div style="white-space: pre-line;">{{ a.mudancas }}</div>
+                        {% if a.motivo %}<div><b>{{ tt('Motivo') }}:</b> {{ a.motivo }}</div>{% endif %}</li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+        {% endif %}
 
         {% if pode_editar %}
         <!-- Convite por e-mail aos participantes (Gmail conectado ou e-mail da plataforma) -->

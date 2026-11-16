@@ -126,6 +126,36 @@ class AgenteDoFluxo(AgenteFuncional):
         enviado = self.banco(lambda: m.ReuniaoInstitucional.query.get(reuniao_id).convite_enviado_em)
         self.confere(enviado is None, f"{self.perfil} não envia convite de reunião", "PER", "Envio de convite recusado.",
                      f"O perfil {self.perfil} conseguiu disparar o convite.", "Só a gestão envia convites", "Alta")
+        self.presenca_na_reuniao(reuniao_id, participante)
+
+    def presenca_na_reuniao(self, reuniao_id, participante):
+        """Reunião de Alinhamento: participante faz check-in/out e avalia; quem não participa não registra presença."""
+        m = _modelos()
+        meu_id = self.banco(lambda: m.Usuario.query.filter_by(email=self.email_logado).first().id)
+        self.etapa(f"Presença e avaliação da reunião ({self.perfil})")
+        self.post(f"/reunioes/{reuniao_id}/presenca", {"acao": "checkin"})
+        if not participante:
+            presenca = self.banco(lambda: m.PresencaReuniao.query.filter_by(reuniao_id=reuniao_id, usuario_id=meu_id).first())
+            self.confere(presenca is None, f"{self.perfil} que não participou não faz check-in", "PER", "Check-in recusado.",
+                         "Registrou presença numa reunião da qual não participa.", "Só participantes registram presença", "Alta",
+                         "Em presenca_reuniao, conferir se current_user está em reuniao.participantes.")
+            return
+        self.post(f"/reunioes/{reuniao_id}/presenca", {"acao": "checkout"})
+        presenca = self.banco(lambda: m.PresencaReuniao.query.filter_by(reuniao_id=reuniao_id, usuario_id=meu_id).first())
+        self.confere(presenca is not None and presenca.check_out is not None, f"{self.perfil} faz check-in e check-out na reunião", "FLX",
+                     "Entrada e saída registradas (base das horas ESG).", "Presença não registrada.",
+                     "Check-in/check-out real nas reuniões ITM × B2B", "Alta", print_de=f"/reunioes/{reuniao_id}")
+        self.post(f"/reunioes/{reuniao_id}/feedback", {"nota": "9"})
+        self.post(f"/reunioes/{reuniao_id}/feedback", {"nota": "4", "comentario": f"{MARCA} Reunião objetiva"})
+        nota = self.banco(lambda: [f.nota for f in m.FeedbackReuniao.query.filter_by(reuniao_id=reuniao_id, usuario_id=meu_id).all()])
+        self.confere(nota == [4], f"{self.perfil} avalia a reunião (nota 1 a 5)", "FLX", "Avaliação gravada; nota 9 recusada.",
+                     f"Avaliações gravadas: {nota}.", "Feedback dos participantes da reunião", "Média")
+        outro = self.banco(lambda: next((p.id for p in m.ReuniaoInstitucional.query.get(reuniao_id).participantes if p.id != meu_id), None))
+        if outro:
+            self.post(f"/reunioes/{reuniao_id}/presenca", {"acao": "manual", "usuario_id": outro, "entrada": "00:00", "saida": "00:30"})
+            indevida = self.banco(lambda: m.PresencaReuniao.query.filter_by(reuniao_id=reuniao_id, usuario_id=outro, registro_manual=True).count())
+            self.confere(indevida == 0, f"{self.perfil} não lança presença dos outros", "PER", "Lançamento recusado.",
+                         "Lançou a presença de outra pessoa.", "Só a gestão lança presença de quem esqueceu", "Alta")
 
     def gerar_relatorio(self):
         dados = super().gerar_relatorio()
@@ -376,6 +406,39 @@ class AgenteMentorAdministrador(AgenteDoFluxo):
         self.reuniao_e_convite()
         self.reportar_cobertura()
 
+    def remarcar_reuniao(self, reuniao, base):
+        """Remarca a reunião para agora (abre o check-in dos participantes) trocando a modalidade: vira histórico e aviso."""
+        m = _modelos()
+        self.etapa("Reunião de Alinhamento: remarcação, pontos do parceiro e gravação")
+        inicio = (datetime.now() - timedelta(minutes=10)).replace(second=0, microsecond=0)
+        form = dict(base, tipo="Alinhamento", data_hora=inicio.strftime("%Y-%m-%dT%H:%M"), modalidade="Presencial", local_ou_link="Sala do ITM",
+                    pontos_parceiro=f"{MARCA} Jovens chegando atrasados às palestras", contar_voluntariado="on",
+                    motivo_alteracao=f"{MARCA} Antecipada a pedido do parceiro")
+        form.pop("enviar_convite", None)
+        self.post(f"/reunioes/{reuniao.id}/editar", dict(form, link_gravacao="javascript:alert(1)"))
+        def situacao():
+            r = m.ReuniaoInstitucional.query.get(reuniao.id)
+            return type("Situacao", (), {"link_gravacao": r.link_gravacao, "tipo": r.tipo, "pontos_parceiro": r.pontos_parceiro,
+                                         "controle_presenca": r.controle_presenca, "alteracoes": [a.mudancas for a in r.alteracoes]})
+        r = self.banco(situacao)
+        self.confere(r.link_gravacao is None and not r.alteracoes, "Link de gravação inválido é recusado", "VAL", "Só links http(s) são aceitos.",
+                     f"Gravou o link {r.link_gravacao}.", "Gravação só por link http(s)", "Alta",
+                     "Em salvar_reuniao_do_formulario, aceitar só esquema http/https no link da gravação.")
+        self.post(f"/reunioes/{reuniao.id}/editar", dict(form, link_gravacao="https://drive.google.com/funcional-gravacao"))
+        r = self.banco(situacao)
+        mudancas = r.alteracoes[0] if r.alteracoes else ""
+        avisados = self.banco(lambda: {n.usuario_id for n in m.Notificacao.query.filter(m.Notificacao.referencia.like(f"reuniao-alterada:{reuniao.id}:%")).all()})
+        mentor = self.usuario("mentor")
+        self.confere(len(r.alteracoes) == 1 and "Modalidade: Online → Presencial" in mudancas and (not mentor or mentor["id"] in avisados),
+                     "Remarcação vai para o histórico e avisa os participantes", "FLX",
+                     f"Histórico: {mudancas.replace(chr(10), '; ')}; {len(avisados)} participante(s) avisado(s).",
+                     f"Histórico: {len(r.alteracoes)} registro(s); avisados: {sorted(avisados)}.",
+                     "Alterações de data e modalidade com histórico e aviso", "Alta", print_de=f"/reunioes/{reuniao.id}")
+        self.confere(r.tipo == "Alinhamento" and (r.pontos_parceiro or "").startswith(MARCA) and r.link_gravacao and r.controle_presenca,
+                     "Reunião de Alinhamento com pontos do parceiro e gravação", "FLX", "Tipo, pontos do parceiro e link da gravação gravados.",
+                     f"Tipo {r.tipo}; pontos {bool(r.pontos_parceiro)}; gravação {r.link_gravacao}.",
+                     "B2B pontua as falhas do programa na Reunião de Alinhamento", "Média")
+
     def reuniao_e_convite(self):
         """Reuniões ITM × B2B: registra a ata, confere o arquivo de agenda (.ics) e os links "Salvar na agenda", e garante que
         o convite NUNCA sai para contas de teste — o agente não dispara e-mail de verdade (só contas @local.com e domínios .test)."""
@@ -390,11 +453,12 @@ class AgenteMentorAdministrador(AgenteDoFluxo):
         quando = (datetime.now() + timedelta(days=5)).replace(hour=14, minute=30, second=0, microsecond=0)
         titulo = f"{MARCA} Alinhamento ITM × B2B"
         # O Professor não pertence ao parceiro: mesmo enviado à força, o servidor tem de descartá-lo
-        self.post("/reunioes/nova", {"titulo": titulo, "empresa_id": empresa_id or "", "data_hora": quando.strftime("%Y-%m-%dT%H:%M"),
-                                     "duracao_minutos": "45", "modalidade": "Online", "local_ou_link": "https://meet.google.com/funcional-teste",
-                                     "pauta": "Cronograma, bancas; certificados", "participantes": [x["id"] for x in (mentor, gestor, professor) if x],
-                                     "participantes_externos": "Parceiro Externo – Empresa Teste – parceiro@empresa-funcional.test",
-                                     "enviar_convite": "1", "convite_via": "smtp"})
+        base_reuniao = {"titulo": titulo, "empresa_id": empresa_id or "", "data_hora": quando.strftime("%Y-%m-%dT%H:%M"),
+                        "duracao_minutos": "45", "modalidade": "Online", "local_ou_link": "https://meet.google.com/funcional-teste",
+                        "pauta": "Cronograma, bancas; certificados", "participantes": [x["id"] for x in (mentor, gestor, professor) if x],
+                        "participantes_externos": "Parceiro Externo – Empresa Teste – parceiro@empresa-funcional.test",
+                        "enviar_convite": "1", "convite_via": "smtp"}
+        self.post("/reunioes/nova", base_reuniao)
         reuniao = self.banco(lambda: m.ReuniaoInstitucional.query.filter_by(titulo=titulo).first())
         participantes = self.banco(lambda: sorted(p.id for p in m.ReuniaoInstitucional.query.get(reuniao.id).participantes)) if reuniao else []
         self.confere(reuniao is not None and all(x["id"] in participantes for x in (mentor, gestor) if x), "Registra a reunião ITM × B2B com participantes",
@@ -451,6 +515,7 @@ class AgenteMentorAdministrador(AgenteDoFluxo):
         self.confere("Gmail conectado:" not in pagina and "cardConvite" in pagina, "Desconectar Gmail volta ao estado sem conta conectada", "FLX",
                      "Sessão sem Gmail; o painel de convite continua disponível.", "Painel ainda mostra um Gmail conectado.",
                      "Coordenação desconecta o Gmail quando quiser", "Baixa")
+        self.remarcar_reuniao(reuniao, base_reuniao)
 
 
 # ==============================================================================
@@ -823,7 +888,7 @@ class AgenteEncerramento(AgenteDoFluxo):
     ROTEIRO = ["Publica o resultado da banca para o grupo", "Aprova a versão final e leva o TCC para o acervo",
                "Emite o certificado do aluno e confere a verificação pública", "Regra: certificado só para quem participou do projeto",
                "Confirma a desistência (jovem sai da turma e do mentor) e reativa", "Dá retorno e resolve a ocorrência",
-               "Certificado com o logo do parceiro B2B; remove o logo"]
+               "Certificado com o logo do parceiro B2B; remove o logo", "Lança a presença de quem esqueceu o check-in da reunião"]
 
     def rodar(self):
         m = _modelos()
@@ -833,6 +898,7 @@ class AgenteEncerramento(AgenteDoFluxo):
         self.confere(destino not in (None, "/"), "Mentor Administrador volta à plataforma", "ACE", f"Login aceito ({destino}).",
                      f"Login recusado (HTTP {status}).", "Login com a senha definida no primeiro acesso", "Crítica")
         self.desistencia_e_ocorrencia()
+        self.presenca_lancada_pela_gestao()
         projeto_id, banca_id = self.contexto["ids"].get("projeto"), self.contexto["ids"].get("banca")
         if not (projeto_id and banca_id):
             return
@@ -878,6 +944,24 @@ class AgenteEncerramento(AgenteDoFluxo):
     def _situacao_jovem(self, usuario_id):
         m = _modelos()
         return self.banco(lambda: (lambda u: (u.status, len(u.turmas_como_aluno), u.mentores.count()))(m.Usuario.query.get(usuario_id)))
+
+    def presenca_lancada_pela_gestao(self):
+        m = _modelos()
+        rid, gestor = self.contexto["ids"].get("reuniao"), self.usuario("gestor")
+        if not (rid and gestor):
+            return
+        self.etapa("Reunião: presença de quem esqueceu o check-in (gestão)")
+        inicio = self.banco(lambda: m.ReuniaoInstitucional.query.get(rid).data_hora)
+        self.post(f"/reunioes/{rid}/presenca", {"acao": "manual", "usuario_id": gestor["id"], "entrada": inicio.strftime("%H:%M"),
+                                                "saida": datetime.now().strftime("%H:%M"), "modalidade": "Online"})
+        horas = self.banco(lambda: m.CheckinVoluntariado.query.filter_by(reuniao_id=rid, usuario_id=gestor["id"]).first())
+        self.confere(horas is not None and horas.total_minutos > 0, "Gestão lança a presença de quem esqueceu (vira hora ESG)", "FLX",
+                     f"{horas.total_minutos if horas else 0} minuto(s) lançados no voluntariado do gestor B2B.", "Presença ou hora ESG não lançada.",
+                     "Horas da reunião pela presença real", "Média", print_de=f"/reunioes/{rid}")
+        _, _, ata = self.cliente.pedir("GET", f"/reunioes/{rid}?imprimir=1")
+        self.confere("Presença (check-in e check-out)" in ata and "Histórico de alterações" in ata and "Avaliação dos participantes" in ata,
+                     "Ata com presença, alterações e avaliação", "FLX", "A ata impressa traz presença, histórico e avaliação.",
+                     "A ata impressa não traz presença, histórico ou avaliação.", "Ata completa da Reunião de Alinhamento", "Média")
 
     def desistencia_e_ocorrencia(self):
         m = _modelos()

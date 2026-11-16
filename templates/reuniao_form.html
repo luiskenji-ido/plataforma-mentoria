@@ -8,7 +8,13 @@
 
     <form method="POST" class="card shadow-sm border-0">
         <div class="card-body row g-3">
-            <div class="col-12">
+            <div class="col-md-4">
+                <label class="form-label fw-bold" for="rTipo">{{ tt('Tipo de reunião') }}</label>
+                <select class="form-select" id="rTipo" name="tipo">
+                    {% for tp in tipos_reuniao %}<option value="{{ tp }}" {% if (reuniao.tipo if reuniao else 'Alinhamento') == tp %}selected{% endif %}>{{ tt(tp) }}</option>{% endfor %}
+                </select>
+            </div>
+            <div class="col-md-8">
                 <label class="form-label fw-bold" for="rTitulo">{{ t('reuniao_campo_titulo') }}</label>
                 <input class="form-control" id="rTitulo" name="titulo" maxlength="200" required value="{{ reuniao.titulo if reuniao else ('Alinhamento: ' ~ demanda_inicial.titulo if demanda_inicial else '') }}">
             </div>
@@ -69,9 +75,24 @@
                 <textarea class="form-control" id="rPauta" name="pauta" rows="3">{{ reuniao.pauta or '' if reuniao else (demanda_inicial.descricao if demanda_inicial else '') }}</textarea>
             </div>
             <div class="col-12">
+                <label class="form-label fw-bold" for="rPontos"><i class="bi bi-flag"></i> {{ tt('Pontos levantados pelo parceiro B2B') }}</label>
+                <textarea class="form-control" id="rPontos" name="pontos_parceiro" rows="3" maxlength="5000" placeholder="{{ tt('Falhas ou ajustes que o parceiro apontou no programa, um por linha.') }}">{{ reuniao.pontos_parceiro or '' if reuniao else '' }}</textarea>
+            </div>
+            <div class="col-12">
                 <label class="form-label fw-bold" for="rDeliberacoes">{{ t('reuniao_campo_deliberacoes') }}</label>
                 <textarea class="form-control" id="rDeliberacoes" name="deliberacoes" rows="5">{{ reuniao.deliberacoes or '' if reuniao else '' }}</textarea>
             </div>
+            <div class="col-md-8">
+                <label class="form-label fw-bold" for="rGravacao"><i class="bi bi-camera-video"></i> {{ tt('Link da gravação') }}</label>
+                <input type="url" class="form-control" id="rGravacao" name="link_gravacao" maxlength="500" placeholder="https://" value="{{ reuniao.link_gravacao or '' if reuniao else '' }}">
+                <div class="form-text">{{ tt('Cole o link do Meet, Teams, Zoom ou Drive depois da reunião.') }}</div>
+            </div>
+            {% if reuniao %}
+            <div class="col-12">
+                <label class="form-label fw-bold" for="rMotivo"><i class="bi bi-arrow-repeat"></i> {{ tt('Motivo da alteração') }}</label>
+                <input class="form-control" id="rMotivo" name="motivo_alteracao" maxlength="1000" placeholder="{{ tt('Preencha se mudar data, duração, modalidade ou local: os participantes são avisados.') }}">
+            </div>
+            {% endif %}
 
             <div class="col-12">
                 <label class="form-label fw-bold mb-1">{{ t('reuniao_novos_encaminhamentos') }}</label>

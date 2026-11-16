@@ -119,6 +119,24 @@ def fechar_checkin_banca_esquecido(agora):
     return fechados
 
 
+def fechar_presenca_reuniao_esquecida(agora):
+    """Reunião ITM × B2B: check-out esquecido fecha no fim previsto, 2 h depois do fim (marcado como automático)."""
+    from models import PresencaReuniao
+    from app import fechar_presenca_reuniao, sincronizar_voluntariado_reuniao, CHECKOUT_REUNIAO_AUTOMATICO_H
+    local = datetime.now()  # a reunião é gravada em hora local
+    fechadas, reunioes = 0, set()
+    for presenca in PresencaReuniao.query.filter(PresencaReuniao.check_out.is_(None)).all():
+        reuniao = presenca.reuniao
+        if reuniao and local >= reuniao.fim_previsto + timedelta(hours=CHECKOUT_REUNIAO_AUTOMATICO_H):
+            fechar_presenca_reuniao(presenca, reuniao.fim_previsto, automatico=True)
+            reunioes.add(reuniao)
+            fechadas += 1
+    for reuniao in reunioes:
+        sincronizar_voluntariado_reuniao(reuniao)
+    db.session.commit()
+    return fechadas
+
+
 # As próximas adequações acrescentam aqui os lembretes delas
 def executar_backups_agendados(agora):
     """Manutenção (DB): roda os agendamentos de backup vencidos (Diário, Semanal ou Mensal)."""
@@ -159,6 +177,7 @@ def aprender_funcionalidades(agora):
 
 
 TAREFAS = [lembrar_checkout_esquecido, lembrar_encaminhamentos_vencidos, avisar_ocorrencias_atrasadas, enviar_formulario_banca, fechar_checkin_banca_esquecido,
+           fechar_presenca_reuniao_esquecida,
            executar_backups_agendados, aprender_mudancas_da_plataforma, aprender_seguranca, aprender_banco_de_dados, aprender_funcionalidades]
 
 

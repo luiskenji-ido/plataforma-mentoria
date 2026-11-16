@@ -1,7 +1,7 @@
 # Importando as ferramentas necessárias para criar o banco de dados e gerenciar o login
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import UserMixin
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 
 # Criando a "ponte" entre o nosso código Python e o arquivo do banco de dados (SQLite)
 db = SQLAlchemy()
@@ -704,6 +704,12 @@ class ReuniaoInstitucional(db.Model):
     convite_enviado_em = db.Column(db.DateTime, nullable=True)
     convite_enviado_via = db.Column(db.String(20), nullable=True)  # Gmail / SMTP
     convite_destinatarios = db.Column(db.Text, nullable=True)  # e-mails convidados no último envio, um por linha
+    # Reunião de Alinhamento: tipo, pontos levantados pelo parceiro B2B, gravação e presença real
+    tipo = db.Column(db.String(30), default='Alinhamento')  # reuniões antigas ficam sem tipo (= Institucional)
+    pontos_parceiro = db.Column(db.Text, nullable=True)  # falhas/pontos que o parceiro B2B trouxe para o programa
+    link_gravacao = db.Column(db.String(500), nullable=True)
+    # Horas ESG pelo check-in/out real; reuniões antigas (NULL) continuam com a duração prevista para todos
+    controle_presenca = db.Column(db.Boolean, default=True)
 
     participantes = db.relationship('Usuario', secondary=reuniao_participante, lazy='subquery')
     criado_por = db.relationship('Usuario', foreign_keys=[criado_por_id])
@@ -711,6 +717,63 @@ class ReuniaoInstitucional(db.Model):
     empresa = db.relationship('Empresa')
     encaminhamentos = db.relationship('EncaminhamentoReuniao', backref='reuniao', lazy=True,
                                       cascade="all, delete-orphan", order_by='EncaminhamentoReuniao.prazo')
+    alteracoes = db.relationship('ReuniaoAlteracao', backref='reuniao', lazy=True, cascade="all, delete-orphan",
+                                 order_by='ReuniaoAlteracao.criado_em.desc()')
+    presencas = db.relationship('PresencaReuniao', backref='reuniao', lazy=True, cascade="all, delete-orphan",
+                                order_by='PresencaReuniao.check_in')
+    feedbacks = db.relationship('FeedbackReuniao', backref='reuniao', lazy=True, cascade="all, delete-orphan",
+                                order_by='FeedbackReuniao.criado_em')
+
+    @property
+    def fim_previsto(self):
+        return self.data_hora + timedelta(minutes=self.duracao_minutos or 0)
+
+
+class ReuniaoAlteracao(db.Model):
+    """Histórico de remarcações e mudanças de modalidade/local (com o motivo), avisado aos participantes."""
+    __tablename__ = 'reuniao_alteracao'
+    id = db.Column(db.Integer, primary_key=True)
+    reuniao_id = db.Column(db.Integer, db.ForeignKey('reuniao_institucional.id'), nullable=False)
+    autor_id = db.Column(db.Integer, db.ForeignKey('usuario.id'), nullable=True)
+    criado_em = db.Column(db.DateTime, default=datetime.now)
+    mudancas = db.Column(db.Text, nullable=False)  # "Data: 03/12 14:30 → 05/12 10:00", uma por linha
+    motivo = db.Column(db.Text, nullable=True)
+
+    autor = db.relationship('Usuario')
+
+
+class PresencaReuniao(db.Model):
+    """Check-in/check-out real de cada participante interno (base das horas ESG da reunião)."""
+    __tablename__ = 'presenca_reuniao'
+    id = db.Column(db.Integer, primary_key=True)
+    reuniao_id = db.Column(db.Integer, db.ForeignKey('reuniao_institucional.id'), nullable=False)
+    usuario_id = db.Column(db.Integer, db.ForeignKey('usuario.id'), nullable=False)
+    check_in = db.Column(db.DateTime, nullable=False)
+    check_out = db.Column(db.DateTime, nullable=True)
+    total_minutos = db.Column(db.Integer, default=0)
+    modalidade = db.Column(db.String(20), nullable=True)
+    checkout_automatico = db.Column(db.Boolean, default=False)
+    registro_manual = db.Column(db.Boolean, default=False)  # lançado pela gestão (ex.: esqueceu o check-in)
+    registrado_por_id = db.Column(db.Integer, db.ForeignKey('usuario.id'), nullable=True)
+
+    usuario = db.relationship('Usuario', foreign_keys=[usuario_id])
+    registrado_por = db.relationship('Usuario', foreign_keys=[registrado_por_id])
+    __table_args__ = (db.UniqueConstraint('reuniao_id', 'usuario_id', name='uq_presenca_reuniao_usuario'),)
+
+
+class FeedbackReuniao(db.Model):
+    """Avaliação da reunião por participante (nota 1 a 5 e comentário), uma por pessoa."""
+    __tablename__ = 'feedback_reuniao'
+    id = db.Column(db.Integer, primary_key=True)
+    reuniao_id = db.Column(db.Integer, db.ForeignKey('reuniao_institucional.id'), nullable=False)
+    usuario_id = db.Column(db.Integer, db.ForeignKey('usuario.id'), nullable=False)
+    nota = db.Column(db.Integer, nullable=False)
+    comentario = db.Column(db.Text, nullable=True)
+    criado_em = db.Column(db.DateTime, default=datetime.now)
+    atualizado_em = db.Column(db.DateTime, default=datetime.now, onupdate=datetime.now)
+
+    usuario = db.relationship('Usuario')
+    __table_args__ = (db.UniqueConstraint('reuniao_id', 'usuario_id', name='uq_feedback_reuniao_usuario'),)
 
 
 class EncaminhamentoReuniao(db.Model):
