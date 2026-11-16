@@ -47,11 +47,14 @@ class AgenteConsultas(AgenteBanco):
     ROTEIRO = ["Código: consultas dentro de laços (N+1), filtros em Python e contagens ineficientes",
                "Perfil real das páginas: número de consultas, tempo e repetições por página",
                "Plano de execução (EXPLAIN QUERY PLAN): varreduras completas e ordenações sem índice",
-               "Sugestões de índices e de reescrita das consultas"]
+               "Sugestões de índices e de reescrita das consultas",
+               "Mudanças de esquema aprendidas: os índices novos estão sendo usados? Quais páginas foram afetadas?"]
 
     def rodar(self):
+        self.planos = []
         self.codigo()
         self.perfil_das_paginas()
+        self.mudancas_aprendidas()
 
     # ------------------------------------------------------------------ código
     def codigo(self):
@@ -238,6 +241,7 @@ class AgenteConsultas(AgenteBanco):
                         plano = [r[-1] for r in cur.execute("EXPLAIN QUERY PLAN " + item["sql"], item["parametros"] or ()).fetchall()]
                     except Exception:
                         continue
+                    self.planos.append({"sql": item["sql"], "plano": plano, "rotas": item["rotas"], "vezes": item["vezes"]})
                     for passo in plano:
                         m = re.match(r"SCAN (\w+)(?: AS \w+)?$", passo.strip())
                         if m and m.group(1).startswith("sqlite_"):
@@ -280,6 +284,64 @@ class AgenteConsultas(AgenteBanco):
                         "A ordenação é feita em memória a cada execução.", "Avaliar índice composto (filtro, coluna do ORDER BY) nas mais usadas.",
                         ["https://www.sqlite.org/queryplanner.html#sorting"])
         self.extras["indices_sugeridos"] = [{"tabela": t, "coluna": c, "motivo": m} for (t, c), m in sorted(sugestoes.items())]
+
+    # ------------------------------------------------------------------ aprendido com o Gerente de Banco de Dados
+    def mudancas_aprendidas(self):
+        """Usa as mudanças de esquema ensinadas pelo Gerente: confere no plano de execução se cada índice novo é usado
+        e mostra o desempenho das páginas que tocam as tabelas que mudaram."""
+        import json
+        self.etapa("Mudanças de esquema aprendidas: uso dos índices novos e páginas afetadas")
+        mudancas = self.aprendizados_do_tipo("db_esquema")
+        if not mudancas:
+            self.log("Nenhuma mudança de esquema aprendida desde a linha de base")
+            return
+        if not self.planos:
+            self.log("Sem planos de execução medidos nesta análise")
+            return
+        indices_novos, tabelas_mudadas = {}, set()
+        for a in mudancas:
+            dados = json.loads(a.conteudo)
+            for tabela, indices in dados.get("indices_novos", {}).items():
+                tabelas_mudadas.add(tabela)
+                for descricao in indices:
+                    nome = descricao.split("(", 1)[0]
+                    if nome and nome != "None":
+                        indices_novos[nome] = (tabela, a.codigo)
+            tabelas_mudadas.update(dados.get("tabelas_novas", []))
+            tabelas_mudadas.update(dados.get("colunas_novas", {}).keys())
+        usados, nao_usados = {}, []
+        for nome, (tabela, codigo) in indices_novos.items():
+            vezes = sum(p["vezes"] for p in self.planos if any(re.search(rf"\bINDEX {re.escape(nome)}\b", passo) for passo in p["plano"]))
+            if vezes:
+                usados[nome] = vezes
+            else:
+                nao_usados.append(f"{nome} ({codigo})")
+        tocam = {}
+        for p in self.planos:
+            for tabela in tabelas_mudadas:
+                if re.search(rf'\b(FROM|JOIN)\s+"?{re.escape(tabela)}"?\b', p["sql"], re.I):
+                    for rota in p["rotas"]:
+                        tocam.setdefault(rota, set()).add(tabela)
+        if usados:
+            self.ok(f"{len(usados)} índice(s) novo(s) em uso nas páginas medidas: "
+                    + ", ".join(f"{n} ({v}×)" for n, v in sorted(usados.items(), key=lambda x: -x[1])[:8]))
+        if nao_usados:
+            self.achado(f"{len(nao_usados)} índice(s) novo(s) não usados pelas páginas medidas", "Informativa", "IDX", ", ".join(nao_usados[:15]),
+                        "Aprendidos pelo Gerente de Banco de Dados; o plano de execução das páginas medidas não passou por eles.",
+                        "Normal para índices de fluxos não medidos (ações e relatórios). Se continuarem sem uso nas próximas análises e "
+                        "nas telas de gestão, avaliar removê-los: cada índice deixa as gravações um pouco mais lentas.",
+                        ["https://www.sqlite.org/eqp.html"])
+        if tocam:
+            medidas = {p["rota"]: p for p in self.extras.get("paginas", [])}
+            linhas = []
+            for rota, tabelas in sorted(tocam.items()):
+                m = medidas.get(rota)
+                linhas.append(f"{rota}: {', '.join(sorted(tabelas))}" + (f" ({m['consultas']} consultas, {m['tempo'] * 1000:.0f} ms)" if m else ""))
+            self.achado(f"{len(tocam)} página(s) usam tabelas que mudaram ({', '.join(a.codigo for a in mudancas[-3:])})", "Informativa", "DES",
+                        "; ".join(linhas[:12]), "Páginas afetadas pelas mudanças de esquema aprendidas, com o desempenho medido agora.",
+                        "Comparar com a análise anterior: se alguma ficou mais lenta, revisar as consultas dela.")
+        elif not indices_novos:
+            self.log("As mudanças aprendidas não tocam as páginas medidas")
 
 
 if __name__ == "__main__":

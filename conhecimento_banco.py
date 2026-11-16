@@ -143,12 +143,12 @@ def detectar_mudancas(origem=GERENTE_BANCO):
         mudancas[chave] = {t: v for t, v in mudancas[chave].items() if v}
     if any(mudancas.values()):
         partes = [f"{len(v)} {k.replace('_', ' ')}" for k, v in mudancas.items() if v]
-        criados.append(_criar('Esquema do banco mudou', 'db_esquema', mudancas, ['db_esquema', 'db_consultas'],
+        criados.append(_criar('Esquema do banco mudou', 'db_esquema', mudancas, ['db_esquema', 'db_consultas', 'db_dba'],
                               'Para revisar índices e consultas: ' + ', '.join(partes) + '.', origem))
 
     if anterior.get('agendamentos', {}) != atual['agendamentos']:
         criados.append(_criar('Agendamentos de backup mudaram', 'db_backup', {'antes': anterior.get('agendamentos', {}), 'depois': atual['agendamentos']},
-                              ['db_backup'], f"{sum(1 for a in atual['agendamentos'].values() if a['status'] == 'Ativo')} ativo(s) agora.", origem))
+                              ['db_backup', 'db_dba'], f"{sum(1 for a in atual['agendamentos'].values() if a['status'] == 'Ativo')} ativo(s) agora.", origem))
 
     novos_drivers = sorted(set(atual['drivers']) - set(anterior.get('drivers', [])))
     if novos_drivers:

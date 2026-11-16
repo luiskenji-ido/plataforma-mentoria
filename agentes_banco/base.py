@@ -136,7 +136,7 @@ class AgenteBanco:
             with app.app_context():
                 itens = cb.para_agente(self.chave)
                 cb.consumir(self.chave, itens)
-                self.aprendizados = [SimpleNamespace(codigo=a.codigo, tipo=a.tipo, titulo=a.titulo, conteudo=a.conteudo,
+                self.aprendizados = [SimpleNamespace(codigo=a.codigo, tipo=a.tipo, titulo=a.titulo, conteudo=a.conteudo, criado_em=a.criado_em,
                                                      fonte_url=a.fonte_url) for a in itens]
         except Exception as e:
             self.log(f"Aprendizados indisponíveis: {e}")

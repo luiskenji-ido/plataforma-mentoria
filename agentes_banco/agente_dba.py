@@ -42,7 +42,8 @@ class AgenteDBA(AgenteBanco):
                "Configuração: modo de diário (WAL), timeout de bloqueio e arquivos temporários",
                "Crescimento do banco e previsão de capacidade",
                "Tabelas de log/auditoria (retenção) e arquivos de log no disco",
-               "Histórico de manutenção (ações do DBA)"]
+               "Histórico de manutenção (ações do DBA)",
+               "Mudanças aprendidas: estatísticas do esquema novo e espaço previsto para os backups agendados"]
 
     def rodar(self):
         from app import app
@@ -64,6 +65,7 @@ class AgenteDBA(AgenteBanco):
                 self.capacidade()
                 self.logs()
                 self.historico_manutencao()
+                self.mudancas_aprendidas()
             finally:
                 self.con.close()
 
@@ -219,6 +221,68 @@ class AgenteDBA(AgenteBanco):
         if falhas:
             self.achado(f"{len(falhas)} manutenção(ões) com falha", "Média", "MAN", "manutencao_banco_dados",
                         "; ".join(f"{m.acao} {m.data:%d/%m %H:%M}: {(m.detalhes or '')[:80]}" for m in falhas[:5]), "Ver o detalhe e repetir a ação.")
+
+    # ------------------------------------------------------------------ aprendido com o Gerente de Banco de Dados
+    def mudancas_aprendidas(self):
+        """Usa o que o Gerente ensinou: estatísticas dos índices/tabelas novos e o espaço que os backups agendados vão ocupar."""
+        import json
+        import shutil
+        self.etapa("Mudanças aprendidas: estatísticas do esquema novo e espaço dos backups")
+        esquema = self.aprendizados_do_tipo("db_esquema")
+        backups = self.aprendizados_do_tipo("db_backup")
+        if not esquema and not backups:
+            self.log("Nenhuma mudança de esquema ou de backup aprendida desde a linha de base")
+            return
+        if esquema:
+            tem_stat = self.con.execute("SELECT 1 FROM sqlite_master WHERE name='sqlite_stat1'").fetchone()
+            com_estatistica = {(t, i) for t, i in self.con.execute("SELECT tbl, idx FROM sqlite_stat1").fetchall()} if tem_stat else set()
+            tabelas_com = {t for t, _ in com_estatistica}
+            indices_com = {i for _, i in com_estatistica if i}
+            sem = []
+            for a in esquema:
+                dados = json.loads(a.conteudo)
+                for tabela, indices in dados.get("indices_novos", {}).items():
+                    for descricao in indices:
+                        nome = descricao.split("(", 1)[0]
+                        existe = self.con.execute("SELECT 1 FROM sqlite_master WHERE type='index' AND name=?", (nome,)).fetchone()
+                        linhas = self.con.execute(f'SELECT COUNT(*) FROM "{tabela}"').fetchone()[0] if existe else 0
+                        if existe and linhas and nome not in indices_com:
+                            sem.append(f"índice {nome} ({a.codigo})")
+                for tabela in dados.get("tabelas_novas", []):
+                    existe = self.con.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name=?", (tabela,)).fetchone()
+                    if existe and tabela not in tabelas_com and self.con.execute(f'SELECT COUNT(*) FROM "{tabela}"').fetchone()[0]:
+                        sem.append(f"tabela {tabela} ({a.codigo})")
+            if sem:
+                self.achado(f"{len(sem)} índice(s)/tabela(s) novo(s) sem estatísticas do otimizador", "Baixa", "MAN", "; ".join(sem[:12]),
+                            "Mudanças de esquema aprendidas pelo Gerente de Banco de Dados depois do último ANALYZE: o otimizador ainda não "
+                            "sabe quão seletivos são esses índices.",
+                            "Rodar 'Atualizar estatísticas (ANALYZE + optimize)' na tela.", ["https://www.sqlite.org/lang_analyze.html"],
+                            "ANALYZE;\nPRAGMA optimize;")
+            else:
+                self.ok(f"{len(esquema)} mudança(s) de esquema aprendida(s) já com estatísticas atualizadas")
+        if backups:
+            agendamentos = json.loads(backups[-1].conteudo).get("depois", {})
+            ativos = [a for a in agendamentos.values() if a.get("status") == "Ativo"]
+            tamanho = os.path.getsize(self.caminho)
+            historico = [h for h in __import__("conhecimento_banco").historico() if h.get("bytes")]
+            por_dia = 0
+            if len(historico) >= 2:
+                dias = max(1, (datetime.fromisoformat(historico[-1]["dia"]) - datetime.fromisoformat(historico[0]["dia"])).days)
+                por_dia = max(0, (historico[-1]["bytes"] - historico[0]["bytes"]) / dias)
+            daqui_1_ano = tamanho + por_dia * 365
+            copias = sum(int(a.get("retencao") or 0) for a in ativos)
+            previsto = daqui_1_ano * copias
+            livre = shutil.disk_usage(os.path.dirname(self.caminho)).free
+            evidencia = (f"{len(ativos)} agendamento(s) ativo(s) ({backups[-1].codigo}) retendo {copias} cópia(s); banco hoje {tamanho_legivel(tamanho)}, "
+                         f"em 1 ano ≈ {tamanho_legivel(daqui_1_ano)}; backups em 1 ano ≈ {tamanho_legivel(previsto)}; livre {tamanho_legivel(livre)}.")
+            if not ativos:
+                self.achado("Agendamentos de backup aprendidos estão todos pausados ou removidos", "Média", "BKP", "agendamento_backup", evidencia,
+                            "Sem backup automático, as ações do DBA (VACUUM, índices) são a única cópia recente. Reativar um agendamento.")
+            elif previsto > livre * 0.5:
+                self.achado("Backups agendados vão ocupar mais da metade do espaço livre em 1 ano", "Média", "CAP", "instance/backups", evidencia,
+                            "Reduzir a retenção, arquivar cópias antigas fora do servidor ou ampliar o disco.")
+            else:
+                self.ok("Espaço para os backups agendados em 1 ano: " + evidencia)
 
 
 if __name__ == "__main__":
