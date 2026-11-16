@@ -61,7 +61,7 @@ def garantir_massa():
 
         if not PerfilAvaliador.query.filter_by(usuario_id=u["avaliador"].id).first():
             db.session.add(PerfilAvaliador(usuario_id=u["avaliador"].id, nome_completo="Avaliador OmniTest da Silva",
-                                           empresa_origem="Aon", area_atuacao="Riscos Corporativos",
+                                           empresa_origem="Parceiro B2B (teste)", area_atuacao="Riscos Corporativos",
                                            curriculo_minibio="Executivo de teste do OmniTest (15 anos em seguros)."))
             criados.append("perfil do avaliador")
 
@@ -89,7 +89,7 @@ def garantir_massa():
             db.session.add(banca)
             criados.append("banca agendada")
         banca.data_hora = (agora + timedelta(hours=1)).replace(second=0, microsecond=0)
-        banca.local = "Auditório Aon (teste)"
+        banca.local = "Auditório B2B (teste)"
         banca.status = "Agendada"
         banca.encerrada_em = None
         banca.prazo_entrega_escrito = agora + timedelta(days=2)

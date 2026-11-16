@@ -74,7 +74,7 @@ app = Flask(__name__)
 from traducoes import t
 from traducoes_literais import tt
 import perfis_acesso
-from notificacoes import notificar, usuarios_gestao
+from notificacoes import notificar, usuarios_gestao, eh_conta_de_teste
 
 # ---------------------------------------------------------
 # INJETOR DE TRADUÇÃO PARA OS TEMPLATES (HTML)
@@ -346,6 +346,9 @@ def login():
             # Trava o usuário se ele estiver bloqueado pelas 5 tentativas
             if usuario.status == 'Bloqueado':
                 flash('Sua conta foi bloqueada por excesso de tentativas falhas. Procure a Administração.', 'danger')
+                return render_template('index.html')
+            if usuario.status == 'Desistente':
+                flash('Sua participação no programa foi encerrada. Para voltar, procure a coordenação.', 'warning')
                 return render_template('index.html')
 
             # Se a senha estiver correta
@@ -688,7 +691,7 @@ def dashboard():
                            graficos_padrao=graficos_padrao_painel(),
                            tipos_grafico_simples=TIPOS_GRAFICO_SIMPLES, tipos_grafico_multi=TIPOS_GRAFICO_MULTI,
                            max_graficos=MAX_GRAFICOS_PAINEL,
-                           encaminhamentos_vencidos=encaminhamentos_vencidos,
+                           encaminhamentos_vencidos=encaminhamentos_vencidos, ocorrencias_alerta=ocorrencias_pendentes_para(current_user),
                            minhas_bancas_grupo=minhas_bancas_grupo,
                            atividades_agora=atividades_agora,
                            minhas_presencas_agora=minhas_presencas_agora,
@@ -2808,6 +2811,368 @@ def encaminhamentos_atrasados(usuario):
 
 
 # ==============================================================================
+# ACOMPANHAMENTO DOS JOVENS: DESISTÊNCIAS E OCORRÊNCIAS (pedidos da reunião de alinhamento com a B2B)
+# ==============================================================================
+PERFIS_GESTAO_ITM = ['Administrador', 'Mentor Administrador']
+PERFIS_EQUIPE = ['Administrador', 'Mentor Administrador', 'Admin B2B', 'Mentor', 'Professor']
+CATEGORIAS_DESISTENCIA = ['Pessoal', 'Estudos', 'Trabalho', 'Saúde', 'Mudança de cidade', 'Sem interesse', 'Outro']
+CATEGORIAS_OCORRENCIA = ['Progresso', 'Comportamento', 'Frequência', 'Entregas', 'Comunicação', 'Outro']
+CONTEXTOS_OCORRENCIA = ['Sala de aula', 'Palestra', 'Mentoria', 'Banca', 'Online', 'Outro']
+GRAVIDADES_OCORRENCIA = ['Baixa', 'Média', 'Alta']
+
+
+def _somente_equipe():
+    if current_user.tipo_usuario not in PERFIS_EQUIPE:
+        flash("Acesso negado.", "danger")
+        return redirect(url_for('dashboard'))
+    return None
+
+
+def pode_ver_jovem(usuario, aluno):
+    visiveis = ids_jovens_visiveis(usuario)
+    return aluno is not None and (visiveis is None or aluno.id in visiveis)
+
+
+def jovens_da_equipe(usuario, incluir_desistentes=False):
+    """Jovens que a pessoa acompanha (gestão ITM: todos)."""
+    consulta = Usuario.query.filter(Usuario.tipo_usuario == 'Aluno')
+    if not incluir_desistentes:
+        consulta = consulta.filter(Usuario.status != 'Desistente')
+    visiveis = ids_jovens_visiveis(usuario)
+    if visiveis is not None:
+        consulta = consulta.filter(Usuario.id.in_(visiveis or [-1]))
+    return consulta.order_by(Usuario.nome).all()
+
+
+def equipe_ativa():
+    """Quem pode ser responsável por responder uma ocorrência: equipe ITM e B2B ativa (sem jovens e sem avaliadores)."""
+    return Usuario.query.filter(Usuario.tipo_usuario.in_(PERFIS_EQUIPE), Usuario.status == 'Ativo').order_by(Usuario.nome).all()
+
+
+def empresas_do_jovem(aluno):
+    return sorted({t.empresa_id for t in (aluno.turmas_como_aluno or []) if t.empresa_id})
+
+
+def gestores_b2b_das_empresas(ids_empresas):
+    return [e.gestor for e in Empresa.query.filter(Empresa.id.in_(ids_empresas or [-1])).all() if e.gestor]
+
+
+def gestao_itm_ativa():
+    return Usuario.query.filter(Usuario.tipo_usuario.in_(PERFIS_GESTAO_ITM), Usuario.status == 'Ativo').all()
+
+
+# ------------------------------------------------------------------------------ desistências
+def pode_decidir_desistencia(usuario, desistencia):
+    """Confirma, recusa ou reativa: gestão ITM, ou o gestor B2B da empresa do jovem."""
+    if usuario.tipo_usuario in PERFIS_GESTAO_ITM:
+        return True
+    if usuario.tipo_usuario == 'Admin B2B':
+        geridas = {e.id for e in usuario.empresas_gerenciadas or []}
+        return bool(geridas & set(json.loads(desistencia.empresas or '[]')))
+    return False
+
+
+def desistencias_visiveis(usuario):
+    from models import Desistencia
+    todas = Desistencia.query.order_by(Desistencia.solicitado_em.desc()).all()
+    if usuario.tipo_usuario in PERFIS_GESTAO_ITM:
+        return todas
+    visiveis = ids_jovens_visiveis(usuario) or set()
+    def ve(d):
+        vinc = json.loads(d.vinculos or '{}')
+        return (d.solicitado_por_id == usuario.id or d.usuario_id in visiveis or usuario.id in vinc.get('mentores', [])
+                or pode_decidir_desistencia(usuario, d))
+    return [d for d in todas if ve(d)]
+
+
+def confirmar_desistencia(desistencia, usuario, observacao=''):
+    """O jovem sai dos grupos, turmas e mentores (guardados para uma reativação), deixa de entrar na plataforma,
+    de contar na frequência e nos indicadores e não recebe certificado. Avisa mentores, gestor B2B e gestão ITM."""
+    aluno = desistencia.usuario
+    vinculos = {'grupos': [g.id for g in aluno.grupos], 'turmas': [t.id for t in aluno.turmas_como_aluno],
+                'mentores': [m.id for m in aluno.mentores]}
+    mentores = list(aluno.mentores)
+    for grupo in list(aluno.grupos):
+        grupo.membros.remove(aluno)
+    for turma in list(aluno.turmas_como_aluno):
+        turma.alunos.remove(aluno)
+    aluno.mentores = []
+    aluno.status = 'Desistente'
+    desistencia.vinculos = json.dumps(vinculos)
+    desistencia.status, desistencia.decidido_por_id, desistencia.decidido_em = 'Confirmada', usuario.id, datetime.utcnow()
+    desistencia.observacao_decisao = observacao or None
+    db.session.commit()
+    avisados = mentores + gestores_b2b_das_empresas(json.loads(desistencia.empresas or '[]')) + gestao_itm_ativa()
+    notificar([p for p in avisados if p.id != usuario.id], ('notif_desistencia_titulo', {'nome': aluno.nome}),
+              ('notif_desistencia_msg', {'nome': aluno.nome, 'data': desistencia.data_saida.strftime('%d/%m/%Y'), 'categoria': desistencia.categoria}),
+              link=url_for('desistencias'), tipo='desistencia', referencia=f"desistencia:{desistencia.id}",
+              por_email=not eh_conta_de_teste(aluno))
+
+
+def reativar_jovem(desistencia, usuario):
+    """Volta o jovem aos mesmos grupos, turmas e mentores (os que ainda existem) e libera o acesso."""
+    from models import Grupo as _Grupo
+    aluno = desistencia.usuario
+    vinculos = json.loads(desistencia.vinculos or '{}')
+    for grupo in _Grupo.query.filter(_Grupo.id.in_(vinculos.get('grupos') or [-1])).all():
+        if aluno not in grupo.membros:
+            grupo.membros.append(aluno)
+    for turma in Turma.query.filter(Turma.id.in_(vinculos.get('turmas') or [-1])).all():
+        if aluno not in turma.alunos:
+            turma.alunos.append(aluno)
+    for mentor in Usuario.query.filter(Usuario.id.in_(vinculos.get('mentores') or [-1])).all():
+        if mentor not in aluno.mentores:
+            aluno.mentores.append(mentor)
+    aluno.status = 'Ativo'
+    desistencia.status, desistencia.revertido_por_id, desistencia.revertido_em = 'Revertida', usuario.id, datetime.utcnow()
+    db.session.commit()
+
+
+@app.route('/desistencias', methods=['GET', 'POST'])
+@login_required
+def desistencias():
+    from models import Desistencia
+    bloqueio = _somente_equipe()
+    if bloqueio:
+        return bloqueio
+    idioma = current_user.idioma
+    if request.method == 'POST':
+        aluno = db.session.get(Usuario, request.form.get('aluno_id', type=int) or 0)
+        categoria = request.form.get('categoria')
+        motivo = (request.form.get('motivo') or '').strip()
+        try:
+            data_saida = datetime.strptime(request.form.get('data_saida') or '', '%Y-%m-%d').date()
+        except ValueError:
+            data_saida = None
+        if not aluno or aluno.tipo_usuario != 'Aluno' or not pode_ver_jovem(current_user, aluno):
+            flash(tt('Escolha um jovem que você acompanha.', idioma), 'warning')
+        elif aluno.status == 'Desistente' or Desistencia.query.filter_by(usuario_id=aluno.id, status='Solicitada').first():
+            flash(tt('Este jovem já tem uma desistência registrada.', idioma), 'warning')
+        elif categoria not in CATEGORIAS_DESISTENCIA or len(motivo) < 10 or not data_saida or data_saida > datetime.now().date():
+            flash(tt('Informe a data de saída (até hoje), o motivo (mínimo de 10 caracteres) e a categoria.', idioma), 'warning')
+        else:
+            pedido = Desistencia(usuario_id=aluno.id, categoria=categoria, motivo=motivo[:2000], data_saida=data_saida,
+                                 solicitado_por_id=current_user.id, empresas=json.dumps(empresas_do_jovem(aluno)))
+            db.session.add(pedido)
+            db.session.commit()
+            if pode_decidir_desistencia(current_user, pedido) and request.form.get('confirmar_agora'):
+                confirmar_desistencia(pedido, current_user, 'Registrada e confirmada pela gestão.')
+                flash(tt('Desistência registrada e confirmada: o jovem saiu do grupo e da turma.', idioma), 'success')
+            else:
+                confirmadores = gestores_b2b_das_empresas(json.loads(pedido.empresas)) + gestao_itm_ativa()
+                notificar([p for p in confirmadores if p.id != current_user.id], ('notif_desistencia_pedido_titulo', {'nome': aluno.nome}),
+                          ('notif_desistencia_pedido_msg', {'autor': current_user.nome, 'nome': aluno.nome}),
+                          link=url_for('desistencias'), tipo='desistencia', referencia=f"desistencia-pedido:{pedido.id}",
+                          por_email=not eh_conta_de_teste(aluno))
+                flash(tt('Pedido de desistência registrado: a gestão foi avisada para confirmar.', idioma), 'success')
+        return redirect(url_for('desistencias'))
+    lista = desistencias_visiveis(current_user)
+    return render_template('desistencias.html', desistencias=lista, jovens=[j for j in jovens_da_equipe(current_user)],
+                           categorias=CATEGORIAS_DESISTENCIA, hoje=datetime.now().date(),
+                           pode_decidir=lambda d: pode_decidir_desistencia(current_user, d),
+                           decide_algo=current_user.tipo_usuario in PERFIS_GESTAO_ITM + ['Admin B2B'])
+
+
+@app.route('/desistencias/<int:id>/decidir', methods=['POST'])
+@login_required
+def decidir_desistencia(id):
+    from models import Desistencia
+    bloqueio = _somente_equipe()
+    if bloqueio:
+        return bloqueio
+    idioma = current_user.idioma
+    desistencia = db.session.get(Desistencia, id)
+    if not desistencia or not pode_decidir_desistencia(current_user, desistencia):
+        flash("Acesso negado.", "danger")
+        return redirect(url_for('desistencias'))
+    acao, observacao = request.form.get('acao'), (request.form.get('observacao') or '').strip()[:1000]
+    if acao == 'confirmar' and desistencia.status == 'Solicitada':
+        confirmar_desistencia(desistencia, current_user, observacao)
+        flash(tt('Desistência confirmada: o jovem saiu do grupo e da turma.', idioma), 'success')
+    elif acao == 'recusar' and desistencia.status == 'Solicitada':
+        desistencia.status, desistencia.decidido_por_id, desistencia.decidido_em = 'Recusada', current_user.id, datetime.utcnow()
+        desistencia.observacao_decisao = observacao or None
+        db.session.commit()
+        if desistencia.solicitado_por:
+            notificar([desistencia.solicitado_por], ('notif_desistencia_recusada_titulo', {'nome': desistencia.usuario.nome}),
+                      ('notif_desistencia_recusada_msg', {'nome': desistencia.usuario.nome, 'obs': observacao or '—'}),
+                      link=url_for('desistencias'), tipo='desistencia', referencia=f"desistencia-recusa:{desistencia.id}",
+                      por_email=not eh_conta_de_teste(desistencia.usuario))
+        flash(tt('Pedido de desistência recusado.', idioma), 'info')
+    elif acao == 'reativar' and desistencia.status == 'Confirmada':
+        reativar_jovem(desistencia, current_user)
+        flash(tt('Jovem reativado: voltou aos grupos, turmas e mentores de antes.', idioma), 'success')
+    return redirect(url_for('desistencias'))
+
+
+# ------------------------------------------------------------------------------ ocorrências
+def pode_ver_ocorrencia(usuario, ocorrencia):
+    if usuario.tipo_usuario in PERFIS_GESTAO_ITM or usuario.id in (ocorrencia.registrado_por_id, ocorrencia.responsavel_id):
+        return True
+    return usuario.tipo_usuario in PERFIS_EQUIPE and pode_ver_jovem(usuario, ocorrencia.aluno)
+
+
+def pode_tratar_ocorrencia(usuario, ocorrencia):
+    """Mudar o status (inclusive resolver): o responsável, quem registrou e a gestão ITM."""
+    return usuario.tipo_usuario in PERFIS_GESTAO_ITM or usuario.id in (ocorrencia.registrado_por_id, ocorrencia.responsavel_id)
+
+
+def sinal_ocorrencia(ocorrencia, hoje=None):
+    """Sinal de pendência de retorno: vermelho (prazo vencido sem retorno do responsável), amarelo (vencendo),
+    azul (responsável já respondeu, em tratativa), cinza (aguardando, no prazo), verde (resolvida)."""
+    from regras_negocio import regra
+    hoje = hoje or datetime.now().date()
+    if ocorrencia.status == 'Resolvida':
+        return {'chave': 'resolvida', 'cor': 'success', 'texto': 'Resolvida'}
+    respondeu = any(r.autor_id == ocorrencia.responsavel_id and r.tipo in ('Retorno', 'Ação') for r in ocorrencia.registros)
+    if respondeu:
+        return {'chave': 'em_tratativa', 'cor': 'primary', 'texto': 'Em tratativa'}
+    if ocorrencia.prazo_resposta < hoje:
+        return {'chave': 'atrasada', 'cor': 'danger', 'texto': 'Retorno atrasado'}
+    if (ocorrencia.prazo_resposta - hoje).days <= int(regra('ocorrencia_alerta_dias')):
+        return {'chave': 'vence', 'cor': 'warning', 'texto': 'Retorno vence em breve'}
+    return {'chave': 'aguardando', 'cor': 'secondary', 'texto': 'Aguardando retorno'}
+
+
+def ocorrencias_visiveis(usuario):
+    from models import Ocorrencia
+    return [o for o in Ocorrencia.query.order_by(Ocorrencia.criado_em.desc()).all() if pode_ver_ocorrencia(usuario, o)]
+
+
+def ocorrencias_pendentes_para(usuario):
+    """Para o alerta do painel: abertas com retorno atrasado ou vencendo que a pessoa precisa olhar."""
+    if usuario.tipo_usuario not in PERFIS_EQUIPE:
+        return []
+    saida = []
+    for o in ocorrencias_visiveis(usuario):
+        sinal = sinal_ocorrencia(o)
+        if sinal['chave'] in ('atrasada', 'vence') and (usuario.tipo_usuario in PERFIS_GESTAO_ITM
+                                                       or usuario.id in (o.responsavel_id, o.registrado_por_id)):
+            saida.append((o, sinal))
+    return saida
+
+
+def _avisar_ocorrencia(ocorrencia, autor, titulo, mensagem, referencia):
+    pessoas = [ocorrencia.responsavel, ocorrencia.registrado_por] + list(ocorrencia.aluno.mentores) + \
+        gestores_b2b_das_empresas(empresas_do_jovem(ocorrencia.aluno)) + [r.autor for r in ocorrencia.registros]
+    notificar([p for p in pessoas if p and p.id != autor.id and p.status == 'Ativo'], titulo, mensagem,
+              link=url_for('detalhe_ocorrencia', id=ocorrencia.id), tipo='ocorrencia', referencia=referencia,
+              por_email=not eh_conta_de_teste(ocorrencia.aluno))
+
+
+@app.route('/ocorrencias')
+@login_required
+def ocorrencias():
+    bloqueio = _somente_equipe()
+    if bloqueio:
+        return bloqueio
+    hoje = datetime.now().date()
+    lista = [(o, sinal_ocorrencia(o, hoje)) for o in ocorrencias_visiveis(current_user)]
+    contagem = {c: sum(1 for _, s in lista if s['chave'] == c) for c in ('atrasada', 'vence', 'aguardando', 'em_tratativa', 'resolvida')}
+    filtro = request.args.get('sinal', 'abertas')
+    if filtro == 'abertas':
+        lista = [(o, s) for o, s in lista if s['chave'] != 'resolvida']
+    elif filtro in contagem:
+        lista = [(o, s) for o, s in lista if s['chave'] == filtro]
+    aluno_id = request.args.get('aluno_id', type=int)
+    if aluno_id:
+        lista = [(o, s) for o, s in lista if o.aluno_id == aluno_id]
+    ordem = {'atrasada': 0, 'vence': 1, 'aguardando': 2, 'em_tratativa': 3, 'resolvida': 4}
+    lista.sort(key=lambda par: (ordem[par[1]['chave']], par[0].prazo_resposta))
+    return render_template('ocorrencias.html', ocorrencias=lista, contagem=contagem, filtro=filtro, aluno_id=aluno_id,
+                           jovens=jovens_da_equipe(current_user, incluir_desistentes=True))
+
+
+@app.route('/ocorrencias/nova', methods=['GET', 'POST'])
+@login_required
+def nova_ocorrencia():
+    from models import Ocorrencia
+    from regras_negocio import regra
+    bloqueio = _somente_equipe()
+    if bloqueio:
+        return bloqueio
+    idioma = current_user.idioma
+    if request.method == 'POST':
+        f = request.form
+        aluno = db.session.get(Usuario, f.get('aluno_id', type=int) or 0)
+        responsavel = db.session.get(Usuario, f.get('responsavel_id', type=int) or 0)
+        descricao = (f.get('descricao') or '').strip()
+        try:
+            prazo = datetime.strptime(f.get('prazo_resposta') or '', '%Y-%m-%d').date()
+        except ValueError:
+            prazo = None
+        if not aluno or aluno.tipo_usuario != 'Aluno' or not pode_ver_jovem(current_user, aluno):
+            flash(tt('Escolha um jovem que você acompanha.', idioma), 'warning')
+        elif not responsavel or responsavel.tipo_usuario not in PERFIS_EQUIPE or responsavel.status != 'Ativo':
+            flash(tt('Escolha quem deve dar o retorno (equipe ITM ou B2B).', idioma), 'warning')
+        elif (f.get('categoria') not in CATEGORIAS_OCORRENCIA or f.get('contexto') not in CONTEXTOS_OCORRENCIA
+              or f.get('gravidade') not in GRAVIDADES_OCORRENCIA or len(descricao) < 10 or not prazo or prazo < datetime.now().date()):
+            flash(tt('Preencha categoria, contexto, gravidade, o que foi observado (mínimo de 10 caracteres) e um prazo a partir de hoje.', idioma), 'warning')
+        else:
+            ocorrencia = Ocorrencia(aluno_id=aluno.id, registrado_por_id=current_user.id, categoria=f['categoria'], contexto=f['contexto'],
+                                    gravidade=f['gravidade'], descricao=descricao[:4000], acoes=(f.get('acoes') or '').strip()[:4000] or None,
+                                    responsavel_id=responsavel.id, prazo_resposta=prazo)
+            db.session.add(ocorrencia)
+            db.session.commit()
+            _avisar_ocorrencia(ocorrencia, current_user, ('notif_ocorrencia_titulo', {'nome': aluno.nome, 'categoria': ocorrencia.categoria}),
+                               ('notif_ocorrencia_msg', {'autor': current_user.nome, 'responsavel': responsavel.nome,
+                                                         'prazo': prazo.strftime('%d/%m/%Y')}), f"ocorrencia:{ocorrencia.id}")
+            flash(tt('Ocorrência registrada: o responsável e quem acompanha o jovem foram avisados.', idioma), 'success')
+            return redirect(url_for('detalhe_ocorrencia', id=ocorrencia.id))
+    prazo_padrao = datetime.now().date() + timedelta(days=int(regra('ocorrencia_prazo_dias')))
+    return render_template('ocorrencia_form.html', jovens=jovens_da_equipe(current_user), equipe=equipe_ativa(),
+                           categorias=CATEGORIAS_OCORRENCIA, contextos=CONTEXTOS_OCORRENCIA, gravidades=GRAVIDADES_OCORRENCIA,
+                           prazo_padrao=prazo_padrao, aluno_inicial=request.args.get('aluno_id', type=int), hoje=datetime.now().date())
+
+
+@app.route('/ocorrencias/<int:id>', methods=['GET', 'POST'])
+@login_required
+def detalhe_ocorrencia(id):
+    from models import Ocorrencia, OcorrenciaRegistro
+    bloqueio = _somente_equipe()
+    if bloqueio:
+        return bloqueio
+    idioma = current_user.idioma
+    ocorrencia = db.session.get(Ocorrencia, id)
+    if not ocorrencia or not pode_ver_ocorrencia(current_user, ocorrencia):
+        flash("Acesso negado.", "danger")
+        return redirect(url_for('ocorrencias'))
+    if request.method == 'POST':
+        acao = request.form.get('acao')
+        texto = (request.form.get('texto') or '').strip()[:4000]
+        if acao == 'registrar':
+            tipo = request.form.get('tipo') if request.form.get('tipo') in ('Retorno', 'Ação', 'Comentário') else 'Comentário'
+            if len(texto) < 3 or ocorrencia.status == 'Resolvida':
+                flash(tt('Escreva o retorno (a ocorrência precisa estar aberta).', idioma), 'warning')
+            else:
+                db.session.add(OcorrenciaRegistro(ocorrencia_id=ocorrencia.id, autor_id=current_user.id, tipo=tipo, texto=texto))
+                if current_user.id == ocorrencia.responsavel_id and ocorrencia.status == 'Aberta' and tipo in ('Retorno', 'Ação'):
+                    ocorrencia.status = 'Em tratativa'
+                db.session.commit()
+                _avisar_ocorrencia(ocorrencia, current_user, ('notif_ocorrencia_registro_titulo', {'nome': ocorrencia.aluno.nome, 'tipo': tipo}),
+                                   ('notif_ocorrencia_registro_msg', {'autor': current_user.nome, 'texto': texto[:200]}),
+                                   f"ocorrencia-registro:{ocorrencia.id}:{len(ocorrencia.registros)}")
+                flash(tt('Registro adicionado à ocorrência.', idioma), 'success')
+        elif acao in ('resolver', 'reabrir') and pode_tratar_ocorrencia(current_user, ocorrencia):
+            if acao == 'resolver' and len(texto) < 10:
+                flash(tt('Para resolver, descreva o desfecho (mínimo de 10 caracteres).', idioma), 'warning')
+            else:
+                novo = 'Resolvida' if acao == 'resolver' else 'Em tratativa'
+                ocorrencia.status = novo
+                ocorrencia.resolvido_em = datetime.utcnow() if novo == 'Resolvida' else None
+                db.session.add(OcorrenciaRegistro(ocorrencia_id=ocorrencia.id, autor_id=current_user.id, tipo='Status',
+                                                  texto=f"{novo}: {texto}" if texto else novo))
+                db.session.commit()
+                _avisar_ocorrencia(ocorrencia, current_user, ('notif_ocorrencia_status_titulo', {'nome': ocorrencia.aluno.nome, 'status': novo}),
+                                   ('notif_ocorrencia_status_msg', {'autor': current_user.nome, 'texto': texto[:200] or '—'}),
+                                   f"ocorrencia-status:{ocorrencia.id}:{len(ocorrencia.registros)}")
+                flash(tt('Ocorrência atualizada.', idioma), 'success')
+        return redirect(url_for('detalhe_ocorrencia', id=ocorrencia.id))
+    return render_template('ocorrencia_detalhe.html', ocorrencia=ocorrencia, sinal=sinal_ocorrencia(ocorrencia),
+                           pode_tratar=pode_tratar_ocorrencia(current_user, ocorrencia))
+
+
+# ==============================================================================
 # ROTAS: NOTIFICAÇÕES DO USUÁRIO (histórico do sino e preferência de e-mail)
 # ==============================================================================
 @app.route('/notificacoes', methods=['GET', 'POST'])
@@ -3077,7 +3442,136 @@ def exportar_relatorio_esg_pdf():
 # O @app.before_request age como um segurança de porta: ele roda ANTES de qualquer página abrir
 # Versão vigente do Termo de Adesão (Lei 9.608/98). Mudar a versão obriga todos a assinar de novo.
 VERSAO_TERMO_ATUAL = "2.0 - Lei 9.608/98"
-TERMO_ORGANIZACAO = "Aon / Instituto ITM"
+TERMO_ORGANIZACAO = "Instituto ITM e empresas parceiras (B2B)"  # padrão; o termo usa o nome do parceiro de cada pessoa
+
+
+PARCEIRO_PADRAO = 'empresa parceira (B2B)'
+
+
+def empresas_parceiras(objeto):
+    """Empresas parceiras (B2B) de uma pessoa, de um projeto (as dos jovens do grupo) ou de uma turma.
+    O programa atende vários parceiros: use isto (ou nome_parceiro_b2b) em vez de qualquer nome fixo."""
+    empresas = set()
+    if objeto is None:
+        return []
+    if isinstance(objeto, Empresa):
+        empresas.add(objeto)
+    elif isinstance(objeto, Turma):
+        if objeto.empresa:
+            empresas.add(objeto.empresa)
+    elif isinstance(objeto, Projeto):
+        for membro in (objeto.grupo.membros if objeto.grupo else []):
+            if membro.tipo_usuario == 'Aluno':
+                empresas.update(empresas_parceiras(membro))
+    else:
+        empresas.update(getattr(objeto, 'empresas_gerenciadas', None) or [])
+        empresas.update(getattr(objeto, 'empresas_vinculadas', None) or [])
+        for turma in (getattr(objeto, 'turmas_como_aluno', None) or []) + (getattr(objeto, 'turmas_como_mentor', None) or []):
+            if turma.empresa:
+                empresas.add(turma.empresa)
+        perfil = getattr(objeto, 'perfil_avaliador', None)
+        if perfil and perfil.empresa_origem:
+            igual = Empresa.query.filter(db.func.lower(Empresa.nome) == perfil.empresa_origem.strip().lower()).first()
+            if igual:
+                empresas.add(igual)
+    return sorted(empresas, key=lambda e: e.nome)
+
+
+def nome_parceiro_b2b(objeto, padrao=PARCEIRO_PADRAO):
+    """Variável do nome do parceiro B2B para telas e textos: '{{ nome_parceiro_b2b(current_user) }}',
+    '{{ nome_parceiro_b2b(projeto) }}' ou nome_parceiro_b2b(turma) no Python. Vários parceiros saem separados por vírgula."""
+    nomes = [e.nome for e in empresas_parceiras(objeto)]
+    perfil = getattr(objeto, 'perfil_avaliador', None)
+    if perfil and perfil.empresa_origem and perfil.empresa_origem.strip().lower() not in {n.lower() for n in nomes}:
+        nomes.append(perfil.empresa_origem.strip())  # avaliador de empresa ainda não cadastrada como parceira
+    return ', '.join(nomes) if nomes else padrao
+
+
+def parceiros_do_usuario(usuario):
+    nome = nome_parceiro_b2b(usuario, '')
+    return [n.strip() for n in nome.split(',') if n.strip()]
+
+
+def parceiros_do_projeto(projeto):
+    return [e.nome for e in empresas_parceiras(projeto)]
+
+
+def organizacao_do_termo(usuario):
+    parceiros = parceiros_do_usuario(usuario)
+    return f"Instituto ITM e {', '.join(parceiros)}" if parceiros else TERMO_ORGANIZACAO
+
+
+# Disponível em qualquer tela: {{ nome_parceiro_b2b(current_user) }}, {{ nome_parceiro_b2b(projeto) }}, empresas_parceiras(...)
+app.jinja_env.globals.update(nome_parceiro_b2b=nome_parceiro_b2b, empresas_parceiras=empresas_parceiras)
+
+# ------------------------------------------------------------------------------ logo do parceiro B2B (vai no certificado)
+PASTA_LOGOS = os.path.join(app.root_path, 'uploads', 'logos')
+FORMATOS_LOGO = {'png': b'\x89PNG\r\n\x1a\n', 'jpg': b'\xff\xd8\xff', 'jpeg': b'\xff\xd8\xff', 'webp': b'RIFF'}
+LIMITE_LOGO_BYTES = 2 * 1024 * 1024
+
+
+def _apagar_logo(caminho):
+    """Apaga o arquivo antigo; se estiver em uso (Windows), fica para trás sem quebrar a tela — o banco já não aponta para ele."""
+    try:
+        if caminho and os.path.exists(caminho):
+            os.remove(caminho)
+    except OSError as erro:
+        app.logger.warning("Logo antigo não apagado (%s): %s", caminho, erro)
+
+
+def pode_gerir_logo(usuario, empresa):
+    return usuario.tipo_usuario in ['Administrador', 'Mentor Administrador'] or (
+        usuario.tipo_usuario == 'Admin B2B' and empresa.gestor_id == usuario.id)
+
+
+@app.route('/empresas/<int:id>/logo')
+def logo_empresa(id):
+    """Imagem pública do logo (aparece também na verificação pública do certificado)."""
+    empresa = db.session.get(Empresa, id)
+    if not empresa or not empresa.logo_arquivo:
+        return ('', 404)
+    caminho = os.path.join(PASTA_LOGOS, os.path.basename(empresa.logo_arquivo))
+    if not os.path.exists(caminho):
+        return ('', 404)
+    resposta = send_file(caminho, max_age=3600)
+    resposta.headers['X-Content-Type-Options'] = 'nosniff'
+    return resposta
+
+
+@app.route('/empresas/<int:id>/logo/enviar', methods=['POST'])
+@login_required
+def enviar_logo_empresa(id):
+    """Envia, troca ou remove o logo. Só PNG, JPG ou WEBP (SVG não: pode carregar script), até 2 MB, conferindo o conteúdo."""
+    idioma = current_user.idioma
+    empresa = db.session.get(Empresa, id)
+    if not empresa or not pode_gerir_logo(current_user, empresa):
+        flash("Acesso negado.", "danger")
+        return voltar('gerenciar_turmas')
+    antigo = os.path.join(PASTA_LOGOS, os.path.basename(empresa.logo_arquivo)) if empresa.logo_arquivo else None
+    if request.form.get('acao') == 'remover':
+        empresa.logo_arquivo = None
+        db.session.commit()
+        _apagar_logo(antigo)
+        flash(tt('Logo removido.', idioma), 'info')
+        return voltar('gerenciar_turmas')
+    arquivo = request.files.get('logo')
+    extensao = (arquivo.filename.rsplit('.', 1)[-1].lower() if arquivo and '.' in arquivo.filename else '')
+    conteudo = arquivo.read(LIMITE_LOGO_BYTES + 1) if arquivo else b''
+    assinatura = FORMATOS_LOGO.get(extensao)
+    if not assinatura or not conteudo.startswith(assinatura) or (extensao == 'webp' and conteudo[8:12] != b'WEBP'):
+        flash(tt('Envie o logo em PNG, JPG ou WEBP.', idioma), 'warning')
+    elif len(conteudo) > LIMITE_LOGO_BYTES:
+        flash(tt('O logo deve ter no máximo 2 MB.', idioma), 'warning')
+    else:
+        os.makedirs(PASTA_LOGOS, exist_ok=True)
+        nome = f"empresa_{empresa.id}_{secrets.token_hex(6)}.{'jpg' if extensao == 'jpeg' else extensao}"
+        with open(os.path.join(PASTA_LOGOS, nome), 'wb') as f:
+            f.write(conteudo)
+        empresa.logo_arquivo = nome
+        db.session.commit()
+        _apagar_logo(antigo)
+        flash(tt('Logo do parceiro atualizado: ele aparece nos certificados dos participantes desta empresa.', idioma), 'success')
+    return voltar('gerenciar_turmas')
 TERMO_PROJETO = "Jovem Seguro 2026"
 
 # Perfis que precisam concluir a trilha de orientação do TCC antes de usar a plataforma
@@ -3142,7 +3636,7 @@ def onboarding():
     # Se aluno cair aqui por acidente, manda de volta ao painel
     if current_user.tipo_usuario == 'Aluno':
         return redirect(url_for('dashboard'))
-    return render_template('onboarding.html', versao_termo=VERSAO_TERMO_ATUAL, organizacao=TERMO_ORGANIZACAO,
+    return render_template('onboarding.html', versao_termo=VERSAO_TERMO_ATUAL, organizacao=organizacao_do_termo(current_user),
                            projeto=TERMO_PROJETO, data_hoje=datetime.now().strftime('%d/%m/%Y'))
 
 # Rota de gravação da assinatura
@@ -3334,7 +3828,10 @@ def emitir_certificado(projeto_id, usuario_id):
 
     certificado = registrar_certificado(usuario, projeto, tipo)
     detalhe = json.loads(certificado.detalhe_minutos or '{}')
+    # Logos dos parceiros B2B: a empresa da própria pessoa (mentor, avaliador) e as dos jovens do projeto
+    logos = [e for e in dict.fromkeys(empresas_parceiras(usuario) + empresas_parceiras(projeto)) if e.logo_arquivo]
     return render_template('certificado.html', projeto=projeto, usuario=usuario, certificado=certificado, detalhe=detalhe,
+                           logos_parceiros=logos, nome_parceiro=nome_parceiro_b2b(projeto),
                            data_emissao=certificado.data_emissao.strftime('%d/%m/%Y'),
                            url_verificacao=url_for('verificar_certificado', codigo=certificado.codigo, _external=True))
 
@@ -5593,7 +6090,9 @@ def verificar_certificado(codigo):
     """Página pública: confirma a autenticidade sem expor e-mail nem dados sensíveis."""
     from models import CertificadoEmitido
     certificado = CertificadoEmitido.query.filter_by(codigo=(codigo or '').upper()).first()
-    return render_template('certificado_verificar.html', certificado=certificado, codigo=codigo)
+    parceiros = parceiros_do_projeto(certificado.projeto) if certificado and certificado.projeto else []
+    return render_template('certificado_verificar.html', certificado=certificado, codigo=codigo,
+                           parceiros=', '.join(parceiros) or 'empresas parceiras (B2B)')
 
 
 # ------------------------------------------------------------------------------
@@ -5791,7 +6290,7 @@ def baixar_acervo(id, tipo):
 
 @app.route('/repositorio')
 def repositorio_publico():
-    """Acervo aberto (sem login) para o Instituto Aon, o ITM e o mercado: só TCCs públicos e autorizados."""
+    """Acervo aberto (sem login) para o Instituto ITM, as empresas parceiras (B2B) e o mercado: só TCCs públicos e autorizados."""
     from models import TCCAcervo
     busca = (request.args.get('q') or '').strip().lower()
     itens = TCCAcervo.query.filter_by(visibilidade='Pública', autorizacao_publicacao=True).order_by(TCCAcervo.ano_edicao.desc(), TCCAcervo.titulo).all()
@@ -7209,7 +7708,7 @@ def atualizar_estrutura_banco():
         "ALTER TABLE projeto ADD COLUMN nota_apresentacao FLOAT",
         "ALTER TABLE empresa ADD COLUMN contato_sec_nome VARCHAR(150)",
         "ALTER TABLE empresa ADD COLUMN contato_sec_email VARCHAR(150)",
-        # Adequações Aon/ITM
+        # Adequações ITM/B2B
         "ALTER TABLE usuario ADD COLUMN modalidade_participacao VARCHAR(20) DEFAULT 'Presencial'",
         "ALTER TABLE usuario ADD COLUMN receber_email BOOLEAN DEFAULT 1",
         "ALTER TABLE checkin_voluntariado ADD COLUMN grupo_id INTEGER REFERENCES grupo(id)",
@@ -7235,7 +7734,8 @@ def atualizar_estrutura_banco():
         "ALTER TABLE reuniao_institucional ADD COLUMN convite_enviado_em DATETIME",
         "ALTER TABLE reuniao_institucional ADD COLUMN convite_enviado_via VARCHAR(20)",
         "ALTER TABLE reuniao_institucional ADD COLUMN convite_destinatarios TEXT",
-        "ALTER TABLE reuniao_institucional ADD COLUMN empresa_id INTEGER REFERENCES empresa(id)"
+        "ALTER TABLE reuniao_institucional ADD COLUMN empresa_id INTEGER REFERENCES empresa(id)",
+        "ALTER TABLE empresa ADD COLUMN logo_arquivo VARCHAR(255)"
     ]
     
     for comando in colunas_novas:

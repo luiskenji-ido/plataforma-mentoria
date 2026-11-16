@@ -22,6 +22,20 @@
 </div>
 {% endif %}
 
+<!-- OCORRÊNCIAS COM RETORNO PENDENTE (sinal vermelho = atrasado, amarelo = vence em breve) -->
+{% if ocorrencias_alerta %}
+<div class="alert alert-warning shadow-sm border-start border-4 border-warning" id="alertaOcorrencias">
+    <strong><i class="bi bi-exclamation-triangle"></i> {{ ocorrencias_alerta|length }} {{ tt('ocorrência(s) com retorno pendente') }}</strong>
+    <ul class="mb-0 small mt-1">
+        {% for o, s in ocorrencias_alerta[:5] %}
+        <li><span class="badge bg-{{ s.cor }}{{ ' text-dark' if s.cor == 'warning' else '' }}">{{ tt(s.texto) }}</span>
+            <a href="{{ url_for('detalhe_ocorrencia', id=o.id) }}" class="alert-link">{{ o.aluno.nome }} · {{ tt(o.categoria) }}</a>
+            · {{ o.responsavel.nome }} · {{ o.prazo_resposta.strftime('%d/%m/%Y') }}</li>
+        {% endfor %}
+    </ul>
+</div>
+{% endif %}
+
 <!-- ATIVIDADE EXTRA DO GRUPO ACONTECENDO AGORA (check-in/out de jovens e mentores) -->
 {% for a in atividades_agora or [] %}
 {% set minha = (minhas_presencas_agora or {}).get(a.id) %}

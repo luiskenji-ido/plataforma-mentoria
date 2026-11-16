@@ -69,6 +69,11 @@ def no_idioma(texto, idioma):
     return texto
 
 
+def eh_conta_de_teste(usuario):
+    """Contas dos agentes de teste (@local.com): avisos sobre elas ficam só no sino, sem e-mail para pessoas reais."""
+    return (getattr(usuario, 'email', '') or '').lower().endswith('@local.com')
+
+
 def notificar(usuarios, titulo, mensagem, link=None, tipo='geral', referencia=None, por_email=True):
     """
     Cria a notificação para cada usuário (sem repetir pessoas) e envia o e-mail quando possível.

@@ -983,7 +983,7 @@ TEXTOS = {
     }
 }
 
-# Chaves das adequações Aon/ITM, mantidas em traducoes_adequacoes.py
+# Chaves das adequações ITM/B2B, mantidas em traducoes_adequacoes.py
 from traducoes_adequacoes import TEXTOS_ADEQUACOES
 for _idioma, _textos in TEXTOS_ADEQUACOES.items():
     TEXTOS[_idioma].update(_textos)

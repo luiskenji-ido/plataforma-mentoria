@@ -41,7 +41,7 @@ def _pk(db, tabela):
 
 def limpar(registrar=print):
     from sqlalchemy import text
-    from app import app, db, PASTA_TCC, PASTA_ACERVO
+    from app import app, db, PASTA_TCC, PASTA_ACERVO, PASTA_LOGOS
     with app.app_context():
         con = db.session.connection()
         filhos = _mapa_filhos(db)
@@ -80,6 +80,10 @@ def limpar(registrar=print):
             lista = ",".join(str(i) for i in apagar["tcc_acervo"])
             for r in con.execute(text(f"SELECT arquivo_pdf, arquivo_slides FROM tcc_acervo WHERE id IN ({lista})")):
                 arquivos += [os.path.join(PASTA_ACERVO, a) for a in r if a]
+
+        if apagar.get("empresa"):
+            lista = ",".join(str(i) for i in apagar["empresa"])
+            arquivos += [os.path.join(PASTA_LOGOS, r[0]) for r in con.execute(text(f"SELECT logo_arquivo FROM empresa WHERE id IN ({lista})")) if r[0]]
 
         # Associações (sem PK própria) que apontam para qualquer linha apagada
         total = 0

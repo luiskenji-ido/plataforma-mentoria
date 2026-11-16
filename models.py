@@ -397,6 +397,7 @@ class Empresa(db.Model):
     # Adicione estas duas linhas abaixo dos contatos principais:
     contato_sec_nome = db.Column(db.String(150), nullable=True)
     contato_sec_email = db.Column(db.String(150), nullable=True)
+    logo_arquivo = db.Column(db.String(255), nullable=True)  # logo do parceiro B2B (uploads/logos), usado no certificado
     status = db.Column(db.String(50), default='Ativa') # Ativa / Inativa
     
     # NOVA LIGAÇÃO 1: O Gestor Parceiro (Admin B2B)
@@ -468,7 +469,7 @@ class PerfilAvaliador(db.Model):
     empresa_origem = db.Column(db.String(150), default="Parceiro B2B")
     area_atuacao = db.Column(db.String(150))
     curriculo_minibio = db.Column(db.Text)
-    # Adequações Aon/ITM: ficha do executivo para a apresentação final
+    # Adequações ITM/B2B: ficha do executivo para a apresentação final
     nome_completo = db.Column(db.String(200), nullable=True)
     telefone = db.Column(db.String(40), nullable=True)
     linkedin = db.Column(db.String(300), nullable=True)
@@ -491,7 +492,7 @@ class CheckinVoluntariado(db.Model):
     total_minutos = db.Column(db.Integer, default=0)
     
     observacoes = db.Column(db.Text)
-    # Adequações Aon/ITM: com qual grupo foi o extra e se a hora é Regular ou Extra (fora do cronograma)
+    # Adequações ITM/B2B: com qual grupo foi o extra e se a hora é Regular ou Extra (fora do cronograma)
     grupo_id = db.Column(db.Integer, db.ForeignKey('grupo.id'), nullable=True)
     categoria = db.Column(db.String(20), default='Regular')
     # Lançamento gerado por uma reunião institucional (atualizado quando a reunião é editada)
@@ -1040,6 +1041,75 @@ class EstadoConhecimento(db.Model):
     chave = db.Column(db.String(60), primary_key=True)
     valor = db.Column(db.Text, nullable=True)
     atualizado_em = db.Column(db.DateTime, default=datetime.now)
+
+
+# ==============================================================================
+# JOVENS DESISTENTES: pedido (mentor/gestão) → confirmação da gestão → saída do grupo e da turma, com histórico
+# Os vínculos de antes ficam guardados (JSON) para a reativação devolver o jovem aos mesmos grupos, turmas e mentores.
+# ==============================================================================
+class Desistencia(db.Model):
+    __tablename__ = 'desistencia'
+    id = db.Column(db.Integer, primary_key=True)
+    usuario_id = db.Column(db.Integer, db.ForeignKey('usuario.id'), nullable=False, index=True)
+    categoria = db.Column(db.String(40), nullable=False)           # Pessoal, Estudos, Trabalho, Saúde, Mudança, Sem interesse, Outro
+    motivo = db.Column(db.Text, nullable=False)
+    data_saida = db.Column(db.Date, nullable=False)
+    status = db.Column(db.String(20), default='Solicitada')         # Solicitada / Confirmada / Recusada / Revertida
+    solicitado_por_id = db.Column(db.Integer, db.ForeignKey('usuario.id'), nullable=True)
+    solicitado_em = db.Column(db.DateTime, default=datetime.utcnow)
+    decidido_por_id = db.Column(db.Integer, db.ForeignKey('usuario.id'), nullable=True)
+    decidido_em = db.Column(db.DateTime, nullable=True)
+    observacao_decisao = db.Column(db.Text, nullable=True)
+    vinculos = db.Column(db.Text, nullable=True)                   # JSON {"grupos": [...], "turmas": [...], "mentores": [...]}
+    empresas = db.Column(db.Text, nullable=True)                   # JSON [ids] das empresas parceiras do jovem na saída
+    revertido_por_id = db.Column(db.Integer, db.ForeignKey('usuario.id'), nullable=True)
+    revertido_em = db.Column(db.DateTime, nullable=True)
+
+    usuario = db.relationship('Usuario', foreign_keys=[usuario_id])
+    solicitado_por = db.relationship('Usuario', foreign_keys=[solicitado_por_id])
+    decidido_por = db.relationship('Usuario', foreign_keys=[decidido_por_id])
+    revertido_por = db.relationship('Usuario', foreign_keys=[revertido_por_id])
+
+
+# ==============================================================================
+# OCORRÊNCIAS: o mentor (B2B ou ITM) relata o que observou sobre o jovem, as ações tomadas e quem deve dar retorno.
+# Cada ocorrência tem prazo de resposta; os sinais (amarelo/vermelho) mostram retornos pendentes para todos que acompanham.
+# ==============================================================================
+class Ocorrencia(db.Model):
+    __tablename__ = 'ocorrencia'
+    id = db.Column(db.Integer, primary_key=True)
+    aluno_id = db.Column(db.Integer, db.ForeignKey('usuario.id'), nullable=False, index=True)
+    registrado_por_id = db.Column(db.Integer, db.ForeignKey('usuario.id'), nullable=False)
+    categoria = db.Column(db.String(40), nullable=False)           # Progresso, Comportamento, Frequência, Entregas, Comunicação, Outro
+    contexto = db.Column(db.String(40), nullable=False)            # Sala de aula, Palestra, Mentoria, Banca, Online, Outro
+    gravidade = db.Column(db.String(10), default='Média')          # Baixa / Média / Alta
+    descricao = db.Column(db.Text, nullable=False)
+    acoes = db.Column(db.Text, nullable=True)                      # ações já tomadas por quem registrou
+    responsavel_id = db.Column(db.Integer, db.ForeignKey('usuario.id'), nullable=False)
+    prazo_resposta = db.Column(db.Date, nullable=False)
+    status = db.Column(db.String(20), default='Aberta')            # Aberta / Em tratativa / Resolvida
+    criado_em = db.Column(db.DateTime, default=datetime.utcnow)
+    atualizado_em = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    resolvido_em = db.Column(db.DateTime, nullable=True)
+    aviso_atraso_enviado = db.Column(db.Boolean, default=False)
+
+    aluno = db.relationship('Usuario', foreign_keys=[aluno_id])
+    registrado_por = db.relationship('Usuario', foreign_keys=[registrado_por_id])
+    responsavel = db.relationship('Usuario', foreign_keys=[responsavel_id])
+    registros = db.relationship('OcorrenciaRegistro', backref='ocorrencia', lazy=True, cascade='all, delete-orphan',
+                                order_by='OcorrenciaRegistro.criado_em')
+
+
+class OcorrenciaRegistro(db.Model):
+    """Linha do tempo da ocorrência: retornos (feedback), ações tomadas, comentários e mudanças de status."""
+    __tablename__ = 'ocorrencia_registro'
+    id = db.Column(db.Integer, primary_key=True)
+    ocorrencia_id = db.Column(db.Integer, db.ForeignKey('ocorrencia.id'), nullable=False, index=True)
+    autor_id = db.Column(db.Integer, db.ForeignKey('usuario.id'), nullable=False)
+    tipo = db.Column(db.String(20), default='Comentário')          # Retorno / Ação / Comentário / Status
+    texto = db.Column(db.Text, nullable=False)
+    criado_em = db.Column(db.DateTime, default=datetime.utcnow)
+    autor = db.relationship('Usuario')
 
 
 # ==============================================================================

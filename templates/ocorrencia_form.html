@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block title %}{{ tt('Registrar ocorrência') }}{% endblock %}
+{% block content %}
+<div class="container mt-2 mb-5" style="max-width: 900px;">
+    <a href="{{ url_for('ocorrencias') }}" class="small fw-bold text-decoration-none"><i class="bi bi-arrow-left"></i> {{ tt('Ocorrências') }}</a>
+    <h2 class="text-primary fw-bold mb-3 mt-1"><i class="bi bi-exclamation-triangle"></i> {{ tt('Registrar ocorrência') }}</h2>
+    <form method="POST" class="card shadow-sm border-0" id="formOcorrencia">
+        <div class="card-body row g-3">
+            <div class="col-md-6"><label class="form-label fw-bold" for="oAluno">{{ tt('Jovem') }}</label>
+                <select class="form-select" id="oAluno" name="aluno_id" required>
+                    <option value="">—</option>
+                    {% for j in jovens %}<option value="{{ j.id }}" {% if j.id == aluno_inicial %}selected{% endif %}>{{ j.nome }}</option>{% endfor %}
+                </select></div>
+            <div class="col-md-6"><label class="form-label fw-bold" for="oResponsavel">{{ tt('Quem deve dar o retorno') }}</label>
+                <select class="form-select" id="oResponsavel" name="responsavel_id" required>
+                    <option value="">—</option>
+                    {% for p in equipe %}<option value="{{ p.id }}">{{ p.nome }} · {{ p.tipo_usuario }}</option>{% endfor %}
+                </select></div>
+            <div class="col-md-4"><label class="form-label fw-bold" for="oCategoria">{{ tt('Categoria') }}</label>
+                <select class="form-select" id="oCategoria" name="categoria">{% for c in categorias %}<option value="{{ c }}">{{ tt(c) }}</option>{% endfor %}</select></div>
+            <div class="col-md-4"><label class="form-label fw-bold" for="oContexto">{{ tt('Onde foi observado') }}</label>
+                <select class="form-select" id="oContexto" name="contexto">{% for c in contextos %}<option value="{{ c }}">{{ tt(c) }}</option>{% endfor %}</select></div>
+            <div class="col-md-2"><label class="form-label fw-bold" for="oGravidade">{{ tt('Gravidade') }}</label>
+                <select class="form-select" id="oGravidade" name="gravidade">{% for g in gravidades %}<option value="{{ g }}" {% if g == 'Média' %}selected{% endif %}>{{ tt(g) }}</option>{% endfor %}</select></div>
+            <div class="col-md-2"><label class="form-label fw-bold" for="oPrazo">{{ tt('Prazo do retorno') }}</label>
+                <input type="date" class="form-control" id="oPrazo" name="prazo_resposta" value="{{ prazo_padrao.isoformat() }}" min="{{ hoje.isoformat() }}" required></div>
+            <div class="col-12"><label class="form-label fw-bold" for="oDescricao">{{ tt('O que foi observado') }}</label>
+                <textarea class="form-control" id="oDescricao" name="descricao" rows="4" minlength="10" required
+                          placeholder="{{ tt('Ex.: na palestra de terça o jovem não participou e não entregou a atividade; é a segunda semana seguida.') }}"></textarea></div>
+            <div class="col-12"><label class="form-label fw-bold" for="oAcoes">{{ tt('Ações já tomadas') }}</label>
+                <textarea class="form-control" id="oAcoes" name="acoes" rows="3" placeholder="{{ tt('Ex.: conversei com ele depois da aula e combinamos a entrega até sexta.') }}"></textarea></div>
+            <div class="col-12 form-text">{{ tt('O responsável, os mentores do jovem e o gestor B2B da empresa são avisados. O jovem não vê as ocorrências.') }}</div>
+        </div>
+        <div class="card-footer bg-white d-flex justify-content-end gap-2">
+            <a href="{{ url_for('ocorrencias') }}" class="btn btn-outline-secondary fw-bold">{{ tt('Cancelar') }}</a>
+            <button class="btn btn-primary fw-bold px-4" type="submit">{{ tt('Registrar ocorrência') }}</button>
+        </div>
+    </form>
+</div>
+{% endblock %}

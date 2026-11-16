@@ -12,6 +12,8 @@ from datetime import datetime, timedelta, date
 
 from base import (AgenteFuncional, FALHA, ALERTA, MARCA, DOMINIO, senha_forte, mensagens, RAIZ_PROJETO, regra_da_plataforma)
 
+# PNG de 1×1 pixel (logo do parceiro B2B)
+PNG_MINIMO = __import__("base64").b64decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==")
 PDF_MINIMO = (b"%PDF-1.4\n1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj 2 0 obj<</Type/Pages/Kids[3 0 R]/Count 1>>endobj "
               b"3 0 obj<</Type/Page/Parent 2 0 R/MediaBox[0 0 200 200]>>endobj\ntrailer<</Root 1 0 R>>\n%%EOF\n")
 
@@ -457,7 +459,8 @@ class AgenteMentorAdministrador(AgenteDoFluxo):
 class AgenteGestorParceiro(AgenteDoFluxo):
     chave, nome, perfil = "gestor_parceiro", "Agente Gestor Parceiro (Funcional)", "Admin B2B"
     ROTEIRO = ["Primeiro acesso: perguntas e termo", "Matriz de acesso do perfil",
-               "Regra: só vê a turma e a banca da sua empresa", "Regra: avaliador só da própria empresa", "Relatório ESG da empresa"]
+               "Regra: só vê a turma e a banca da sua empresa", "Regra: avaliador só da própria empresa", "Relatório ESG da empresa",
+               "Envia o logo da empresa para o certificado (só PNG/JPG/WEBP de verdade)"]
 
     def rodar(self):
         m = _modelos()
@@ -489,7 +492,29 @@ class AgenteGestorParceiro(AgenteDoFluxo):
         self.etapa("Relatório ESG")
         status, _, corpo = self.cliente.pedir("GET", "/admin/exportar-relatorio-esg")
         self.confere(status == 200, "Exporta o relatório ESG", "FLX", "Relatório gerado.", f"HTTP {status}.", "Relatório ESG da empresa", "Média")
+        self.logo_da_empresa()
         self.reportar_cobertura()
+
+    def logo_da_empresa(self):
+        """Logo do parceiro B2B no certificado: recusa SVG e arquivo disfarçado; aceita PNG de verdade e o serve sem login."""
+        m = _modelos()
+        empresa_id = self.contexto["ids"].get("empresa")
+        if not empresa_id:
+            return
+        self.etapa("Logo da empresa parceira (certificado)")
+        self.post(f"/empresas/{empresa_id}/logo/enviar", {}, {"logo": ("logo.svg", b"<svg xmlns='http://www.w3.org/2000/svg' onload='alert(1)'/>")})
+        self.post(f"/empresas/{empresa_id}/logo/enviar", {}, {"logo": ("logo.png", b"GIF89a arquivo disfarcado")})
+        indevido = self.banco(lambda: m.Empresa.query.get(empresa_id).logo_arquivo)
+        self.confere(indevido is None, "Recusa logo em SVG ou arquivo disfarçado", "VAL", "SVG e GIF com extensão .png recusados.",
+                     f"Gravou o arquivo {indevido}.", "Logo só em PNG, JPG ou WEBP conferidos pelo conteúdo", "Alta",
+                     "Em enviar_logo_empresa, conferir os bytes iniciais do arquivo (não só a extensão) e recusar SVG.")
+        self.post(f"/empresas/{empresa_id}/logo/enviar", {}, {"logo": ("logo.png", PNG_MINIMO)})
+        logo = self.banco(lambda: m.Empresa.query.get(empresa_id).logo_arquivo)
+        from base import Cliente
+        status, _, corpo = Cliente().pedir("GET", f"/empresas/{empresa_id}/logo")
+        self.confere(bool(logo) and status == 200 and "PNG" in corpo[:8], "Envia o logo da empresa para o certificado", "FLX",
+                     "Logo gravado e servido (sem login) para o certificado.", f"Logo: {logo}; HTTP {status} ao abrir a imagem.",
+                     "Parceiro B2B coloca o próprio logo no certificado", "Média", print_de="/admin/turmas")
 
 
 # ==============================================================================
@@ -561,7 +586,8 @@ class AgenteMentor(AgenteDoFluxo):
     ROTEIRO = ["Primeiro acesso: perguntas, termo e trilha do TCC", "Matriz de acesso do perfil",
                "Agenda uma sessão de mentoria com o aluno (notificação)", "Registra o parecer no acompanhamento",
                "Lança horas de voluntariado do TCC (ESG)", "Regra: lançamento no futuro é recusado",
-               'Regra: participante salva a reunião na agenda, mas não envia convite']
+               'Regra: participante salva a reunião na agenda, mas não envia convite',
+               "Registra ocorrência com responsável e prazo do retorno", "Pede a desistência de um jovem (a gestão confirma)"]
 
     def rodar(self):
         m = _modelos()
@@ -617,7 +643,49 @@ class AgenteMentor(AgenteDoFluxo):
                          "Dados para gráficos sob demanda", "FLX", f"{len(dados)} tipos de gráfico com as tarefas do projeto.",
                          "Séries dos gráficos vazias ou incompletas.", "Mentor gera gráficos do projeto para o acompanhamento", "Baixa")
         self.regra_reuniao(participante=True)
+        self.ocorrencia_e_desistencia()
         self.reportar_cobertura()
+
+    def ocorrencia_e_desistencia(self):
+        m = _modelos()
+        aluno1, aluno2, responsavel = self.usuario("aluno1"), self.usuario("aluno2"), self.usuario("mentoradmin")
+        self.etapa("Ocorrência sobre o jovem (retorno com prazo)")
+        base_form = {"aluno_id": aluno1["id"], "responsavel_id": responsavel["id"], "categoria": "Entregas", "contexto": "Mentoria",
+                     "gravidade": "Média", "acoes": "Conversa individual na mentoria."}
+        self.post("/ocorrencias/nova", dict(base_form, descricao=f"{MARCA} Prazo no passado não pode",
+                                            prazo_resposta=(date.today() - timedelta(days=1)).isoformat()))
+        indevida = self.banco(lambda: m.Ocorrencia.query.filter(m.Ocorrencia.descricao == f"{MARCA} Prazo no passado não pode").count())
+        self.confere(indevida == 0, "Ocorrência com prazo no passado é recusada", "VAL", "Prazo vencido recusado.",
+                     "Aceitou prazo de retorno no passado.", "Prazo do retorno a partir de hoje", "Média")
+        self.post("/ocorrencias/nova", dict(base_form, descricao=f"{MARCA} Jovem atrasou duas entregas seguidas.",
+                                            prazo_resposta=(date.today() + timedelta(days=3)).isoformat()))
+        oc = self.banco(lambda: m.Ocorrencia.query.filter(m.Ocorrencia.descricao == f"{MARCA} Jovem atrasou duas entregas seguidas.").first())
+        avisos = self.banco(lambda: {n.usuario_id for n in m.Notificacao.query.filter_by(referencia=f"ocorrencia:{oc.id}").all()}) if oc else set()
+        self.confere(oc is not None and responsavel["id"] in avisos and aluno1["id"] not in avisos, "Registra ocorrência e avisa o responsável",
+                     "FLX", f"Ocorrência gravada; {len(avisos)} pessoa(s) da equipe avisada(s); o jovem não.",
+                     f"Ocorrência: {bool(oc)}; avisados: {sorted(avisos)}.", "Ocorrência com ações, responsável, prazo e aviso (sem expor ao jovem)",
+                     "Alta", print_de="/ocorrencias")
+        if oc:
+            self.contexto["ids"]["ocorrencia"] = oc.id
+            _, _, pagina = self.cliente.pedir("GET", "/ocorrencias")
+            self.confere(f"/ocorrencias/{oc.id}" in pagina and "Aguardando retorno" in pagina, "Painel mostra o sinal da ocorrência", "FLX",
+                         "Ocorrência listada com o sinal 'Aguardando retorno'.", "Ocorrência ou sinal ausente no painel.",
+                         "Sinal de alerta para retorno pendente", "Média", print_de="/ocorrencias")
+
+        self.etapa("Pedido de desistência (a gestão confirma)")
+        self.post("/desistencias", {"aluno_id": aluno2["id"], "categoria": "Trabalho", "motivo": f"{MARCA} Começou a trabalhar no horário dos encontros.",
+                                    "data_saida": date.today().isoformat(), "confirmar_agora": "1"})
+        pedido = self.banco(lambda: m.Desistencia.query.filter_by(usuario_id=aluno2["id"]).first())
+        self.confere(pedido is not None and pedido.status == "Solicitada", "Mentor registra o pedido de desistência", "FLX",
+                     "Pedido gravado como 'Solicitada' (o mentor não confirma sozinho).", f"Pedido: {pedido.status if pedido else 'não gravado'}.",
+                     "Mentor pede a desistência; a gestão confirma", "Alta", print_de="/desistencias")
+        if pedido:
+            self.contexto["ids"]["desistencia"] = pedido.id
+            self.post(f"/desistencias/{pedido.id}/decidir", {"acao": "confirmar"})
+            situacao = self.banco(lambda: m.Desistencia.query.get(pedido.id).status)
+            self.confere(situacao == "Solicitada", "Mentor não confirma a desistência", "PER", "Confirmação recusada ao mentor.",
+                         f"O mentor confirmou a desistência (status {situacao}).", "Só a gestão ITM ou o gestor B2B confirmam", "Alta",
+                         "Em decidir_desistencia, conferir pode_decidir_desistencia antes de qualquer ação.")
 
 
 # ==============================================================================
@@ -753,7 +821,9 @@ class AgenteAvaliador(AgenteDoFluxo):
 class AgenteEncerramento(AgenteDoFluxo):
     chave, nome, perfil = "encerramento", "Agente Encerramento do Ciclo (Mentor Administrador)", "Mentor Administrador"
     ROTEIRO = ["Publica o resultado da banca para o grupo", "Aprova a versão final e leva o TCC para o acervo",
-               "Emite o certificado do aluno e confere a verificação pública", "Regra: certificado só para quem participou do projeto"]
+               "Emite o certificado do aluno e confere a verificação pública", "Regra: certificado só para quem participou do projeto",
+               "Confirma a desistência (jovem sai da turma e do mentor) e reativa", "Dá retorno e resolve a ocorrência",
+               "Certificado com o logo do parceiro B2B; remove o logo"]
 
     def rodar(self):
         m = _modelos()
@@ -762,6 +832,7 @@ class AgenteEncerramento(AgenteDoFluxo):
         status, destino = self.entrar(eu["email"], eu["senha"])
         self.confere(destino not in (None, "/"), "Mentor Administrador volta à plataforma", "ACE", f"Login aceito ({destino}).",
                      f"Login recusado (HTTP {status}).", "Login com a senha definida no primeiro acesso", "Crítica")
+        self.desistencia_e_ocorrencia()
         projeto_id, banca_id = self.contexto["ids"].get("projeto"), self.contexto["ids"].get("banca")
         if not (projeto_id and banca_id):
             return
@@ -801,7 +872,62 @@ class AgenteEncerramento(AgenteDoFluxo):
         indevido = self.banco(lambda: m.CertificadoEmitido.query.filter_by(projeto_id=projeto_id, usuario_id=aluno2["id"]).first())
         self.confere(indevido is None, "Certificado recusado para quem não participou", "REG", f"Recusado (destino {destino}).",
                      "Emitiu certificado para aluno fora do grupo.", "Certificado só para participantes do projeto", "Alta")
+        self.logo_no_certificado(projeto_id, aluno1)
         self.reportar_cobertura()
+
+    def _situacao_jovem(self, usuario_id):
+        m = _modelos()
+        return self.banco(lambda: (lambda u: (u.status, len(u.turmas_como_aluno), u.mentores.count()))(m.Usuario.query.get(usuario_id)))
+
+    def desistencia_e_ocorrencia(self):
+        m = _modelos()
+        aluno2 = self.usuario("aluno2")
+        did = self.contexto["ids"].get("desistencia")
+        if did:
+            self.etapa("Desistência: confirmação da gestão e reativação")
+            self.post(f"/desistencias/{did}/decidir", {"acao": "confirmar", "observacao": f"{MARCA} Confirmada com a família."})
+            estado = self._situacao_jovem(aluno2["id"])
+            self.confere(estado[0] == "Desistente" and estado[1:] == (0, 0), "Gestão confirma: jovem sai da turma e do mentor", "REG",
+                         "Jovem 'Desistente', fora da turma, do grupo e sem mentor (histórico guardado).",
+                         f"Situação (status, turmas, mentores): {estado}.", "Desistente sai da turma, do grupo e dos mentores", "Crítica",
+                         print_de="/desistencias")
+            from base import Cliente
+            _, destino, _ = Cliente().pedir("POST", "/", {"email": aluno2["email"], "senha": aluno2["senha"]})
+            self.confere(destino in (None, "/"), "Desistente não entra na plataforma", "ACE", "Login recusado com aviso para procurar a coordenação.",
+                         f"Login aceito (destino {destino}).", "Participação encerrada bloqueia o acesso", "Alta")
+            self.post(f"/desistencias/{did}/decidir", {"acao": "reativar"})
+            estado = self._situacao_jovem(aluno2["id"])
+            self.confere(estado[0] == "Ativo" and estado[1] >= 1 and estado[2] >= 1, "Reativação devolve turma e mentor", "FLX",
+                         "Jovem ativo de novo, na mesma turma e com o mesmo mentor.", f"Situação (status, turmas, mentores): {estado}.",
+                         "Jovem desistente pode voltar ao programa", "Alta")
+        oid = self.contexto["ids"].get("ocorrencia")
+        if oid:
+            self.etapa("Ocorrência: retorno do responsável e desfecho")
+            self.post(f"/ocorrencias/{oid}", {"acao": "registrar", "tipo": "Retorno", "texto": f"{MARCA} Falei com a família; combinamos novo prazo."})
+            situacao = self.banco(lambda: m.Ocorrencia.query.get(oid).status)
+            self.confere(situacao == "Em tratativa", "Retorno do responsável põe a ocorrência em tratativa", "FLX", "Status 'Em tratativa'.",
+                         f"Status: {situacao}.", "Retorno registrado muda o sinal de alerta", "Média", print_de=f"/ocorrencias/{oid}")
+            self.post(f"/ocorrencias/{oid}", {"acao": "resolver", "texto": f"{MARCA} Jovem voltou a entregar no prazo."})
+            situacao = self.banco(lambda: m.Ocorrencia.query.get(oid).status)
+            self.confere(situacao == "Resolvida", "Responsável resolve a ocorrência com o desfecho", "FLX", "Status 'Resolvida'.",
+                         f"Status: {situacao}.", "Ocorrência fechada com desfecho registrado", "Média")
+
+    def logo_no_certificado(self, projeto_id, aluno):
+        m = _modelos()
+        empresa_id = self.contexto["ids"].get("empresa")
+        logo = self.banco(lambda: m.Empresa.query.get(empresa_id).logo_arquivo) if empresa_id else None
+        if not logo:
+            return
+        self.etapa("Logo do parceiro B2B no certificado")
+        _, _, html = self.cliente.pedir("GET", f"/certificado/{projeto_id}/{aluno['id']}")
+        self.confere(f"/empresas/{empresa_id}/logo" in html, "Certificado mostra o logo do parceiro B2B", "FLX", "Logo da empresa ao lado do logo ITM.",
+                     "O logo da empresa não aparece no certificado.", "Parceiros B2B colocam o logo no certificado", "Média",
+                     print_de=f"/certificado/{projeto_id}/{aluno['id']}")
+        self.post(f"/empresas/{empresa_id}/logo/enviar", {"acao": "remover"})
+        from app import PASTA_LOGOS
+        apagado = not os.path.exists(os.path.join(PASTA_LOGOS, logo)) and self.banco(lambda: m.Empresa.query.get(empresa_id).logo_arquivo) is None
+        self.confere(apagado, "Remove o logo da empresa", "FLX", "Logo removido do cadastro e do disco.",
+                     "O arquivo do logo continuou no disco ou no cadastro.", "Gestão remove o logo do parceiro", "Baixa")
 
 
 AGENTES = {a.chave: a for a in (AgenteAdministrador, AgenteMentorAdministrador, AgenteGestorParceiro, AgenteProfessor, AgenteMentor,

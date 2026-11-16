@@ -18,6 +18,7 @@ GRUPOS = [
     ('notas', 'Notas do diário de classe', 'bi-journal-check'),
     ('banca', 'Banca do TCC', 'bi-award'),
     ('seguranca', 'Senhas e acesso', 'bi-shield-lock'),
+    ('acompanhamento', 'Ocorrências e acompanhamento', 'bi-exclamation-triangle'),
     ('personalizadas', 'Regras criadas pela gestão', 'bi-plus-square'),
 ]
 
@@ -57,6 +58,12 @@ CATALOGO = {
                                   'inteiro', 5, 3, 20, 'tentativas', 'Login'),
     'senha_dias_expiracao': ('seguranca', 'Validade da senha', 'Dias até a plataforma pedir uma senha nova (aviso no painel).',
                              'inteiro', 90, 15, 365, 'dias', 'Painel (aviso de troca de senha)'),
+    'ocorrencia_prazo_dias': ('acompanhamento', 'Prazo para responder uma ocorrência',
+                              'Prazo padrão para o responsável dar o retorno (feedback); quem registra pode mudar a data.',
+                              'inteiro', 3, 1, 30, 'dias', 'Ocorrências (prazo e sinal vermelho de atraso)'),
+    'ocorrencia_alerta_dias': ('acompanhamento', 'Aviso antes do prazo da ocorrência',
+                               'Sinal amarelo quando faltam estes dias (ou menos) e o responsável ainda não respondeu.',
+                               'inteiro', 1, 0, 10, 'dias', 'Ocorrências (sinal amarelo)'),
 }
 
 TIPOS = {'inteiro': 'Número inteiro', 'decimal': 'Número decimal', 'texto': 'Texto', 'sim_nao': 'Sim ou não'}

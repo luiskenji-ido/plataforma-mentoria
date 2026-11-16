@@ -181,7 +181,12 @@
             <!-- ÁREA SUPERIOR: LOGO E TÍTULO -->
             <div>
                 <!-- A imagem padrão é substituída quando você escolhe um arquivo -->
-                <img id="logo-img" src="https://cdn-icons-png.flaticon.com/512/2231/2231649.png" alt="Selo Oficial" style="height: 70px; object-fit: contain; margin-bottom: 15px;">
+                <div class="d-flex justify-content-center align-items-center gap-4 flex-wrap" style="margin-bottom: 15px;">
+                    <img id="logo-img" src="https://cdn-icons-png.flaticon.com/512/2231/2231649.png" alt="Selo Oficial" style="height: 70px; object-fit: contain;">
+                    {% for empresa in logos_parceiros %}
+                    <img src="{{ url_for('logo_empresa', id=empresa.id) }}" alt="{{ empresa.nome }}" title="{{ empresa.nome }}" class="logo-parceiro" style="height: 70px; max-width: 200px; object-fit: contain;">
+                    {% endfor %}
+                </div>
                 <h1 class="titulo">Certificado de Excelência</h1>
             </div>
             

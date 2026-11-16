@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% block title %}{{ tt('Desistências') }}{% endblock %}
+{% block content %}
+{% set cores = {'Solicitada': 'warning text-dark', 'Confirmada': 'danger', 'Recusada': 'secondary', 'Revertida': 'success'} %}
+<div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-3">
+    <div>
+        <h2 class="text-primary fw-bold mb-1"><i class="bi bi-person-dash"></i> {{ tt('Desistências') }}</h2>
+        <p class="text-muted mb-0">{{ tt('Quando um jovem sai do programa: o mentor ou a gestão registra o pedido e a gestão confirma. Ao confirmar, o jovem sai do grupo e da turma, deixa de contar na frequência e nos indicadores e não recebe certificado. O histórico fica guardado e ele pode ser reativado.') }}</p>
+    </div>
+    <a href="{{ url_for('ocorrencias') }}" class="btn btn-outline-primary fw-bold"><i class="bi bi-exclamation-triangle"></i> {{ tt('Ocorrências') }}</a>
+</div>
+
+<div class="row g-3 mb-4">
+    <div class="col-lg-4">
+        <div class="card shadow-sm border-0" id="cardNovaDesistencia">
+            <div class="card-header bg-white fw-bold text-primary"><i class="bi bi-plus-circle"></i> {{ tt('Registrar desistência') }}</div>
+            <form method="POST" class="card-body row g-2">
+                <div class="col-12"><label class="form-label small fw-bold mb-0" for="dAluno">{{ tt('Jovem') }}</label>
+                    <select class="form-select form-select-sm" id="dAluno" name="aluno_id" required>
+                        <option value="">—</option>
+                        {% for j in jovens %}<option value="{{ j.id }}">{{ j.nome }}</option>{% endfor %}
+                    </select></div>
+                <div class="col-6"><label class="form-label small fw-bold mb-0" for="dData">{{ tt('Data da saída') }}</label>
+                    <input type="date" class="form-control form-control-sm" id="dData" name="data_saida" value="{{ hoje.isoformat() }}" max="{{ hoje.isoformat() }}" required></div>
+                <div class="col-6"><label class="form-label small fw-bold mb-0" for="dCategoria">{{ tt('Motivo principal') }}</label>
+                    <select class="form-select form-select-sm" id="dCategoria" name="categoria" required>
+                        {% for c in categorias %}<option value="{{ c }}">{{ tt(c) }}</option>{% endfor %}</select></div>
+                <div class="col-12"><label class="form-label small fw-bold mb-0" for="dMotivo">{{ tt('O que aconteceu') }}</label>
+                    <textarea class="form-control form-control-sm" id="dMotivo" name="motivo" rows="3" minlength="10" required
+                              placeholder="{{ tt('Ex.: a jovem pediu para sair por conflito com o horário da escola.') }}"></textarea></div>
+                {% if decide_algo %}
+                <div class="col-12 form-check ms-1"><input class="form-check-input" type="checkbox" id="dConfirmar" name="confirmar_agora" value="1">
+                    <label class="form-check-label small" for="dConfirmar">{{ tt('Já confirmar (você é da gestão)') }}</label></div>
+                {% endif %}
+                <div class="col-12 d-grid"><button class="btn btn-danger btn-sm fw-bold" type="submit"><i class="bi bi-person-dash"></i> {{ tt('Registrar') }}</button></div>
+            </form>
+        </div>
+    </div>
+    <div class="col-lg-8">
+        <div class="card shadow-sm border-0" id="cardDesistencias">
+            <div class="card-header bg-white fw-bold">{{ tt('Pedidos e histórico') }} ({{ desistencias|length }})</div>
+            <ul class="list-group list-group-flush small">
+                {% for d in desistencias %}
+                <li class="list-group-item" id="desistencia_{{ d.id }}">
+                    <div class="d-flex justify-content-between flex-wrap gap-2">
+                        <span><b>{{ d.usuario.nome }}</b> <span class="badge bg-{{ cores.get(d.status, 'secondary') }}">{{ tt(d.status) }}</span>
+                            <span class="text-muted">· {{ tt('saída em') }} {{ d.data_saida.strftime('%d/%m/%Y') }} · {{ tt(d.categoria) }}</span></span>
+                        <span class="text-muted">{{ tt('Pedido por') }} {{ d.solicitado_por.nome if d.solicitado_por else '—' }} · {{ d.solicitado_em.strftime('%d/%m/%Y') }}</span>
+                    </div>
+                    <div class="mt-1">{{ d.motivo }}</div>
+                    {% if d.decidido_por %}<div class="text-muted mt-1"><i class="bi bi-person-check"></i> {{ tt(d.status) }} {{ tt('por') }} {{ d.decidido_por.nome }} · {{ d.decidido_em.strftime('%d/%m/%Y') }}{% if d.observacao_decisao %} · {{ d.observacao_decisao }}{% endif %}</div>{% endif %}
+                    {% if d.revertido_por %}<div class="text-success mt-1"><i class="bi bi-arrow-counterclockwise"></i> {{ tt('Reativado por') }} {{ d.revertido_por.nome }} · {{ d.revertido_em.strftime('%d/%m/%Y') }}</div>{% endif %}
+                    {% if pode_decidir(d) and d.status in ['Solicitada', 'Confirmada'] %}
+                    <form method="POST" action="{{ url_for('decidir_desistencia', id=d.id) }}" class="d-flex flex-wrap gap-2 mt-2">
+                        <input class="form-control form-control-sm w-auto flex-grow-1" name="observacao" placeholder="{{ tt('Observação (opcional)') }}" aria-label="{{ tt('Observação (opcional)') }}">
+                        {% if d.status == 'Solicitada' %}
+                        <button class="btn btn-sm btn-danger fw-bold" name="acao" value="confirmar" type="submit">{{ tt('Confirmar desistência') }}</button>
+                        <button class="btn btn-sm btn-outline-secondary" name="acao" value="recusar" type="submit">{{ tt('Recusar') }}</button>
+                        {% else %}
+                        <button class="btn btn-sm btn-outline-success fw-bold" name="acao" value="reativar" type="submit"
+                                onclick="return confirm({{ tt('Reativar o jovem nos grupos, turmas e mentores de antes?') | tojson }})"><i class="bi bi-arrow-counterclockwise"></i> {{ tt('Reativar jovem') }}</button>
+                        {% endif %}
+                    </form>
+                    {% endif %}
+                </li>
+                {% else %}
+                <li class="list-group-item text-muted text-center py-4">{{ tt('Nenhuma desistência registrada.') }}</li>
+                {% endfor %}
+            </ul>
+        </div>
+    </div>
+</div>
+{% endblock %}

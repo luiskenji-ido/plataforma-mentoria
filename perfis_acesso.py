@@ -25,7 +25,8 @@ MODULOS = {
     # oauth2callback fica fora dos módulos: é o retorno do Google comum à Agenda e ao Gmail das reuniões (exige login)
     'atividades_extras': ('Atividades extras', 'bi-people-fill',
                           ['atividades_extras', 'nova_atividade_extra', 'acao_atividade_extra', 'relatorio_atividade_extra'], False),
-    'hub': ('Hub Educacional', 'bi-diagram-3-fill', ['gerenciar_turmas', 'editar_curso', 'deletar_curso', 'api_mentores_empresa'], False),
+    'hub': ('Hub Educacional', 'bi-diagram-3-fill', ['gerenciar_turmas', 'editar_curso', 'deletar_curso', 'api_mentores_empresa',
+                                                  'enviar_logo_empresa'], False),
     'diario': ('Diário de Classe (frequência e notas)', 'bi-journal-check', ['gerenciar_frequencia', 'gerenciar_notas'], False),
     'projetos': ('Projetos (TCC)', 'bi-kanban',
                  ['projetos', 'nova_tarefa', 'atualizar_tarefa', 'deletar_tarefa', 'deletar_projeto', 'avaliar_projeto',
@@ -47,6 +48,8 @@ MODULOS = {
     'indicadores': ('Indicadores de voluntariado', 'bi-bar-chart-line', ['indicadores_voluntariado', 'indicadores_voluntariado_csv'], False),
     'perfis_acesso': ('Perfis de acesso', 'bi-person-gear', ['perfis_acesso_view'], False),
     'parametros': ('Parâmetros de regras', 'bi-sliders', ['parametros_regras'], False),
+    'ocorrencias': ('Ocorrências dos jovens', 'bi-exclamation-triangle', ['ocorrencias', 'nova_ocorrencia', 'detalhe_ocorrencia'], False),
+    'desistencias': ('Desistências', 'bi-person-dash', ['desistencias', 'decidir_desistencia'], False),
     'agentes_ia': ('Agentes IA e governança de aprendizados', 'bi-robot',
                    ['agentes_ia', 'iniciar_agentes_ia', 'parar_agentes_ia', 'estado_agentes_ia_json', 'quadro_agentes_ia',
                     'arquivo_agentes_ia', 'governanca_aprendizados', 'governanca_aprendizados_csv', 'agentes_seguranca',
@@ -62,11 +65,11 @@ MODULOS = {
 
 _comum = ['painel', 'biblioteca', 'certificados', 'demandas']
 _aprendizagem = ['sessoes', 'acompanhamento', 'atividades_extras', 'projetos']
-_gestao = ['hub', 'diario', 'bancas', 'voluntariado', 'reunioes', 'agenda_bancas', 'indicadores']
+_gestao = ['hub', 'diario', 'bancas', 'voluntariado', 'reunioes', 'agenda_bancas', 'indicadores', 'ocorrencias', 'desistencias']
 MODULOS_POR_BASE = {
     'Aluno': _comum + _aprendizagem,
-    'Professor': _comum + _aprendizagem + ['diario', 'bancas', 'voluntariado'],
-    'Mentor': _comum + _aprendizagem + ['diario', 'bancas', 'voluntariado'],
+    'Professor': _comum + _aprendizagem + ['diario', 'bancas', 'voluntariado', 'ocorrencias', 'desistencias'],
+    'Mentor': _comum + _aprendizagem + ['diario', 'bancas', 'voluntariado', 'ocorrencias', 'desistencias'],
     'Mentor Administrador': _comum + _aprendizagem + _gestao + ['cadastros', 'solicitacoes', 'trilha_gestao'],
     'Administrador': _comum + _aprendizagem + _gestao + ['cadastros', 'trilha_gestao', 'perfis_acesso', 'parametros', 'agentes_ia', 'manutencao'],
     'Admin B2B': _comum + _aprendizagem + _gestao,

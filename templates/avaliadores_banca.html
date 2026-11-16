@@ -77,7 +77,7 @@
                             {% for e in empresas_b2b %}<option value="{{ e }}" {% if p and p.empresa_origem == e %}selected{% endif %}>{{ e }}</option>{% endfor %}
                         </select>
                         {% else %}
-                        <input class="form-control" id="aEmpresa{{ pid }}" name="empresa_origem" value="{{ p.empresa_origem or '' if p else 'Aon' }}">
+                        <input class="form-control" id="aEmpresa{{ pid }}" name="empresa_origem" value="{{ p.empresa_origem or '' if p else '' }}" placeholder="{{ tt('Empresa parceira (B2B)') }}">
                         {% endif %}
                     </div>
                     <div class="col-md-6">

@@ -240,7 +240,7 @@
                                 <tbody>
                                     {% for emp in empresas %}
                                     <tr>
-                                        <td class="ps-3"><strong>{{ emp.nome }}</strong></td>
+                                        <td class="ps-3">{% if emp.logo_arquivo %}<img src="{{ url_for('logo_empresa', id=emp.id) }}" alt="" style="height: 22px; max-width: 70px; object-fit: contain;" class="me-2">{% endif %}<strong>{{ emp.nome }}</strong></td>
                                         <td style="font-size: 0.9em;">
                                             {{ emp.contato_nome or '-' }}<br>
                                             <span class="text-muted" style="font-size: 0.85em;">{{ emp.contato_email or '-' }}</span>
@@ -569,6 +569,24 @@
                     <button type="submit" class="btn btn-primary fw-bold w-100">{{ tt('Salvar Alterações') }}</button>
                 </div>
             </form>
+            <!-- Logo do parceiro: vai nos certificados dos participantes desta empresa -->
+            <div class="modal-body border-top bg-white" id="logoEmpresa_{{ emp.id }}">
+                <label class="form-label text-muted fw-bold" style="font-size: 0.85em;">{{ tt('Logo do parceiro (aparece no certificado)') }}</label>
+                <div class="d-flex align-items-center gap-3 mb-2">
+                    {% if emp.logo_arquivo %}
+                    <img src="{{ url_for('logo_empresa', id=emp.id) }}" alt="{{ emp.nome }}" style="height: 48px; max-width: 160px; object-fit: contain;" class="border rounded p-1 bg-white">
+                    <form action="{{ url_for('enviar_logo_empresa', id=emp.id) }}" method="POST" class="m-0">
+                        <input type="hidden" name="acao" value="remover">
+                        <button class="btn btn-sm btn-link text-danger p-0" type="submit">{{ tt('Remover logo') }}</button>
+                    </form>
+                    {% else %}<span class="small text-muted">{{ tt('Sem logo cadastrado.') }}</span>{% endif %}
+                </div>
+                <form action="{{ url_for('enviar_logo_empresa', id=emp.id) }}" method="POST" enctype="multipart/form-data" class="d-flex gap-2">
+                    <input type="file" name="logo" class="form-control form-control-sm" accept=".png,.jpg,.jpeg,.webp" required aria-label="{{ tt('Logo do parceiro (aparece no certificado)') }}">
+                    <button class="btn btn-sm btn-outline-primary fw-bold text-nowrap" type="submit"><i class="bi bi-upload"></i> {{ tt('Enviar logo') }}</button>
+                </form>
+                <div class="form-text">{{ tt('PNG, JPG ou WEBP, até 2 MB. De preferência com fundo transparente.') }}</div>
+            </div>
         </div>
     </div>
 </div>

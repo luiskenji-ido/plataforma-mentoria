@@ -13,7 +13,7 @@ from datetime import datetime, timedelta
 
 from app import app
 from models import db, CheckinVoluntariado, Usuario, EncaminhamentoReuniao, Banca, EnvioFormularioBanca, AvaliacaoBanca
-from notificacoes import notificar
+from notificacoes import notificar, eh_conta_de_teste
 
 # Relógio de voluntariado aberto há mais tempo que isto recebe o lembrete de check-out
 HORAS_RELOGIO_ESQUECIDO = 4
@@ -33,6 +33,25 @@ def lembrar_checkout_esquecido(agora):
             ('notif_checkout_msg', {'atividade': registro.tipo_atividade,
                                     'inicio': registro.data_hora_inicio.strftime('%d/%m/%Y %H:%M')}),
             link='/dashboard', tipo='lembrete', referencia=f"checkout:{registro.id}")
+    return enviados
+
+
+def avisar_ocorrencias_atrasadas(agora):
+    """Ocorrência com prazo de retorno vencido e sem retorno do responsável: avisa o responsável e quem registrou, uma vez."""
+    from models import Ocorrencia
+    enviados = 0
+    for o in Ocorrencia.query.filter(Ocorrencia.status != 'Resolvida', Ocorrencia.prazo_resposta < agora.date(),
+                                     Ocorrencia.aviso_atraso_enviado.isnot(True)).all():
+        if any(r.autor_id == o.responsavel_id and r.tipo in ('Retorno', 'Ação') for r in o.registros):
+            continue  # o responsável já respondeu: está em tratativa
+        enviados += notificar([p for p in (o.responsavel, o.registrado_por) if p and p.status == 'Ativo'],
+                              ('notif_ocorrencia_atraso_titulo', {'nome': o.aluno.nome}),
+                              ('notif_ocorrencia_atraso_msg', {'nome': o.aluno.nome, 'responsavel': o.responsavel.nome,
+                                                               'prazo': o.prazo_resposta.strftime('%d/%m/%Y')}),
+                              link=f"/ocorrencias/{o.id}", tipo='lembrete', referencia=f"ocorrencia-atraso:{o.id}",
+                              por_email=not eh_conta_de_teste(o.aluno))
+        o.aviso_atraso_enviado = True
+    db.session.commit()
     return enviados
 
 
@@ -139,7 +158,7 @@ def aprender_funcionalidades(agora):
     return len(conhecimento_funcional.detectar_mudancas('Gerente de Funcionalidades (tarefa de hora em hora)'))
 
 
-TAREFAS = [lembrar_checkout_esquecido, lembrar_encaminhamentos_vencidos, enviar_formulario_banca, fechar_checkin_banca_esquecido,
+TAREFAS = [lembrar_checkout_esquecido, lembrar_encaminhamentos_vencidos, avisar_ocorrencias_atrasadas, enviar_formulario_banca, fechar_checkin_banca_esquecido,
            executar_backups_agendados, aprender_mudancas_da_plataforma, aprender_seguranca, aprender_banco_de_dados, aprender_funcionalidades]
 
 

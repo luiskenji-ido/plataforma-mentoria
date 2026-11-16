@@ -104,7 +104,7 @@ class AgenteAvaliador(AgenteOmniTest):
     def verificar_minhas_bancas(self):
         self.visitar("/minhas-bancas")
         texto = self.texto_pagina()
-        faltando = [n for n in (PROJETO_ABERTO, "Auditório Aon (teste)") if n not in texto]
+        faltando = [n for n in (PROJETO_ABERTO, "Auditório B2B (teste)") if n not in texto]
         if faltando:
             self.registrar("Minhas bancas", "Banca escalada visível", FALHA, "Não aparece: " + ", ".join(faltando),
                            esperado="A banca em que o avaliador está escalado, com data, local e prazos",
