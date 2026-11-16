@@ -775,7 +775,39 @@ class AgenteMentor(AgenteDoFluxo):
         self.regra_reuniao(participante=True)
         self.ocorrencia_e_desistencia()
         self.avaliacao_do_mentor()
+        self.ata_do_encontro()
         self.reportar_cobertura()
+
+    def ata_do_encontro(self):
+        """Ata digital estruturada: resumo, fontes e plano de ação; os próximos passos vão para o jovem."""
+        m = _modelos()
+        eu, aluno1 = self.usuario("mentor"), self.usuario("aluno1")
+        self.etapa("Ata estruturada do encontro e próximos passos")
+        ata = {"ata_resumo": f"{MARCA} Revisamos o problema de pesquisa e a metodologia.", "ata_fontes": "Manual de TCC do programa",
+               "ata_plano_acao": "Reescrever a introdução\nTrazer três referências", "enviar_proximos_passos": "1"}
+        futura = self.contexto["ids"].get("sessao")
+        if futura:
+            self.post(f"/sessoes/{futura}/ata", ata)
+            cedo = self.banco(lambda: m.SessaoMentoria.query.get(futura).ata_registrada_em)
+            self.confere(cedo is None, "Ata antes do encontro é recusada", "VAL", "Só depois do encontro.", "Registrou ata de um encontro futuro.",
+                         "Ata registrada depois do encontro", "Média")
+        ontem = date.today() - timedelta(days=1)
+        self.post("/sessoes", {"acao": "agendar", "aluno_id": aluno1["id"], "data_sessao": ontem.isoformat(), "hora_inicio": "15:00",
+                               "hora_fim": "16:00", "observacoes": f"{MARCA} Encontro de ontem"})
+        passada = self.banco(lambda: m.SessaoMentoria.query.filter_by(mentor_id=eu["id"], observacoes=f"{MARCA} Encontro de ontem").first())
+        if not passada:
+            self.log("Sessão passada não criada: ata não testada")
+            return
+        self.contexto["ids"]["sessao_ata"] = passada.id
+        self.post(f"/sessoes/{passada.id}/ata", ata)
+        s = self.banco(lambda: m.SessaoMentoria.query.get(passada.id))
+        aviso = self.banco(lambda: m.Notificacao.query.filter(m.Notificacao.usuario_id == aluno1["id"],
+                                                                m.Notificacao.referencia.like(f"proximos-passos:{passada.id}:%")).count())
+        self.confere(bool(s.ata_resumo and s.ata_fontes and s.ata_plano_acao and s.proximos_passos_enviados_em) and aviso == 1,
+                     "Registra a ata estruturada e envia os próximos passos", "FLX",
+                     "Resumo, fontes e plano de ação gravados; o jovem recebeu os próximos passos.",
+                     f"Ata incompleta ou sem aviso ao jovem (avisos: {aviso}).",
+                     "Ata digital com resumo das deliberações, fontes recomendadas e plano de ação", "Alta", print_de="/sessoes")
 
     def avaliacao_do_mentor(self):
         if not self.contexto["ids"].get("ciclo"):
@@ -896,6 +928,19 @@ class AgenteAluno(AgenteDoFluxo):
                          "Jovem não vê resultados, ciclos nem alertas", "PER", "Só as avaliações dele.",
                          "A página mostra resultados, ciclos ou alertas ao jovem.", "Resultados só para a gestão", "Alta")
 
+        sessao_ata = self.contexto["ids"].get("sessao_ata")
+        if sessao_ata:
+            self.etapa("Ata do encontro (só leitura)")
+            _, _, pagina = self.cliente.pedir("GET", "/sessoes")
+            self.confere(f'id="modalAta{sessao_ata}"' in pagina and "Reescrever a introdução" in pagina and f"/sessoes/{sessao_ata}/ata" not in pagina,
+                         "Jovem vê a ata e os próximos passos, sem editar", "PER", "Ata visível só para leitura.",
+                         "Ata ausente ou com formulário de edição para o jovem.", "Só o mentor registra a ata; o jovem consulta", "Alta",
+                         print_de="/sessoes")
+            self.post(f"/sessoes/{sessao_ata}/ata", {"ata_resumo": f"{MARCA} Alterada pelo jovem", "ata_plano_acao": "x"})
+            resumo = self.banco(lambda: m.SessaoMentoria.query.get(sessao_ata).ata_resumo or "")
+            self.confere("Alterada pelo jovem" not in resumo, "Jovem não altera a ata", "PER", "Alteração recusada.", "O jovem alterou a ata.",
+                         "Só o mentor registra a ata", "Alta")
+
         self.etapa("Regras do perfil Aluno")
         self.post("/projetos", {"nome": f"{MARCA} Projeto do aluno", "descricao": "x", "grupo_id": self.contexto["ids"].get("grupo")})
         criado = self.banco(lambda: m.Projeto.query.filter_by(nome=f"{MARCA} Projeto do aluno").first())
@@ -979,7 +1024,8 @@ class AgenteEncerramento(AgenteDoFluxo):
     ROTEIRO = ["Publica o resultado da banca para o grupo", "Aprova a versão final e leva o TCC para o acervo",
                "Emite o certificado do aluno e confere a verificação pública", "Regra: certificado só para quem participou do projeto",
                "Confirma a desistência (jovem sai da turma e do mentor) e reativa", "Dá retorno e resolve a ocorrência",
-               "Certificado com o logo do parceiro B2B; remove o logo", "Lança a presença de quem esqueceu o check-in da reunião"]
+               "Certificado com o logo do parceiro B2B; remove o logo", "Lança a presença de quem esqueceu o check-in da reunião",
+               "Mentor desistente: substituto assume os jovens; reativação"]
 
     def rodar(self):
         m = _modelos()
@@ -1031,7 +1077,41 @@ class AgenteEncerramento(AgenteDoFluxo):
         self.confere(indevido is None, "Certificado recusado para quem não participou", "REG", f"Recusado (destino {destino}).",
                      "Emitiu certificado para aluno fora do grupo.", "Certificado só para participantes do projeto", "Alta")
         self.logo_no_certificado(projeto_id, aluno1)
+        self.mentor_desistente()
         self.reportar_cobertura()
+
+    def mentor_desistente(self):
+        """Mentor desistente: o Professor do fluxo assume os jovens, grupos, turmas e sessões futuras; as horas ficam com o mentor."""
+        m = _modelos()
+        mentor, professor = self.usuario("mentor"), self.usuario("professor")
+        if not (mentor and professor):
+            return
+        self.etapa("Mentor desistente: substituição e reativação")
+        horas_antes = self.banco(lambda: m.CheckinVoluntariado.query.filter_by(usuario_id=mentor["id"]).count())
+        jovens = self.banco(lambda: sorted(a.id for a in m.Usuario.query.get(mentor["id"]).alunos))
+        form = {"mentor_id": mentor["id"], "substituto_id": "", "data_saida": date.today().isoformat(), "categoria": "Trabalho",
+                "motivo": f"{MARCA} Mudou de área e não terá agenda."}
+        self.post("/desistencias/mentor", form)
+        recusado = self.banco(lambda: m.Usuario.query.get(mentor["id"]).status) == "Ativo"
+        self.confere(recusado, "Sem substituto, o desligamento de mentor com jovens é recusado", "VAL", "Pediu o substituto.",
+                     "Desligou o mentor sem ninguém para assumir os jovens.", "Jovens nunca ficam sem mentor", "Alta")
+        self.post("/desistencias/mentor", dict(form, substituto_id=professor["id"]))
+        def situacao():
+            mt, pf = m.Usuario.query.get(mentor["id"]), m.Usuario.query.get(professor["id"])
+            return (mt.status, sorted(a.id for a in mt.alunos), sorted(a.id for a in pf.alunos),
+                    m.CheckinVoluntariado.query.filter_by(usuario_id=mentor["id"]).count())
+        status, do_mentor, do_professor, horas = self.banco(situacao)
+        self.confere(status == "Desistente" and not do_mentor and set(jovens) <= set(do_professor) and horas == horas_antes,
+                     "Mentor desistente: substituto assume os jovens e as horas ficam", "REG",
+                     f"{len(jovens)} jovem(ns) passaram ao substituto; {horas} lançamento(s) de horas continuam com o mentor.",
+                     f"Status {status}; jovens do mentor {do_mentor}; do substituto {do_professor}; horas {horas_antes}→{horas}.",
+                     "Transferência dos jovens e grupos para o substituto, mantendo as horas", "Crítica", print_de="/desistencias")
+        registro = self.banco(lambda: m.Desistencia.query.filter_by(usuario_id=mentor["id"]).first())
+        if registro:
+            self.post(f"/desistencias/{registro.id}/decidir", {"acao": "reativar"})
+            reativado = self.banco(lambda: m.Usuario.query.get(mentor["id"]).status) == "Ativo"
+            self.confere(reativado, "Gestão reativa o mentor", "FLX", "Acesso devolvido; os jovens seguem com o substituto.",
+                         "O mentor continuou desligado.", "Mentor pode voltar ao programa", "Média")
 
     def _situacao_jovem(self, usuario_id):
         m = _modelos()

@@ -18,7 +18,7 @@ PERFIS_BASE = ['Aluno', 'Professor', 'Mentor', 'Mentor Administrador', 'Administ
 # chave: (rótulo em português, ícone, endpoints do módulo, obrigatório)
 MODULOS = {
     'painel': ('Painel Geral', 'bi-speedometer2', ['dashboard', 'salvar_graficos_painel'], True),
-    'sessoes': ('Sessões', 'bi-calendar-check', ['sessoes', 'sincronizar_sessao_aluno'], False),
+    'sessoes': ('Sessões', 'bi-calendar-check', ['sessoes', 'sincronizar_sessao_aluno', 'ata_sessao'], False),
     'acompanhamento': ('Acompanhamento', 'bi-graph-up-arrow',
                        ['acompanhamento', 'fazer_checkin_aula', 'sincronizar_agenda_acompanhamento', 'conectar_agenda',
                         'desconectar_agenda', 'chat_ia'], False),
@@ -50,7 +50,7 @@ MODULOS = {
     'perfis_acesso': ('Perfis de acesso', 'bi-person-gear', ['perfis_acesso_view'], False),
     'parametros': ('Parâmetros de regras', 'bi-sliders', ['parametros_regras'], False),
     'ocorrencias': ('Ocorrências dos jovens', 'bi-exclamation-triangle', ['ocorrencias', 'nova_ocorrencia', 'detalhe_ocorrencia'], False),
-    'desistencias': ('Desistências', 'bi-person-dash', ['desistencias', 'decidir_desistencia'], False),
+    'desistencias': ('Desistências', 'bi-person-dash', ['desistencias', 'decidir_desistencia', 'desistencia_mentor'], False),
     'avaliacoes': ('Avaliações 360° e alertas', 'bi-star-half', ['avaliacoes', 'responder_avaliacao', 'ciclos_avaliacao'], False),
     'agentes_ia': ('Agentes IA e governança de aprendizados', 'bi-robot',
                    ['agentes_ia', 'credenciais_agentes_ia', 'iniciar_agentes_ia', 'parar_agentes_ia', 'estado_agentes_ia_json', 'quadro_agentes_ia',

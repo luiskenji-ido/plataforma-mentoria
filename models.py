@@ -115,6 +115,14 @@ class SessaoMentoria(db.Model):
     aluno_id = db.Column(db.Integer, db.ForeignKey('usuario.id'), nullable=False)
     data_sessao = db.Column(db.DateTime, nullable=False)
     observacoes = db.Column(db.Text, nullable=True)
+    # Ata digital estruturada do encontro (resumo das deliberações, fontes recomendadas e plano de ação)
+    ata_resumo = db.Column(db.Text, nullable=True)
+    ata_fontes = db.Column(db.Text, nullable=True)
+    ata_plano_acao = db.Column(db.Text, nullable=True)  # um passo por linha
+    ata_proximo_encontro = db.Column(db.Date, nullable=True)
+    ata_registrada_em = db.Column(db.DateTime, nullable=True)
+    ata_registrada_por_id = db.Column(db.Integer, db.ForeignKey('usuario.id'), nullable=True)
+    proximos_passos_enviados_em = db.Column(db.DateTime, nullable=True)
 
 # ---------------------------------------------------------------------------
 # 5. TABELA DE FEEDBACK DAS SESSÕES
@@ -1129,8 +1137,11 @@ class Desistencia(db.Model):
     empresas = db.Column(db.Text, nullable=True)                   # JSON [ids] das empresas parceiras do jovem na saída
     revertido_por_id = db.Column(db.Integer, db.ForeignKey('usuario.id'), nullable=True)
     revertido_em = db.Column(db.DateTime, nullable=True)
+    # Mentor desistente: quem assumiu os jovens, os grupos e as turmas dele
+    substituto_id = db.Column(db.Integer, db.ForeignKey('usuario.id'), nullable=True)
 
     usuario = db.relationship('Usuario', foreign_keys=[usuario_id])
+    substituto = db.relationship('Usuario', foreign_keys=[substituto_id])
     solicitado_por = db.relationship('Usuario', foreign_keys=[solicitado_por_id])
     decidido_por = db.relationship('Usuario', foreign_keys=[decidido_por_id])
     revertido_por = db.relationship('Usuario', foreign_keys=[revertido_por_id])

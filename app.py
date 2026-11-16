@@ -1993,7 +1993,51 @@ def sessoes():
     else:
         lista_alunos = Usuario.query.filter_by(tipo_usuario='Aluno').all()
 
-    return render_template('sessoes.html', sessoes=sessoes_detalhadas, alunos=lista_alunos)
+    return render_template('sessoes.html', sessoes=sessoes_detalhadas, alunos=lista_alunos, agora=datetime.now(),
+                           pode_ata=lambda s: s.mentor_id == current_user.id or current_user.tipo_usuario in PERFIS_GESTAO_ITM)
+
+@app.route('/sessoes/<int:id>/ata', methods=['POST'])
+@login_required
+def ata_sessao(id):
+    """Ata digital do encontro: resumo das deliberações, fontes recomendadas e plano de ação (próximos passos).
+    O mentor da sessão (ou a gestão ITM) registra; ao salvar com o plano de ação, o jovem recebe os próximos passos por e-mail."""
+    idioma = current_user.idioma
+    sessao = db.session.get(SessaoMentoria, id)
+    if not sessao or not (sessao.mentor_id == current_user.id or current_user.tipo_usuario in PERFIS_GESTAO_ITM):
+        flash("Acesso negado.", "danger")
+        return redirect(url_for('sessoes'))
+    resumo = (request.form.get('ata_resumo') or '').strip()[:5000]
+    fontes = (request.form.get('ata_fontes') or '').strip()[:3000]
+    plano = '\n'.join(l.strip() for l in (request.form.get('ata_plano_acao') or '').splitlines() if l.strip())[:3000]
+    try:
+        proximo = datetime.strptime(request.form.get('ata_proximo_encontro'), '%Y-%m-%d').date() if request.form.get('ata_proximo_encontro') else None
+    except ValueError:
+        proximo = None
+    if len(resumo) < 10 or not plano:
+        flash(tt('Preencha o resumo das deliberações (mínimo de 10 caracteres) e pelo menos um passo do plano de ação.', idioma), 'warning')
+        return redirect(url_for('sessoes', abrir_ata=sessao.id))
+    if sessao.data_sessao > datetime.now() + timedelta(hours=1):
+        flash(tt('A ata é registrada depois do encontro.', idioma), 'warning')
+        return redirect(url_for('sessoes'))
+    sessao.ata_resumo, sessao.ata_fontes, sessao.ata_plano_acao, sessao.ata_proximo_encontro = resumo, fontes or None, plano, proximo
+    sessao.ata_registrada_em, sessao.ata_registrada_por_id = datetime.now(), current_user.id
+    db.session.commit()
+    aluno, mentor = db.session.get(Usuario, sessao.aluno_id), db.session.get(Usuario, sessao.mentor_id)
+    if request.form.get('enviar_proximos_passos') and aluno:
+        passos = '; '.join(plano.splitlines())
+        quando = proximo.strftime('%d/%m/%Y') if proximo else '—'
+        notificar([aluno] + ([mentor] if mentor and mentor.id != current_user.id else []),
+                  ('notif_proximos_passos_titulo', {'data': sessao.data_sessao.strftime('%d/%m/%Y')}),
+                  ('notif_proximos_passos_msg', {'mentor': mentor.nome if mentor else '—', 'passos': passos, 'proximo': quando}),
+                  link=url_for('sessoes', abrir_ata=sessao.id), tipo='sessao',
+                  referencia=f"proximos-passos:{sessao.id}:{sessao.ata_registrada_em:%Y%m%d%H%M%S}", por_email=not eh_conta_de_teste(aluno))
+        sessao.proximos_passos_enviados_em = datetime.now()
+        db.session.commit()
+        flash(tt('Ata registrada e próximos passos enviados ao jovem por e-mail.', idioma), 'success')
+    else:
+        flash(tt('Ata registrada.', idioma), 'success')
+    return redirect(url_for('sessoes', abrir_ata=sessao.id))
+
 
 # ==============================================================================
 # ROTA: ALUNO SALVAR SESSÃO NA PRÓPRIA AGENDA
@@ -3072,7 +3116,7 @@ def desistencias_visiveis(usuario):
     def ve(d):
         vinc = json.loads(d.vinculos or '{}')
         return (d.solicitado_por_id == usuario.id or d.usuario_id in visiveis or usuario.id in vinc.get('mentores', [])
-                or pode_decidir_desistencia(usuario, d))
+                or d.substituto_id == usuario.id or pode_decidir_desistencia(usuario, d))
     return [d for d in todas if ve(d)]
 
 
@@ -3158,10 +3202,114 @@ def desistencias():
                 flash(tt('Pedido de desistência registrado: a gestão foi avisada para confirmar.', idioma), 'success')
         return redirect(url_for('desistencias'))
     lista = desistencias_visiveis(current_user)
+    geridos = mentores_geridos(current_user)
+    substitutos = Usuario.query.filter(Usuario.tipo_usuario.in_(PERFIS_MENTORIA), Usuario.status == 'Ativo').order_by(Usuario.nome).all() \
+        if geridos else []
     return render_template('desistencias.html', desistencias=lista, jovens=[j for j in jovens_da_equipe(current_user)],
+                           mentores_geridos=geridos, substitutos=substitutos,
                            categorias=CATEGORIAS_DESISTENCIA, hoje=datetime.now().date(),
                            pode_decidir=lambda d: pode_decidir_desistencia(current_user, d),
                            decide_algo=current_user.tipo_usuario in PERFIS_GESTAO_ITM + ['Admin B2B'])
+
+
+PERFIS_MENTOR_SUBSTITUIVEL = ['Mentor', 'Professor']
+
+
+def mentores_geridos(usuario):
+    """Mentores que a pessoa pode registrar como desistentes: gestão ITM, todos; gestor B2B, os das suas empresas."""
+    consulta = Usuario.query.filter(Usuario.tipo_usuario.in_(PERFIS_MENTOR_SUBSTITUIVEL), Usuario.status == 'Ativo')
+    if usuario.tipo_usuario in PERFIS_GESTAO_ITM:
+        return consulta.order_by(Usuario.nome).all()
+    if usuario.tipo_usuario == 'Admin B2B':
+        ids = {m.id for e in (usuario.empresas_gerenciadas or []) for m in e.mentores}
+        return consulta.filter(Usuario.id.in_(ids or [-1])).order_by(Usuario.nome).all()
+    return []
+
+
+def substituir_mentor(mentor, substituto):
+    """Passa ao substituto os jovens, grupos, turmas, empresas e sessões futuras do mentor.
+    As horas de voluntariado já lançadas continuam no nome de quem as fez. Devolve o que foi transferido."""
+    vinculos = {'jovens': [], 'grupos': [], 'turmas': [], 'empresas': [], 'sessoes_futuras': []}
+    for aluno in list(mentor.alunos):
+        aluno.mentores.remove(mentor)
+        if substituto not in aluno.mentores:
+            aluno.mentores.append(substituto)
+        vinculos['jovens'].append(aluno.id)
+    for grupo in list(mentor.grupos or []):
+        grupo.membros.remove(mentor)
+        if substituto not in grupo.membros:
+            grupo.membros.append(substituto)
+        vinculos['grupos'].append(grupo.id)
+    for turma in list(mentor.turmas_como_mentor or []):
+        turma.mentores.remove(mentor)
+        if substituto not in turma.mentores:
+            turma.mentores.append(substituto)
+        vinculos['turmas'].append(turma.id)
+    for empresa in list(mentor.empresas_vinculadas or []):
+        empresa.mentores.remove(mentor)
+        if substituto not in empresa.mentores:
+            empresa.mentores.append(substituto)
+        vinculos['empresas'].append(empresa.id)
+    for sessao in SessaoMentoria.query.filter(SessaoMentoria.mentor_id == mentor.id, SessaoMentoria.data_sessao > datetime.now()).all():
+        sessao.mentor_id = substituto.id
+        vinculos['sessoes_futuras'].append(sessao.id)
+    return vinculos
+
+
+@app.route('/desistencias/mentor', methods=['POST'])
+@login_required
+def desistencia_mentor():
+    """Mentor desistente: a gestão ITM (ou o gestor B2B da empresa) registra a saída e escolhe o substituto,
+    que assume na hora os jovens, grupos, turmas e sessões futuras. O histórico e as horas ficam guardados."""
+    from models import Desistencia
+    idioma = current_user.idioma
+    voltar = redirect(url_for('desistencias') + '#mentorDesistente')
+    if current_user.tipo_usuario not in PERFIS_GESTAO_ITM + ['Admin B2B']:
+        flash("Acesso negado.", "danger")
+        return voltar
+    geridos = {m.id: m for m in mentores_geridos(current_user)}
+    mentor = geridos.get(request.form.get('mentor_id', type=int) or 0)
+    substituto = db.session.get(Usuario, request.form.get('substituto_id', type=int) or 0)
+    categoria, motivo = request.form.get('categoria'), (request.form.get('motivo') or '').strip()
+    try:
+        data_saida = datetime.strptime(request.form.get('data_saida') or '', '%Y-%m-%d').date()
+    except ValueError:
+        data_saida = None
+    precisa_substituto = mentor is not None and (mentor.alunos.count() or mentor.grupos or mentor.turmas_como_mentor)
+    if not mentor:
+        flash(tt('Escolha um mentor que você gerencia.', idioma), 'warning')
+    elif substituto is not None and (substituto.id == mentor.id or substituto.status != 'Ativo'
+                                     or substituto.tipo_usuario not in PERFIS_MENTORIA):
+        flash(tt('O substituto precisa ser outro mentor ativo.', idioma), 'warning')
+    elif precisa_substituto and substituto is None:
+        flash(tt('Este mentor acompanha jovens ou grupos: escolha quem vai substituí-lo.', idioma), 'warning')
+    elif categoria not in CATEGORIAS_DESISTENCIA or len(motivo) < 10 or not data_saida or data_saida > datetime.now().date():
+        flash(tt('Informe a data de saída (até hoje), o motivo (mínimo de 10 caracteres) e a categoria.', idioma), 'warning')
+    else:
+        empresas = sorted({e.id for e in (mentor.empresas_vinculadas or [])})
+        vinculos = substituir_mentor(mentor, substituto) if substituto else {}
+        mentor.status = 'Desistente'
+        registro = Desistencia(usuario_id=mentor.id, categoria=categoria, motivo=motivo[:2000], data_saida=data_saida, status='Confirmada',
+                               solicitado_por_id=current_user.id, decidido_por_id=current_user.id, decidido_em=datetime.utcnow(),
+                               substituto_id=substituto.id if substituto else None, vinculos=json.dumps(vinculos), empresas=json.dumps(empresas))
+        db.session.add(registro)
+        db.session.commit()
+        jovens = Usuario.query.filter(Usuario.id.in_(vinculos.get('jovens') or [-1])).all()
+        teste = eh_conta_de_teste(mentor)
+        if substituto:
+            notificar([substituto], ('notif_mentor_substituto_titulo', {'nome': mentor.nome}),
+                      ('notif_mentor_substituto_msg', {'nome': mentor.nome, 'jovens': len(jovens), 'grupos': len(vinculos.get('grupos', []))}),
+                      link=url_for('sessoes'), tipo='desistencia', referencia=f"mentor-substituto:{registro.id}", por_email=not teste)
+            notificar(jovens, ('notif_novo_mentor_titulo', {'nome': substituto.nome}),
+                      ('notif_novo_mentor_msg', {'nome': substituto.nome, 'anterior': mentor.nome}),
+                      link=url_for('sessoes'), tipo='desistencia', referencia=f"novo-mentor:{registro.id}", por_email=not teste)
+        avisados = [p for p in gestores_b2b_das_empresas(empresas) + gestao_itm_ativa() if p.id != current_user.id]
+        notificar(avisados, ('notif_desistencia_titulo', {'nome': mentor.nome}),
+                  ('notif_desistencia_msg', {'nome': mentor.nome, 'data': data_saida.strftime('%d/%m/%Y'), 'categoria': categoria}),
+                  link=url_for('desistencias'), tipo='desistencia', referencia=f"desistencia:{registro.id}", por_email=not teste)
+        flash(tt('Mentor desligado. {nome} assumiu {jovens} jovem(ns) e {grupos} grupo(s).', idioma).format(
+            nome=substituto.nome if substituto else '—', jovens=len(jovens), grupos=len(vinculos.get('grupos', []))), 'success')
+    return voltar
 
 
 @app.route('/desistencias/<int:id>/decidir', methods=['POST'])
@@ -3190,6 +3338,16 @@ def decidir_desistencia(id):
                       link=url_for('desistencias'), tipo='desistencia', referencia=f"desistencia-recusa:{desistencia.id}",
                       por_email=not eh_conta_de_teste(desistencia.usuario))
         flash(tt('Pedido de desistência recusado.', idioma), 'info')
+    elif acao == 'reativar' and desistencia.status == 'Confirmada' and desistencia.usuario.tipo_usuario != 'Aluno':
+        # Mentor volta a ter acesso e às empresas; os jovens continuam com o substituto (a gestão redistribui se quiser)
+        mentor = desistencia.usuario
+        for empresa in Empresa.query.filter(Empresa.id.in_(json.loads(desistencia.empresas or '[]') or [-1])).all():
+            if mentor not in empresa.mentores:
+                empresa.mentores.append(mentor)
+        mentor.status = 'Ativo'
+        desistencia.status, desistencia.revertido_por_id, desistencia.revertido_em = 'Revertida', current_user.id, datetime.utcnow()
+        db.session.commit()
+        flash(tt('Mentor reativado. Os jovens continuam com o substituto; redistribua em Cadastros, se quiser.', idioma), 'success')
     elif acao == 'reativar' and desistencia.status == 'Confirmada':
         reativar_jovem(desistencia, current_user)
         flash(tt('Jovem reativado: voltou aos grupos, turmas e mentores de antes.', idioma), 'success')
@@ -3374,7 +3532,10 @@ CRITERIOS_AVALIACAO = {
     'Programa': ['Conteúdo', 'Organização', 'Comunicação'],
 }
 # Microavaliação (quinzenal): rápida, só entre jovem e mentor
-CRITERIOS_MICRO = {'Mentor': ['Comunicação', 'Andamento'], 'Jovem': ['Comunicação', 'Engajamento']}
+CRITERIOS_MICRO = {'Mentor': ['Clareza na Comunicação', 'Comprometimento', 'Postura', 'Evolução Técnica'],
+                   'Jovem': ['Clareza na Comunicação', 'Comprometimento', 'Postura', 'Evolução Técnica']}
+CRITERIOS_RUIDO = ('Comunicação', 'Clareza na Comunicação')
+CRITERIOS_ENGAJAMENTO = ('Engajamento', 'Comprometimento')
 TIPOS_CICLO = ['360', 'Micro']
 PERFIS_MENTORIA = ['Mentor', 'Professor', 'Mentor Administrador']
 JANELA_RESULTADOS_DIAS = 180
@@ -3586,12 +3747,13 @@ def alertas_acompanhamento(usuario):
     notas = {}
     for r in respostas:
         for criterio, nota in json.loads(r.notas).items():
-            if criterio in ('Comunicação', 'Engajamento'):
-                notas.setdefault((r.avaliado_id, criterio), []).append(nota)
-    for (pessoa_id, criterio), valores in notas.items():
+            if criterio in CRITERIOS_RUIDO + CRITERIOS_ENGAJAMENTO:
+                tipo_alerta = 'ruido' if criterio in CRITERIOS_RUIDO else 'engajamento'
+                notas.setdefault((r.avaliado_id, tipo_alerta), []).append(nota)
+    for (pessoa_id, tipo_alerta), valores in notas.items():
         media = sum(valores) / len(valores)
         if len(valores) >= minimo and media < limite:
-            alertas.append({'tipo': 'ruido' if criterio == 'Comunicação' else 'engajamento', 'pessoa': pessoas[pessoa_id],
+            alertas.append({'tipo': tipo_alerta, 'pessoa': pessoas[pessoa_id],
                             'valor': round(media, 1), 'n': len(valores), 'cor': 'danger' if media < limite - 1 else 'warning'})
     agora = datetime.now()
     for pessoa_id, quando in ultima_atividade(pessoas).items():
@@ -4023,6 +4185,7 @@ def organizacao_do_termo(usuario):
 
 
 # Disponível em qualquer tela: {{ nome_parceiro_b2b(current_user) }}, {{ nome_parceiro_b2b(projeto) }}, empresas_parceiras(...)
+app.jinja_env.filters['fromjson'] = lambda texto: json.loads(texto) if texto else {}
 app.jinja_env.globals.update(nome_parceiro_b2b=nome_parceiro_b2b, empresas_parceiras=empresas_parceiras)
 
 # ------------------------------------------------------------------------------ logo do parceiro B2B (vai no certificado)
@@ -8318,7 +8481,15 @@ def atualizar_estrutura_banco():
         "ALTER TABLE reuniao_institucional ADD COLUMN pontos_parceiro TEXT",
         "ALTER TABLE reuniao_institucional ADD COLUMN link_gravacao VARCHAR(500)",
         "ALTER TABLE reuniao_institucional ADD COLUMN controle_presenca BOOLEAN",
-        "ALTER TABLE usuario ADD COLUMN ultimo_acesso DATETIME"
+        "ALTER TABLE usuario ADD COLUMN ultimo_acesso DATETIME",
+        "ALTER TABLE desistencia ADD COLUMN substituto_id INTEGER REFERENCES usuario(id)",
+        "ALTER TABLE sessao_mentoria ADD COLUMN ata_resumo TEXT",
+        "ALTER TABLE sessao_mentoria ADD COLUMN ata_fontes TEXT",
+        "ALTER TABLE sessao_mentoria ADD COLUMN ata_plano_acao TEXT",
+        "ALTER TABLE sessao_mentoria ADD COLUMN ata_proximo_encontro DATE",
+        "ALTER TABLE sessao_mentoria ADD COLUMN ata_registrada_em DATETIME",
+        "ALTER TABLE sessao_mentoria ADD COLUMN ata_registrada_por_id INTEGER REFERENCES usuario(id)",
+        "ALTER TABLE sessao_mentoria ADD COLUMN proximos_passos_enviados_em DATETIME"
     ]
     
     for comando in colunas_novas:

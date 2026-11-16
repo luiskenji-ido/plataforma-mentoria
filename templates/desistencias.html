@@ -35,6 +35,34 @@
                 <div class="col-12 d-grid"><button class="btn btn-danger btn-sm fw-bold" type="submit"><i class="bi bi-person-dash"></i> {{ tt('Registrar') }}</button></div>
             </form>
         </div>
+        {% if mentores_geridos %}
+        <!-- Mentor desistente: o substituto assume na hora jovens, grupos, turmas e sessões futuras; as horas ficam com quem as fez -->
+        <div class="card shadow-sm border-0 mt-3" id="mentorDesistente">
+            <div class="card-header bg-white fw-bold text-primary"><i class="bi bi-arrow-left-right"></i> {{ tt('Mentor desistente e substituto') }}</div>
+            <form method="POST" action="{{ url_for('desistencia_mentor') }}" class="card-body row g-2">
+                <div class="col-12"><label class="form-label small fw-bold mb-0" for="mMentor">{{ tt('Mentor que está saindo') }}</label>
+                    <select class="form-select form-select-sm" id="mMentor" name="mentor_id" required>
+                        <option value="">—</option>
+                        {% for m in mentores_geridos %}<option value="{{ m.id }}">{{ m.nome }} · {{ m.alunos.count() }} {{ tt('jovem(ns)') }}</option>{% endfor %}
+                    </select></div>
+                <div class="col-12"><label class="form-label small fw-bold mb-0" for="mSubstituto">{{ tt('Substituto') }}</label>
+                    <select class="form-select form-select-sm" id="mSubstituto" name="substituto_id">
+                        <option value="">{{ tt('— sem jovens nem grupos para passar —') }}</option>
+                        {% for m in substitutos %}<option value="{{ m.id }}">{{ m.nome }} · {{ m.tipo_usuario }}</option>{% endfor %}
+                    </select></div>
+                <div class="col-6"><label class="form-label small fw-bold mb-0" for="mData">{{ tt('Data da saída') }}</label>
+                    <input type="date" class="form-control form-control-sm" id="mData" name="data_saida" value="{{ hoje.isoformat() }}" max="{{ hoje.isoformat() }}" required></div>
+                <div class="col-6"><label class="form-label small fw-bold mb-0" for="mCategoria">{{ tt('Motivo principal') }}</label>
+                    <select class="form-select form-select-sm" id="mCategoria" name="categoria" required>
+                        {% for c in categorias %}<option value="{{ c }}">{{ tt(c) }}</option>{% endfor %}</select></div>
+                <div class="col-12"><label class="form-label small fw-bold mb-0" for="mMotivo">{{ tt('O que aconteceu') }}</label>
+                    <textarea class="form-control form-control-sm" id="mMotivo" name="motivo" rows="2" minlength="10" required></textarea></div>
+                <div class="col-12 small text-muted">{{ tt('O substituto assume na hora os jovens, grupos, turmas e sessões futuras. As horas de voluntariado continuam no nome de quem as fez.') }}</div>
+                <div class="col-12 d-grid"><button class="btn btn-outline-danger btn-sm fw-bold" type="submit"
+                    onclick="return confirm({{ tt('Desligar o mentor e passar os jovens ao substituto?') | tojson }})"><i class="bi bi-arrow-left-right"></i> {{ tt('Desligar e substituir') }}</button></div>
+            </form>
+        </div>
+        {% endif %}
     </div>
     <div class="col-lg-8">
         <div class="card shadow-sm border-0" id="cardDesistencias">
@@ -43,11 +71,13 @@
                 {% for d in desistencias %}
                 <li class="list-group-item" id="desistencia_{{ d.id }}">
                     <div class="d-flex justify-content-between flex-wrap gap-2">
-                        <span><b>{{ d.usuario.nome }}</b> <span class="badge bg-{{ cores.get(d.status, 'secondary') }}">{{ tt(d.status) }}</span>
+                        <span><b>{{ d.usuario.nome }}</b> {% if d.usuario.tipo_usuario != 'Aluno' %}<span class="badge bg-light text-dark border">{{ tt('Mentor') }}</span> {% endif %}<span class="badge bg-{{ cores.get(d.status, 'secondary') }}">{{ tt(d.status) }}</span>
                             <span class="text-muted">· {{ tt('saída em') }} {{ d.data_saida.strftime('%d/%m/%Y') }} · {{ tt(d.categoria) }}</span></span>
                         <span class="text-muted">{{ tt('Pedido por') }} {{ d.solicitado_por.nome if d.solicitado_por else '—' }} · {{ d.solicitado_em.strftime('%d/%m/%Y') }}</span>
                     </div>
                     <div class="mt-1">{{ d.motivo }}</div>
+                    {% if d.substituto %}{% set v = d.vinculos | fromjson %}<div class="mt-1 text-primary"><i class="bi bi-arrow-left-right"></i> {{ tt('Substituto') }}: <b>{{ d.substituto.nome }}</b>
+                        · {{ (v.get('jovens') or [])|length }} {{ tt('jovem(ns)') }}, {{ (v.get('grupos') or [])|length }} {{ tt('grupo(s)') }}, {{ (v.get('sessoes_futuras') or [])|length }} {{ tt('sessão(ões) futura(s)') }}</div>{% endif %}
                     {% if d.decidido_por %}<div class="text-muted mt-1"><i class="bi bi-person-check"></i> {{ tt(d.status) }} {{ tt('por') }} {{ d.decidido_por.nome }} · {{ d.decidido_em.strftime('%d/%m/%Y') }}{% if d.observacao_decisao %} · {{ d.observacao_decisao }}{% endif %}</div>{% endif %}
                     {% if d.revertido_por %}<div class="text-success mt-1"><i class="bi bi-arrow-counterclockwise"></i> {{ tt('Reativado por') }} {{ d.revertido_por.nome }} · {{ d.revertido_em.strftime('%d/%m/%Y') }}</div>{% endif %}
                     {% if pode_decidir(d) and d.status in ['Solicitada', 'Confirmada'] %}
@@ -57,8 +87,12 @@
                         <button class="btn btn-sm btn-danger fw-bold" name="acao" value="confirmar" type="submit">{{ tt('Confirmar desistência') }}</button>
                         <button class="btn btn-sm btn-outline-secondary" name="acao" value="recusar" type="submit">{{ tt('Recusar') }}</button>
                         {% else %}
+                        {% if d.usuario.tipo_usuario == 'Aluno' %}
                         <button class="btn btn-sm btn-outline-success fw-bold" name="acao" value="reativar" type="submit"
                                 onclick="return confirm({{ tt('Reativar o jovem nos grupos, turmas e mentores de antes?') | tojson }})"><i class="bi bi-arrow-counterclockwise"></i> {{ tt('Reativar jovem') }}</button>
+                        {% else %}
+                        <button class="btn btn-sm btn-outline-success fw-bold" name="acao" value="reativar" type="submit"><i class="bi bi-arrow-counterclockwise"></i> {{ tt('Reativar mentor') }}</button>
+                        {% endif %}
                         {% endif %}
                     </form>
                     {% endif %}

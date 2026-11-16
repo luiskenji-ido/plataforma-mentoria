@@ -12,7 +12,7 @@ No computador:
 from datetime import datetime, timedelta
 
 from app import app
-from models import db, CheckinVoluntariado, Usuario, EncaminhamentoReuniao, Banca, EnvioFormularioBanca, AvaliacaoBanca
+from models import db, CheckinVoluntariado, Usuario, EncaminhamentoReuniao, Banca, EnvioFormularioBanca, AvaliacaoBanca, EntregaTCC
 from notificacoes import notificar, eh_conta_de_teste
 
 # Relógio de voluntariado aberto há mais tempo que isto recebe o lembrete de check-out
@@ -21,7 +21,8 @@ HORAS_RELOGIO_ESQUECIDO = 4
 
 def lembrar_checkout_esquecido(agora):
     """Seção 13 do projeto: 'Não se esqueça de registar o seu tempo de hoje!'"""
-    limite = agora - timedelta(hours=HORAS_RELOGIO_ESQUECIDO)
+    from regras_negocio import regra
+    limite = agora - timedelta(hours=int(regra('relogio_esquecido_horas', HORAS_RELOGIO_ESQUECIDO) or HORAS_RELOGIO_ESQUECIDO))
     abertos = CheckinVoluntariado.query.filter(CheckinVoluntariado.data_hora_fim.is_(None),
                                                CheckinVoluntariado.data_hora_inicio <= limite).all()
     enviados = 0
@@ -117,6 +118,58 @@ def fechar_checkin_banca_esquecido(agora):
             fechados += 1
     db.session.commit()
     return fechados
+
+
+def lembrar_saida_esquecida(agora):
+    """Saída esquecida: X minutos (Parâmetros de regras, padrão 30) depois do fim previsto da reunião ITM × B2B,
+    da atividade extra ou da banca, avisa por e-mail quem ainda não fez o check-out (uma vez por presença)."""
+    from models import PresencaReuniao, PresencaAtividadeExtra
+    from regras_negocio import regra
+    minutos = int(regra('checkout_esquecido_minutos', 30) or 30)
+    local, enviados = datetime.now(), 0
+    pendentes = []
+    for p in PresencaReuniao.query.filter(PresencaReuniao.check_out.is_(None)).all():
+        if p.reuniao and local >= p.reuniao.fim_previsto + timedelta(minutes=minutos):
+            pendentes.append((p.usuario, p.reuniao.titulo, f"/reunioes/{p.reuniao_id}#cardPresenca", f"saida-reuniao:{p.id}"))
+    for p in PresencaAtividadeExtra.query.filter(PresencaAtividadeExtra.check_out.is_(None)).all():
+        if p.atividade and local >= p.atividade.fim_previsto + timedelta(minutes=minutos):
+            pendentes.append((p.usuario, p.atividade.titulo, "/atividades-extras", f"saida-extra:{p.id}"))
+    for registro in CheckinVoluntariado.query.filter(CheckinVoluntariado.data_hora_fim.is_(None),
+                                                     CheckinVoluntariado.tipo_atividade == 'Avaliação de Banca Ao Vivo',
+                                                     CheckinVoluntariado.projeto_id.isnot(None)).all():
+        banca = Banca.query.filter_by(projeto_id=registro.projeto_id).first()
+        if banca and local >= banca.fim_previsto + timedelta(minutes=minutos):
+            pendentes.append((db.session.get(Usuario, registro.usuario_id), 'Banca do TCC', "/bancas", f"saida-banca:{registro.id}"))
+    for pessoa, atividade, link, referencia in pendentes:
+        if pessoa is None:
+            continue
+        enviados += notificar([pessoa], ('notif_saida_esquecida_titulo', {}),
+                              ('notif_saida_esquecida_msg', {'atividade': atividade, 'minutos': minutos}),
+                              link=link, tipo='lembrete', referencia=referencia, por_email=not eh_conta_de_teste(pessoa))
+    return enviados
+
+
+def avisar_prazo_entrega_tcc(agora):
+    """Proximidade do prazo de entrega do TCC: X horas antes (padrão 48) do prazo do escrito ou dos slides,
+    avisa por e-mail os jovens e mentores do grupo que ainda não entregaram (uma vez por prazo)."""
+    from regras_negocio import regra
+    horas = int(regra('prazo_tcc_aviso_horas', 48) or 48)
+    local, enviados = datetime.now(), 0
+    for banca in Banca.query.filter(Banca.status != 'Cancelada').all():
+        projeto = banca.projeto
+        if not projeto or not projeto.grupo:
+            continue
+        for tipo, prazo in (('Escrito final', banca.prazo_entrega_escrito), ('Slides da apresentação', banca.prazo_entrega_slides)):
+            if not prazo or not (local < prazo <= local + timedelta(hours=horas)):
+                continue
+            if EntregaTCC.query.filter_by(projeto_id=projeto.id, tipo=tipo).first():
+                continue
+            pessoas = [p for p in projeto.grupo.membros if p.status == 'Ativo']
+            teste = all(eh_conta_de_teste(p) for p in pessoas)
+            enviados += notificar(pessoas, ('notif_prazo_tcc_titulo', {'tipo': tipo}),
+                                  ('notif_prazo_tcc_msg', {'tipo': tipo, 'projeto': projeto.nome, 'prazo': prazo.strftime('%d/%m/%Y %H:%M')}),
+                                  link='/projetos', tipo='lembrete', referencia=f"prazo-tcc:{banca.id}:{tipo}", por_email=not teste)
+    return enviados
 
 
 def abrir_microavaliacao(agora):
@@ -227,6 +280,7 @@ def aprender_funcionalidades(agora):
 
 TAREFAS = [lembrar_checkout_esquecido, lembrar_encaminhamentos_vencidos, avisar_ocorrencias_atrasadas, enviar_formulario_banca, fechar_checkin_banca_esquecido,
            fechar_presenca_reuniao_esquecida, abrir_microavaliacao, lembrar_avaliacao_pendente, lembrar_avaliacao_reuniao,
+           lembrar_saida_esquecida, avisar_prazo_entrega_tcc,
            executar_backups_agendados, aprender_mudancas_da_plataforma, aprender_seguranca, aprender_banco_de_dados, aprender_funcionalidades]
 
 

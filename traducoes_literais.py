@@ -1477,6 +1477,53 @@ LITERAIS.update({
     'Nada foi alterado.': ('Nothing was changed.', 'No se cambió nada.'),
 })
 
+
+# Fase 4: mentor desistente, ata estruturada, e-mails de prazo, próximos passos e saída esquecida
+LITERAIS.update({
+    'Clareza na Comunicação': ('Clarity of communication', 'Claridad en la comunicación'),
+    'Comprometimento': ('Commitment', 'Compromiso'),
+    'Evolução Técnica': ('Technical progress', 'Evolución técnica'),
+    'Escolha um mentor que você gerencia.': ('Choose a mentor you manage.', 'Elija un mentor que usted gestiona.'),
+    'O substituto precisa ser outro mentor ativo.': ('The substitute must be another active mentor.', 'El sustituto debe ser otro mentor activo.'),
+    'Este mentor acompanha jovens ou grupos: escolha quem vai substituí-lo.': ('This mentor follows youth or groups: choose who will replace them.', 'Este mentor acompaña jóvenes o grupos: elija quién lo sustituirá.'),
+    'Mentor desligado. {nome} assumiu {jovens} jovem(ns) e {grupos} grupo(s).': ('Mentor removed. {nome} took over {jovens} youth and {grupos} group(s).', 'Mentor desvinculado. {nome} asumió {jovens} joven(es) y {grupos} grupo(s).'),
+    'Mentor reativado. Os jovens continuam com o substituto; redistribua em Cadastros, se quiser.': ('Mentor reactivated. The youth stay with the substitute; reassign them in Registrations if you wish.', 'Mentor reactivado. Los jóvenes siguen con el sustituto; redistribúyalos en Registros si lo desea.'),
+    'Mentor desistente e substituto': ('Departing mentor and substitute', 'Mentor que se retira y sustituto'),
+    'Mentor que está saindo': ('Mentor who is leaving', 'Mentor que se retira'),
+    'Substituto': ('Substitute', 'Sustituto'),
+    '— sem jovens nem grupos para passar —': ('— no youth or groups to hand over —', '— sin jóvenes ni grupos para traspasar —'),
+    'jovem(ns)': ('youth', 'joven(es)'),
+    'grupo(s)': ('group(s)', 'grupo(s)'),
+    'sessão(ões) futura(s)': ('future session(s)', 'sesión(es) futura(s)'),
+    'O substituto assume na hora os jovens, grupos, turmas e sessões futuras. As horas de voluntariado continuam no nome de quem as fez.': ('The substitute immediately takes over the youth, groups, classes and future sessions. Volunteer hours stay with whoever did them.', 'El sustituto asume en el acto los jóvenes, grupos, clases y sesiones futuras. Las horas de voluntariado siguen a nombre de quien las hizo.'),
+    'Desligar o mentor e passar os jovens ao substituto?': ('Remove the mentor and hand the youth to the substitute?', '¿Desvincular al mentor y pasar los jóvenes al sustituto?'),
+    'Desligar e substituir': ('Remove and replace', 'Desvincular y sustituir'),
+    'Reativar mentor': ('Reactivate mentor', 'Reactivar mentor'),
+    'Ata': ('Minutes', 'Acta'),
+    'pendente': ('pending', 'pendiente'),
+    'Ata do encontro': ('Meeting minutes', 'Acta del encuentro'),
+    'Resumo das deliberações': ('Summary of decisions', 'Resumen de las deliberaciones'),
+    'Fontes recomendadas': ('Recommended sources', 'Fuentes recomendadas'),
+    'Livros, artigos, vídeos, sites (um por linha).': ('Books, articles, videos, websites (one per line).', 'Libros, artículos, videos, sitios (uno por línea).'),
+    'Plano de ação (próximos passos)': ('Action plan (next steps)', 'Plan de acción (próximos pasos)'),
+    'Um passo por linha. Ex.: Revisar a introdução do TCC até sexta.': ('One step per line. E.g.: Review the final project introduction by Friday.', 'Un paso por línea. Ej.: Revisar la introducción del TCC hasta el viernes.'),
+    'Próximo encontro': ('Next meeting', 'Próximo encuentro'),
+    'Enviar os próximos passos ao jovem por e-mail': ('E-mail the next steps to the youth', 'Enviar los próximos pasos al joven por e-mail'),
+    'Próximos passos enviados em': ('Next steps sent on', 'Próximos pasos enviados el'),
+    'Salvar ata': ('Save minutes', 'Guardar acta'),
+    'Preencha o resumo das deliberações (mínimo de 10 caracteres) e pelo menos um passo do plano de ação.': ('Fill in the summary of decisions (at least 10 characters) and at least one action-plan step.', 'Complete el resumen de las deliberaciones (mínimo 10 caracteres) y al menos un paso del plan de acción.'),
+    'A ata é registrada depois do encontro.': ('Minutes are recorded after the meeting.', 'El acta se registra después del encuentro.'),
+    'Ata registrada e próximos passos enviados ao jovem por e-mail.': ('Minutes recorded and next steps e-mailed to the youth.', 'Acta registrada y próximos pasos enviados al joven por e-mail.'),
+    'Ata registrada.': ('Minutes recorded.', 'Acta registrada.'),
+    'Aviso de saída esquecida': ('Forgotten check-out notice', 'Aviso de salida olvidada'),
+    'Minutos depois do fim previsto (reunião, atividade extra ou banca) para avisar por e-mail quem não fez o check-out. A rotina roda de hora em hora.': ('Minutes after the scheduled end (meeting, extra activity or panel) to e-mail whoever did not check out. The routine runs hourly.', 'Minutos después del fin previsto (reunión, actividad extra o banca) para avisar por e-mail a quien no hizo el check-out. La rutina se ejecuta cada hora.'),
+    'Aviso do relógio de voluntariado aberto': ('Open volunteer-clock notice', 'Aviso del reloj de voluntariado abierto'),
+    'Horas com o relógio de voluntariado aberto (sem fim previsto) para lembrar o check-out.': ('Hours with the volunteer clock open (no scheduled end) before reminding the check-out.', 'Horas con el reloj de voluntariado abierto (sin fin previsto) para recordar el check-out.'),
+    'Aviso antes do prazo de entrega do TCC': ('Notice before the final-project deadline', 'Aviso antes del plazo de entrega del TCC'),
+    'Horas antes do prazo do escrito ou dos slides para avisar por e-mail o grupo que ainda não entregou.': ('Hours before the written or slides deadline to e-mail the group that has not delivered yet.', 'Horas antes del plazo del escrito o de las diapositivas para avisar por e-mail al grupo que aún no entregó.'),
+    'Lembretes automáticos (e-mail)': ('Automatic reminders (e-mail)', 'Recordatorios automáticos (e-mail)'),
+})
+
 _POR_IDIOMA = {'en': {pt: v[0] for pt, v in LITERAIS.items()}, 'es': {pt: v[1] for pt, v in LITERAIS.items()}}
 
 

@@ -42,6 +42,14 @@
                                     💬 Feedbacks <span class="badge bg-success rounded-pill ms-1">{{ item.feedbacks|length }}</span>
                                 </button>
                                 
+                                <!-- Ata digital estruturada do encontro -->
+                                {% if item.sessao.ata_registrada_em or (pode_ata(item.sessao) and item.sessao.data_sessao <= agora) %}
+                                <button class="btn btn-sm {{ 'btn-primary' if item.sessao.ata_registrada_em else 'btn-outline-primary' }} fw-bold" data-bs-toggle="modal"
+                                        data-bs-target="#modalAta{{ item.sessao.id }}" id="btnAta{{ item.sessao.id }}">
+                                    <i class="bi bi-journal-text"></i> {{ tt('Ata') }}{% if not item.sessao.ata_registrada_em %} <span class="badge bg-warning text-dark">{{ tt('pendente') }}</span>{% endif %}
+                                </button>
+                                {% endif %}
+
                                 <!-- Botão Novo: Salvar na Agenda (Apenas para Alunos) -->
                                 {% if current_user.tipo_usuario == 'Aluno' %}
                                 <form action="{{ url_for('sincronizar_sessao_aluno', id=item.sessao.id) }}" method="POST" class="m-0">
@@ -140,6 +148,42 @@
                             </div>
                         </div>
                     </div>
+                    <!-- MODAL DA ATA DO ENCONTRO (resumo, fontes, plano de ação e próximos passos) -->
+                    <div class="modal fade text-start" id="modalAta{{ item.sessao.id }}" tabindex="-1">
+                        <div class="modal-dialog modal-lg modal-dialog-scrollable"><div class="modal-content">
+                            <div class="modal-header bg-primary text-white">
+                                <h5 class="modal-title"><i class="bi bi-journal-text"></i> {{ tt('Ata do encontro') }} · {{ item.sessao.data_sessao.strftime('%d/%m/%Y') }} · {{ item.aluno.nome }}</h5>
+                                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="{{ tt('Fechar') }}"></button>
+                            </div>
+                            {% if pode_ata(item.sessao) %}
+                            <form method="POST" action="{{ url_for('ata_sessao', id=item.sessao.id) }}" style="display: contents;">
+                                <div class="modal-body row g-2">
+                                    <div class="col-12"><label class="form-label small fw-bold mb-0" for="ataResumo{{ item.sessao.id }}">{{ tt('Resumo das deliberações') }}</label>
+                                        <textarea class="form-control form-control-sm" id="ataResumo{{ item.sessao.id }}" name="ata_resumo" rows="4" minlength="10" required>{{ item.sessao.ata_resumo or '' }}</textarea></div>
+                                    <div class="col-12"><label class="form-label small fw-bold mb-0" for="ataFontes{{ item.sessao.id }}">{{ tt('Fontes recomendadas') }}</label>
+                                        <textarea class="form-control form-control-sm" id="ataFontes{{ item.sessao.id }}" name="ata_fontes" rows="2" placeholder="{{ tt('Livros, artigos, vídeos, sites (um por linha).') }}">{{ item.sessao.ata_fontes or '' }}</textarea></div>
+                                    <div class="col-12"><label class="form-label small fw-bold mb-0" for="ataPlano{{ item.sessao.id }}">{{ tt('Plano de ação (próximos passos)') }}</label>
+                                        <textarea class="form-control form-control-sm" id="ataPlano{{ item.sessao.id }}" name="ata_plano_acao" rows="3" required placeholder="{{ tt('Um passo por linha. Ex.: Revisar a introdução do TCC até sexta.') }}">{{ item.sessao.ata_plano_acao or '' }}</textarea></div>
+                                    <div class="col-md-4"><label class="form-label small fw-bold mb-0" for="ataProximo{{ item.sessao.id }}">{{ tt('Próximo encontro') }}</label>
+                                        <input type="date" class="form-control form-control-sm" id="ataProximo{{ item.sessao.id }}" name="ata_proximo_encontro" value="{{ item.sessao.ata_proximo_encontro.isoformat() if item.sessao.ata_proximo_encontro else '' }}"></div>
+                                    <div class="col-md-8 d-flex align-items-end"><div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="ataEnviar{{ item.sessao.id }}" name="enviar_proximos_passos" value="1" {% if not item.sessao.proximos_passos_enviados_em %}checked{% endif %}>
+                                        <label class="form-check-label small" for="ataEnviar{{ item.sessao.id }}">{{ tt('Enviar os próximos passos ao jovem por e-mail') }}</label></div></div>
+                                    {% if item.sessao.proximos_passos_enviados_em %}<div class="col-12 small text-success"><i class="bi bi-send-check"></i> {{ tt('Próximos passos enviados em') }} {{ item.sessao.proximos_passos_enviados_em.strftime('%d/%m/%Y %H:%M') }}</div>{% endif %}
+                                </div>
+                                <div class="modal-footer bg-light"><button type="submit" class="btn btn-primary fw-bold">{{ tt('Salvar ata') }}</button></div>
+                            </form>
+                            {% else %}
+                            <div class="modal-body small">
+                                <h6 class="fw-bold text-primary">{{ tt('Resumo das deliberações') }}</h6><p style="white-space: pre-line;">{{ item.sessao.ata_resumo or '—' }}</p>
+                                <h6 class="fw-bold text-primary">{{ tt('Fontes recomendadas') }}</h6><p style="white-space: pre-line;">{{ item.sessao.ata_fontes or '—' }}</p>
+                                <h6 class="fw-bold text-primary">{{ tt('Plano de ação (próximos passos)') }}</h6>
+                                <ul>{% for passo in (item.sessao.ata_plano_acao or '').splitlines() %}<li>{{ passo }}</li>{% endfor %}</ul>
+                                {% if item.sessao.ata_proximo_encontro %}<p><b>{{ tt('Próximo encontro') }}:</b> {{ item.sessao.ata_proximo_encontro.strftime('%d/%m/%Y') }}</p>{% endif %}
+                            </div>
+                            {% endif %}
+                        </div></div>
+                    </div>
                     {% else %}
                     <tr>
                         <td colspan="5" class="text-muted py-4">{{ t('nenhuma_sessao_encontrada') }}</td>
@@ -205,6 +249,8 @@
     <script>
         document.addEventListener("DOMContentLoaded", function() {
             const params = new URLSearchParams(window.location.search);
+            const idAta = params.get('abrir_ata');
+            if (idAta && document.getElementById('modalAta' + idAta)) { new bootstrap.Modal(document.getElementById('modalAta' + idAta)).show(); }
             const idModal = params.get('abrir_modal');
             
             if (idModal) {
