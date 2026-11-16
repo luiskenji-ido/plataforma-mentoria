@@ -211,7 +211,8 @@ class AgenteFuncional:
             if self._pagina is None:
                 from playwright.sync_api import sync_playwright
                 self._pw = sync_playwright().start()
-                self._navegador = self._pw.chromium.launch()
+                from navegador import abrir_chromium
+                self._navegador = abrir_chromium(self._pw)
                 self._contexto_nav = self._navegador.new_context(viewport={"width": 1366, "height": 860})
                 self._pagina = self._contexto_nav.new_page()
             sessao = self.cliente.cookie_sessao() if self.cliente else None

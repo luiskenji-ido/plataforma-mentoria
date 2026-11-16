@@ -1786,7 +1786,8 @@ class AgenteOmniTest:
                 self.registrar("Preparação", "Utilizador de teste", FALHA, f"Exceção: {_celula(e)}", evidencia=False)
 
         with sync_playwright() as p:
-            browser = p.chromium.launch(headless=self.headless, slow_mo=self.lento)
+            from navegador import abrir_chromium
+            browser = abrir_chromium(p, headless=self.headless, slow_mo=self.lento)
             # Contexto próprio = cookies próprios: nenhum agente herda a sessão de outro
             self.context = browser.new_context(viewport={"width": 1280, "height": 800}, locale="pt-BR")
             self.page = self.context.new_page()

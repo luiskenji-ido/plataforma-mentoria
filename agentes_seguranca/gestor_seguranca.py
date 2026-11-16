@@ -225,7 +225,8 @@ def gerar_pdf(html, destino):
     with open(temporario, "w", encoding="utf-8") as f:
         f.write(html)
     with sync_playwright() as p:
-        navegador = p.chromium.launch()
+        from navegador import abrir_chromium
+        navegador = abrir_chromium(p)
         pagina = navegador.new_page()
         pagina.goto("file:///" + os.path.abspath(temporario).replace("\\", "/"), wait_until="load")
         pagina.pdf(path=destino, format="A4", print_background=True, display_header_footer=True, header_template="<span></span>",
