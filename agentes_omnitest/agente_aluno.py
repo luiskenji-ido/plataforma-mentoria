@@ -374,6 +374,15 @@ class AgenteAluno(AgenteOmniTest):
                            esperado="Botão visível enquanto a conta Google não está conectada")
             return
         self.registrar("Acompanhamento", "Botão Conectar Agenda", APROVADO, evidencia=False)
+        # Um só ícone no botão: o ícone do Bootstrap; o texto traduzido não pode repetir o 📅
+        texto = botao.first.inner_text()
+        icones = botao.first.locator("i.bi").count()
+        if "📅" in texto or icones != 1:
+            self.registrar("Acompanhamento", "Ícone único no botão Conectar Agenda", FALHA,
+                           f"O botão mostra {icones} ícone(s) do Bootstrap e o texto '{texto.strip()}'.",
+                           esperado="Um único ícone de calendário antes do texto")
+        else:
+            self.registrar("Acompanhamento", "Ícone único no botão Conectar Agenda", APROVADO, evidencia=False)
 
         # 1) O servidor deve redirecionar para o OAuth do Google com o escopo do Calendar
         resposta = self.context.request.get(BASE_URL + "/conectar-agenda", max_redirects=0)
