@@ -1057,3 +1057,31 @@ TEXTOS_ADEQUACOES['es'].update({
     'gmail_erro_conectar': 'La conexión con Google no se completó. Inténtelo de nuevo.',
     'gmail_sem_configuracao': 'La integración con Google aún no está configurada en este servidor (client_secret.json).',
 })
+
+# ------------------------------------------------------------------------------
+# Reuniões ITM × B2B — parceiro B2B da reunião e filtro dos participantes
+# ------------------------------------------------------------------------------
+TEXTOS_ADEQUACOES['pt'].update({
+    'reuniao_campo_parceiro': 'Parceiro B2B',
+    'reuniao_parceiro_todos': '— Sem parceiro definido (mostrar todos) —',
+    'reuniao_parceiro_dica': 'Ao escolher o parceiro, a lista de participantes mostra só as pessoas dele: gestor B2B, mentores e avaliadores da empresa.',
+    'reuniao_parceiro_mostrando': 'Mostrando {qtd} pessoa(s) de {parceiro}.',
+    'reuniao_parceiro_vazio': 'Nenhuma pessoa da plataforma está vinculada a este parceiro. Vincule o gestor B2B e os mentores na empresa (Hub Educacional) ou cadastre os participantes em "Outros participantes".',
+    'reuniao_erro_parceiro': 'Escolha um parceiro B2B válido.',
+})
+TEXTOS_ADEQUACOES['en'].update({
+    'reuniao_campo_parceiro': 'B2B partner',
+    'reuniao_parceiro_todos': '— No partner set (show everyone) —',
+    'reuniao_parceiro_dica': 'When you pick the partner, the participant list shows only its people: B2B manager, mentors and evaluators from the company.',
+    'reuniao_parceiro_mostrando': 'Showing {qtd} person(s) from {parceiro}.',
+    'reuniao_parceiro_vazio': 'Nobody on the platform is linked to this partner. Link the B2B manager and mentors to the company (Education Hub) or add the participants under "Other participants".',
+    'reuniao_erro_parceiro': 'Choose a valid B2B partner.',
+})
+TEXTOS_ADEQUACOES['es'].update({
+    'reuniao_campo_parceiro': 'Socio B2B',
+    'reuniao_parceiro_todos': '— Sin socio definido (mostrar todos) —',
+    'reuniao_parceiro_dica': 'Al elegir el socio, la lista de participantes muestra solo a sus personas: gestor B2B, mentores y evaluadores de la empresa.',
+    'reuniao_parceiro_mostrando': 'Mostrando {qtd} persona(s) de {parceiro}.',
+    'reuniao_parceiro_vazio': 'Ninguna persona de la plataforma está vinculada a este socio. Vincule al gestor B2B y a los mentores con la empresa (Hub Educativo) o registre a los participantes en "Otros participantes".',
+    'reuniao_erro_parceiro': 'Elija un socio B2B válido.',
+})

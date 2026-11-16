@@ -332,12 +332,18 @@ class AgenteMentorAdministrador(AgenteDoFluxo):
         o convite NUNCA sai para contas de teste — o agente não dispara e-mail de verdade (só contas @local.com e domínios .test)."""
         m = _modelos()
         self.etapa("Reunião ITM × B2B e convite por e-mail")
-        mentor, gestor = self.usuario("mentor"), self.usuario("gestor")
+        mentor, gestor, professor = self.usuario("mentor"), self.usuario("gestor"), self.usuario("professor")
+        empresa_id = self.contexto["ids"].get("empresa")
+        _, _, formulario = self.cliente.pedir("GET", "/reunioes/nova")
+        self.confere('id="rParceiro"' in formulario and f'value="{empresa_id}"' in formulario, "Formulário oferece o parceiro B2B da reunião", "FLX",
+                     "Campo Parceiro B2B com a empresa parceira do programa.", "Campo Parceiro B2B ausente ou sem a empresa.",
+                     "Reunião ITM × B2B indica o parceiro", "Média")
         quando = (datetime.now() + timedelta(days=5)).replace(hour=14, minute=30, second=0, microsecond=0)
         titulo = f"{MARCA} Alinhamento ITM × B2B"
-        self.post("/reunioes/nova", {"titulo": titulo, "data_hora": quando.strftime("%Y-%m-%dT%H:%M"), "duracao_minutos": "45",
-                                     "modalidade": "Online", "local_ou_link": "https://meet.google.com/funcional-teste",
-                                     "pauta": "Cronograma, bancas; certificados", "participantes": [x["id"] for x in (mentor, gestor) if x],
+        # O Professor não pertence ao parceiro: mesmo enviado à força, o servidor tem de descartá-lo
+        self.post("/reunioes/nova", {"titulo": titulo, "empresa_id": empresa_id or "", "data_hora": quando.strftime("%Y-%m-%dT%H:%M"),
+                                     "duracao_minutos": "45", "modalidade": "Online", "local_ou_link": "https://meet.google.com/funcional-teste",
+                                     "pauta": "Cronograma, bancas; certificados", "participantes": [x["id"] for x in (mentor, gestor, professor) if x],
                                      "participantes_externos": "Parceiro Externo – Empresa Teste – parceiro@empresa-funcional.test",
                                      "enviar_convite": "1", "convite_via": "smtp"})
         reuniao = self.banco(lambda: m.ReuniaoInstitucional.query.filter_by(titulo=titulo).first())
@@ -347,6 +353,12 @@ class AgenteMentorAdministrador(AgenteDoFluxo):
                      "Gestão registra reuniões com participantes internos e externos", "Alta", print_de="/reunioes")
         if not reuniao:
             return
+        self.confere(reuniao.empresa_id == empresa_id and (not professor or professor["id"] not in participantes),
+                     "Participantes limitados ao parceiro B2B escolhido", "REG",
+                     "Reunião ligada à empresa parceira; o Professor (fora do parceiro) foi descartado pelo servidor.",
+                     f"Parceiro gravado: {reuniao.empresa_id}; participantes: {participantes}.",
+                     "Com parceiro escolhido, só entram o gestor B2B, os mentores e os avaliadores da empresa", "Alta",
+                     "Em salvar_reuniao_do_formulario, filtrar os participantes por ids_do_parceiro(empresa).")
         self.contexto["ids"]["reuniao"] = reuniao.id
         self.confere(reuniao.convite_enviado_em is None, "Convite não vai para contas de teste", "REG",
                      "Nenhum convite enviado: todos os convidados são contas de teste ou domínios .test.",

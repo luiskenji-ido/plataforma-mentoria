@@ -12,6 +12,7 @@
                 {% if reuniao.local_ou_link %} · {% if reuniao.local_ou_link.startswith('http') %}<a href="{{ reuniao.local_ou_link }}" target="_blank" rel="noopener">{{ t('extra_link_sala') }}</a>{% else %}{{ reuniao.local_ou_link }}{% endif %}{% endif %}
                 · {{ t('extra_criada_por') }} {{ reuniao.criado_por.nome if reuniao.criado_por else '—' }}
             </div>
+            {% if reuniao.empresa %}<span class="badge bg-primary-subtle text-primary-emphasis border mt-1"><i class="bi bi-buildings"></i> {{ t('reuniao_campo_parceiro') }}: {{ reuniao.empresa.nome }}</span>{% endif %}
         </div>
         <div class="d-flex gap-2 flex-wrap">
             <div class="dropdown">

@@ -2483,9 +2483,15 @@ def sincronizar_voluntariado_reuniao(reuniao):
         db.session.delete(sobra)
 
 
-def salvar_reuniao_do_formulario(reuniao, formulario):
+def salvar_reuniao_do_formulario(reuniao, formulario, usuario):
     """Preenche a reunião com os dados do formulário. Devolve a chave do erro ou None."""
     titulo = (formulario.get('titulo') or '').strip()
+    empresa = None
+    empresa_id = formulario.get('empresa_id', type=int)
+    if empresa_id:
+        empresa = next((e for e in empresas_da_reuniao(usuario, reuniao.empresa) if e.id == empresa_id), None)
+        if empresa is None:
+            return 'reuniao_erro_parceiro'
     try:
         data_hora = datetime.strptime(formulario.get('data_hora', ''), "%Y-%m-%dT%H:%M")
     except ValueError:
@@ -2505,7 +2511,12 @@ def salvar_reuniao_do_formulario(reuniao, formulario):
     reuniao.participantes_externos = (formulario.get('participantes_externos') or '').strip() or None
     reuniao.contar_voluntariado = bool(formulario.get('contar_voluntariado'))
     reuniao.demanda_id = formulario.get('demanda_id', type=int) or None
+    reuniao.empresa_id = empresa.id if empresa else None
     ids = [int(i) for i in formulario.getlist('participantes') if i.isdigit()]
+    if empresa:
+        # Com parceiro escolhido, só entram pessoas desse parceiro (a tela já filtra; aqui garante no servidor)
+        do_parceiro = ids_do_parceiro(empresa)
+        ids = [i for i in ids if i in do_parceiro]
     reuniao.participantes = Usuario.query.filter(Usuario.id.in_(ids or [-1]), Usuario.tipo_usuario != 'Aluno').all()
 
     # Encaminhamentos novos (linhas preenchidas no formulário)
@@ -2524,6 +2535,29 @@ def salvar_reuniao_do_formulario(reuniao, formulario):
 
 def pessoas_internas_reuniao():
     return Usuario.query.filter(Usuario.tipo_usuario != 'Aluno', Usuario.status == 'Ativo').order_by(Usuario.nome).all()
+
+
+def empresas_da_reuniao(usuario, atual=None):
+    """Parceiros B2B que a pessoa pode escolher na reunião: o Gestor B2B só as empresas que ele gerencia."""
+    consulta = Empresa.query.filter(db.or_(Empresa.status.is_(None), Empresa.status != 'Inativa'))
+    if usuario.tipo_usuario == 'Admin B2B':
+        consulta = consulta.filter(Empresa.gestor_id == usuario.id)
+    empresas = consulta.order_by(Empresa.nome).all()
+    if atual is not None and atual not in empresas:
+        empresas.append(atual)  # reunião antiga com parceiro hoje inativo continua editável
+    return empresas
+
+
+def ids_do_parceiro(empresa):
+    """Quem pertence ao parceiro B2B: o gestor B2B da empresa, os mentores vinculados a ela
+    e os avaliadores da banca cuja empresa de origem é ela."""
+    from models import PerfilAvaliador
+    ids = {m.id for m in empresa.mentores}
+    if empresa.gestor_id:
+        ids.add(empresa.gestor_id)
+    ids |= {p.usuario_id for p in PerfilAvaliador.query.filter(
+        db.func.lower(db.func.trim(PerfilAvaliador.empresa_origem)) == empresa.nome.strip().lower()).all()}
+    return ids
 
 
 @app.route('/reunioes')
@@ -2561,7 +2595,7 @@ def editar_reuniao(id=None):
         nova = reuniao is None
         if nova:
             reuniao = ReuniaoInstitucional(criado_por_id=current_user.id)
-        erro = salvar_reuniao_do_formulario(reuniao, request.form)
+        erro = salvar_reuniao_do_formulario(reuniao, request.form, current_user)
         if erro:
             flash(t(erro, current_user.idioma), "warning")
             return redirect(url_for('editar_reuniao', id=id))
@@ -2582,8 +2616,14 @@ def editar_reuniao(id=None):
 
     demanda = db.session.get(DemandaInstitucional, request.args.get('demanda_id', type=int) or 0)
     demandas = DemandaInstitucional.query.order_by(DemandaInstitucional.data_criacao.desc()).limit(100).all()
-    return render_template('reuniao_form.html', reuniao=reuniao, pessoas=pessoas_internas_reuniao(),
-                           demandas=demandas, demanda_inicial=demanda, **opcoes_envio_convite())
+    empresas = empresas_da_reuniao(current_user, reuniao.empresa if reuniao else None)
+    membros = {e.id: ids_do_parceiro(e) for e in empresas}
+    # Para cada pessoa, os parceiros B2B a que ela pertence (o filtro da tela usa isto)
+    pessoas = pessoas_internas_reuniao()
+    parceiros_da_pessoa = {p.id: [eid for eid, ids in membros.items() if p.id in ids] for p in pessoas}
+    return render_template('reuniao_form.html', reuniao=reuniao, pessoas=pessoas,
+                           demandas=demandas, demanda_inicial=demanda, empresas=empresas, parceiros_da_pessoa=parceiros_da_pessoa,
+                           **opcoes_envio_convite())
 
 
 @app.route('/reunioes/<int:id>', methods=['GET', 'POST'])
@@ -6936,7 +6976,8 @@ def atualizar_estrutura_banco():
         "ALTER TABLE reuniao_institucional ADD COLUMN convite_sequencia INTEGER DEFAULT 0",
         "ALTER TABLE reuniao_institucional ADD COLUMN convite_enviado_em DATETIME",
         "ALTER TABLE reuniao_institucional ADD COLUMN convite_enviado_via VARCHAR(20)",
-        "ALTER TABLE reuniao_institucional ADD COLUMN convite_destinatarios TEXT"
+        "ALTER TABLE reuniao_institucional ADD COLUMN convite_destinatarios TEXT",
+        "ALTER TABLE reuniao_institucional ADD COLUMN empresa_id INTEGER REFERENCES empresa(id)"
     ]
     
     for comando in colunas_novas:

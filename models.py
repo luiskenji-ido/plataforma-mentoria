@@ -694,6 +694,7 @@ class ReuniaoInstitucional(db.Model):
     participantes_externos = db.Column(db.Text, nullable=True)  # "Nome – Instituição", um por linha
     contar_voluntariado = db.Column(db.Boolean, default=True)
     demanda_id = db.Column(db.Integer, db.ForeignKey('demanda_institucional.id'), nullable=True)
+    empresa_id = db.Column(db.Integer, db.ForeignKey('empresa.id'), nullable=True)  # parceiro B2B da reunião
     criado_por_id = db.Column(db.Integer, db.ForeignKey('usuario.id'), nullable=False)
     data_criacao = db.Column(db.DateTime, default=datetime.utcnow)
     data_atualizacao = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
@@ -706,6 +707,7 @@ class ReuniaoInstitucional(db.Model):
     participantes = db.relationship('Usuario', secondary=reuniao_participante, lazy='subquery')
     criado_por = db.relationship('Usuario', foreign_keys=[criado_por_id])
     demanda = db.relationship('DemandaInstitucional')
+    empresa = db.relationship('Empresa')
     encaminhamentos = db.relationship('EncaminhamentoReuniao', backref='reuniao', lazy=True,
                                       cascade="all, delete-orphan", order_by='EncaminhamentoReuniao.prazo')
 

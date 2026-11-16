@@ -92,6 +92,8 @@ def _dobrar(linha):
 
 def descricao(reuniao, link=None):
     partes = []
+    if getattr(reuniao, 'empresa', None):
+        partes.append(f"Parceiro B2B: {reuniao.empresa.nome}")
     if reuniao.local_ou_link:
         partes.append(f"{'Link' if reuniao.local_ou_link.startswith('http') else 'Local'}: {reuniao.local_ou_link}")
     if reuniao.pauta:

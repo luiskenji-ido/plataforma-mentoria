@@ -12,6 +12,16 @@
                 <label class="form-label fw-bold" for="rTitulo">{{ t('reuniao_campo_titulo') }}</label>
                 <input class="form-control" id="rTitulo" name="titulo" maxlength="200" required value="{{ reuniao.titulo if reuniao else ('Alinhamento: ' ~ demanda_inicial.titulo if demanda_inicial else '') }}">
             </div>
+            <div class="col-md-6">
+                <label class="form-label fw-bold" for="rParceiro"><i class="bi bi-buildings"></i> {{ t('reuniao_campo_parceiro') }}</label>
+                <select class="form-select" id="rParceiro" name="empresa_id">
+                    <option value="">{{ t('reuniao_parceiro_todos') }}</option>
+                    {% for e in empresas %}<option value="{{ e.id }}" {% if reuniao and reuniao.empresa_id == e.id %}selected{% endif %}>{{ e.nome }}</option>{% endfor %}
+                </select>
+            </div>
+            <div class="col-md-6 d-flex align-items-end">
+                <div class="form-text mb-2" id="rParceiroDica">{{ t('reuniao_parceiro_dica') }}</div>
+            </div>
             <div class="col-md-4">
                 <label class="form-label fw-bold" for="rData">{{ t('reuniao_campo_data') }}</label>
                 <input type="datetime-local" class="form-control" id="rData" name="data_hora" required value="{{ reuniao.data_hora.strftime('%Y-%m-%dT%H:%M') if reuniao else '' }}">
@@ -42,9 +52,11 @@
             <div class="col-md-6">
                 <label class="form-label fw-bold" for="rParticipantes">{{ t('reuniao_participantes_internos') }}</label>
                 <select class="form-select" id="rParticipantes" name="participantes" multiple size="8">
-                    {% for p in pessoas %}<option value="{{ p.id }}" {% if p.id in ids_participantes or (not reuniao and p.id == current_user.id) %}selected{% endif %}>{{ p.nome }} · {{ p.tipo_usuario }}</option>{% endfor %}
+                    {% for p in pessoas %}<option value="{{ p.id }}" data-parceiros="{{ parceiros_da_pessoa.get(p.id, []) | join(' ') }}" {% if p.id in ids_participantes or (not reuniao and p.id == current_user.id) %}selected{% endif %}>{{ p.nome }} · {{ p.tipo_usuario }}</option>{% endfor %}
                 </select>
                 <div class="form-text">{{ t('reuniao_dica_multipla') }}</div>
+                <div class="form-text text-primary fw-bold d-none" id="rFiltroParceiro"></div>
+                <div class="alert alert-warning small py-2 mt-1 mb-0 d-none" id="rParceiroVazio">{{ t('reuniao_parceiro_vazio') }}</div>
             </div>
             <div class="col-md-6">
                 <label class="form-label fw-bold" for="rExternos">{{ t('reuniao_participantes_externos') }}</label>
@@ -121,4 +133,28 @@
         </div>
     </form>
 </div>
+<script>
+// Parceiro B2B escolhido: a lista de participantes mostra só as pessoas desse parceiro (gestor B2B, mentores e avaliadores).
+// A lista é remontada (esconder <option> não funciona em todos os navegadores) e quem sai do filtro deixa de ficar marcado.
+(function () {
+    const parceiro = document.getElementById('rParceiro'), lista = document.getElementById('rParticipantes');
+    const aviso = document.getElementById('rFiltroParceiro'), vazio = document.getElementById('rParceiroVazio');
+    if (!parceiro || !lista) return;
+    const todas = Array.from(lista.options).map(o => ({ valor: o.value, texto: o.text, parceiros: (o.dataset.parceiros || '').split(' ').filter(Boolean), marcado: o.selected }));
+    const TXT = {{ {'mostrando': t('reuniao_parceiro_mostrando')} | tojson }};
+    function filtrar() {
+        Array.from(lista.options).forEach(o => { const p = todas.find(x => x.valor === o.value); if (p) p.marcado = o.selected; });
+        const escolhido = parceiro.value;
+        const visiveis = escolhido ? todas.filter(p => p.parceiros.includes(escolhido)) : todas;
+        if (escolhido) todas.forEach(p => { if (!p.parceiros.includes(escolhido)) p.marcado = false; });
+        lista.innerHTML = '';
+        visiveis.forEach(p => { const o = new Option(p.texto, p.valor, false, p.marcado); o.dataset.parceiros = p.parceiros.join(' '); lista.add(o); });
+        aviso.classList.toggle('d-none', !escolhido);
+        aviso.textContent = escolhido ? TXT.mostrando.replace('{qtd}', visiveis.length).replace('{parceiro}', parceiro.options[parceiro.selectedIndex].text) : '';
+        vazio.classList.toggle('d-none', !escolhido || visiveis.length > 0);
+    }
+    parceiro.addEventListener('change', filtrar);
+    if (parceiro.value) filtrar();
+})();
+</script>
 {% endblock %}
