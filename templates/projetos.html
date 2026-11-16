@@ -115,6 +115,17 @@
         
         {% include "_projeto_banca.html" %}
 
+        <!-- Abas do projeto: tarefas (tabela) e gráficos (Gantt e gráficos sob demanda) -->
+        <ul class="nav nav-tabs px-2 pt-2 bg-light" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button class="nav-link active fw-bold" data-bs-toggle="tab" data-bs-target="#abaTarefas{{ p.id }}" type="button" role="tab" aria-selected="true">
+                    <i class="bi bi-list-check"></i> {{ tt('Tarefas') }}</button></li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link fw-bold aba-graficos" data-bs-toggle="tab" data-bs-target="#abaGraficos{{ p.id }}" data-projeto="{{ p.id }}" type="button" role="tab" aria-selected="false">
+                    <i class="bi bi-bar-chart-steps"></i> {{ tt('Gráficos') }}</button></li>
+        </ul>
+        <div class="tab-content">
+        <div class="tab-pane fade show active" id="abaTarefas{{ p.id }}" role="tabpanel">
         <div class="card-body p-0">
             <!-- Botão Superior: Criar Nova Tarefa Vinculada ao Projeto -->
             <div class="p-2 bg-white text-end border-bottom">
@@ -258,6 +269,12 @@
                     </tbody>
                 </table>
             </div>
+        </div>
+        </div>
+        <div class="tab-pane fade" id="abaGraficos{{ p.id }}" role="tabpanel">
+            {% set g = graficos[p.id] %}
+            {% include "_projeto_graficos.html" %}
+        </div>
         </div>
     </div>
 
@@ -688,5 +705,72 @@
             }
         });
     </script>
+
+
+<!-- ================= ABA GRÁFICOS: Gantt (CSS) e gráficos sob demanda (Chart.js) ================= -->
+<style>
+    .gantt { --nome: 230px; font-size: .8rem; border: 1px solid var(--bs-border-color); border-radius: 8px; overflow: hidden; }
+    .gantt-linha { display: grid; grid-template-columns: var(--nome) 1fr; border-bottom: 1px solid var(--bs-border-color-translucent); min-height: 38px; }
+    .gantt-linha:last-child { border-bottom: 0; }
+    .gantt-regua { background: var(--bs-tertiary-bg); font-weight: 700; min-height: 28px; }
+    .gantt-nome { padding: 4px 8px; border-right: 1px solid var(--bs-border-color-translucent); overflow: hidden; white-space: nowrap; text-overflow: ellipsis; align-self: center; }
+    .gantt-nome.nivel-1 { padding-left: 22px; font-weight: 400; }
+    .gantt-nome.nivel-0 { font-weight: 600; }
+    .gantt-trilho { position: relative; margin: 0 10px; }
+    .gantt-marca { position: absolute; top: 6px; transform: translateX(-2px); color: var(--bs-secondary-color); font-weight: 600; white-space: nowrap; font-size: .72rem; }
+    .gantt-grade { position: absolute; top: 0; bottom: 0; border-left: 1px dashed var(--bs-border-color-translucent); }
+    .gantt-hoje { position: absolute; top: 0; bottom: 0; border-left: 2px solid #dc3545; z-index: 2; }
+    .gantt-barra { position: absolute; top: 8px; height: 22px; border-radius: 6px; overflow: hidden; z-index: 1; cursor: default; }
+    .gantt-feito { position: absolute; inset: 0 auto 0 0; background: rgba(0,0,0,.22); }
+    .gantt-rotulo { position: relative; z-index: 1; color: #fff; font-weight: 700; font-size: .7rem; padding-left: 6px; line-height: 22px; text-shadow: 0 1px 2px rgba(0,0,0,.4); }
+    .st-pendente { background: #6c757d; } .st-andamento { background: #0d6efd; } .st-concluido { background: #198754; } .st-atrasada { background: #dc3545; }
+    .gantt-cor { display: inline-block; width: 12px; height: 12px; border-radius: 3px; vertical-align: -1px; }
+    .gantt-hoje-legenda { display: inline-block; width: 2px; height: 12px; background: #dc3545; vertical-align: -1px; }
+    .grafico-area { position: relative; height: 320px; }
+    @media (max-width: 767.98px) { .gantt { --nome: 120px; } .gantt-marca:nth-child(even) { display: none; } }
+</style>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js" integrity="sha384-9nhczxUqK87bcKHh20fSQcTGD4qq5GhayNYSYWqwBkINBhOfQLg/P5HG5lF1urn4" crossorigin="anonymous"></script>
+<script>
+(function () {
+    const CORES = ['#0d6efd', '#198754', '#ffc107', '#dc3545', '#6f42c1', '#20c997', '#fd7e14', '#0dcaf0', '#6c757d', '#d63384'];
+    const graficos = {};
+    function desenhar(id) {
+        const series = JSON.parse(document.getElementById('seriesProjeto' + id).textContent);
+        const dado = document.getElementById('dadoGrafico' + id), tipoSel = document.getElementById('tipoGrafico' + id);
+        const serie = series[dado.value] || { rotulos: [], valores: [] };
+        let tipo = tipoSel.value === 'auto' ? dado.options[dado.selectedIndex].dataset.tipo : tipoSel.value;
+        const horizontal = tipo === 'barh';
+        if (horizontal) tipo = 'bar';
+        const vazio = !serie.valores.length || serie.valores.every(v => !v);
+        document.getElementById('graficoVazio' + id).classList.toggle('d-none', !vazio);
+        if (graficos[id]) graficos[id].destroy();
+        if (!window.Chart) return;
+        const circular = ['pie', 'doughnut'].includes(tipo);
+        graficos[id] = new Chart(document.getElementById('canvasGrafico' + id), {
+            type: tipo,
+            data: { labels: serie.rotulos, datasets: [{ label: `${dado.options[dado.selectedIndex].text} (${serie.unidade || ''})`, data: serie.valores,
+                    backgroundColor: circular || tipo === 'bar' ? serie.valores.map((_, i) => (serie.cores || CORES)[i % (serie.cores || CORES).length]) : 'rgba(13,110,253,.15)',
+                    borderColor: circular ? '#fff' : (tipo === 'bar' ? 'transparent' : '#0d6efd'), borderWidth: 2, fill: tipo === 'line', tension: .3 }] },
+            options: { responsive: true, maintainAspectRatio: false, indexAxis: horizontal ? 'y' : 'x',
+                       plugins: { legend: { display: circular }, title: { display: true, text: dado.options[dado.selectedIndex].text } },
+                       scales: circular ? {} : { [horizontal ? 'x' : 'y']: { beginAtZero: true } } }
+        });
+    }
+    document.querySelectorAll('.gerar-grafico').forEach(b => b.addEventListener('click', () => desenhar(b.dataset.projeto)));
+    document.querySelectorAll('.dado-grafico, .tipo-grafico').forEach(s => s.addEventListener('change', () => desenhar(s.id.replace(/\D/g, ''))));
+    document.querySelectorAll('.baixar-grafico').forEach(b => b.addEventListener('click', () => {
+        const g = graficos[b.dataset.projeto];
+        if (!g) return;
+        const link = document.createElement('a');
+        link.href = g.toBase64Image('image/png', 1);
+        link.download = `grafico_projeto_${b.dataset.projeto}.png`;
+        link.click();
+    }));
+    // O gráfico é desenhado quando a aba abre pela primeira vez (a área precisa estar visível)
+    document.querySelectorAll('.aba-graficos').forEach(aba => aba.addEventListener('shown.bs.tab', () => {
+        if (!graficos[aba.dataset.projeto]) desenhar(aba.dataset.projeto);
+    }));
+})();
+</script>
 
 {% endblock %}

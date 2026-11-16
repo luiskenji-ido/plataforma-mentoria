@@ -1043,6 +1043,37 @@ class EstadoConhecimento(db.Model):
 
 
 # ==============================================================================
+# PARÂMETROS DAS REGRAS DE NEGÓCIO (frequência MEC, notas, banca, senhas...)
+# O catálogo e os valores-padrão ficam em regras_negocio.py; aqui só o valor escolhido pela gestão
+# e as regras novas criadas por ela. Toda mudança fica no histórico (quem, quando, de → para, motivo).
+# ==============================================================================
+class ParametroRegra(db.Model):
+    __tablename__ = 'parametro_regra'
+    chave = db.Column(db.String(60), primary_key=True)
+    valor = db.Column(db.Text, nullable=False)                      # guardado como texto; o tipo vem do catálogo
+    personalizado = db.Column(db.Boolean, default=False)            # regra nova criada pela gestão
+    nome = db.Column(db.String(150), nullable=True)                 # só para as personalizadas
+    descricao = db.Column(db.Text, nullable=True)
+    tipo = db.Column(db.String(20), nullable=True)                  # inteiro / decimal / texto / sim_nao
+    atualizado_em = db.Column(db.DateTime, default=datetime.utcnow)
+    atualizado_por_id = db.Column(db.Integer, db.ForeignKey('usuario.id'), nullable=True)
+    atualizado_por = db.relationship('Usuario')
+
+
+class HistoricoParametro(db.Model):
+    __tablename__ = 'historico_parametro'
+    id = db.Column(db.Integer, primary_key=True)
+    chave = db.Column(db.String(60), nullable=False, index=True)
+    acao = db.Column(db.String(30), nullable=False)                 # Alterado / Restaurado / Criado / Excluído
+    valor_anterior = db.Column(db.Text, nullable=True)
+    valor_novo = db.Column(db.Text, nullable=True)
+    motivo = db.Column(db.Text, nullable=True)
+    usuario_id = db.Column(db.Integer, db.ForeignKey('usuario.id'), nullable=True)
+    data = db.Column(db.DateTime, default=datetime.utcnow)
+    usuario = db.relationship('Usuario')
+
+
+# ==============================================================================
 # CONTA NOVA NASCE LIMPA
 # O SQLite reaproveita o id do último usuário apagado. Se alguma rotina apagou um usuário sem apagar os dados ligados
 # a ele (perguntas de segurança, termo, histórico de senhas…), a conta nova herdaria esses dados — e quem conhecesse

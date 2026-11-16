@@ -1,0 +1,150 @@
+{% extends "base.html" %}
+{% block title %}{{ tt('Parâmetros de regras') }}{% endblock %}
+{% block content %}
+<style>
+    .parametro { border-bottom: 1px solid var(--bs-border-color-translucent); padding: .75rem 0; }
+    .parametro:last-child { border-bottom: 0; }
+    .parametro .valor { max-width: 150px; }
+    .parametro.alterado { background: linear-gradient(90deg, rgba(13,110,253,.06), transparent 60%); }
+</style>
+
+<div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-3">
+    <div>
+        <h2 class="text-primary fw-bold mb-1"><i class="bi bi-sliders"></i> {{ tt('Parâmetros de regras') }}</h2>
+        <p class="text-muted mb-0">{{ tt('Os números que definem as regras de negócio da plataforma. Ao salvar, a regra passa a valer na hora para todos; cada mudança fica no histórico com quem, quando e o motivo.') }}</p>
+    </div>
+    <a href="{{ url_for('perfis_acesso_view') }}" class="btn btn-outline-secondary fw-bold"><i class="bi bi-person-gear"></i> {{ tt('Acesso às telas e funções') }}</a>
+</div>
+
+<div class="alert alert-light border small d-flex gap-2 align-items-start">
+    <i class="bi bi-info-circle mt-1"></i>
+    <div>{{ tt('Quem acessa cada tela ou função é definido em Perfis de acesso. Aqui ficam as regras de cálculo e de validação. Para uma regra que ainda não existe, use “Criar regra nova”: ela fica guardada e pronta para as próximas funcionalidades.') }}</div>
+</div>
+
+<form method="POST" id="formParametros">
+    {% for grupo, titulo, icone in grupos %}
+    {% set do_grupo = itens | selectattr('grupo', 'equalto', grupo) | list %}
+    {% if do_grupo %}
+    <div class="card shadow-sm border-0 mb-3" id="grupo_{{ grupo }}">
+        <div class="card-header bg-white d-flex justify-content-between align-items-center">
+            <span class="fw-bold text-primary"><i class="bi {{ icone }}"></i> {{ tt(titulo) }}</span>
+            {% if grupo == 'banca' %}<span class="small fw-bold" id="somaPesos"></span>{% endif %}
+        </div>
+        <div class="card-body py-0">
+            {% for p in do_grupo %}
+            <div class="parametro row g-2 align-items-center {{ 'alterado' if p.alterado }}" id="param_{{ p.chave }}">
+                <div class="col-lg-6">
+                    <label class="fw-bold mb-0" for="v_{{ p.chave }}">{{ tt(p.nome) }}</label>
+                    {% if p.alterado %}<span class="badge bg-primary-subtle text-primary-emphasis border ms-1">{{ tt('alterado') }}</span>{% endif %}
+                    {% if p.personalizado %}<span class="badge bg-info-subtle text-info-emphasis border ms-1">{{ tt('criada pela gestão') }}</span>{% endif %}
+                    <div class="small text-muted">{{ tt(p.descricao) }}</div>
+                    <div class="small text-muted fst-italic"><i class="bi bi-diagram-2"></i> {{ tt('Usada em') }}: {{ tt(p.uso) }}</div>
+                </div>
+                <div class="col-lg-3 col-7">
+                    <div class="d-flex align-items-center gap-2">
+                        {% if p.tipo == 'sim_nao' %}
+                        <select class="form-select form-select-sm valor" id="v_{{ p.chave }}" name="valor_{{ p.chave }}">
+                            <option value="sim" {% if p.valor %}selected{% endif %}>{{ tt('Sim') }}</option>
+                            <option value="nao" {% if not p.valor %}selected{% endif %}>{{ tt('Não') }}</option>
+                        </select>
+                        {% elif p.tipo in ('inteiro', 'decimal') %}
+                        <input type="number" class="form-control form-control-sm valor {{ 'peso-banca' if p.chave.startswith('banca_peso') }}" id="v_{{ p.chave }}"
+                               name="valor_{{ p.chave }}" value="{{ p.valor }}" step="{{ '1' if p.tipo == 'inteiro' else '0.1' }}"
+                               {% if p.minimo is not none %}min="{{ p.minimo }}" max="{{ p.maximo }}"{% endif %} required>
+                        {% else %}
+                        <input type="text" class="form-control form-control-sm valor" id="v_{{ p.chave }}" name="valor_{{ p.chave }}" value="{{ p.valor }}" maxlength="500" required>
+                        {% endif %}
+                        <span class="small text-muted text-nowrap">{{ tt(p.unidade) }}</span>
+                    </div>
+                </div>
+                <div class="col-lg-3 col-5 small text-lg-end">
+                    {% if p.padrao is not none %}
+                    <div class="text-muted">{{ tt('Padrão') }}: <b>{{ p.padrao }}</b></div>
+                    {% if p.alterado %}<button class="btn btn-link btn-sm p-0" type="submit" name="restaurar" value="{{ p.chave }}" formnovalidate><i class="bi bi-arrow-counterclockwise"></i> {{ tt('Voltar ao padrão') }}</button>{% endif %}
+                    {% else %}
+                    <button class="btn btn-link btn-sm p-0 text-danger" type="submit" name="excluir" value="{{ p.chave }}" formnovalidate
+                            onclick="return confirm({{ tt('Excluir esta regra criada pela gestão?') | tojson }})"><i class="bi bi-trash"></i> {{ tt('Excluir') }}</button>
+                    {% endif %}
+                    {% if p.atualizado_em %}<div class="text-muted">{{ (p.atualizado_em).strftime('%d/%m/%Y') }}{% if p.atualizado_por %} · {{ p.atualizado_por }}{% endif %}</div>{% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+    {% endfor %}
+
+    <div class="card shadow-sm border-0 mb-4 sticky-bottom" style="bottom: 8px;">
+        <div class="card-body d-flex flex-wrap gap-2 align-items-end">
+            <div class="flex-grow-1">
+                <label class="form-label small fw-bold mb-0" for="motivoParametros">{{ tt('Motivo da mudança (vai para o histórico)') }}</label>
+                <input class="form-control" id="motivoParametros" name="motivo" maxlength="500" placeholder="{{ tt('Ex.: nova orientação da coordenação pedagógica') }}">
+            </div>
+            <button class="btn btn-primary fw-bold px-4" type="submit" id="btnSalvarParametros"><i class="bi bi-check2-circle"></i> {{ tt('Salvar alterações') }}</button>
+        </div>
+    </div>
+</form>
+
+<div class="row g-3 mb-4">
+    <div class="col-lg-5">
+        <div class="card shadow-sm border-0 h-100" id="cardNovaRegra">
+            <div class="card-header bg-white fw-bold text-primary"><i class="bi bi-plus-square"></i> {{ tt('Criar regra nova') }}</div>
+            <form method="POST" class="card-body row g-2">
+                <input type="hidden" name="acao" value="criar">
+                <div class="col-12"><label class="form-label small fw-bold mb-0" for="novaNome">{{ tt('Nome da regra') }}</label>
+                    <input class="form-control form-control-sm" id="novaNome" name="nova_nome" maxlength="150" required placeholder="{{ tt('Ex.: Horas mínimas de mentoria por aluno') }}"></div>
+                <div class="col-7"><label class="form-label small fw-bold mb-0" for="novaChave">{{ tt('Código') }}</label>
+                    <input class="form-control form-control-sm font-monospace" id="novaChave" name="nova_chave" maxlength="59" required pattern="[a-z][a-z0-9_]{2,58}" placeholder="horas_minimas_mentoria"></div>
+                <div class="col-5"><label class="form-label small fw-bold mb-0" for="novaTipo">{{ tt('Tipo') }}</label>
+                    <select class="form-select form-select-sm" id="novaTipo" name="nova_tipo">{% for k, v in tipos.items() %}<option value="{{ k }}">{{ tt(v) }}</option>{% endfor %}</select></div>
+                <div class="col-12"><label class="form-label small fw-bold mb-0" for="novaValor">{{ tt('Valor') }}</label>
+                    <input class="form-control form-control-sm" id="novaValor" name="nova_valor" maxlength="500" required></div>
+                <div class="col-12"><label class="form-label small fw-bold mb-0" for="novaDescricao">{{ tt('Para que serve') }}</label>
+                    <textarea class="form-control form-control-sm" id="novaDescricao" name="nova_descricao" rows="2" maxlength="1000"></textarea></div>
+                <div class="col-12 form-text">{{ tt('O código é como o sistema encontra a regra (letras minúsculas, números e _). Depois de criada, ela pode ser alterada aqui como as outras.') }}</div>
+                <div class="col-12 d-grid"><button class="btn btn-success btn-sm fw-bold" type="submit"><i class="bi bi-plus-lg"></i> {{ tt('Criar regra') }}</button></div>
+            </form>
+        </div>
+    </div>
+    <div class="col-lg-7">
+        <div class="card shadow-sm border-0 h-100" id="cardHistoricoParametros">
+            <div class="card-header bg-white fw-bold text-primary d-flex justify-content-between"><span><i class="bi bi-clock-history"></i> {{ tt('Histórico de mudanças') }}</span>
+                <span class="small text-muted fw-normal">{{ total_historico }} {{ tt('registro(s)') }}</span></div>
+            <div class="table-responsive" style="max-height: 360px; overflow: auto;">
+                <table class="table table-sm small align-middle mb-0">
+                    <thead><tr><th>{{ tt('Data/Hora') }}</th><th>{{ tt('Regra') }}</th><th>{{ tt('Ação') }}</th><th>{{ tt('De → Para') }}</th><th>{{ tt('Usuário') }}</th></tr></thead>
+                    <tbody>
+                        {% for h in historico %}
+                        <tr title="{{ h.motivo or '' }}">
+                            <td class="text-nowrap">{{ h.data.strftime('%d/%m/%Y %H:%M') }}</td>
+                            <td>{{ tt(nome_da_regra(h.chave)) }}{% if h.motivo %}<div class="text-muted">{{ h.motivo }}</div>{% endif %}</td>
+                            <td>{{ tt(h.acao) }}</td>
+                            <td class="text-nowrap">{{ h.valor_anterior if h.valor_anterior is not none else '—' }} → <b>{{ h.valor_novo if h.valor_novo is not none else '—' }}</b></td>
+                            <td>{{ h.usuario.nome if h.usuario else '—' }}</td>
+                        </tr>
+                        {% else %}
+                        <tr><td colspan="5" class="text-muted text-center py-3">{{ tt('Nenhuma mudança registrada. Todas as regras estão no valor padrão.') }}</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Pesos da banca: mostra a soma ao vivo (o servidor também recusa se não somar 100%)
+(function () {
+    const pesos = document.querySelectorAll('.peso-banca'), alvo = document.getElementById('somaPesos');
+    const TXT = {{ {'soma': tt('Soma dos pesos')} | tojson }};
+    function somar() {
+        if (!alvo) return;
+        const total = Array.from(pesos).reduce((s, el) => s + (parseInt(el.value, 10) || 0), 0);
+        alvo.textContent = `${TXT.soma}: ${total}%`;
+        alvo.className = 'small fw-bold ' + (total === 100 ? 'text-success' : 'text-danger');
+    }
+    pesos.forEach(el => el.addEventListener('input', somar));
+    somar();
+})();
+</script>
+{% endblock %}

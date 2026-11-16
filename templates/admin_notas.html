@@ -36,14 +36,20 @@
             <form action="{{ url_for('gerenciar_notas') }}" method="POST">
                 <input type="hidden" name="turma_id" value="{{ turma_selecionada.id }}">
                 
+                <div class="alert alert-light border-0 border-bottom rounded-0 small mb-0" id="regraDiario">
+                    <i class="bi bi-sliders"></i> {{ tt('Situação pelas regras atuais') }}: {{ tt('média mínima') }} <b>{{ regra('nota_minima_diario') }}</b> ·
+                    {{ tt('frequência mínima') }} <b>{{ regra('freq_minima_pct') }}%</b>
+                    {% if current_user.tipo_usuario == 'Administrador' %} · <a href="{{ url_for('parametros_regras') }}">{{ tt('Alterar em Parâmetros de regras') }}</a>{% endif %}
+                </div>
                 <div class="table-responsive">
                     <table class="table table-hover table-bordered align-middle mb-0 text-center small">
                         <thead class="table-light">
                             <tr>
-                                <th class="text-start ps-3" style="width: 25%;">{{ tt('Nome do Aluno') }}</th>
-                                <th class="text-start" style="width: 35%;">{{ tt('Disciplina / Curso') }}</th>
-                                <th style="width: 15%;">{{ tt('Nota Técnica (0-10)') }}</th>
-                                <th style="width: 15%;">{{ tt('Nota Postura (0-10)') }}</th>
+                                <th class="text-start ps-3" style="width: 22%;">{{ tt('Nome do Aluno') }}</th>
+                                <th class="text-start" style="width: 26%;">{{ tt('Disciplina / Curso') }}</th>
+                                <th style="width: 13%;">{{ tt('Nota Técnica (0-10)') }}</th>
+                                <th style="width: 13%;">{{ tt('Nota Postura (0-10)') }}</th>
+                                <th style="width: 26%;">{{ tt('Situação') }}</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -55,6 +61,13 @@
                                     {% if loop.first %}
                                     <td rowspan="{{ num_cursos }}" class="text-start ps-3 fw-bold align-middle bg-white">
                                         {{ linha.aluno.nome }}
+                                        {% if linha.frequencia %}
+                                        {% set f = linha.frequencia %}
+                                        <div class="small fw-normal {{ 'text-danger' if f.situacao == 'Reprovado por faltas' else ('text-warning-emphasis' if f.situacao == 'Em risco' else 'text-muted') }}"
+                                             title="{{ tt('Regra do MEC: limite de faltas calculado sobre as aulas previstas até hoje.') }}">
+                                            <i class="bi bi-calendar-check"></i> {{ f.faltas }} {{ tt('falta(s) de') }} {{ f.limite_faltas }} {{ tt('permitida(s)') }} · {{ tt(f.situacao) }}
+                                        </div>
+                                        {% endif %}
                                     </td>
                                     {% endif %}
                                     
@@ -72,16 +85,21 @@
                                                class="form-control form-control-sm text-center border-secondary fw-bold" 
                                                value="{{ acomp.nota_postura if acomp.nota_postura != None else '' }}">
                                     </td>
+                                    {% set sit, media = linha.situacoes[acomp.id] %}
+                                    <td>
+                                        <span class="badge {{ 'bg-success' if sit.startswith('Aprovado') else ('bg-danger' if sit.startswith('Reprovado') else 'bg-secondary') }}">{{ tt(sit) }}</span>
+                                        {% if media is not none %}<div class="small text-muted">{{ tt('Média') }} {{ '%.1f'|format(media) }}</div>{% endif %}
+                                    </td>
                                 </tr>
                                 {% else %}
                                 <tr>
                                     <td class="text-start ps-3 fw-bold bg-light text-muted">{{ linha.aluno.nome }}</td>
-                                    <td colspan="3" class="fst-italic text-muted">{{ tt('Ainda não possui matrículas geradas nas disciplinas.') }}</td>
+                                    <td colspan="4" class="fst-italic text-muted">{{ tt('Ainda não possui matrículas geradas nas disciplinas.') }}</td>
                                 </tr>
                                 {% endfor %}
                             {% else %}
                             <tr>
-                                <td colspan="4" class="py-4 text-muted"><i class="bi bi-inbox fs-4 d-block mb-1"></i> {{ tt('Nenhum aluno vinculado a esta turma ainda.') }}</td>
+                                <td colspan="5" class="py-4 text-muted"><i class="bi bi-inbox fs-4 d-block mb-1"></i> {{ tt('Nenhum aluno vinculado a esta turma ainda.') }}</td>
                             </tr>
                             {% endfor %}
                         </tbody>

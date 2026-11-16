@@ -286,17 +286,19 @@ def exigir_troca_de_senha():
         return redirect(url_for('trocar_senha_obrigatoria'))
 
 
-PADRAO_SENHA_FORTE = r'^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[\W_]).{10,}$'
+# Política de senha forte: o tamanho mínimo vem de Administração › Parâmetros de regras (senha_min_caracteres)
+from regras_negocio import padrao_senha_forte, regra
 PADRAO_EMAIL = r'^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$'
 PERFIS_GESTAO_PROJETO = ['Administrador', 'Mentor Administrador']
 
 
 def gerar_senha_provisoria():
-    """Senha aleatória que atende à política (10+ caracteres com maiúscula, minúscula, número e especial)."""
+    """Senha aleatória que atende à política (tamanho mínimo parametrizado, com maiúscula, minúscula, número e especial)."""
     import string
     gerador = secrets.SystemRandom()
+    restante = max(10, int(regra('senha_min_caracteres')))  # 4 obrigatórios + restante: sempre acima do mínimo
     partes = [gerador.choice(string.ascii_uppercase), gerador.choice(string.ascii_lowercase), gerador.choice(string.digits),
-              gerador.choice('#@!%&*')] + [gerador.choice(string.ascii_letters + string.digits) for _ in range(10)]
+              gerador.choice('#@!%&*')] + [gerador.choice(string.ascii_letters + string.digits) for _ in range(restante)]
     gerador.shuffle(partes)
     return ''.join(partes)
 
@@ -370,13 +372,14 @@ def login():
             # Se a senha estiver errada
             else:
                 usuario.tentativas_login = (usuario.tentativas_login or 0) + 1
-                if usuario.tentativas_login >= 5:
+                limite_tentativas = int(regra('login_tentativas_bloqueio'))
+                if usuario.tentativas_login >= limite_tentativas:
                     usuario.status = 'Bloqueado'
-                    flash('Conta bloqueada após 5 tentativas incorretas.', 'danger')
+                    flash(f'Conta bloqueada após {limite_tentativas} tentativas incorretas.', 'danger')
                 else:
                     # Mensagem idêntica à de e-mail inexistente (não revela quais e-mails existem)
                     flash('E-mail ou senha incorretos.', 'danger')
-                    app.logger.info(f"Login: senha incorreta para o usuário {usuario.id} (tentativa {usuario.tentativas_login} de 5)")
+                    app.logger.info(f"Login: senha incorreta para o usuário {usuario.id} (tentativa {usuario.tentativas_login} de {limite_tentativas})")
                 
                 db.session.add(usuario)
                 db.session.commit()
@@ -397,10 +400,10 @@ def trocar_senha_obrigatoria():
         
     if request.method == 'POST':
         nova_senha = request.form.get('nova_senha')
-        padrao_senha = r'^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[\W_]).{10,}$'
+        padrao_senha = padrao_senha_forte()
         
         if not re.match(padrao_senha, nova_senha):
-            flash("Segurança: A nova senha deve ter no mínimo 10 caracteres (maiúsculas, minúsculas, números e especiais).", "danger")
+            flash(f"Segurança: A nova senha deve ter no mínimo {regra('senha_min_caracteres')} caracteres (maiúsculas, minúsculas, números e especiais).", "danger")
             return render_template('trocar_senha.html')
 
         historico_senhas = HistoricoSenha.query.filter_by(usuario_id=current_user.id).order_by(HistoricoSenha.data_registro.desc()).limit(10).all()
@@ -468,7 +471,7 @@ def dashboard():
                 if mentor:
                     nome_do_mentor = mentor.nome
 
-    DIAS_EXPIRACAO_SENHA = 90
+    DIAS_EXPIRACAO_SENHA = int(regra('senha_dias_expiracao'))
     if current_user.data_ultima_troca_senha:
         dias_desde_ultima_troca = (datetime.utcnow() - current_user.data_ultima_troca_senha).days
         dias_restantes_senha = max(0, DIAS_EXPIRACAO_SENHA - dias_desde_ultima_troca)
@@ -899,9 +902,9 @@ def gerenciar_usuarios():
             flash("Erro: Este e-mail já está cadastrado no sistema.", "danger")
             return redirect(url_for('gerenciar_usuarios'))
             
-        padrao_senha = r'^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[\W_]).{10,}$'
+        padrao_senha = padrao_senha_forte()
         if not re.match(padrao_senha, senha_plana):
-            flash("Segurança: A senha deve ter no mínimo 10 caracteres e incluir letras maiúsculas, minúsculas, números e caracteres especiais.", "danger")
+            flash(f"Segurança: A senha deve ter no mínimo {regra('senha_min_caracteres')} caracteres e incluir letras maiúsculas, minúsculas, números e caracteres especiais.", "danger")
             return redirect(url_for('gerenciar_usuarios'))
             
         senha_criptografada = bcrypt.generate_password_hash(senha_plana).decode('utf-8')
@@ -1004,9 +1007,9 @@ def editar_usuario(id):
         
         nova_senha = request.form.get('senha')
         if nova_senha:
-            padrao_senha = r'^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[\W_]).{10,}$'
+            padrao_senha = padrao_senha_forte()
             if not re.match(padrao_senha, nova_senha):
-                flash("Segurança: A nova senha deve ter no mínimo 10 caracteres...", "danger")
+                flash(f"Segurança: A nova senha deve ter no mínimo {regra('senha_min_caracteres')} caracteres...", "danger")
                 return redirect(url_for('gerenciar_usuarios'))
                 
             usuario.senha = bcrypt.generate_password_hash(nova_senha).decode('utf-8')
@@ -1539,8 +1542,12 @@ def projetos():
     lista_projetos = query.order_by(Projeto.id.desc()).all()
 
     
+    # Aba Gráficos de cada projeto: Gantt das tarefas e séries para os gráficos sob demanda dos mentores
+    import graficos_projeto
+    graficos = {p.id: graficos_projeto.dados_do_projeto(p, traduzir=lambda texto: tt(texto, current_user.idioma)) for p in lista_projetos}
     return render_template('projetos.html', projetos=lista_projetos, grupos=grupos_disponiveis, grupo_filtro=grupo_filtro,
-                           pode_cadastrar_projeto=current_user.tipo_usuario not in PERFIS_SEM_CADASTRO_PROJETO)
+                           pode_cadastrar_projeto=current_user.tipo_usuario not in PERFIS_SEM_CADASTRO_PROJETO,
+                           graficos=graficos, dados_graficos=graficos_projeto.DADOS)
 
 
 # ==============================================================================
@@ -4080,6 +4087,48 @@ def iniciar_agendador(app):
 # ==============================================================================
 # ROTA: PAINEL DE GESTÃO E VALIDAÇÃO DE FREQUÊNCIA (COM FILTROS E RANKING)
 # ==============================================================================
+def situacao_frequencia(aluno, turma, hoje=None):
+    """Regra do MEC parametrizada: frequência mínima, alerta de risco e dias letivos por semana vêm da tela
+    Parâmetros de regras. Devolve None se a turma ainda não começou; senão a situação do aluno na frequência."""
+    from regras_negocio import regra
+    hoje = hoje or datetime.utcnow().date()
+    if not turma or turma.data_inicio > hoje:
+        return None
+    data_fim_calculo = hoje if hoje < turma.data_termino else turma.data_termino
+    dias_corridos = (data_fim_calculo - turma.data_inicio).days + 1
+    dias_semana = int(regra('freq_dias_letivos_semana'))
+    semanas, dias_extras = divmod(dias_corridos, 7)
+    dias_letivos = semanas * dias_semana + min(dias_extras, dias_semana)  # aulas esperadas até agora
+    if dias_letivos <= 0:
+        return None
+    limite_faltas = int(dias_letivos * (100 - int(regra('freq_minima_pct'))) / 100)  # cota de faltas permitida
+    presencas = Frequencia.query.filter(Frequencia.usuario_id == aluno.id, Frequencia.tipo_presenca.in_(['Online', 'Presencial'])).count()
+    faltas = Frequencia.query.filter(Frequencia.usuario_id == aluno.id, Frequencia.tipo_presenca.in_(['Falta', 'Falta Automática'])).count()
+    taxa = min(100, presencas / dias_letivos * 100)  # não passa de 100% se o aluno registrou fim de semana
+    if faltas > limite_faltas:
+        situacao = 'Reprovado por faltas'
+    elif faltas and faltas >= limite_faltas * int(regra('freq_alerta_cota_pct')) / 100:
+        situacao = 'Em risco'  # sem nenhuma falta não há risco (antes, turma recém-começada com cota 0 marcava todos)
+    else:
+        situacao = 'Regular'
+    return {'situacao': situacao, 'faltas': faltas, 'limite_faltas': limite_faltas, 'dias_letivos': dias_letivos,
+            'presencas': presencas, 'taxa_presenca': taxa}
+
+
+def situacao_no_diario(acompanhamento, frequencia):
+    """Situação da disciplina no diário: faltas primeiro (regra do MEC), depois a média técnica + postura."""
+    from regras_negocio import regra
+    notas = [n for n in (acompanhamento.nota_tecnica, acompanhamento.nota_postura) if n is not None]
+    media = round(sum(notas) / len(notas), 2) if notas else None
+    if frequencia and frequencia['situacao'] == 'Reprovado por faltas':
+        return 'Reprovado por faltas', media
+    if media is None:
+        return 'Sem nota', None
+    if media < float(regra('nota_minima_diario')):
+        return 'Reprovado por nota', media
+    return ('Aprovado (em risco por faltas)' if frequencia and frequencia['situacao'] == 'Em risco' else 'Aprovado'), media
+
+
 @app.route('/admin/frequencia', methods=['GET', 'POST'])
 @login_required
 def gerenciar_frequencia():
@@ -4189,55 +4238,16 @@ def gerenciar_frequencia():
     soma_taxas_presenca = 0
 
     for turma in turmas_ativas:
-        # Calcular os dias letivos teóricos da turma até a data de hoje (para saber o progresso atual)
-        # Por simplificação, se o aluno entrou na turma, conta desde o início da turma
-        # Se a turma ainda não começou, pula
-        if turma.data_inicio > hoje:
-            continue
-            
-        # Calcula dias úteis (simplificado) desde o início da turma até hoje (ou término, o que for menor)
-        data_fim_calculo = hoje if hoje < turma.data_termino else turma.data_termino
-        dias_corridos = (data_fim_calculo - turma.data_inicio).days + 1
-        
-        # Desconta estimativa de finais de semana (5 dias úteis a cada 7)
-        semanas = dias_corridos // 7
-        dias_extras = dias_corridos % 7
-        dias_letivos_estimados = (semanas * 5) + min(dias_extras, 5) # Estimativa de total de aulas dadas
-
-        if dias_letivos_estimados <= 0:
-            continue
-            
-        limite_faltas = int(dias_letivos_estimados * 0.25) # 25% de faltas
-
+        # Regra parametrizada (Administração › Parâmetros de regras): mesma conta usada no diário de classe
         for aluno in turma.alunos:
+            situacao = situacao_frequencia(aluno, turma, hoje)
+            if situacao is None:
+                continue
             total_alunos_avaliados += 1
-            
-            # Conta presenças (Online + Presencial)
-            qtd_presencas = Frequencia.query.filter(
-                Frequencia.usuario_id == aluno.id,
-                Frequencia.tipo_presenca.in_(['Online', 'Presencial'])
-            ).count()
-            
-            # Conta faltas não justificadas
-            qtd_faltas = Frequencia.query.filter(
-                Frequencia.usuario_id == aluno.id,
-                Frequencia.tipo_presenca.in_(['Falta', 'Falta Automática'])
-            ).count()
-            
-            # Taxa de presença do aluno em relação ao esperado até hoje
-            # Para evitar 100% mágico se o aluno não bateu ponto, calculamos sobre o total letivo esperado
-            taxa_aluno = (qtd_presencas / dias_letivos_estimados) * 100 if dias_letivos_estimados > 0 else 100
-            # Trava para não passar de 100% se o aluno preencheu sábado/domingo
-            if taxa_aluno > 100: taxa_aluno = 100
-            
-            soma_taxas_presenca += taxa_aluno
-            
-            # Análise de Risco (MEC)
-            if qtd_faltas > limite_faltas:
-                # Já estourou os 25%
+            soma_taxas_presenca += situacao['taxa_presenca']
+            if situacao['situacao'] == 'Reprovado por faltas':
                 kpi_alunos_reprovados += 1
-            elif qtd_faltas >= (limite_faltas * 0.75):
-                # Usou 75% da sua "cota" de faltas - Está em risco!
+            elif situacao['situacao'] == 'Em risco':
                 kpi_alunos_risco += 1
 
     if total_alunos_avaliados > 0:
@@ -4554,8 +4564,8 @@ def gerenciar_turmas():
                 flash(tt('Escolha um nível de acesso válido.', current_user.idioma), "danger")
             elif not re.match(PADRAO_EMAIL, email or ''):
                 flash("Erro: O e-mail digitado não é válido.", "danger")
-            elif not re.match(PADRAO_SENHA_FORTE, senha_plana or ''):
-                flash("Segurança: A senha deve ter no mínimo 10 caracteres e incluir letras maiúsculas, minúsculas, números e caracteres especiais.", "danger")
+            elif not re.match(padrao_senha_forte(), senha_plana or ''):
+                flash(f"Segurança: A senha deve ter no mínimo {regra('senha_min_caracteres')} caracteres e incluir letras maiúsculas, minúsculas, números e caracteres especiais.", "danger")
             elif Usuario.query.filter_by(email=email).first():
                 flash(f"Erro: O e-mail '{email}' já está cadastrado no sistema.", "danger")
             else:
@@ -4743,9 +4753,13 @@ def gerenciar_notas():
                 else:
                     acompanhamentos = []
                 
+                frequencia = situacao_frequencia(aluno, turma_selecionada)
                 dados_tabela.append({
                     'aluno': aluno,
-                    'acompanhamentos': acompanhamentos
+                    'acompanhamentos': acompanhamentos,
+                    'frequencia': frequencia,
+                    # Situação de cada disciplina pelas regras parametrizadas (faltas do MEC + média mínima)
+                    'situacoes': {a.id: situacao_no_diario(a, frequencia) for a in acompanhamentos},
                 })
 
     if request.method == 'POST':
@@ -4923,8 +4937,8 @@ def avaliadores_banca():
             if Usuario.query.filter_by(email=email).first():
                 flash(t('aval_erro_email', current_user.idioma), "warning")
                 return redirect(url_for('avaliadores_banca'))
-            if not re.match(r'^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[\W_]).{10,}$', senha):
-                flash("Segurança: A senha inicial deve ter no mínimo 10 caracteres (maiúsculas, minúsculas, números e especiais).", "danger")
+            if not re.match(padrao_senha_forte(), senha):
+                flash(f"Segurança: A senha inicial deve ter no mínimo {regra('senha_min_caracteres')} caracteres (maiúsculas, minúsculas, números e especiais).", "danger")
                 return redirect(url_for('avaliadores_banca'))
             usuario = Usuario(nome=nome, email=email, tipo_usuario=TIPO_AVALIADOR, status='Ativo',
                               senha=bcrypt.generate_password_hash(senha).decode('utf-8'), criado_por=current_user.nome,
@@ -5241,7 +5255,10 @@ def painel_banca(id):
             erro = registrar_etapa_avaliacao(minha, acao, request.form)
             if erro:
                 db.session.rollback()
-                flash(t(erro, current_user.idioma), "warning")
+                mensagem = t(erro, current_user.idioma)
+                if erro == 'banca_erro_justificativa':
+                    mensagem = mensagem.format(nota=regra('banca_nota_exige_justificativa'), minimo=regra('banca_justificativa_min'))
+                flash(mensagem, "warning")
                 return redirect(url_for('painel_banca', id=projeto.id))
             db.session.commit()
             fechou = consolidar_banca(banca)
@@ -5275,7 +5292,7 @@ def registrar_etapa_avaliacao(avaliacao, etapa, formulario):
         justificativa = (formulario.get('justificativa_escrita') or '').strip()
         if nota is None:
             return 'banca_erro_nota'
-        if nota < 7 and len(justificativa) < 10:
+        if nota < float(regra('banca_nota_exige_justificativa')) and len(justificativa) < int(regra('banca_justificativa_min')):
             return 'banca_erro_justificativa'
         avaliacao.nota_escrita, avaliacao.justificativa_escrita = nota, justificativa or None
         avaliacao.etapa_escrita_concluida_em = datetime.utcnow()
@@ -5284,7 +5301,7 @@ def registrar_etapa_avaliacao(avaliacao, etapa, formulario):
         justificativa = (formulario.get('justificativa_oral') or '').strip()
         if apresentacao is None or visual is None:
             return 'banca_erro_nota'
-        if min(apresentacao, visual) < 7 and len(justificativa) < 10:
+        if min(apresentacao, visual) < float(regra('banca_nota_exige_justificativa')) and len(justificativa) < int(regra('banca_justificativa_min')):
             return 'banca_erro_justificativa'
         avaliacao.nota_apresentacao, avaliacao.nota_visual = apresentacao, visual
         avaliacao.justificativa_oral = justificativa or None
@@ -5294,7 +5311,7 @@ def registrar_etapa_avaliacao(avaliacao, etapa, formulario):
 
 
 def consolidar_banca(banca, encerrar=False):
-    """Médias por critério entre os avaliadores e fórmula oficial (40/40/20).
+    """Médias por critério entre os avaliadores e fórmula oficial (pesos em Parâmetros de regras; padrão 40/40/20).
     O status do projeto só muda quando todos os escalados concluírem ou a gestão encerrar.
     Devolve True quando a banca foi encerrada agora."""
     from models import AvaliacaoBanca
@@ -5307,7 +5324,8 @@ def consolidar_banca(banca, encerrar=False):
 
     projeto.nota_conteudo, projeto.nota_apresentacao, projeto.nota_visual = media('nota_escrita'), media('nota_apresentacao'), media('nota_visual')
     if None not in (projeto.nota_conteudo, projeto.nota_apresentacao, projeto.nota_visual):
-        projeto.nota_final = round(projeto.nota_conteudo * 0.4 + projeto.nota_apresentacao * 0.4 + projeto.nota_visual * 0.2, 2)
+        pesos = [int(regra(c)) / 100 for c in ('banca_peso_escrito', 'banca_peso_apresentacao', 'banca_peso_visual')]
+        projeto.nota_final = round(projeto.nota_conteudo * pesos[0] + projeto.nota_apresentacao * pesos[1] + projeto.nota_visual * pesos[2], 2)
     else:
         projeto.nota_final = None
 
@@ -5315,7 +5333,7 @@ def consolidar_banca(banca, encerrar=False):
     todos = bool(banca.avaliadores) and {p.id for p in banca.avaliadores} <= concluidas
     fechou = False
     if (encerrar or todos) and projeto.nota_final is not None and banca.status != 'Realizada':
-        projeto.status = 'Concluído' if projeto.nota_final >= 7.0 else 'Em Recuperação'
+        projeto.status = 'Concluído' if projeto.nota_final >= float(regra('banca_nota_aprovacao')) else 'Em Recuperação'
         projeto.data_avaliacao = datetime.utcnow()
         banca.status = 'Realizada'
         banca.encerrada_em = datetime.utcnow()
@@ -5691,7 +5709,7 @@ def eh_orientador(usuario, projeto):
     return usuario.tipo_usuario != 'Aluno' and usuario in membros_do_projeto(projeto)
 
 
-app.jinja_env.globals.update(eh_orientador=eh_orientador)
+app.jinja_env.globals.update(eh_orientador=eh_orientador, regra=regra)
 
 
 def salvar_arquivo_acervo(arquivo, prefixo, extensoes):
@@ -6625,6 +6643,53 @@ def _somente_admin_perfis():
     return None
 
 
+# ==============================================================================
+# PARÂMETROS DAS REGRAS DE NEGÓCIO (frequência do MEC, notas, banca, senhas e regras novas)
+# ==============================================================================
+@app.route('/admin/parametros-regras', methods=['GET', 'POST'])
+@login_required
+def parametros_regras():
+    import regras_negocio as rn
+    bloqueio = _somente_admin_perfis()
+    if bloqueio:
+        return bloqueio
+    idioma = current_user.idioma
+    if request.method == 'POST':
+        motivo = (request.form.get('motivo') or '').strip()
+        if request.form.get('restaurar'):
+            chave = request.form['restaurar']
+            if rn.restaurar(chave, current_user.id, motivo or 'Voltou ao padrão'):
+                flash(tt('Regra "{nome}" voltou ao valor padrão.', idioma).format(nome=tt(rn.nome_da_regra(chave), idioma)), 'success')
+        elif request.form.get('excluir'):
+            chave = request.form['excluir']
+            nome = rn.nome_da_regra(chave)
+            if rn.excluir(chave, current_user.id, motivo):
+                flash(tt('Regra "{nome}" excluída.', idioma).format(nome=nome), 'success')
+        elif request.form.get('acao') == 'criar':
+            erro = rn.criar(request.form.get('nova_chave'), request.form.get('nova_nome'), request.form.get('nova_tipo'),
+                            request.form.get('nova_valor'), request.form.get('nova_descricao'), current_user.id)
+            if erro:
+                flash(tt(erro, idioma), 'warning')
+            else:
+                flash(tt('Regra nova criada. O sistema já pode usá-la em novas funcionalidades.', idioma), 'success')
+        else:
+            valores = {k[6:]: v for k, v in request.form.items() if k.startswith('valor_')}
+            alteradas, erros = rn.salvar_varios(valores, current_user.id, motivo)
+            if erros:
+                for chave, erro in erros.items():
+                    flash(f"{tt(rn.nome_da_regra(chave), idioma)}: {tt(erro, idioma)}", 'warning')
+                flash(tt('Nada foi gravado. Corrija os valores indicados.', idioma), 'danger')
+            elif alteradas:
+                flash(tt('{n} regra(s) atualizada(s). Passam a valer a partir de agora.', idioma).format(n=len(alteradas)), 'success')
+            else:
+                flash(tt('Nenhum valor foi alterado.', idioma), 'info')
+        return redirect(url_for('parametros_regras'))
+
+    from models import HistoricoParametro
+    return render_template('parametros_regras.html', itens=rn.listar(), grupos=rn.GRUPOS, tipos=rn.TIPOS, historico=rn.historico(),
+                           nome_da_regra=rn.nome_da_regra, total_historico=HistoricoParametro.query.count())
+
+
 @app.route('/admin/perfis', methods=['GET', 'POST'])
 @login_required
 def perfis_acesso_view():
@@ -6885,7 +6950,7 @@ MODULOS_TRILHA_PADRAO = [
 </ul>"""),
     ("A banca de avaliação", """
 <p>A nota final do TCC segue a fórmula oficial:</p>
-<p class="fw-bold">Nota final = Escrito × 0,4 + Apresentação × 0,4 + Visual × 0,2 — aprovado a partir de 7,0.</p>
+<p class="fw-bold">Nota final = média ponderada de Escrito, Apresentação e Visual — pesos e nota de aprovação em Administração › Parâmetros de regras (padrão 40% / 40% / 20%, aprovado a partir de 7,0).</p>
 <ul>
 <li>Cada avaliador registra suas notas com comentários e justificativas.</li>
 <li>As perguntas feitas aos jovens e as respostas deles ficam registradas para feedback.</li>

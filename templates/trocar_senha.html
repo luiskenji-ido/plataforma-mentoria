@@ -32,7 +32,7 @@
                 <div class="mb-4">
                     <label class="form-label fw-bold text-muted">Nova Senha Definitiva</label>
                     <input type="password" name="nova_senha" class="form-control" placeholder="Digite sua nova senha" required>
-                    <div class="form-text">Mínimo de 10 caracteres, contendo letras maiúsculas, minúsculas, números e símbolos especiais.</div>
+                    <div class="form-text">Mínimo de {{ regra('senha_min_caracteres') }} caracteres, contendo letras maiúsculas, minúsculas, números e símbolos especiais.</div>
                 </div>
                 <button type="submit" class="btn btn-primary w-100 fw-bold">Atualizar Senha e Acessar</button>
             </form>

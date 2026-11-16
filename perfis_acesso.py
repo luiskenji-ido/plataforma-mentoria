@@ -46,6 +46,7 @@ MODULOS = {
     'agenda_bancas': ('Agenda de bancas e avaliadores', 'bi-calendar-event', ['agenda_bancas', 'avaliadores_banca', 'curriculo_avaliador'], False),
     'indicadores': ('Indicadores de voluntariado', 'bi-bar-chart-line', ['indicadores_voluntariado', 'indicadores_voluntariado_csv'], False),
     'perfis_acesso': ('Perfis de acesso', 'bi-person-gear', ['perfis_acesso_view'], False),
+    'parametros': ('Parâmetros de regras', 'bi-sliders', ['parametros_regras'], False),
     'agentes_ia': ('Agentes IA e governança de aprendizados', 'bi-robot',
                    ['agentes_ia', 'iniciar_agentes_ia', 'parar_agentes_ia', 'estado_agentes_ia_json', 'quadro_agentes_ia',
                     'arquivo_agentes_ia', 'governanca_aprendizados', 'governanca_aprendizados_csv', 'agentes_seguranca',
@@ -64,7 +65,7 @@ MODULOS_POR_BASE = {
     'Professor': _comum + _aprendizagem + ['diario', 'bancas', 'voluntariado'],
     'Mentor': _comum + _aprendizagem + ['diario', 'bancas', 'voluntariado'],
     'Mentor Administrador': _comum + _aprendizagem + _gestao + ['cadastros', 'solicitacoes', 'trilha_gestao'],
-    'Administrador': _comum + _aprendizagem + _gestao + ['cadastros', 'trilha_gestao', 'perfis_acesso', 'agentes_ia', 'manutencao'],
+    'Administrador': _comum + _aprendizagem + _gestao + ['cadastros', 'trilha_gestao', 'perfis_acesso', 'parametros', 'agentes_ia', 'manutencao'],
     'Admin B2B': _comum + _aprendizagem + _gestao,
     'Avaliador Banca': _comum + ['bancas', 'voluntariado'],
 }

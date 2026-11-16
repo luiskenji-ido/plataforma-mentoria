@@ -10,7 +10,7 @@ import sys
 import json
 from datetime import datetime, timedelta, date
 
-from base import (AgenteFuncional, FALHA, ALERTA, MARCA, DOMINIO, senha_forte, mensagens, RAIZ_PROJETO)
+from base import (AgenteFuncional, FALHA, ALERTA, MARCA, DOMINIO, senha_forte, mensagens, RAIZ_PROJETO, regra_da_plataforma)
 
 PDF_MINIMO = (b"%PDF-1.4\n1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj 2 0 obj<</Type/Pages/Kids[3 0 R]/Count 1>>endobj "
               b"3 0 obj<</Type/Page/Parent 2 0 R/MediaBox[0 0 200 200]>>endobj\ntrailer<</Root 1 0 R>>\n%%EOF\n")
@@ -19,6 +19,22 @@ PDF_MINIMO = (b"%PDF-1.4\n1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj 2 0 obj<</T
 def _modelos():
     import models
     return models
+
+
+def cobertura_da_ultima_execucao():
+    """Funções exercitadas pelos agentes na última execução (relatórios Funcional_*.json mais recentes de cada agente)."""
+    import glob
+    from base import PASTA_RELATORIOS
+    cobertas = set()
+    for chave in ("administrador", "mentor_administrador", "gestor_parceiro", "professor", "mentor", "aluno", "avaliador", "encerramento"):
+        arquivos = glob.glob(os.path.join(PASTA_RELATORIOS, "**", f"Funcional_{chave}_2*.json"), recursive=True)
+        if arquivos:
+            try:
+                with open(max(arquivos, key=os.path.getmtime), encoding="utf-8") as f:
+                    cobertas |= set(json.load(f).get("cobertura", []))
+            except (OSError, ValueError):
+                continue
+    return cobertas
 
 
 def senha_de_teste():
@@ -75,7 +91,12 @@ class AgenteDoFluxo(AgenteFuncional):
         if not self.regras.get("modulos"):
             return
         self.log(f"Funções exercitadas por este agente: {', '.join(sorted(self.cobertura)) or 'nenhuma'}")
-        novas = sorted(set(self.regras.get("funcoes_novas", [])) & self._funcoes_do_perfil())
+        # Uma função nova só fica "sem teste" se NENHUM agente da cadeia a exercita: conta o que já rodou nesta execução
+        # e o que a última execução completa cobriu (ex.: o convite é testado pelo Mentor Administrador, depois do Administrador)
+        acumulada = set(self.contexto.get("cobertura", [])) | self.cobertura
+        self.contexto["cobertura"] = sorted(acumulada)
+        cobertas = acumulada | set(self.contexto.get("cobertura_anterior") or cobertura_da_ultima_execucao())
+        novas = sorted((set(self.regras.get("funcoes_novas", [])) & self._funcoes_do_perfil()) - cobertas)
         if novas:
             self.etapa("Funções novas aprendidas")
             self.registrar(f"{len(novas)} função(ões) nova(s) aprendida(s) sem teste funcional", ALERTA, "FLX",
@@ -123,7 +144,10 @@ class AgenteAdministrador(AgenteDoFluxo):
                "Cria o Mentor Administrador e passa a vez para ele"]
 
     def rodar(self):
-        self.contexto.update({"execucao": self.contexto.get("execucao") or self.carimbo, "usuarios": {}, "ids": {}})
+        # A cobertura da execução anterior vira referência; a desta execução recomeça vazia
+        anterior = self.contexto.get("cobertura") or []
+        self.contexto.update({"execucao": self.contexto.get("execucao") or self.carimbo, "usuarios": {}, "ids": {},
+                              "cobertura_anterior": anterior, "cobertura": []})
         sys.path.insert(0, os.path.join(RAIZ_PROJETO, "agentes_omnitest"))
         email_admin = "administrador_ominitest@local.com"
         from nucleo import preparar_usuario
@@ -134,7 +158,7 @@ class AgenteAdministrador(AgenteDoFluxo):
         self.etapa("Validações do cadastro de usuários")
         casos = [("e-mail inválido", {"email": "sem-arroba"}, "não é válido"),
                  ("e-mail já cadastrado", {"email": email_admin}, "já está cadastrado"),
-                 ("senha fraca", {"email": f"senhafraca_{DOMINIO}", "senha": "abc12345"}, "10 caracteres")]
+                 ("senha fraca", {"email": f"senhafraca_{DOMINIO}", "senha": "abc12345"}, f"{regra_da_plataforma('senha_min_caracteres')} caracteres")]
         for nome, ajuste, trecho in casos:
             form = {"nome": f"{MARCA} Teste", "email": f"invalido_{DOMINIO}", "tipo_usuario": "Aluno", "status": "Ativo", "senha": senha_forte(),
                     "forcar_troca_senha": "False", **ajuste}
@@ -144,9 +168,31 @@ class AgenteAdministrador(AgenteDoFluxo):
                          f"Recusado com a mensagem certa: {trecho}.", f"Não recusou como esperado. Mensagens: {' | '.join(mensagens(html))[:200]}",
                          f"Cadastro de usuário recusa {nome}", "Alta")
 
+        self.parametros_de_regras()
+
         self.etapa("Cria o Mentor Administrador")
         self.criar_usuario("mentoradmin", "Mentor Administrador", "Mentor Administrador")
         self.reportar_cobertura()
+
+    def parametros_de_regras(self):
+        """Tela Parâmetros de regras: abre com todos os grupos e RECUSA valores inválidos sem gravar nada.
+        O agente não altera nenhuma regra real (o fluxo de teste não pode mudar o comportamento da plataforma)."""
+        self.etapa("Parâmetros de regras (validações)")
+        m = _modelos()
+        _, _, pagina = self.cliente.pedir("GET", "/admin/parametros-regras")
+        grupos = [g for g in ("frequencia", "notas", "banca", "seguranca") if f'id="grupo_{g}"' in pagina]
+        self.confere(len(grupos) == 4, "Tela de parâmetros com todos os grupos de regras", "FLX", "Frequência, notas, banca e senhas.",
+                     f"Grupos encontrados: {grupos}.", "Administrador ajusta as regras de negócio pela tela", "Média", print_de="/admin/parametros-regras")
+        antes = self.banco(lambda: (m.ParametroRegra.query.count(), m.HistoricoParametro.query.count()))
+        self.post("/admin/parametros-regras", {"valor_banca_peso_escrito": "70", "valor_banca_peso_apresentacao": "40", "valor_banca_peso_visual": "20"})
+        self.post("/admin/parametros-regras", {"valor_freq_minima_pct": "150"})
+        self.post("/admin/parametros-regras", {"acao": "criar", "nova_chave": "freq_minima_pct", "nova_nome": "Duplicada", "nova_tipo": "inteiro",
+                                               "nova_valor": "1"})
+        depois = self.banco(lambda: (m.ParametroRegra.query.count(), m.HistoricoParametro.query.count()))
+        self.confere(depois == antes, "Parâmetros inválidos são recusados sem gravar nada", "VAL",
+                     "Pesos que não somam 100%, frequência fora de 1 a 100 e código duplicado foram recusados.",
+                     f"Algo foi gravado: parâmetros/histórico {antes} → {depois}.", "Regras só mudam com valores válidos", "Alta",
+                     "Em regras_negocio.salvar_varios/criar, validar tipo, limites, soma dos pesos e código antes de gravar.")
 
 
 # ==============================================================================
@@ -239,7 +285,8 @@ class AgenteMentorAdministrador(AgenteDoFluxo):
         senha = linhas[1][2] if len(linhas) > 1 and len(linhas[1]) > 2 else ""
         importado = self.banco(lambda: m.Usuario.query.filter_by(email=f"importado_{DOMINIO}").first())
         invalido = self.banco(lambda: m.Usuario.query.filter_by(email="sem-arroba").count())
-        forte = bool(_re.match(r'^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[\W_]).{10,}$', senha))
+        from regras_negocio import padrao_senha_forte
+        forte = bool(_re.match(self.banco(padrao_senha_forte), senha))
         self.confere(importado is not None and importado.forcar_troca_senha and forte and invalido == 0,
                      "Importação por CSV com senha provisória forte e troca obrigatória", "REG",
                      "Aluno importado com senha provisória aleatória (planilha baixada), troca obrigatória e linha inválida ignorada.",
@@ -396,6 +443,13 @@ class AgenteMentorAdministrador(AgenteDoFluxo):
         self.confere(depois is None, "Reenvio manual também ignora contas de teste", "REG", "Nada foi enviado.",
                      "O reenvio disparou convite para conta de teste.", "Contas de teste nunca recebem convite", "Crítica")
 
+        # Desconectar o Gmail só limpa a conexão desta sessão (o agente nunca conecta um Gmail de verdade)
+        _, _, html = self.post("/desconectar-gmail", {})
+        _, _, pagina = self.cliente.pedir("GET", f"/reunioes/{reuniao.id}")
+        self.confere("Gmail conectado:" not in pagina and "cardConvite" in pagina, "Desconectar Gmail volta ao estado sem conta conectada", "FLX",
+                     "Sessão sem Gmail; o painel de convite continua disponível.", "Painel ainda mostra um Gmail conectado.",
+                     "Coordenação desconecta o Gmail quando quiser", "Baixa")
+
 
 # ==============================================================================
 # 3. GESTOR PARCEIRO (Admin B2B)
@@ -476,6 +530,20 @@ class AgenteProfessor(AgenteDoFluxo):
         if fora.nota_tecnica != 8.5:
             self.post(f"/admin/notas?turma_id={turma_id}", {f"nota_tecnica_{acomp.id}": "8,5", f"nota_postura_{acomp.id}": "9"})
 
+        self.etapa("Situação do aluno pelas regras parametrizadas")
+        _, _, diario = self.cliente.pedir("GET", f"/admin/notas?turma_id={turma_id}")
+        from regras_negocio import regra
+        media_minima = self.banco(lambda: regra("nota_minima_diario"))
+        esperado = "Aprovado" if 8.75 >= float(media_minima) else "Reprovado por nota"
+        self.confere('id="regraDiario"' in diario and esperado in diario, "Diário mostra a situação do aluno pela regra atual", "REG",
+                     f"Média 8,75 com média mínima {media_minima}: '{esperado}', sem falsa alerta de faltas.",
+                     f"Situação '{esperado}' ou a legenda da regra não apareceram no diário.",
+                     "Diário calcula aprovado/reprovado por nota e por faltas (Parâmetros de regras)", "Média", print_de=f"/admin/notas?turma_id={turma_id}")
+        self.confere("Em risco" not in diario.split('id="regraDiario"')[-1], "Aluno sem faltas não aparece em risco", "REG",
+                     "Nenhum aluno sem faltas marcado em risco.", "Aluno sem nenhuma falta apareceu 'Em risco'.",
+                     "Risco por faltas só com faltas registradas", "Média",
+                     "Em situacao_frequencia, só marcar 'Em risco' quando houver faltas.")
+
         self.etapa("Regra: Professor não cria grupos")
         self.post("/admin/grupos", {"nome": f"{MARCA} Grupo indevido", "descricao": "x"})
         indevido = self.banco(lambda: m.Grupo.query.filter_by(nome=f"{MARCA} Grupo indevido").first())
@@ -535,6 +603,19 @@ class AgenteMentor(AgenteDoFluxo):
         depois = self.banco(lambda: m.CheckinVoluntariado.query.filter_by(usuario_id=eu["id"]).count())
         self.confere(depois == antes, "Lançamento no futuro é recusado", "VAL", "Data futura recusada.", "Aceitou horas numa data futura.",
                      "Nada de horas no futuro", "Média")
+
+        self.etapa("Gráficos do projeto (Gantt e gráficos sob demanda)")
+        if projeto_id:
+            _, _, pagina = self.cliente.pedir("GET", "/projetos")
+            import re as _re
+            series = _re.search(rf'<script type="application/json" id="seriesProjeto{projeto_id}">(.*?)</script>', pagina, _re.S)
+            dados = json.loads(series.group(1)) if series else {}
+            self.confere(f'id="abaGraficos{projeto_id}"' in pagina and "gantt-barra" in pagina.split(f'id="graficosProjeto{projeto_id}"')[-1],
+                         "Aba Gráficos com o Gantt das tarefas", "FLX", "Cronograma com a barra da tarefa do projeto.",
+                         "Aba Gráficos ou barra do Gantt ausente.", "Mentor acompanha o cronograma do projeto", "Média", print_de="/projetos")
+            self.confere(sum(dados.get("status", {}).get("valores", [])) >= 1 and {"responsavel", "horas", "prazo"} <= set(dados),
+                         "Dados para gráficos sob demanda", "FLX", f"{len(dados)} tipos de gráfico com as tarefas do projeto.",
+                         "Séries dos gráficos vazias ou incompletas.", "Mentor gera gráficos do projeto para o acompanhamento", "Baixa")
         self.regra_reuniao(participante=True)
         self.reportar_cobertura()
 

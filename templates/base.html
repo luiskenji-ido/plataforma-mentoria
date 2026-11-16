@@ -626,7 +626,7 @@
       {% set grupo_aprendizagem = ['sessoes', 'acompanhamento', 'atividades_extras', 'gerenciar_turmas', 'gerenciar_frequencia', 'gerenciar_notas'] %}
       {% set grupo_projetos = ['projetos', 'minhas_bancas', 'biblioteca_tccs', 'meus_certificados', 'painel_banca'] %}
       {% set grupo_admin = ['gerenciar_usuarios', 'gestao_trilha_tcc', 'reunioes', 'agenda_bancas', 'avaliadores_banca', 'indicadores_voluntariado',
-                            'gerenciar_solicitacoes', 'agentes_ia', 'agentes_seguranca', 'agentes_banco', 'agentes_funcionalidades', 'manutencao_banco', 'gerenciar_grupos'] %}
+                            'gerenciar_solicitacoes', 'agentes_ia', 'agentes_seguranca', 'agentes_banco', 'agentes_funcionalidades', 'manutencao_banco', 'gerenciar_grupos', 'perfis_acesso_view', 'parametros_regras'] %}
 
       <ul class="navbar-nav me-auto mb-2 mb-xl-0 gap-xl-1">
         <!-- Painel Geral -->
@@ -711,6 +711,9 @@
             {% endif %}
             {% if current_user.tipo_usuario == 'Administrador' and pode_modulo('perfis_acesso') %}
             <li><a class="dropdown-item fw-bold" href="{{ url_for('perfis_acesso_view') }}"><i class="bi bi-person-gear"></i> {{ tt('Perfis de acesso') }}</a></li>
+            {% endif %}
+            {% if current_user.tipo_usuario == 'Administrador' and pode_modulo('parametros') %}
+            <li><a class="dropdown-item fw-bold" href="{{ url_for('parametros_regras') }}"><i class="bi bi-sliders"></i> {{ tt('Parâmetros de regras') }}</a></li>
             {% endif %}
             {% if pode_modulo('agenda_bancas') %}<li><a class="dropdown-item fw-bold" href="{{ url_for('avaliadores_banca') }}"><i class="bi bi-person-badge"></i> {{ t('aval_titulo') }}</a></li>{% endif %}
             {% if current_user.tipo_usuario == 'Mentor Administrador' and pode_modulo('solicitacoes') %}

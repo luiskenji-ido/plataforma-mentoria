@@ -66,7 +66,7 @@
                     </div>
                     <div class="col-md-6">
                         <label class="form-label fw-bold" for="aSenha0">{{ t('aval_senha_inicial') }}</label>
-                        <input type="password" class="form-control" id="aSenha0" name="senha" required minlength="10" autocomplete="new-password">
+                        <input type="password" class="form-control" id="aSenha0" name="senha" required minlength="{{ regra('senha_min_caracteres') }}" autocomplete="new-password">
                         <div class="form-text">{{ t('aval_senha_dica') }}</div>
                     </div>
                     {% endif %}

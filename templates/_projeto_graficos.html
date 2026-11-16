@@ -1,0 +1,80 @@
+{# Aba Gráficos de um projeto: precisa de `p` (projeto), `g` (graficos_projeto.dados_do_projeto) e `dados_graficos` #}
+<div class="p-3 graficos-projeto" id="graficosProjeto{{ p.id }}">
+    <!-- ================= GANTT ================= -->
+    <div class="d-flex justify-content-between align-items-end flex-wrap gap-2 mb-2">
+        <div>
+            <h6 class="fw-bold text-primary mb-0"><i class="bi bi-bar-chart-steps"></i> {{ tt('Cronograma (Gantt)') }}</h6>
+            {% if g.gantt.linhas %}<small class="text-muted">{{ g.gantt.inicio.strftime('%d/%m/%Y') }} → {{ g.gantt.fim.strftime('%d/%m/%Y') }} · {{ g.gantt.dias }} {{ tt('dias') }}</small>{% endif %}
+        </div>
+        <div class="d-flex flex-wrap gap-2 small gantt-legenda">
+            <span><i class="gantt-cor st-pendente"></i> {{ tt('Pendente') }}</span>
+            <span><i class="gantt-cor st-andamento"></i> {{ tt('Em Andamento') }}</span>
+            <span><i class="gantt-cor st-concluido"></i> {{ tt('Concluído') }}</span>
+            <span><i class="gantt-cor st-atrasada"></i> {{ tt('Atrasada') }}</span>
+            <span><i class="gantt-hoje-legenda"></i> {{ tt('Hoje') }}</span>
+        </div>
+    </div>
+    {% if g.gantt.linhas %}
+    <div class="gantt" role="table" aria-label="{{ tt('Cronograma (Gantt)') }} · {{ p.nome }}">
+        <div class="gantt-linha gantt-regua" role="row">
+            <div class="gantt-nome" role="columnheader">{{ tt('Tarefa') }}</div>
+            <div class="gantt-trilho" role="columnheader">
+                {% for m in g.gantt.marcas %}<span class="gantt-marca" style="left: {{ m.pct }}%">{{ m.texto }}</span>{% endfor %}
+            </div>
+        </div>
+        {% for l in g.gantt.linhas %}
+        {% set classe = 'st-atrasada' if l.prazo == 'Atrasada' else ('st-concluido' if l.status == 'Concluído' else ('st-andamento' if l.status == 'Em Andamento' else 'st-pendente')) %}
+        <div class="gantt-linha" role="row">
+            <div class="gantt-nome nivel-{{ l.nivel }}" role="cell" title="{{ l.nome }}">
+                {% if l.nivel %}<i class="bi bi-arrow-return-right text-muted"></i>{% endif %}{{ l.nome }}
+                <small class="d-block text-muted text-truncate">{{ l.responsavel }}</small>
+            </div>
+            <div class="gantt-trilho" role="cell">
+                {% for m in g.gantt.marcas %}<span class="gantt-grade" style="left: {{ m.pct }}%"></span>{% endfor %}
+                {% if g.gantt.hoje_pct is not none %}<span class="gantt-hoje" style="left: {{ g.gantt.hoje_pct }}%"></span>{% endif %}
+                <div class="gantt-barra {{ classe }}" style="left: {{ l.esquerda }}%; width: {{ l.largura }}%;"
+                     title="{{ l.nome }} · {{ l.inicio.strftime('%d/%m') }} → {{ l.fim.strftime('%d/%m') }} ({{ l.dias }} {{ tt('dias') }}) · {{ tt(l.status) }} · {{ l.pct }}% · {{ tt(l.prazo) }}">
+                    <span class="gantt-feito" style="width: {{ l.pct }}%"></span>
+                    <span class="gantt-rotulo">{{ l.pct }}%</span>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="alert alert-light border small mb-0"><i class="bi bi-info-circle"></i> {{ tt('Cadastre datas de início e fim nas tarefas para ver o cronograma.') }}</div>
+    {% endif %}
+    {% if g.gantt.sem_datas %}
+    <div class="small text-muted mt-2"><i class="bi bi-calendar-x"></i> {{ tt('Sem datas (fora do cronograma)') }}: {{ g.gantt.sem_datas | map(attribute='nome') | join(', ') }}</div>
+    {% endif %}
+
+    <!-- ================= GRÁFICOS SOB DEMANDA ================= -->
+    <hr class="my-3">
+    <h6 class="fw-bold text-primary mb-2"><i class="bi bi-graph-up"></i> {{ tt('Gerar gráfico para o acompanhamento') }}</h6>
+    <div class="row g-2 align-items-end mb-2">
+        <div class="col-md-5">
+            <label class="form-label small fw-bold mb-0" for="dadoGrafico{{ p.id }}">{{ tt('Dado') }}</label>
+            <select class="form-select form-select-sm dado-grafico" id="dadoGrafico{{ p.id }}">
+                {% for chave, (rotulo, tipo) in dados_graficos.items() %}<option value="{{ chave }}" data-tipo="{{ tipo }}">{{ tt(rotulo) }}</option>{% endfor %}
+            </select>
+        </div>
+        <div class="col-md-3">
+            <label class="form-label small fw-bold mb-0" for="tipoGrafico{{ p.id }}">{{ tt('Tipo de gráfico') }}</label>
+            <select class="form-select form-select-sm tipo-grafico" id="tipoGrafico{{ p.id }}">
+                <option value="auto">{{ tt('Sugerido') }}</option>
+                <option value="bar">{{ tt('Barras') }}</option>
+                <option value="barh">{{ tt('Barras horizontais') }}</option>
+                <option value="line">{{ tt('Linhas') }}</option>
+                <option value="pie">{{ tt('Pizza') }}</option>
+                <option value="doughnut">{{ tt('Rosca') }}</option>
+            </select>
+        </div>
+        <div class="col-md-4 d-flex gap-2">
+            <button class="btn btn-sm btn-primary fw-bold flex-grow-1 gerar-grafico" type="button" data-projeto="{{ p.id }}"><i class="bi bi-play-fill"></i> {{ tt('Gerar') }}</button>
+            <button class="btn btn-sm btn-outline-secondary fw-bold baixar-grafico" type="button" data-projeto="{{ p.id }}" title="{{ tt('Baixar imagem (PNG)') }}"><i class="bi bi-download"></i> PNG</button>
+        </div>
+    </div>
+    <div class="grafico-area"><canvas id="canvasGrafico{{ p.id }}" aria-label="{{ tt('Gráfico do projeto') }} {{ p.nome }}" role="img"></canvas></div>
+    <div class="small text-muted mt-1 grafico-vazio d-none" id="graficoVazio{{ p.id }}">{{ tt('Sem dados para este gráfico ainda.') }}</div>
+    <script type="application/json" id="seriesProjeto{{ p.id }}">{{ g.series | tojson }}</script>
+</div>

@@ -44,10 +44,18 @@ CATEGORIAS = {"FLX": "Fluxo de negócio", "REG": "Regra de negócio", "PER": "Pe
               "INT": "Integridade dos dados", "ACE": "Primeiro acesso e onboarding"}
 
 
+def regra_da_plataforma(chave):
+    """Valor atual de uma regra parametrizada (Administração › Parâmetros de regras), lido como a plataforma lê."""
+    from app import app
+    from regras_negocio import regra
+    with app.app_context():
+        return regra(chave)
+
+
 def senha_forte():
-    """Senha aleatória que atende à política da plataforma (10+ caracteres, maiúscula, minúscula, número e especial)."""
+    """Senha aleatória que atende à política da plataforma (tamanho mínimo parametrizado, maiúscula, minúscula, número e especial)."""
     base = [secrets.choice(string.ascii_uppercase), secrets.choice(string.ascii_lowercase), secrets.choice(string.digits), secrets.choice("#@!%&*")]
-    base += [secrets.choice(string.ascii_letters + string.digits) for _ in range(10)]
+    base += [secrets.choice(string.ascii_letters + string.digits) for _ in range(max(10, int(regra_da_plataforma("senha_min_caracteres"))))]
     secrets.SystemRandom().shuffle(base)
     return "".join(base)
 
@@ -267,9 +275,10 @@ class AgenteFuncional:
                          "Criar um @app.before_request que, com current_user.forcar_troca_senha, redirecione tudo (menos trocar_senha_obrigatoria, "
                          "logout e static) para a troca de senha — vale também para a recuperação de senha.")
             fraca_status, _, fraca_html = self.cliente.pedir("POST", "/trocar-senha", {"nova_senha": "abc123"})
-            self.confere(fraca_status == 200 and "10 caracteres" in fraca_html, "Política de senha na troca obrigatória", "VAL",
+            minimo = regra_da_plataforma("senha_min_caracteres")
+            self.confere(fraca_status == 200 and f"{minimo} caracteres" in fraca_html, "Política de senha na troca obrigatória", "VAL",
                          "Senha fraca recusada com a orientação da política.", f"Senha fraca não foi recusada (HTTP {fraca_status}).",
-                         "Senha com 10+ caracteres, maiúsculas, minúsculas, números e especiais", "Alta")
+                         f"Senha com {minimo}+ caracteres, maiúsculas, minúsculas, números e especiais (Parâmetros de regras)", "Alta")
             senha = nova_senha or senha_forte()
             _, destino, _ = self.cliente.pedir("POST", "/trocar-senha", {"nova_senha": senha})
         if destino == "/cadastrar-perguntas" or self.cliente.pedir("GET", "/dashboard")[1] == "/cadastrar-perguntas":
