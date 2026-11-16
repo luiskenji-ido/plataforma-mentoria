@@ -3564,6 +3564,8 @@ _ULTIMA_VERIFICACAO_BACKUP = [datetime.min]
 
 @app.before_request
 def verificar_backups_agendados():
+    if os.environ.get('MENTORIA_VALIDACAO') == '1':
+        return  # instância de validação do Orquestrador (cópia do banco): nunca grava backups nas pastas reais
     agora = datetime.now()
     if agora - _ULTIMA_VERIFICACAO_BACKUP[0] < timedelta(minutes=5):
         return
@@ -6372,6 +6374,197 @@ def iniciar_agentes_funcionalidades():
     subprocess.Popen(cmd, cwd=raiz, stdout=log, stderr=subprocess.STDOUT, env={**os.environ, 'PYTHONIOENCODING': 'utf-8'}, **opcoes)
     flash(tt('Gerente de Funcionalidades iniciado: o Administrador começa o fluxo e passa a vez para o Mentor Administrador.', current_user.idioma), "success")
     return redirect(url_for('agentes_funcionalidades'))
+
+
+# ==============================================================================
+# AGENTE ORQUESTRADOR EXECUTOR: lê os prompts de correção das 4 equipes, corrige numa cópia, valida e só então commita
+# ==============================================================================
+def _orquestrador():
+    import sys as _sys
+    pasta = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'agentes_orquestrador')
+    if pasta not in _sys.path:
+        _sys.path.insert(0, pasta)
+    import executor as orquestrador_executor
+    import coletor as orquestrador_coletor
+    import ambiente as orquestrador_ambiente
+    import ia_correcao as orquestrador_ia
+    return orquestrador_executor, orquestrador_coletor, orquestrador_ambiente, orquestrador_ia
+
+
+def _orquestrador_em_execucao(estado):
+    """Em execução de verdade: status 'executando' e o processo deu sinal de vida há pouco."""
+    import time as _time
+    return bool(estado) and estado.get('status') == 'executando' and _time.time() - (estado.get('batimento') or 0) < 15 * 60
+
+
+@app.route('/admin/agentes-orquestrador')
+@login_required
+def agentes_orquestrador():
+    bloqueio = _somente_administrador()
+    if bloqueio:
+        return bloqueio
+    executor, coletor, ambiente_orq, ia = _orquestrador()
+    ignorados = executor.ignorados()
+    correcoes = coletor.coletar()
+    estado = executor.ler_estado()
+    if estado:
+        estado['diff'] = None  # o diff é baixado à parte
+    return render_template('agentes_orquestrador.html', correcoes=[c for c in correcoes if c['id'] not in ignorados],
+                           ignorados=[{**ignorados[c['id']], **c} for c in correcoes if c['id'] in ignorados],
+                           ambiente=ambiente_orq.capacidades(), provedores=ia.provedores_disponiveis(), estado=estado,
+                           em_execucao=_orquestrador_em_execucao(estado), historico=executor.historico(),
+                           equipes=executor.EQUIPES_VALIDACAO)
+
+
+@app.route('/admin/agentes-orquestrador/iniciar', methods=['POST'])
+@login_required
+def iniciar_orquestrador():
+    import subprocess
+    import sys as _sys
+    bloqueio = _somente_administrador()
+    if bloqueio:
+        return bloqueio
+    executor, coletor, ambiente_orq, ia = _orquestrador()
+    idioma = current_user.idioma
+    estado = executor.ler_estado()
+    if _orquestrador_em_execucao(estado) or (estado and estado.get('status') == 'aguardando_confirmacao'):
+        flash(tt('Termine a correção em andamento (confirme ou faça o rollback) antes de começar outra.', idioma), 'warning')
+        return redirect(url_for('agentes_orquestrador'))
+    capacidade = ambiente_orq.capacidades()
+    if not capacidade['pode_corrigir']:
+        flash(tt('Este ambiente não permite corrigir o código. Veja os itens em vermelho no quadro do ambiente.', idioma), 'danger')
+        return redirect(url_for('agentes_orquestrador'))
+    provedor = request.form.get('provedor', 'gemini')
+    if provedor not in ia.provedores_disponiveis():
+        flash(tt('A IA escolhida não tem chave configurada no .env.', idioma), 'warning')
+        return redirect(url_for('agentes_orquestrador'))
+    ignorados = executor.ignorados()
+    disponiveis = [c['id'] for c in coletor.coletar() if c['id'] not in ignorados]
+    ids = disponiveis if request.form.get('tudo') else [i for i in request.form.getlist('ids') if i in disponiveis]
+    if not ids:
+        flash(tt('Nenhuma correção escolhida.', idioma), 'warning')
+        return redirect(url_for('agentes_orquestrador'))
+    equipes = [e for e in request.form.getlist('equipes') if e in {c for c, *_ in executor.EQUIPES_VALIDACAO}] or \
+        [c for c, *_ in executor.EQUIPES_VALIDACAO]
+    raiz = os.path.dirname(os.path.abspath(__file__))
+    os.makedirs(executor.PASTA_AO_VIVO, exist_ok=True)
+    cmd = [_sys.executable, os.path.join(raiz, 'agentes_orquestrador', 'executor.py'), '--provedor', provedor,
+           '--usuario', current_user.nome, '--ids', *ids, '--equipes', *equipes]
+    opcoes = {'creationflags': subprocess.CREATE_NEW_PROCESS_GROUP | subprocess.CREATE_NO_WINDOW} if os.name == 'nt' else {'start_new_session': True}
+    log = open(os.path.join(executor.PASTA_AO_VIVO, 'executor.log'), 'w', encoding='utf-8')
+    subprocess.Popen(cmd, cwd=raiz, stdout=log, stderr=subprocess.STDOUT, env={**os.environ, 'PYTHONIOENCODING': 'utf-8'}, **opcoes)
+    flash(tt('Orquestrador iniciado: as correções são feitas numa cópia do código e validadas pelas equipes antes de qualquer commit.', idioma), 'success')
+    return redirect(url_for('agentes_orquestrador'))
+
+
+@app.route('/admin/agentes-orquestrador/ignorar', methods=['POST'])
+@login_required
+def ignorar_correcao():
+    bloqueio = _somente_administrador()
+    if bloqueio:
+        return bloqueio
+    executor, *_ = _orquestrador()
+    ignorados = executor.ignorados()
+    correcao_id = (request.form.get('id') or '')[:20]
+    if request.form.get('acao') == 'restaurar':
+        ignorados.pop(correcao_id, None)
+        flash(tt('Correção de volta à lista.', current_user.idioma), 'info')
+    elif correcao_id:
+        ignorados[correcao_id] = {'por': current_user.nome, 'em': datetime.now().strftime('%d/%m/%Y %H:%M'),
+                                  'motivo': (request.form.get('motivo') or '').strip()[:300], 'titulo': (request.form.get('titulo') or '')[:200]}
+        flash(tt('Correção ignorada. Ela pode voltar à lista quando você quiser.', current_user.idioma), 'info')
+    executor._gravar_json(executor.ARQUIVO_IGNORADOS, ignorados)
+    return redirect(url_for('agentes_orquestrador'))
+
+
+@app.route('/admin/agentes-orquestrador/estado.json')
+@login_required
+def estado_orquestrador_json():
+    bloqueio = _somente_administrador()
+    if bloqueio:
+        return jsonify({'erro': 'acesso negado'}), 403
+    executor, *_ = _orquestrador()
+    estado = executor.ler_estado() or {}
+    estado.pop('diff', None)
+    estado['em_execucao'] = _orquestrador_em_execucao(estado)
+    return jsonify(estado)
+
+
+@app.route('/admin/agentes-orquestrador/diff')
+@login_required
+def diff_orquestrador():
+    from flask import Response
+    bloqueio = _somente_administrador()
+    if bloqueio:
+        return bloqueio
+    executor, *_ = _orquestrador()
+    estado = executor.ler_estado() or {}
+    return Response(estado.get('diff') or 'Sem alterações pendentes.', mimetype='text/plain; charset=utf-8')
+
+
+@app.route('/admin/agentes-orquestrador/confirmar', methods=['POST'])
+@login_required
+def confirmar_orquestrador():
+    bloqueio = _somente_administrador()
+    if bloqueio:
+        return bloqueio
+    executor, *_ = _orquestrador()
+    ok, mensagem = executor.confirmar(current_user.nome)
+    flash(mensagem, 'success' if ok else 'danger')
+    return redirect(url_for('agentes_orquestrador'))
+
+
+@app.route('/admin/agentes-orquestrador/rollback', methods=['POST'])
+@login_required
+def rollback_orquestrador():
+    bloqueio = _somente_administrador()
+    if bloqueio:
+        return bloqueio
+    executor, *_ = _orquestrador()
+    ok, mensagem = executor.rollback(current_user.nome)
+    flash(mensagem, 'success' if ok else 'warning')
+    return redirect(url_for('agentes_orquestrador'))
+
+
+@app.route('/admin/agentes-orquestrador/desfazer', methods=['POST'])
+@login_required
+def desfazer_orquestrador():
+    bloqueio = _somente_administrador()
+    if bloqueio:
+        return bloqueio
+    executor, *_ = _orquestrador()
+    commit = (request.form.get('commit') or '').strip()
+    if not re.fullmatch(r'[0-9a-f]{7,40}', commit):
+        return redirect(url_for('agentes_orquestrador'))
+    ok, mensagem = executor.desfazer_commit(commit, current_user.nome)
+    flash(mensagem, 'success' if ok else 'danger')
+    return redirect(url_for('agentes_orquestrador'))
+
+
+@app.route('/admin/agentes-orquestrador/parar', methods=['POST'])
+@login_required
+def parar_orquestrador():
+    import signal
+    bloqueio = _somente_administrador()
+    if bloqueio:
+        return bloqueio
+    executor, *_ = _orquestrador()
+    estado = executor.ler_estado()
+    if estado and estado.get('status') == 'executando' and estado.get('pid'):
+        import subprocess
+        try:
+            pid = int(estado['pid'])
+            if os.name == 'nt':  # encerra também a instância de validação e as equipes que o executor abriu
+                subprocess.run(['taskkill', '/F', '/T', '/PID', str(pid)], capture_output=True, timeout=30)
+            else:
+                os.killpg(pid, signal.SIGTERM)  # o executor nasce num grupo de processos próprio
+        except (OSError, ValueError, subprocess.SubprocessError):
+            pass
+        estado['status'] = 'parado'
+        executor._gravar_json(executor.ARQUIVO_ESTADO, estado)
+        executor.rollback(current_user.nome)
+        flash(tt('Orquestrador parado e cópia descartada: nada foi alterado no código em uso.', current_user.idioma), 'info')
+    return redirect(url_for('agentes_orquestrador'))
 
 
 @app.route('/admin/agentes-funcionalidades/parar', methods=['POST'])

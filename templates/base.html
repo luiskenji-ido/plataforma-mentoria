@@ -626,7 +626,7 @@
       {% set grupo_aprendizagem = ['sessoes', 'acompanhamento', 'atividades_extras', 'gerenciar_turmas', 'gerenciar_frequencia', 'gerenciar_notas'] %}
       {% set grupo_projetos = ['projetos', 'minhas_bancas', 'biblioteca_tccs', 'meus_certificados', 'painel_banca'] %}
       {% set grupo_admin = ['gerenciar_usuarios', 'gestao_trilha_tcc', 'reunioes', 'agenda_bancas', 'avaliadores_banca', 'indicadores_voluntariado',
-                            'gerenciar_solicitacoes', 'agentes_ia', 'agentes_seguranca', 'agentes_banco', 'agentes_funcionalidades', 'manutencao_banco', 'gerenciar_grupos', 'perfis_acesso_view', 'parametros_regras'] %}
+                            'gerenciar_solicitacoes', 'agentes_ia', 'agentes_seguranca', 'agentes_banco', 'agentes_funcionalidades', 'manutencao_banco', 'gerenciar_grupos', 'perfis_acesso_view', 'parametros_regras', 'agentes_orquestrador'] %}
 
       <ul class="navbar-nav me-auto mb-2 mb-xl-0 gap-xl-1">
         <!-- Painel Geral -->
@@ -735,6 +735,7 @@
             <li><a class="dropdown-item fw-bold" href="{{ url_for('agentes_seguranca') }}"><i class="bi bi-shield-lock-fill"></i> {{ tt('Agentes de Segurança') }}</a></li>
             <li><a class="dropdown-item fw-bold" href="{{ url_for('agentes_banco') }}"><i class="bi bi-database-fill-check"></i> {{ tt('Agentes de Banco de Dados') }}</a></li>
             <li><a class="dropdown-item fw-bold" href="{{ url_for('agentes_funcionalidades') }}"><i class="bi bi-diagram-3-fill"></i> {{ tt('Agentes de Funcionalidades') }}</a></li>
+            <li><a class="dropdown-item fw-bold" href="{{ url_for('agentes_orquestrador') }}"><i class="bi bi-cpu"></i> {{ tt('Agente Orquestrador executor') }}</a></li>
             <li><a class="dropdown-item fw-bold" href="{{ url_for('governanca_aprendizados') }}"><i class="bi bi-mortarboard"></i> {{ tt('Governança de aprendizados') }}</a></li>
             {% endif %}
             {% if pode_modulo('manutencao') %}<li><a class="dropdown-item fw-bold text-danger" href="{{ url_for('manutencao_banco') }}"><i class="bi bi-database-fill-gear"></i> {{ t('menu_manutencao') }}</a></li>{% endif %}

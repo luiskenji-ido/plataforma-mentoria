@@ -1,0 +1,237 @@
+{% extends "base.html" %}
+{% block title %}{{ tt('Agente Orquestrador executor') }}{% endblock %}
+{% block content %}
+{% set cores_sev = {'Crítica': 'bg-dark', 'Alta': 'bg-danger', 'Média': 'bg-warning text-dark', 'Baixa': 'bg-info text-dark'} %}
+{% set rotulos_status = {'pendente': ('Na fila', 'secondary'), 'corrigindo': ('Corrigindo', 'warning text-dark'), 'aplicada': ('Corrigida na cópia', 'success'),
+                         'nao_aplicada': ('Não aplicada', 'danger'), 'nao_e_codigo': ('Não é código', 'secondary')} %}
+{% set rotulos_equipe = {'aguardando': ('Aguardando', 'secondary'), 'executando': ('Testando', 'warning text-dark'), 'aprovado': ('Aprovou', 'success'),
+                         'reprovado': ('Reprovou', 'danger'), 'indisponivel': ('Indisponível aqui', 'dark'), 'fora': ('Fora desta validação', 'light text-dark border')} %}
+{% set bloqueado = em_execucao or (estado and estado.status == 'aguardando_confirmacao') %}
+
+<div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-3">
+    <div>
+        <h2 class="text-primary fw-bold mb-1"><i class="bi bi-cpu"></i> {{ tt('Agente Orquestrador executor') }}</h2>
+        <p class="text-muted mb-0">{{ tt('Lê os prompts de correção das quatro equipes de agentes, corrige com IA numa cópia do código, faz os agentes aprenderem e testarem a correção e só libera o commit quando todas as equipes aprovam.') }}</p>
+    </div>
+    <div class="d-flex gap-2 flex-wrap">
+        <a href="{{ url_for('agentes_ia') }}" class="btn btn-outline-secondary fw-bold"><i class="bi bi-robot"></i> {{ tt('Agentes IA') }}</a>
+        <a href="{{ url_for('governanca_aprendizados') }}" class="btn btn-outline-primary fw-bold"><i class="bi bi-mortarboard"></i> {{ tt('Governança de aprendizados') }}</a>
+    </div>
+</div>
+
+<!-- Ambiente -->
+<div class="card shadow-sm border-0 mb-3" id="cardAmbiente">
+    <div class="card-body">
+        <div class="d-flex justify-content-between flex-wrap gap-2">
+            <h6 class="fw-bold mb-2"><i class="bi bi-hdd-network"></i> {{ tt('Ambiente') }}: <span class="text-primary">{{ ambiente.nome }}</span>
+                {% if ambiente.ramo %}<span class="badge bg-light text-dark border ms-1"><i class="bi bi-git"></i> {{ ambiente.ramo }}</span>{% endif %}</h6>
+            <span class="small {{ 'text-success' if ambiente.pode_validar_tudo else 'text-danger' }} fw-bold">
+                {{ tt('Pronto para corrigir e validar com todas as equipes') if ambiente.pode_validar_tudo else (tt('Corrige, mas sem os testes Fim a Fim') if ambiente.pode_corrigir else tt('Este ambiente não permite corrigir o código')) }}
+            </span>
+        </div>
+        <div class="row row-cols-1 row-cols-md-3 g-1 small">
+            {% for chave, item in ambiente['itens'].items() %}
+            <div class="col"><i class="bi {{ 'bi-check-circle-fill text-success' if item.ok else 'bi-x-circle-fill text-danger' }}"></i> {{ tt(item.texto) }}</div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+{% if estado %}
+<!-- Execução -->
+<div class="card shadow-sm border-0 mb-3 border-start border-4 {{ 'border-warning' if em_execucao else ('border-success' if estado.status in ['aguardando_confirmacao', 'confirmado'] else 'border-secondary') }}" id="cardExecucao">
+    <div class="card-header bg-white d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <span class="fw-bold"><i class="bi bi-activity"></i> {{ tt('Execução') }} {{ estado.id }} · {{ tt('IA') }}: {{ estado.provedor|capitalize }} · {{ estado.usuario }}</span>
+        <span class="badge fs-6 {{ {'executando': 'bg-warning text-dark', 'aguardando_confirmacao': 'bg-success', 'confirmado': 'bg-primary', 'reprovado': 'bg-danger', 'erro': 'bg-danger', 'revertido': 'bg-secondary', 'sem_alteracoes': 'bg-secondary', 'parado': 'bg-secondary'}.get(estado.status, 'bg-secondary') }}" id="statusExecucao">
+            {{ tt({'executando': 'Em execução', 'aguardando_confirmacao': 'Aprovado: aguardando sua confirmação', 'confirmado': 'Commit confirmado', 'reprovado': 'Reprovado pelas equipes', 'erro': 'Erro', 'revertido': 'Rollback feito', 'sem_alteracoes': 'Nada a corrigir em código', 'parado': 'Parado'}.get(estado.status, estado.status)) }}
+        </span>
+    </div>
+    <div class="card-body">
+        <!-- etapas -->
+        <div class="d-flex flex-wrap gap-2 mb-3">
+            {% for e in estado.etapas %}
+            <span class="badge rounded-pill border {{ {'concluido': 'bg-success-subtle text-success-emphasis', 'executando': 'bg-warning-subtle text-warning-emphasis', 'falhou': 'bg-danger-subtle text-danger-emphasis', 'aguardando': 'bg-light text-muted'}.get(e.status, 'bg-light text-muted') }}" title="{{ e.detalhe }}">
+                <i class="bi {{ {'concluido': 'bi-check-lg', 'executando': 'bi-hourglass-split', 'falhou': 'bi-x-lg'}.get(e.status, 'bi-circle') }}"></i> {{ tt(e.nome) }}</span>
+            {% endfor %}
+        </div>
+        {% if estado.erro %}<div class="alert alert-danger small">{{ estado.erro }}</div>{% endif %}
+
+        <!-- correções -->
+        <h6 class="fw-bold">{{ tt('Correções') }}</h6>
+        <div class="list-group mb-3">
+            {% for c in estado.correcoes %}
+            {% set st = rotulos_status.get(c.status, (c.status, 'secondary')) %}
+            <div class="list-group-item">
+                <div class="d-flex justify-content-between flex-wrap gap-2">
+                    <span><span class="badge {{ cores_sev.get(c.severidade, 'bg-secondary') }}">{{ tt(c.severidade) }}</span> <b>{{ c.titulo }}</b>
+                        <span class="text-muted small">· {{ tt(c.equipe_nome) }} · {{ c.agente }}</span></span>
+                    <span><span class="badge bg-{{ st[1] }}">{{ tt(st[0]) }}</span>
+                        {% if c.confirmada is defined %}<span class="badge {{ 'bg-success' if c.confirmada else 'bg-warning text-dark' }}">{{ tt('Confirmada pelos agentes') if c.confirmada else tt('Ainda aparece nos testes') }}</span>{% endif %}</span>
+                </div>
+                {% if c.resumo %}<div class="small mt-1">{{ c.resumo }}</div>{% endif %}
+                {% if c.status in ['nao_aplicada', 'nao_e_codigo'] and c.motivo %}<div class="small text-muted mt-1"><i class="bi bi-info-circle"></i> {{ c.motivo }}</div>{% endif %}
+                {% if c.status == 'aplicada' %}
+                <details class="small mt-1"><summary class="text-primary">{{ tt('Detalhes, plano de rollback e riscos') }}</summary>
+                    <ul class="mb-1 mt-1">{% for a in c.alteracoes %}<li><code>{{ a.arquivo }}</code> — {{ a.explicacao }}</li>{% endfor %}</ul>
+                    <div><b>{{ tt('Rollback') }}:</b> {{ c.rollback }}</div>
+                    <div><b>{{ tt('Como testar') }}:</b> {{ c.como_testar }}</div>
+                    <div><b>{{ tt('Riscos') }}:</b> {{ c.riscos }}</div>
+                </details>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+
+        <!-- aprendizado e equipes -->
+        <div class="row g-3 mb-3">
+            <div class="col-lg-5">
+                <h6 class="fw-bold">{{ tt('O que os Gerentes aprenderam com a correção') }}</h6>
+                {% if estado.aprendizado %}
+                <ul class="small mb-0">{% for gerente, itens in estado.aprendizado.items() %}<li><b>{{ tt(gerente) }}:</b>
+                    {% if itens is string %}{{ itens }}{% elif itens %}{{ itens | join('; ') }}{% else %}{{ tt('nenhuma mudança a aprender') }}{% endif %}</li>{% endfor %}</ul>
+                {% else %}<div class="small text-muted">{{ tt('Ainda não executado.') }}</div>{% endif %}
+            </div>
+            <div class="col-lg-7">
+                <h6 class="fw-bold">{{ tt('Aprovação das equipes') }}</h6>
+                <ul class="list-unstyled small mb-0" id="aprovacaoEquipes">
+                    {% for chave, e in estado.equipes.items() %}
+                    {% set st = rotulos_equipe.get(e.status, (e.status, 'secondary')) %}
+                    <li class="mb-1"><span class="badge bg-{{ st[1] }}">{{ tt(st[0]) }}</span> <b>{{ tt(e.nome) }}</b> {% if e.resumo %}— {{ e.resumo }}{% endif %}</li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+
+        {% if estado.diff_resumo %}
+        <details class="mb-3"><summary class="fw-bold small text-primary">{{ tt('Arquivos alterados') }}</summary>
+            <pre class="small bg-body-tertiary p-2 rounded mb-1">{{ estado.diff_resumo }}</pre>
+            <a href="{{ url_for('diff_orquestrador') }}" target="_blank" rel="noopener" class="small"><i class="bi bi-file-diff"></i> {{ tt('Ver as alterações completas (diff)') }}</a>
+        </details>
+        {% endif %}
+        {% if estado.commit %}<div class="alert alert-success small mb-3"><i class="bi bi-git"></i> Commit <code>{{ estado.commit[:8] }}</code> · {{ estado.resultado_push }} {{ estado.recarga }}</div>{% endif %}
+
+        <!-- decisão -->
+        <div class="d-flex flex-wrap gap-2">
+            {% if estado.status == 'aguardando_confirmacao' %}
+            <form method="POST" action="{{ url_for('confirmar_orquestrador') }}" class="m-0" onsubmit="return confirm({{ tt('Confirmar o commit e enviar (push) as correções aprovadas?') | tojson }})">
+                <button class="btn btn-success fw-bold" type="submit" id="btnConfirmarCommit"><i class="bi bi-git"></i> {{ tt('Confirmar commit e push') }}</button></form>
+            {% endif %}
+            {% if estado.status in ['aguardando_confirmacao', 'reprovado', 'erro', 'sem_alteracoes'] %}
+            <form method="POST" action="{{ url_for('rollback_orquestrador') }}" class="m-0" onsubmit="return confirm({{ tt('Descartar todas as correções e manter a versão anterior?') | tojson }})">
+                <button class="btn btn-outline-danger fw-bold" type="submit" id="btnRollback"><i class="bi bi-arrow-counterclockwise"></i> {{ tt('Rollback') }}</button></form>
+            {% endif %}
+            {% if em_execucao %}
+            <form method="POST" action="{{ url_for('parar_orquestrador') }}" class="m-0"><button class="btn btn-outline-secondary fw-bold" type="submit"><i class="bi bi-stop-circle"></i> {{ tt('Parar') }}</button></form>
+            {% endif %}
+        </div>
+        <details class="mt-3"><summary class="small text-muted">{{ tt('Log da execução') }}</summary>
+            <pre class="small bg-dark text-light p-2 rounded mb-0" style="max-height: 280px; overflow: auto;" id="logOrquestrador">{{ (estado.log or [])[-80:] | join('\n') }}</pre></details>
+    </div>
+</div>
+{% endif %}
+
+<!-- Correções pedidas pelos agentes -->
+<form method="POST" action="{{ url_for('iniciar_orquestrador') }}" id="formCorrigir"></form>
+<div class="card shadow-sm border-0 mb-3" id="cardCorrecoes">
+    <div class="card-header bg-white">
+        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <span class="fw-bold"><i class="bi bi-list-check"></i> {{ tt('Correções pedidas pelos agentes') }} ({{ correcoes|length }})</span>
+            <button class="btn btn-primary fw-bold" type="submit" form="formCorrigir" name="tudo" value="1" id="btnCorrigirTudo"
+                    {% if bloqueado or not correcoes or not provedores or not ambiente.pode_corrigir %}disabled{% endif %}>
+                <i class="bi bi-magic"></i> {{ tt('Corrigir tudo') }}</button>
+        </div>
+        <div class="d-flex flex-wrap gap-3 mt-2 small align-items-center">
+            <span class="fw-bold">{{ tt('IA') }}:</span>
+            {% for chave, nome in [('gemini', 'Gemini'), ('claude', 'Claude')] %}
+            <div class="form-check form-check-inline m-0">
+                <input class="form-check-input" type="radio" name="provedor" value="{{ chave }}" id="ia_{{ chave }}" form="formCorrigir"
+                       {% if chave not in provedores %}disabled{% elif chave == provedores[0] %}checked{% endif %}>
+                <label class="form-check-label" for="ia_{{ chave }}">{{ nome }}{% if chave not in provedores %} <span class="text-muted">({{ tt('sem chave no .env') }})</span>{% endif %}</label>
+            </div>
+            {% endfor %}
+            <span class="fw-bold ms-2">{{ tt('Equipes que validam') }}:</span>
+            {% for e in equipes %}
+            {% set chave, nome = e[0], e[1] %}
+            <div class="form-check form-check-inline m-0">
+                <input class="form-check-input" type="checkbox" name="equipes" value="{{ chave }}" id="eq_{{ chave }}" form="formCorrigir" checked
+                       {% if chave == 'e2e' and not ambiente['itens']['fim_a_fim']['ok'] %}disabled{% endif %}>
+                <label class="form-check-label" for="eq_{{ chave }}">{{ tt(nome) }}</label>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    <div class="table-responsive">
+        <table class="table table-hover align-middle small mb-0">
+            <thead><tr><th>{{ tt('Severidade') }}</th><th>{{ tt('Correção') }}</th><th>{{ tt('Equipe') }}</th><th>{{ tt('Arquivos') }}</th><th class="text-end">{{ tt('Ação') }}</th></tr></thead>
+            <tbody>
+                {% for c in correcoes %}
+                <tr id="corr_{{ c.id }}">
+                    <td><span class="badge {{ cores_sev.get(c.severidade, 'bg-secondary') }}">{{ tt(c.severidade) }}</span></td>
+                    <td><b>{{ c.titulo }}</b>
+                        <details><summary class="text-primary">{{ tt('Detalhes da correção') }}</summary>
+                            {% if c.onde %}<div><b>{{ tt('Onde') }}:</b> {{ c.onde[:300] }}</div>{% endif %}
+                            {% if c.detalhe %}<div><b>{{ tt('O que o agente viu') }}:</b> {{ c.detalhe[:500] }}</div>{% endif %}
+                            {% if c.esperado %}<div><b>{{ tt('O que se esperava') }}:</b> {{ c.esperado }}</div>{% endif %}
+                            {% if c.recomendacao %}<div><b>{{ tt('Recomendação do agente') }}:</b> {{ c.recomendacao[:600] }}</div>{% endif %}
+                            <div class="text-muted">{{ tt('Prompt de correção') }}: {{ (c.prompt or '—').replace('\\', '/').split('/')[-1] }}</div>
+                        </details></td>
+                    <td class="text-nowrap">{{ tt(c.equipe_nome) }}<div class="text-muted">{{ c.agente }}</div></td>
+                    <td>{% for a, _ in c.arquivos[:3] %}<code class="d-block">{{ a }}</code>{% else %}<span class="text-muted">—</span>{% endfor %}</td>
+                    <td class="text-end text-nowrap">
+                        <button class="btn btn-sm btn-outline-primary fw-bold" type="submit" form="formCorrigir" name="ids" value="{{ c.id }}"
+                                {% if bloqueado or not provedores or not ambiente.pode_corrigir %}disabled{% endif %}><i class="bi bi-wrench"></i> {{ tt('Corrigir') }}</button>
+                        <form method="POST" action="{{ url_for('ignorar_correcao') }}" class="d-inline" onsubmit="this.motivo.value = prompt({{ tt('Motivo para ignorar (opcional):') | tojson }}) || ''; return true;">
+                            <input type="hidden" name="id" value="{{ c.id }}"><input type="hidden" name="titulo" value="{{ c.titulo }}"><input type="hidden" name="motivo">
+                            <button class="btn btn-sm btn-outline-secondary" type="submit"><i class="bi bi-eye-slash"></i> {{ tt('Ignorar') }}</button>
+                        </form>
+                    </td>
+                </tr>
+                {% else %}
+                <tr><td colspan="5" class="text-center text-muted py-4"><i class="bi bi-emoji-smile fs-4 d-block"></i> {{ tt('Nenhuma correção pendente: as últimas execuções das equipes não pediram correções.') }}</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="row g-3 mb-4">
+    <div class="col-lg-6">
+        <div class="card shadow-sm border-0 h-100"><div class="card-header bg-white fw-bold"><i class="bi bi-eye-slash"></i> {{ tt('Ignoradas') }} ({{ ignorados|length }})</div>
+            <ul class="list-group list-group-flush small">
+                {% for i in ignorados %}
+                <li class="list-group-item d-flex justify-content-between gap-2"><span>{{ i.titulo }}<div class="text-muted">{{ i.por }} · {{ i.em }}{% if i.motivo %} · {{ i.motivo }}{% endif %}</div></span>
+                    <form method="POST" action="{{ url_for('ignorar_correcao') }}" class="m-0"><input type="hidden" name="id" value="{{ i.id }}"><input type="hidden" name="acao" value="restaurar">
+                        <button class="btn btn-sm btn-link p-0" type="submit">{{ tt('Voltar à lista') }}</button></form></li>
+                {% else %}<li class="list-group-item text-muted">{{ tt('Nenhuma correção ignorada.') }}</li>{% endfor %}
+            </ul></div>
+    </div>
+    <div class="col-lg-6">
+        <div class="card shadow-sm border-0 h-100"><div class="card-header bg-white fw-bold"><i class="bi bi-clock-history"></i> {{ tt('Commits do orquestrador') }}</div>
+            <ul class="list-group list-group-flush small">
+                {% for h in historico %}
+                <li class="list-group-item"><div class="d-flex justify-content-between gap-2">
+                    <span><code>{{ h.commit[:8] }}</code> · {{ h.data[:16].replace('T', ' ') }} · {{ h.usuario }}{% if h.desfeito %} <span class="badge bg-secondary">{{ tt('desfeito') }}</span>{% endif %}</span>
+                    {% if not h.desfeito %}
+                    <form method="POST" action="{{ url_for('desfazer_orquestrador') }}" class="m-0" onsubmit="return confirm({{ tt('Desfazer este commit (git revert + push) e voltar à versão anterior?') | tojson }})">
+                        <input type="hidden" name="commit" value="{{ h.commit }}"><button class="btn btn-sm btn-outline-danger" type="submit"><i class="bi bi-arrow-counterclockwise"></i> {{ tt('Rollback') }}</button></form>
+                    {% endif %}</div>
+                    <div class="text-muted">{{ h.correcoes | join(' ') }}</div></li>
+                {% else %}<li class="list-group-item text-muted">{{ tt('Nenhum commit feito pelo orquestrador ainda.') }}</li>{% endfor %}
+            </ul></div>
+    </div>
+</div>
+
+{% if em_execucao %}
+<script>
+// Enquanto o orquestrador trabalha, a página se atualiza sozinha quando o status ou o log mudam
+(function () {
+    let ultimo = null;
+    setInterval(() => fetch({{ url_for('estado_orquestrador_json') | tojson }}, { cache: 'no-store' }).then(r => r.json()).then(d => {
+        const marca = `${d.status}|${(d.log || []).length}`;
+        if (ultimo !== null && marca !== ultimo) location.reload();
+        ultimo = marca;
+    }).catch(() => {}), 5000);
+})();
+</script>
+{% endif %}
+{% endblock %}
