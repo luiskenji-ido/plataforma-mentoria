@@ -216,6 +216,11 @@ def voltar(endpoint_padrao="dashboard", **valores):
 # ------------------------------------------------------------------------------ ligação com o app
 def configurar_seguranca(app, traduzir=None):
     traduzir = traduzir or (lambda texto: texto)
+    if EM_PRODUCAO:
+        # No PythonAnywhere o HTTPS termina no proxy deles: sem isto, url_for(_external=True) gera http:// e o Google
+        # recusa o endereço de retorno do login (Agenda e Gmail). Confia só no esquema e no host do proxy (1 salto).
+        from werkzeug.middleware.proxy_fix import ProxyFix
+        app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
     app.config["SECRET_KEY"] = carregar_chave_secreta(app.instance_path)
     app.config.update(
         SESSION_COOKIE_HTTPONLY=True,
