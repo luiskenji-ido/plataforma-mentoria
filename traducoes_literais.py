@@ -1553,6 +1553,14 @@ LITERAIS.update({
     'Locatário Microsoft 365 (organizations = qualquer empresa)': ('Microsoft 365 tenant (organizations = any company)', 'Inquilino de Microsoft 365 (organizations = cualquier empresa)'),
 })
 
+
+# Microsoft 365 sempre visível na lista "Enviar por"
+LITERAIS.update({
+    'conecte em Contas conectadas': ('connect it under Connected accounts', 'conéctelo en Cuentas conectadas'),
+    'aguardando configuração do Administrador': ('waiting for the Administrator to set it up', 'esperando la configuración del Administrador'),
+    'Para enviar pelo Outlook, conecte o Microsoft 365 na lista Contas conectadas (abre em outra aba).': ('To send through Outlook, connect Microsoft 365 in the Connected accounts list (opens in another tab).', 'Para enviar por Outlook, conecte Microsoft 365 en la lista Cuentas conectadas (se abre en otra pestaña).'),
+})
+
 _POR_IDIOMA = {'en': {pt: v[0] for pt, v in LITERAIS.items()}, 'es': {pt: v[1] for pt, v in LITERAIS.items()}}
 
 

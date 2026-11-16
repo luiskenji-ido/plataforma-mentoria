@@ -143,7 +143,7 @@
                     <div class="row g-2 align-items-center">
                         <div class="col-md-7 form-check ms-2">
                             <input class="form-check-input" type="checkbox" id="rEnviarConvite" name="enviar_convite" value="1"
-                                   {% if not gmail_disponivel and not smtp_disponivel and not microsoft_email %}disabled{% endif %}>
+                                   {% if not gmail_disponivel and not smtp_disponivel and not microsoft_email and not microsoft_disponivel %}disabled{% endif %}>
                             <label class="form-check-label" for="rEnviarConvite">{{ t('convite_enviar_ao_salvar') }}</label>
                         </div>
                         <div class="col-md-4">
@@ -151,11 +151,14 @@
                                 {% if microsoft_email %}<option value="microsoft" selected>{{ t('convite_enviar_por') }}: Microsoft 365 / Outlook ({{ microsoft_email }})</option>{% endif %}
                                 {% if gmail_email or gmail_disponivel %}<option value="gmail" {% if gmail_email %}selected{% endif %}>{{ t('convite_enviar_por') }}: {{ t('convite_via_gmail') }}{% if gmail_email %} ({{ gmail_email }}){% endif %}</option>{% endif %}
                                 {% if smtp_disponivel %}<option value="smtp" {% if not gmail_email %}selected{% endif %}>{{ t('convite_enviar_por') }}: {{ t('convite_via_smtp') }}</option>{% endif %}
+                                {% if not microsoft_email %}{% if microsoft_disponivel %}<option value="microsoft">{{ t('convite_enviar_por') }}: Microsoft 365 / Outlook ({{ tt('conecte em Contas conectadas') }})</option>
+                                {% else %}<option value="microsoft" disabled>{{ t('convite_enviar_por') }}: Microsoft 365 / Outlook ({{ tt('aguardando configuração do Administrador') }})</option>{% endif %}{% endif %}
                             </select>
                         </div>
                     </div>
                     <div class="form-text">
-                        {% if not gmail_disponivel and not smtp_disponivel %}{{ t('convite_sem_meio') }} {% endif %}
+                        {% if not gmail_disponivel and not smtp_disponivel and not microsoft_disponivel and not microsoft_email %}{{ t('convite_sem_meio') }} {% endif %}
+                        {% if microsoft_disponivel and not microsoft_email %}{{ tt('Para enviar pelo Outlook, conecte o Microsoft 365 na lista Contas conectadas (abre em outra aba).') }} {% endif %}
                         {% if not gmail_email and gmail_disponivel %}{{ t('convite_dica_gmail') }} {% endif %}
                         {{ t('convite_dica_provedores') }}
                     </div>

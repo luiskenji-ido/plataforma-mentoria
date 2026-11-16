@@ -254,7 +254,7 @@
                         {% if reuniao.convite_enviado_em %}<i class="bi bi-send-check"></i> {{ t('convite_ultimo_envio').format(data=convite_enviado_local, via=reuniao.convite_enviado_via, qtd=(reuniao.convite_destinatarios or '').splitlines()|length) }}
                         {% else %}{{ t('convite_nunca_enviado') }}{% endif %}
                     </p>
-                    {% if gmail_email or smtp_disponivel or microsoft_email %}
+                    {% if gmail_email or smtp_disponivel or microsoft_email or microsoft_disponivel %}
                     <form method="POST" action="{{ url_for('enviar_convite', id=reuniao.id) }}">
                         <div class="fw-bold small mb-1">{{ t('convite_destinatarios') }}</div>
                         <div class="row g-1 mb-2">
@@ -272,6 +272,8 @@
                                 {% if microsoft_email %}<option value="microsoft" {% if reuniao.convite_enviado_via == 'Microsoft 365' %}selected{% endif %}>{{ t('convite_enviar_por') }}: Microsoft 365 / Outlook ({{ microsoft_email }})</option>{% endif %}
                                 {% if gmail_email %}<option value="gmail">{{ t('convite_enviar_por') }}: {{ t('convite_via_gmail') }} ({{ gmail_email }})</option>{% endif %}
                                 {% if smtp_disponivel %}<option value="smtp">{{ t('convite_enviar_por') }}: {{ t('convite_via_smtp') }}</option>{% endif %}
+                                {% if not microsoft_email %}{% if microsoft_disponivel %}<option value="microsoft">{{ t('convite_enviar_por') }}: Microsoft 365 / Outlook ({{ tt('conecte em Contas conectadas') }})</option>
+                                {% else %}<option value="microsoft" disabled>{{ t('convite_enviar_por') }}: Microsoft 365 / Outlook ({{ tt('aguardando configuração do Administrador') }})</option>{% endif %}{% endif %}
                             </select>
                             <button class="btn btn-primary btn-sm fw-bold rounded-pill px-3" type="submit" {% if not convidados %}disabled{% endif %}>
                                 <i class="bi bi-send"></i> {{ t('convite_reenviar') if reuniao.convite_enviado_em else t('convite_enviar') }}
@@ -280,6 +282,9 @@
                     </form>
                     {% else %}
                     <p class="small text-muted mb-1">{{ t('convite_sem_meio') }}</p>
+                    <select class="form-select form-select-sm w-auto mb-1" aria-label="{{ t('convite_enviar_por') }}" disabled>
+                        <option>{{ t('convite_enviar_por') }}: Microsoft 365 / Outlook ({{ tt('aguardando configuração do Administrador') }})</option>
+                    </select>
                     {% endif %}
                     {% if convidados_ignorados %}
                     <div class="small text-muted mt-2">{{ t('convite_ignorados_lista') }}: {{ convidados_ignorados | map('first') | join(', ') }}</div>
