@@ -1,5 +1,5 @@
 # ==============================================================================
-# TEXTOS DAS ADEQUAÇÕES AON / ITM (Jovem Seguro 2026)
+# TEXTOS DAS ADEQUAÇÕES B2B / ITM (Jovem Seguro 2026)
 # Ficam num arquivo próprio para não misturar com o dicionário original;
 # o traducoes.py mescla estas chaves em TEXTOS ao ser importado.
 # ==============================================================================

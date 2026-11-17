@@ -2326,7 +2326,7 @@ def bater_ponto_voluntariado():
 
 
 # ==============================================================================
-# ROTA: PORTAL DE DEMANDAS INSTITUCIONAIS (TICKETS ITM & AON)
+# ROTA: PORTAL DE DEMANDAS INSTITUCIONAIS (TICKETS ITM & B2B)
 # ==============================================================================
 # ==============================================================================
 # ATIVIDADES EXTRAS DO GRUPO (fora do cronograma) — check-in/out de mentores e jovens

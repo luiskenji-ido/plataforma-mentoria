@@ -467,7 +467,7 @@ class CheckinAula(db.Model):
 
 
 # ==============================================================================
-# 20. MÓDULO 4: BANCA AVALIADORA (AON / ITM) E VOLUNTARIADO DE LEITURA
+# 20. MÓDULO 4: BANCA AVALIADORA (B2B / ITM) E VOLUNTARIADO DE LEITURA
 # ==============================================================================
 
 class PerfilAvaliador(db.Model):
@@ -528,7 +528,7 @@ class QABanca(db.Model):
 
 
 # ==============================================================================
-# 21. MÓDULO 5: PORTAL DE DEMANDAS INSTITUCIONAIS (TICKETS ITM & AON)
+# 21. MÓDULO 5: PORTAL DE DEMANDAS INSTITUCIONAIS (TICKETS ITM & B2B)
 # ==============================================================================
 
 class DemandaInstitucional(db.Model):

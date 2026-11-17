@@ -1186,9 +1186,17 @@ class AgenteEncerramento(AgenteDoFluxo):
             self.etapa("Desistência: confirmação da gestão e reativação")
             self.post(f"/desistencias/{did}/decidir", {"acao": "confirmar", "observacao": f"{MARCA} Confirmada com a família."})
             estado = self._situacao_jovem(aluno2["id"])
+            diagnostico = ""
+            if estado[0] != "Desistente":
+                # Falha intermitente já vista uma vez: guarda o diagnóstico para achar a causa se voltar a acontecer
+                import time
+                pedido = self.banco(lambda: (lambda d: (d.status, str(d.decidido_em), d.decidido_por_id) if d else None)(m.Desistencia.query.get(did)))
+                time.sleep(2)
+                depois = self._situacao_jovem(aluno2["id"])
+                diagnostico = f" Pedido no banco (status, decidido_em, por): {pedido}. Releitura 2 s depois: {depois}."
             self.confere(estado[0] == "Desistente" and estado[1:] == (0, 0), "Gestão confirma: jovem sai da turma e do mentor", "REG",
                          "Jovem 'Desistente', fora da turma, do grupo e sem mentor (histórico guardado).",
-                         f"Situação (status, turmas, mentores): {estado}.", "Desistente sai da turma, do grupo e dos mentores", "Crítica",
+                         f"Situação (status, turmas, mentores): {estado}.{diagnostico}", "Desistente sai da turma, do grupo e dos mentores", "Crítica",
                          print_de="/desistencias")
             from base import Cliente
             _, destino, _ = Cliente().pedir("POST", "/", {"email": aluno2["email"], "senha": aluno2["senha"]})
