@@ -52,6 +52,31 @@ FONTES_PADRAO = [
     ('sqlite.org', 'SQLite — documentação oficial'), ('postgresql.org', 'PostgreSQL — documentação oficial'),
     ('dev.mysql.com', 'MySQL — documentação oficial (Oracle)'), ('learn.microsoft.com', 'Microsoft Learn — SQL Server'),
     ('mongodb.com', 'MongoDB — documentação oficial'),
+    # Tour, telas e acessibilidade (agentes OmniTest)
+    ('introjs.com', '[Tour e telas] Intro.js — documentação oficial da biblioteca do tour'),
+    ('web.dev', '[Tour e telas] web.dev (Google) — desempenho, acessibilidade e boas práticas web'),
+    ('whatwg.org', '[Tour e telas] WHATWG — especificação oficial do HTML'),
+    # Funcionalidades, Python e publicação (agentes de Funcionalidades e Orquestrador)
+    ('python.org', '[Funcionalidades] Python.org — documentação, PEPs e avisos de segurança do Python'),
+    ('palletsprojects.com', '[Funcionalidades] Pallets — Flask, Werkzeug, Jinja e ItsDangerous'),
+    ('sqlalchemy.org', '[Banco de dados] SQLAlchemy e Alembic — documentação oficial'),
+    ('git-scm.com', '[Orquestrador] Git — documentação oficial'),
+    ('docs.github.com', '[Orquestrador] GitHub Docs — repositórios, push e Actions'),
+    ('www.planalto.gov.br', '[Funcionalidades] Planalto — legislação federal (LGPD, Lei 13.709/2018, e ECA)'),
+    # Segurança (agentes de Segurança)
+    ('csrc.nist.gov', '[Segurança] NIST CSRC — normas de segurança (ex.: SP 800-63, senhas e autenticação)'),
+    ('www.cisa.gov', '[Segurança] CISA — catálogo de vulnerabilidades exploradas (KEV) e alertas'),
+    ('www.cve.org', '[Segurança] Programa CVE — identificadores oficiais de vulnerabilidades'),
+    ('www.first.org', '[Segurança] FIRST — especificação do CVSS (nota de gravidade)'),
+    ('www.cert.br', '[Segurança] CERT.br — boas práticas e incidentes de segurança no Brasil'),
+    ('www.rfc-editor.org', '[Segurança] RFC Editor — padrões oficiais da internet (HTTP, cookies, OAuth)'),
+    ('oauth.net', '[Segurança] OAuth.net — especificações OAuth 2.0 e PKCE (login Google e Microsoft)'),
+    ('www.iso.org', '[Segurança] ISO — normas de gestão de segurança da informação (ISO/IEC 27001)'),
+    # Integrações e IA (Assistente, Provedores de IA, agendas)
+    ('developers.google.com', '[Integrações] Google Developers — APIs do Gmail e do Google Agenda'),
+    ('ai.google.dev', '[IA] Google AI for Developers — API do Gemini, modelos e preços'),
+    ('claude.com', '[IA] Claude (Anthropic) — documentação da API, modelos e preços'),
+    ('anthropic.com', '[IA] Anthropic — documentação e políticas oficiais'),
 ]
 LIMITE_DOWNLOAD = 2 * 1024 * 1024
 

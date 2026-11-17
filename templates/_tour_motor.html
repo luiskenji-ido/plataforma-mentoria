@@ -1,5 +1,6 @@
 {# Motor único do Tour (incluído no fim de base.html, antes de _tours.html).
-   - rodarTour(passos, opcoes): cada passo é {texto}, {sel: 'seletor CSS', texto}, {titulo: 'título do cartão', texto} ou {el: elemento|função, texto}.
+   - rodarTour(passos, opcoes): cada passo é {texto}, {sel: 'seletor CSS', texto}, {titulo: 'título do cartão', texto}, {aba: '#painel', sel?, texto} (abre a aba)
+     ou {el: elemento|função, texto}.
      Num seletor com alternativas ('#a, .b'), vale a primeira alternativa que tiver elemento visível.
      O passo aponta para o primeiro elemento VISÍVEL que casar (nunca um item escondido do menu, de uma aba fechada ou de um modal);
      se nenhum aparecer, o passo é pulado.
@@ -17,6 +18,13 @@
         fimDoTour: {{ tt('Concluir o tour')|tojson }},
         pagina: {{ tt('Página')|tojson }},
         de: {{ tt('de')|tojson }},
+        aba: {{ tt('Aba')|tojson }},
+        abaTexto: {{ tt('mostra esta parte da página. Clique no nome da aba para abrir.')|tojson }},
+        atalho: {{ tt('atalho que abre a página')|tojson }},
+        formulario: {{ tt('abre o formulário para preencher.')|tojson }},
+        baixar: {{ tt('baixa o arquivo.')|tojson }},
+        imprimir: {{ tt('imprime ou salva em PDF.')|tojson }},
+        acao: {{ tt('executa esta ação na página.')|tojson }},
     };
 
     function visivel(el) {
@@ -48,7 +56,33 @@
         return null;
     }
 
+    // ---------------------------------------------------------------- abas (Bootstrap)
+    // {aba: '#idDoPainel', sel?, texto}: o passo abre a aba e explica o conteúdo dela (sel procura dentro do painel;
+    // sem sel, o passo aponta para o primeiro bloco do painel). No fim do tour, as abas voltam a ser as de antes.
+    function botaoDaAba(painel) {
+        if (!painel || !painel.id) return null;
+        const id = CSS.escape(painel.id);
+        return document.querySelector(`[data-bs-toggle="tab"][data-bs-target="#${id}"], [data-bs-toggle="pill"][data-bs-target="#${id}"], `
+            + `[data-bs-toggle="tab"][href="#${id}"], [data-bs-toggle="pill"][href="#${id}"]`);
+    }
+    function mostrarAba(painel) {
+        const botao = botaoDaAba(painel);
+        if (botao && !painel.classList.contains('active') && window.bootstrap) bootstrap.Tab.getOrCreateInstance(botao).show();
+    }
+    function porAba(passo) {
+        const painel = document.querySelector(passo.aba);
+        const botao = botaoDaAba(painel);
+        if (!painel || !botao || !visivel(botao)) return null;   // aba que este perfil não vê
+        if (!passo.sel) return painel.firstElementChild || painel;
+        for (const parte of passo.sel.split(',')) {
+            const el = painel.querySelector(parte.trim());
+            if (el) return el;
+        }
+        return null;
+    }
+
     function resolver(passo) {
+        if (passo.aba) return porAba(passo);
         if (passo.el) {
             const el = typeof passo.el === 'function' ? passo.el() : passo.el;
             return visivel(el) ? el : null;
@@ -60,11 +94,61 @@
 
     // Elemento mais alto que meia tela: o balão aponta para o cabeçalho dele (senão sairia cortado, fora da tela)
     function ancoraCompacta(el) {
+        // Dentro de aba fechada não dá para medir: aponta para o cabeçalho do bloco (baixo), senão o balão ficaria solto
+        if (el.closest('.tab-pane:not(.active)')) {
+            if (el.matches('.card-header, summary, thead, h1, h2, h3, h4, h5, h6, .btn')) return el;
+            return el.querySelector(':scope > .card-header, :scope > summary, :scope > form > .card-header')
+                || el.querySelector('.card-header, h1, h2, h3, h4, h5, h6, thead, summary') || el;
+        }
         const limite = window.innerHeight * 0.5;
         if (el.getBoundingClientRect().height <= limite) return el;
         const cabecalho = Array.from(el.querySelectorAll(':scope > .card-header, :scope > summary, :scope > thead, :scope > .card-body > h5, :scope > .card-body > h6, h1, h2, h3, h4, h5, h6, thead'))
             .find(c => visivel(c) && c.getBoundingClientRect().height <= limite);
         return cabecalho || el;
+    }
+
+    // ---------------------------------------------------------------- cobertura automática
+    // Abas e botões principais (fora de cartões, tabelas e listas) que nenhum passo explicou ganham um passo genérico:
+    // a aba é aberta e o botão é descrito pelo tipo (atalho, formulário, arquivo, impressão). Páginas novas já nascem cobertas.
+    const rotuloDe = el => Array.from(el.childNodes).filter(n => !(n.classList && n.classList.contains('badge')))
+        .map(n => n.textContent).join(' ').replace(/\s+/g, ' ').trim() || el.getAttribute('aria-label') || el.getAttribute('title') || '';
+    const coberto = (el, alvos) => alvos.some(a => a === el || a.contains(el) || el.contains(a));
+
+    function completarComAbasEBotoes(etapas, titulo) {
+        const alvos = () => etapas.map(e => e.element).filter(Boolean);
+        // Botões principais: entram logo depois da apresentação da página
+        const botoes = [];
+        document.querySelectorAll('.btn').forEach(b => {
+            if (b.closest('nav.navbar, .modal, .dropdown-menu, .introjs-tooltip, .card, table, .list-group, .alert, .nav-tabs, .nav-pills, .toast, .pagination')) return;
+            if (b.matches('[data-bs-toggle="tab"], [data-bs-toggle="pill"], .btn-close, [onclick*="iniciarTourDaPagina"]') || !visivel(b)) return;
+            if (coberto(b, alvos()) || botoes.some(x => coberto(b, [x.element]))) return;
+            const nome = rotuloDe(b);
+            if (!nome) return;
+            const href = b.getAttribute('href') || '';
+            let texto = TXT.acao;
+            if ((b.getAttribute('onclick') || '').includes('print')) texto = TXT.imprimir;
+            else if (b.hasAttribute('download') || /csv|xlsx|pdf|export|baixar|download/i.test(href)) texto = TXT.baixar;
+            else if (b.getAttribute('data-bs-toggle') === 'modal' || b.getAttribute('data-bs-toggle') === 'offcanvas') texto = TXT.formulario;
+            else if (href && !href.startsWith('#') && !href.startsWith('javascript')) texto = `${TXT.atalho} “${nome}”.`;
+            botoes.push({ element: b, intro: `<strong>${nome.replace(/</g, '&lt;')}</strong>: ${texto}`, title: titulo, position: 'auto' });
+        });
+        const posicao = etapas.length && !etapas[0].element ? 1 : 0;
+        etapas.splice(posicao, 0, ...botoes);
+        // Abas: no fim, uma por aba ainda não explicada (abas repetidas em cartões contam uma vez, pelo nome)
+        const vistas = new Set();
+        document.querySelectorAll('[data-bs-toggle="tab"], [data-bs-toggle="pill"]').forEach(b => {
+            if (b.closest('nav.navbar, .modal, .dropdown-menu') || !visivel(b)) return;
+            const alvoAba = b.getAttribute('data-bs-target') || b.getAttribute('href') || '';
+            let painel = null;
+            try { painel = alvoAba.startsWith('#') ? document.querySelector(alvoAba) : null; } catch (e) { painel = null; }
+            const nome = rotuloDe(b);
+            if (!painel || vistas.has(nome)) return;
+            vistas.add(nome);
+            const explicada = alvos().some(a => painel.contains(a) || (painel.classList.contains('active') && a.contains(painel)));
+            if (explicada) return;
+            etapas.push({ element: painel.firstElementChild || painel, intro: `${TXT.aba} <strong>${nome.replace(/</g, '&lt;')}</strong>: ${TXT.abaTexto}`,
+                          title: titulo, position: 'auto' });
+        });
     }
 
     // Páginas do menu principal deste perfil, na ordem em que aparecem (sem repetir; idioma, tema e notificações ficam de fora)
@@ -93,10 +177,11 @@
         const etapas = [];
         passos.forEach(p => {
             if (!p || !p.texto) return;
-            if (!p.sel && !p.el && !p.titulo) { etapas.push({ intro: p.texto, title: titulo }); return; }
+            if (!p.sel && !p.el && !p.titulo && !p.aba) { etapas.push({ intro: p.texto, title: titulo }); return; }
             const alvo = resolver(p);
             if (alvo) etapas.push({ element: ancoraCompacta(alvo), intro: p.texto, title: titulo, position: p.posicao || 'auto' });
         });
+        completarComAbasEBotoes(etapas, titulo);
         if (!etapas.length) etapas.push({ intro: document.title, title: titulo });
 
         let doneLabel = TXT.concluir;
@@ -114,14 +199,19 @@
             scrollToElement: false,
             exitOnOverlayClick: false,
         });
+        const abasIniciais = Array.from(document.querySelectorAll('.tab-pane.active'));
+        const restaurarAbas = () => abasIniciais.forEach(mostrarAba);
         tour.onbeforechange(function (alvo) {
             if (!alvo || !alvo.getBoundingClientRect || alvo.classList.contains('introjsFloatingElement')) return true;
+            const painel = alvo.closest('.tab-pane');   // passo dentro de uma aba fechada: abre a aba antes de posicionar
+            if (painel && !painel.classList.contains('active')) mostrarAba(painel);
             const r = alvo.getBoundingClientRect(), topo = 90;
             // Elemento perto do topo da tela, com espaço para o balão logo abaixo dele
             window.scrollTo({ top: Math.max(0, r.top + window.scrollY - topo), behavior: 'instant' });
             return true;
         });
         tour.oncomplete(function () {
+            restaurarAbas();
             if (opcoes.aoConcluir) opcoes.aoConcluir();
             if (!continuo || indice < 0) return;
             window.location.href = proxima ? proxima.caminho + '?tour_continuo=1' : (paginas[0] ? paginas[0].caminho : '/dashboard');
@@ -137,7 +227,10 @@
                 else if (r.bottom > window.innerHeight - folga) window.scrollBy(0, Math.min(r.bottom - window.innerHeight + folga, r.top - folga));
             }, atraso));
         });
-        if (opcoes.aoSair) tour.onexit(opcoes.aoSair);
+        tour.onexit(function () {
+            restaurarAbas();
+            if (opcoes.aoSair) opcoes.aoSair();
+        });
         tour.start();
         return tour;
     };

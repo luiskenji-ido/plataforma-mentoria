@@ -187,10 +187,22 @@ mentoria/
 		  Dados e de Funcionalidades, os parâmetros de regras e os módulos de cada perfil.
 		- Documentos do projeto: na aba Base de conhecimento, envie o PRD, o PTD e o DTD (.md, .txt, .html, .docx ou .pdf).
 		  Reenviar com o mesmo tipo e título cria a versão seguinte e desativa a anterior.
-		A IA é o Claude: cadastre a ANTHROPIC_API_KEY em Agentes IA › Credenciais. Para trocar o modelo, defina
-		CHAT_MODELO_CLAUDE (padrão claude-opus-5-5). Para ler PDF, instale o pacote pypdf (pip install pypdf).
+		O chat abre pelo ícone ao lado de Administração. Para ler PDF, instale o pacote pypdf (pip install pypdf).
 		Contas de teste (@local.com) e servidores sem chave respondem sem IA, mostrando os trechos encontrados.
 		Código: base_conhecimento.py (fontes, trechos e busca), chat_assistente.py (conversa e IA).
+
+	💲 Provedores de IA e custos (Administração › Sistema › Provedores de IA e custos)
+		Para cada uso (Assistente, Assistente do Acompanhamento e Agente Orquestrador): liga/desliga, modelo principal e
+		até duas reservas (Claude ou Gemini). Padrão do Assistente: Claude Haiku 5.5, com o Gemini de reserva.
+		Teto de gasto mensal e aviso em Parâmetros de regras (grupo Inteligência artificial); ao atingir o teto as IAs
+		param até o mês seguinte. A mesma primeira pergunta reaproveita a resposta (sem custo).
+		Chaves em Agentes IA › Credenciais: ANTHROPIC_API_KEY e GEMINI_API_KEY. Código: provedores_ia.py.
+
+	🧭 Tour guiado
+		Motor único em templates/_tour_motor.html: segue o menu de cada perfil, abre as abas ({aba: '#painel'}) e explica
+		sozinho os botões e abas que nenhum passo cobre. Os agentes OmniTest cobram balões no lugar, seções, abas e botões;
+		o Agente Gerente Técnico aprende o mapa de cada perfil e os erros do tour (conhecimento_tour.py) e ensina os agentes,
+		que conferem primeiro os erros já vistos e avisam quando foram corrigidos.
 
 	5️⃣ Start da Aplicação
 		Inicie o servidor Flask principal:

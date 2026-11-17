@@ -7,20 +7,22 @@ Responde perguntas com base na Base de conhecimento (base_conhecimento.py), cita
 Fluxo de cada pergunta:
 1. Confere a fonte dos Agentes gerentes (sincroniza se algum aprendizado mudou).
 2. Busca os trechos mais relevantes (BM25 local) nas fontes ativas.
-3. Pede a resposta ao Claude (ANTHROPIC_API_KEY, cadastrada em Agentes IA › Credenciais) com as últimas mensagens da
-   conversa e os trechos encontrados. O modelo pode ser trocado pela variável CHAT_MODELO_CLAUDE.
-4. Sem IA (conta de teste @local.com, sem chave, sem a biblioteca ou erro da API): responde no modo offline, mostrando
-   os trechos encontrados. Assim os agentes de teste nunca consomem a IA.
+3. A mesma primeira pergunta, no mesmo idioma e com a base sem mudança, reaproveita a resposta já dada (sem custo),
+   por até assistente_cache_dias dias (Parâmetros de regras).
+4. Pede a resposta à IA pela ordem de modelos do uso "assistente" (provedores_ia.py: Claude Haiku por padrão, com o
+   Gemini de reserva), com as últimas mensagens da conversa e os trechos encontrados (assistente_trechos).
+5. Sem IA (conta de teste @local.com, teto do mês atingido, sem chave ou erro de todos os modelos): responde no modo
+   offline, mostrando os trechos encontrados. Assim os agentes de teste nunca consomem a IA.
 """
-import os
 import json
+import hashlib
 from datetime import datetime, timedelta
 
-from models import db, ConversaChat, MensagemChat
+from models import db, ConversaChat, MensagemChat, FonteConhecimento
 import base_conhecimento
+import provedores_ia
 
-MODELO = os.environ.get('CHAT_MODELO_CLAUDE', 'claude-opus-5-5')
-TRECHOS_POR_PERGUNTA = 8
+USO = 'assistente'
 MENSAGENS_DE_CONTEXTO = 6          # últimas mensagens da conversa enviadas junto com a pergunta
 LIMITE_POR_HORA = 60               # perguntas por pessoa por hora
 TAMANHO_MAXIMO_PERGUNTA = 2000
@@ -124,44 +126,28 @@ def montar_pedido(historico, pergunta, encontrados, idioma):
     return mensagens
 
 
-class IAIndisponivel(Exception):
-    pass
+def modelo_principal():
+    """Primeiro modelo da ordem do Assistente (mostrado na tela)."""
+    ordem = provedores_ia.ordem(USO)
+    return ordem[0] if ordem else ''
 
 
-def chamar_claude(mensagens):
-    """Devolve (texto, tokens_entrada, tokens_saida). Levanta IAIndisponivel sem chave, sem biblioteca ou com erro."""
-    try:
-        import anthropic
-    except ImportError:
-        raise IAIndisponivel('a biblioteca anthropic não está instalada no servidor')
-    if not (os.environ.get('ANTHROPIC_API_KEY') or os.environ.get('ANTHROPIC_AUTH_TOKEN')):
-        raise IAIndisponivel('a chave ANTHROPIC_API_KEY não está cadastrada em Agentes IA › Credenciais')
-    cliente = anthropic.Anthropic(timeout=120.0, max_retries=2)
-    try:
-        with cliente.messages.stream(
-                model=MODELO, max_tokens=8000,
-                system=[{'type': 'text', 'text': SISTEMA, 'cache_control': {'type': 'ephemeral'}}],
-                messages=mensagens, output_config={'effort': 'medium'}) as fluxo:
-            resposta = fluxo.get_final_message()
-    except anthropic.AuthenticationError:
-        raise IAIndisponivel('a chave ANTHROPIC_API_KEY foi recusada pela Anthropic')
-    except anthropic.RateLimitError:
-        raise IAIndisponivel('o limite de uso da API foi atingido; tente de novo em alguns minutos')
-    except anthropic.APIConnectionError:
-        raise IAIndisponivel('sem conexão com a API da Anthropic')
-    except anthropic.APIStatusError as e:
-        raise IAIndisponivel(f'erro da API da Anthropic ({e.status_code})')
-    if resposta.stop_reason == 'refusal':
-        raise IAIndisponivel('a IA não quis responder a esta pergunta')
-    texto = ''.join(b.text for b in resposta.content if b.type == 'text').strip()
-    if resposta.stop_reason == 'max_tokens':
-        texto += '\n\n(…resposta cortada por ser longa demais; peça para continuar ou detalhe a pergunta.)'
-    if not texto:
-        raise IAIndisponivel('a IA devolveu uma resposta vazia')
-    uso = getattr(resposta, 'usage', None)
-    entrada = (getattr(uso, 'input_tokens', 0) or 0) + (getattr(uso, 'cache_read_input_tokens', 0) or 0) \
-        + (getattr(uso, 'cache_creation_input_tokens', 0) or 0)
-    return texto, entrada, getattr(uso, 'output_tokens', None)
+def chave_de_cache(pergunta, idioma):
+    """Pergunta normalizada + idioma + versão das fontes ativas: muda quando qualquer fonte muda."""
+    fontes = FonteConhecimento.query.filter_by(ativo=True).order_by(FonteConhecimento.id).all()
+    marca = '|'.join(f'{f.id}:{f.versao}:{f.hash_conteudo}' for f in fontes)
+    normalizada = ' '.join(base_conhecimento.termos(pergunta))
+    return hashlib.sha256(f'{normalizada}#{idioma}#{marca}'.encode('utf-8')).hexdigest()
+
+
+def resposta_guardada(chave):
+    from regras_negocio import regra
+    dias = int(regra('assistente_cache_dias') or 0)
+    if dias <= 0:
+        return None
+    return MensagemChat.query.filter(MensagemChat.chave_cache == chave, MensagemChat.papel == 'assistente',
+                                     MensagemChat.modo == 'ia', MensagemChat.criada_em >= datetime.now() - timedelta(days=dias)) \
+        .order_by(MensagemChat.id.desc()).first()
 
 
 def resposta_offline(encontrados, motivo, idioma):
@@ -204,25 +190,34 @@ def perguntar(usuario, pergunta, conversa_id=None, idioma='pt', usar_ia=True):
         base_conhecimento.sincronizar_gerentes(usuario.id)
     except Exception:
         db.session.rollback()  # a busca segue com o que já está na base
-    encontrados = base_conhecimento.buscar(pergunta, limite=TRECHOS_POR_PERGUNTA)
+    from regras_negocio import regra
+    encontrados = base_conhecimento.buscar(pergunta, limite=int(regra('assistente_trechos') or 5))
 
     db.session.add(MensagemChat(conversa_id=conversa.id, papel='usuario', texto=pergunta))
-    modo, modelo, entrada, saida = 'offline', None, None, None
+    modo, modelo, entrada, saida, valor, chave = 'offline', None, None, None, None, None
+    fontes = json.dumps(_fontes_citaveis(encontrados), ensure_ascii=False)
+    guardada = None
+    if usar_ia and not historico:
+        chave = chave_de_cache(pergunta, idioma)
+        guardada = resposta_guardada(chave)
     if not usar_ia:
         texto = resposta_offline(encontrados, {'pt': 'modo de teste: contas @local.com não consomem a IA',
                                                 'en': 'test mode: @local.com accounts do not use the AI',
                                                 'es': 'modo de prueba: las cuentas @local.com no usan la IA'}.get(idioma), idioma)
+    elif guardada:
+        texto, fontes, modo, modelo, valor = guardada.texto, guardada.fontes, 'cache', guardada.modelo, 0.0
     else:
         try:
-            texto, entrada, saida = chamar_claude(montar_pedido(historico, pergunta, encontrados, idioma))
+            r = provedores_ia.gerar(USO, SISTEMA, montar_pedido(historico, pergunta, encontrados, idioma), max_tokens=4000,
+                                    esforco='low', usuario_id=usuario.id)
+            texto, entrada, saida, valor, modo, modelo = r.texto, r.tokens_entrada, r.tokens_saida, r.custo_usd, 'ia', r.modelo
             texto = base_conhecimento.sem_segredos(texto)   # nenhuma chave ou senha sai na resposta
-            modo, modelo = 'ia', MODELO
-        except IAIndisponivel as e:
+        except provedores_ia.IAIndisponivel as e:
             texto = resposta_offline(encontrados, str(e), idioma)
 
     resposta = MensagemChat(conversa_id=conversa.id, papel='assistente', texto=texto, modo=modo, modelo=modelo,
-                            tokens_entrada=entrada, tokens_saida=saida,
-                            fontes=json.dumps(_fontes_citaveis(encontrados), ensure_ascii=False))
+                            tokens_entrada=entrada, tokens_saida=saida, custo_usd=valor,
+                            chave_cache=chave if modo == 'ia' else None, fontes=fontes)
     db.session.add(resposta)
     conversa.atualizada_em = datetime.now()
     db.session.commit()

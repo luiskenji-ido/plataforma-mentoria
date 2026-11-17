@@ -27,15 +27,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-_CLIENTE_GEMINI = []
-
-
-def cliente_gemini():
-    """Cliente do SDK oficial google-genai (o google-generativeai foi descontinuado pelo Google)."""
-    if not _CLIENTE_GEMINI:
-        from google import genai
-        _CLIENTE_GEMINI.append(genai.Client(api_key=os.environ.get('GOOGLE_API_KEY')))
-    return _CLIENTE_GEMINI[0]
+# As chamadas às IAs (Claude e Gemini) ficam em provedores_ia.py: ordem de modelos por uso, reserva e teto de gasto.
 
 # Isso permite testarmos o login do Google no nosso computador (localhost) sem HTTPS
 os.environ['OAUTHLIB_INSECURE_TRANSPORT'] = '1'
@@ -5342,10 +5334,22 @@ def chat_ia():
         5. Formate a resposta usando HTML leve (use <br> para quebras de linha e <strong> para negrito).
         """
 
-        prompt_final = f"{instrucoes_tutor}\n\nMensagem do usuário: {mensagem_usuario}\nSua resposta:"
 
-        resposta = cliente_gemini().models.generate_content(model='gemini-3.6-flash', contents=prompt_final)
-        return jsonify({'resposta': resposta.text})
+        import provedores_ia
+        if not provedores_ia.ativo('acompanhamento'):
+            return jsonify({'resposta': tt('O assistente de estudos está desligado pelo Administrador.', current_user.idioma)}), 503
+
+        # Contas de teste (@local.com) não consomem a IA: os agentes recebem uma resposta fixa
+        if eh_conta_de_teste(current_user):
+            return jsonify({'resposta': tt('Modo de teste: contas de teste não consomem a IA. Sua mensagem chegou ao assistente.', current_user.idioma)})
+
+        # A ordem de modelos (e a reserva) vem da tela Provedores de IA, com o teto de gasto do mês
+        import credenciais_agentes
+        import provedores_ia
+        credenciais_agentes.carregar(app.config['SECRET_KEY'])
+        resposta = provedores_ia.gerar('acompanhamento', instrucoes_tutor, [{'role': 'user', 'content': mensagem_usuario[:4000]}],
+                                       max_tokens=2500, esforco='low', usuario_id=current_user.id)
+        return jsonify({'resposta': resposta.texto})
 
     except Exception as e:
         # O detalhe técnico vai só para o log (não expõe chaves, cotas nem caminhos ao usuário)
@@ -7294,6 +7298,94 @@ def credenciais_agentes_ia():
 
 
 # ==============================================================================
+# PROVEDORES DE IA — ordem de modelos por uso, liga/desliga, preços e gasto do mês (só o Administrador)
+# ==============================================================================
+@app.context_processor
+def _ia_ligada_no_template():
+    def ia_ligada(uso):
+        try:
+            import provedores_ia
+            return provedores_ia.ativo(uso)
+        except Exception:
+            return True
+    return {'ia_ligada': ia_ligada}
+
+
+@app.route('/admin/provedores-ia')
+@login_required
+def provedores_ia_view():
+    bloqueio = _somente_administrador()
+    if bloqueio:
+        return bloqueio
+    import credenciais_agentes
+    import provedores_ia
+    credenciais_agentes.carregar(app.config['SECRET_KEY'])
+    return render_template('provedores_ia.html', r=provedores_ia.resumo_para_tela(), usos=provedores_ia.USOS,
+                           provedores=provedores_ia.PROVEDORES, maximo=provedores_ia.MAXIMO_NA_ORDEM)
+
+
+@app.route('/admin/provedores-ia/uso/<uso>', methods=['POST'])
+@login_required
+def provedores_ia_uso(uso):
+    bloqueio = _somente_administrador()
+    if bloqueio:
+        return bloqueio
+    import provedores_ia
+    idioma = current_user.idioma
+    voltar = request.form.get('voltar') or ''
+    destino = redirect(voltar if voltar.startswith('/') and not voltar.startswith('//') else url_for('provedores_ia_view'))
+    if uso not in provedores_ia.USOS:
+        flash(tt('Uso desconhecido.', idioma), 'danger')
+        return destino
+    try:
+        if 'ligado' in request.form:
+            ligado = request.form.get('ligado') == '1'
+            provedores_ia.definir_ativo(uso, ligado, current_user.id)
+            flash(f"{tt(provedores_ia.USOS[uso][0], idioma)}: {tt('IA ligada.', idioma) if ligado else tt('IA desligada.', idioma)}", 'success')
+        else:
+            provedores_ia.salvar_ordem(uso, request.form.getlist('modelos'), current_user.id)
+            flash(f"{tt(provedores_ia.USOS[uso][0], idioma)}: {tt('ordem de modelos salva.', idioma)}", 'success')
+    except ValueError as e:
+        flash(tt(str(e), idioma), 'danger')
+    return destino
+
+
+@app.route('/admin/provedores-ia/precos', methods=['POST'])
+@login_required
+def provedores_ia_precos():
+    bloqueio = _somente_administrador()
+    if bloqueio:
+        return bloqueio
+    import provedores_ia
+    valores = {mid: (request.form.get(f'entrada_{mid}', ''), request.form.get(f'saida_{mid}', '')) for mid in provedores_ia.modelos()}
+    try:
+        provedores_ia.salvar_precos(valores, current_user.id)
+        flash(tt('Preços salvos.', current_user.idioma), 'success')
+    except ValueError as e:
+        flash(tt(str(e), current_user.idioma), 'danger')
+    return redirect(url_for('provedores_ia_view'))
+
+
+@app.route('/admin/provedores-ia/modelos', methods=['POST'])
+@login_required
+def provedores_ia_modelos():
+    bloqueio = _somente_administrador()
+    if bloqueio:
+        return bloqueio
+    import provedores_ia
+    try:
+        if request.form.get('acao') == 'remover':
+            provedores_ia.remover_modelo(request.form.get('modelo', ''), current_user.id)
+            flash(tt('Modelo removido.', current_user.idioma), 'success')
+        else:
+            provedores_ia.adicionar_modelo(request.form.get('provedor'), request.form.get('modelo'), request.form.get('nome'), current_user.id)
+            flash(tt('Modelo adicionado. Preencha os preços para ele entrar no controle do teto.', current_user.idioma), 'success')
+    except ValueError as e:
+        flash(tt(str(e), current_user.idioma), 'danger')
+    return redirect(url_for('provedores_ia_view'))
+
+
+# ==============================================================================
 # ASSISTENTE DA PLATAFORMA (chat) — só o Administrador
 # Base: conhecimento dos Agentes gerentes + documentos PRD, PTD e DTD enviados na tela (base_conhecimento.py)
 # ==============================================================================
@@ -7323,7 +7415,7 @@ def assistente():
                            tipos_upload=base_conhecimento.TIPOS_UPLOAD, extensoes=sorted(base_conhecimento.EXTENSOES),
                            limite_mb=base_conhecimento.LIMITE_ARQUIVO_MB, conversa=conversa,
                            mensagens=chat_assistente.mensagens_para_tela(conversa), conversas=chat_assistente.conversas(current_user),
-                           aba=request.args.get('aba', 'conversar'), modelo=chat_assistente.MODELO)
+                           aba=request.args.get('aba', 'conversar'), modelo=chat_assistente.modelo_principal())
 
 
 @app.route('/admin/assistente/perguntar', methods=['POST'])
@@ -7334,6 +7426,9 @@ def assistente_perguntar():
         return bloqueio
     import credenciais_agentes
     import chat_assistente
+    import provedores_ia
+    if not provedores_ia.ativo('assistente'):
+        return jsonify({'erro': tt('O Assistente está desligado. Ligue em Administração › Provedores de IA.', current_user.idioma)}), 409
     dados = request.get_json(silent=True) or request.form
     credenciais_agentes.carregar(app.config['SECRET_KEY'])
     try:
@@ -8042,6 +8137,15 @@ def iniciar_orquestrador():
     if provedor not in ia.provedores_disponiveis():
         flash(tt('A IA escolhida não tem chave configurada no .env.', idioma), 'warning')
         return redirect(url_for('agentes_orquestrador'))
+    import provedores_ia
+    if not provedores_ia.ativo('orquestrador'):
+        flash(tt('A IA do Agente Orquestrador está desligada. Ligue em Administração › Provedores de IA.', idioma), 'warning')
+        return redirect(url_for('agentes_orquestrador'))
+    try:
+        provedores_ia.conferir_orcamento()
+    except provedores_ia.OrcamentoEsgotado as e:
+        flash(f"{tt('O Orquestrador não pode usar a IA agora', idioma)}: {e}.", 'warning')
+        return redirect(url_for('agentes_orquestrador'))
     ignorados = executor.ignorados()
     disponiveis = [c['id'] for c in coletor.coletar() if c['id'] not in ignorados]
     ids = disponiveis if request.form.get('tudo') else [i for i in request.form.getlist('ids') if i in disponiveis]
@@ -8056,7 +8160,12 @@ def iniciar_orquestrador():
            '--usuario', current_user.nome, '--ids', *ids, '--equipes', *equipes]
     opcoes = {'creationflags': subprocess.CREATE_NEW_PROCESS_GROUP | subprocess.CREATE_NO_WINDOW} if os.name == 'nt' else {'start_new_session': True}
     log = open(os.path.join(executor.PASTA_AO_VIVO, 'executor.log'), 'w', encoding='utf-8')
-    subprocess.Popen(cmd, cwd=raiz, stdout=log, stderr=subprocess.STDOUT, env=ambiente_dos_agentes(), **opcoes)
+    ambiente = ambiente_dos_agentes()
+    for nome_provedor, variavel in (('claude', 'ORQUESTRADOR_MODELO_CLAUDE'), ('gemini', 'ORQUESTRADOR_MODELO_GEMINI')):
+        modelo_escolhido = provedores_ia.modelo_de_provedor('orquestrador', nome_provedor)  # tela Provedores de IA
+        if modelo_escolhido:
+            ambiente[variavel] = modelo_escolhido
+    subprocess.Popen(cmd, cwd=raiz, stdout=log, stderr=subprocess.STDOUT, env=ambiente, **opcoes)
     flash(tt('Orquestrador iniciado: as correções são feitas numa cópia do código e validadas pelas equipes antes de qualquer commit.', idioma), 'success')
     return redirect(url_for('agentes_orquestrador'))
 
@@ -8799,6 +8908,8 @@ def atualizar_estrutura_banco():
         "ALTER TABLE usuario ADD COLUMN perfil_personalizado_id INTEGER REFERENCES perfil_personalizado(id)",
         # Painel Geral: gráficos personalizados por utilizador
         "ALTER TABLE usuario ADD COLUMN preferencias_painel TEXT",
+        "ALTER TABLE mensagem_chat ADD COLUMN custo_usd FLOAT",
+        "ALTER TABLE mensagem_chat ADD COLUMN chave_cache VARCHAR(64)",
         # Manutenção (DB): histórico de execuções com arquivo, tamanho, duração e agendamento de origem
         "ALTER TABLE registro_backup ADD COLUMN arquivo VARCHAR(255)",
         "ALTER TABLE registro_backup ADD COLUMN tamanho_bytes INTEGER",

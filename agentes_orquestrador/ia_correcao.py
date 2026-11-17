@@ -10,8 +10,9 @@ import json
 import os
 
 PASTA = os.path.dirname(os.path.abspath(__file__))
+# Os modelos vêm da tela Provedores de IA (a plataforma passa estas variáveis ao iniciar o executor)
 MODELO_GEMINI = os.environ.get('ORQUESTRADOR_MODELO_GEMINI', 'gemini-3.6-flash')
-MODELO_CLAUDE = os.environ.get('ORQUESTRADOR_MODELO_CLAUDE', 'claude-opus-5-5')
+MODELO_CLAUDE = os.environ.get('ORQUESTRADOR_MODELO_CLAUDE', 'claude-sonnet-5-5')
 LIMITE_ARQUIVO = 60_000      # arquivos maiores vão em janelas ao redor das linhas citadas
 JANELA = 90                  # linhas antes/depois de cada linha citada
 
@@ -105,6 +106,19 @@ def montar_pedido(correcao, prompt_do_agente, arquivos_texto, tentativa_anterior
 
 
 # ------------------------------------------------------------------------------ provedores
+def _anotar_uso(provedor, modelo, entrada, saida):
+    """Consumo desta chamada para o gasto do mês (a plataforma importa o arquivo; o executor não usa o banco)."""
+    try:
+        import sys
+        raiz = os.path.dirname(PASTA)
+        if raiz not in sys.path:
+            sys.path.insert(0, raiz)
+        import provedores_ia
+        provedores_ia.anotar_uso_externo('orquestrador', provedor, modelo, entrada, saida)
+    except Exception:
+        pass  # anotar nunca impede a correção
+
+
 def _gemini(pedido):
     try:
         from google import genai
@@ -118,6 +132,9 @@ def _gemini(pedido):
         model=MODELO_GEMINI, contents=pedido,
         config=types.GenerateContentConfig(system_instruction=skill(), response_mime_type='application/json',
                                            response_json_schema=ESQUEMA))
+    uso = getattr(resposta, 'usage_metadata', None)
+    _anotar_uso('gemini', MODELO_GEMINI, getattr(uso, 'prompt_token_count', 0) or 0,
+                (getattr(uso, 'candidates_token_count', 0) or 0) + (getattr(uso, 'thoughts_token_count', 0) or 0))
     return json.loads(resposta.text)
 
 
@@ -140,6 +157,9 @@ def _claude(pedido):
     except anthropic.BadRequestError:
         with cliente.messages.stream(**comum) as fluxo:  # conta/plataforma sem o recurso de fallback
             mensagem = fluxo.get_final_message()
+    uso = getattr(mensagem, 'usage', None)
+    _anotar_uso('claude', MODELO_CLAUDE, (getattr(uso, 'input_tokens', 0) or 0) + (getattr(uso, 'cache_read_input_tokens', 0) or 0)
+                + (getattr(uso, 'cache_creation_input_tokens', 0) or 0), getattr(uso, 'output_tokens', 0) or 0)
     if mensagem.stop_reason == 'refusal':
         categoria = getattr(getattr(mensagem, 'stop_details', None), 'category', None)
         raise IAIndisponivel(f'A IA recusou a correção (categoria: {categoria}).')

@@ -10,10 +10,22 @@
         <p class="text-muted mb-0">{{ tt('Tire dúvidas sobre a plataforma. As respostas vêm da base de conhecimento e citam as fontes: hoje o conhecimento dos Agentes gerentes; no fim do projeto, também os documentos PRD, PTD e DTD.') }}</p>
     </div>
     <div class="d-flex gap-2 flex-wrap align-items-center small" id="resumoAssistente">
-        <span class="badge text-bg-light border"><i class="bi bi-cpu"></i> {{ modelo }}</span>
+        <a href="{{ url_for('provedores_ia_view') }}" class="badge text-bg-light border text-decoration-none" title="{{ tt('Provedores de IA e custos') }}"><i class="bi bi-cpu"></i> {{ modelo }}</a>
         <span class="badge text-bg-light border"><i class="bi bi-collection"></i> {{ resumo.ativas }} {{ tt('fontes ativas') }}</span>
         <span class="badge text-bg-light border"><i class="bi bi-text-paragraph"></i> {{ resumo.trechos }} {{ tt('trechos') }}</span>
     </div>
+</div>
+
+{% set ligado = ia_ligada('assistente') %}
+<div class="alert {{ 'alert-light border' if ligado else 'alert-warning' }} d-flex justify-content-between align-items-center flex-wrap gap-2 py-2" id="estadoAssistente">
+    <span class="small">{% if ligado %}<i class="bi bi-toggle-on text-success"></i> {{ tt('Assistente ligado: as perguntas vão para a IA, dentro do teto de gasto do mês.') }}
+        {% else %}<i class="bi bi-toggle-off"></i> {{ tt('Assistente desligado: nenhuma pergunta vai para a IA e o botão de chat não aparece nas páginas. A base de conhecimento continua editável.') }}{% endif %}</span>
+    <form method="POST" action="{{ url_for('provedores_ia_uso', uso='assistente') }}" class="m-0">
+        <input type="hidden" name="ligado" value="{{ '0' if ligado else '1' }}">
+        <input type="hidden" name="voltar" value="{{ url_for('assistente') }}">
+        <button type="submit" class="btn btn-sm fw-bold {{ 'btn-outline-secondary' if ligado else 'btn-success' }}" id="btnLigarAssistente">
+            <i class="bi {{ 'bi-power' if ligado else 'bi-toggle-on' }}"></i> {{ tt('Desligar o Assistente') if ligado else tt('Ligar o Assistente') }}</button>
+    </form>
 </div>
 
 <ul class="nav nav-tabs mb-3" id="abasAssistente" role="tablist">
@@ -62,15 +74,10 @@
                         <div class="assistente-mensagens" id="mensagensChat"></div>
                     </div>
                     <div class="card-footer bg-white">
-                        <div class="d-flex flex-wrap gap-1 mb-2" id="sugestoesAssistente">
-                            {% for s in [tt('Quais módulos cada perfil pode acessar?'), tt('O que o Gerente de Segurança verifica?'), tt('Quais são os parâmetros das avaliações e alertas?'), tt('Como funciona a desistência de um jovem?')] %}
-                            <button type="button" class="btn btn-sm btn-outline-secondary rounded-pill sugestao">{{ s }}</button>
-                            {% endfor %}
-                        </div>
                         <form class="d-flex gap-2 align-items-end" id="formPergunta" autocomplete="off">
-                            <textarea class="form-control" id="campoPergunta" rows="2" maxlength="2000"
+                            <textarea class="form-control" id="campoPergunta" rows="2" maxlength="2000" {{ 'disabled' if not ligado }}
                                       placeholder="{{ tt('Escreva sua pergunta (Enter envia, Shift+Enter quebra a linha)') }}" aria-label="{{ tt('Pergunta') }}"></textarea>
-                            <button type="submit" class="btn btn-primary fw-bold px-3"><i class="bi bi-send-fill"></i> {{ tt('Enviar') }}</button>
+                            <button type="submit" class="btn btn-primary fw-bold px-3" {{ 'disabled' if not ligado }}><i class="bi bi-send-fill"></i> {{ tt('Enviar') }}</button>
                         </form>
                         <div class="form-text">{{ tt('As respostas citam as fontes entre colchetes, como [1]; clique no número para ver de onde veio a informação.') }}</div>
                     </div>
@@ -219,11 +226,6 @@ document.addEventListener('DOMContentLoaded', function () {
         history.replaceState(null, '', location.pathname);
         document.getElementById('campoPergunta').focus();
     });
-    document.querySelectorAll('.sugestao').forEach(b => b.addEventListener('click', function () {
-        const campo = document.getElementById('campoPergunta');
-        campo.value = b.textContent.trim();
-        document.getElementById('formPergunta').requestSubmit();
-    }));
 
     // Ver os trechos extraídos de uma fonte
     const modal = new bootstrap.Modal(document.getElementById('modalTrechos'));

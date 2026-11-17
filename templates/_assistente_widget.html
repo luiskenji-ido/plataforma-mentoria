@@ -1,25 +1,65 @@
-{# Assistente da Plataforma: funções de chat (usadas pela página /admin/assistente e pelo botão flutuante) e o painel lateral.
-   Incluído em base.html só para o Administrador. Na própria página do Assistente o botão flutuante não aparece. #}
+{# Assistente da Plataforma: funções de chat (usadas pela página /admin/assistente e pela janela de chat) e a janela de chat
+   aberta pelo ícone ao lado de Administração. Incluído em base.html só para o Administrador. Na própria página do
+   Assistente a janela não é criada: o ícone leva o foco para o chat da página. #}
 <style>
-    #btnAssistente { position: fixed; right: 20px; bottom: 20px; z-index: 1040; width: 56px; height: 56px; border-radius: 50%;
-                     box-shadow: 0 6px 18px rgba(0,0,0,.25); font-size: 1.5rem; display: flex; align-items: center; justify-content: center; }
-    #painelAssistente { width: min(440px, 100vw); }
-    .assistente-mensagens { display: flex; flex-direction: column; gap: .75rem; }
-    .assistente-msg { max-width: 92%; padding: .6rem .8rem; border-radius: 12px; line-height: 1.45; font-size: .93rem; overflow-wrap: anywhere; }
-    .assistente-msg.usuario { align-self: flex-end; background: var(--bs-primary); color: #fff; border-bottom-right-radius: 4px; white-space: pre-wrap; }
-    .assistente-msg.assistente { align-self: flex-start; background: var(--bs-tertiary-bg, #f1f3f5); color: var(--bs-body-color);
-                                 border: 1px solid var(--bs-border-color); border-bottom-left-radius: 4px; }
-    .assistente-msg.assistente p { margin-bottom: .45rem; }
+    /* Ícone do menu */
+    #btnAssistenteMenu { position: relative; border: 0; background: transparent; }
+    #btnAssistenteMenu .bi { font-size: 1.15rem; }
+    #btnAssistenteMenu .ponto-online { position: absolute; top: 6px; right: 6px; width: 8px; height: 8px; border-radius: 50%;
+                                       background: #22c55e; box-shadow: 0 0 0 2px var(--bs-body-bg); }
+    #btnAssistenteMenu[aria-expanded="true"] { color: var(--bs-primary) !important; background-color: rgba(13, 110, 253, .1); border-radius: 8px; }
+
+    /* Janela de chat (padrão dos chats de atendimento) */
+    #janelaAssistente { position: fixed; top: 72px; right: 20px; z-index: 1055; width: 390px; height: min(620px, calc(100vh - 92px));
+                        display: none; flex-direction: column; background: var(--bs-body-bg); color: var(--bs-body-color);
+                        border-radius: 18px; overflow: hidden; box-shadow: 0 18px 48px rgba(15, 23, 42, .28); border: 1px solid var(--bs-border-color); }
+    #janelaAssistente.aberta { display: flex; animation: assistenteEntrada .18s ease-out; }
+    @keyframes assistenteEntrada { from { opacity: 0; transform: translateY(-8px) scale(.98); } to { opacity: 1; transform: none; } }
+    @media (max-width: 575.98px) { #janelaAssistente { top: 0; right: 0; width: 100vw; height: 100vh; border-radius: 0; } }
+    .assistente-topo { background: linear-gradient(135deg, var(--bs-primary), #4f46e5); color: #fff; padding: .85rem 1rem; display: flex; align-items: center; gap: .7rem; }
+    .assistente-topo .titulo { font-weight: 700; line-height: 1.1; }
+    .assistente-topo .status { font-size: .75rem; opacity: .9; }
+    .assistente-topo .status::before { content: ''; display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: #4ade80; margin-right: 5px; }
+    .assistente-topo .acoes button, .assistente-topo .acoes a { color: #fff; opacity: .9; background: transparent; border: 0; padding: .25rem .4rem; border-radius: 8px; }
+    .assistente-topo .acoes button:hover, .assistente-topo .acoes a:hover { opacity: 1; background: rgba(255, 255, 255, .18); }
+    .assistente-avatar { width: 34px; height: 34px; flex: 0 0 34px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+                         background: linear-gradient(135deg, var(--bs-primary), #4f46e5); color: #fff; font-size: 1rem; }
+    .assistente-topo .assistente-avatar { width: 40px; height: 40px; flex-basis: 40px; background: rgba(255, 255, 255, .2); font-size: 1.2rem; }
+    .assistente-corpo { flex: 1 1 auto; overflow-y: auto; padding: 1rem; background: var(--bs-tertiary-bg, #f6f7fb); }
+    .assistente-rodape { border-top: 1px solid var(--bs-border-color); padding: .6rem .7rem .5rem; background: var(--bs-body-bg); }
+    .assistente-campo { display: flex; align-items: flex-end; gap: .5rem; border: 1px solid var(--bs-border-color); border-radius: 22px; padding: .3rem .35rem .3rem .9rem; background: var(--bs-body-bg); }
+    .assistente-campo:focus-within { border-color: var(--bs-primary); box-shadow: 0 0 0 .2rem rgba(13, 110, 253, .15); }
+    .assistente-campo textarea { border: 0; outline: 0; box-shadow: none !important; resize: none; flex: 1; max-height: 120px; padding: .35rem 0; background: transparent; color: inherit; font-size: .93rem; }
+    .assistente-enviar { width: 38px; height: 38px; flex: 0 0 38px; border-radius: 50%; display: flex; align-items: center; justify-content: center; padding: 0; }
+    .assistente-nota { font-size: .7rem; color: var(--bs-secondary-color); text-align: center; margin-top: .35rem; }
+
+    /* Mensagens (janela e página) */
+    .assistente-mensagens { display: flex; flex-direction: column; gap: .9rem; }
+    .assistente-linha { display: flex; gap: .5rem; align-items: flex-end; max-width: 100%; }
+    .assistente-linha.eu { justify-content: flex-end; }
+    .assistente-linha .coluna { display: flex; flex-direction: column; max-width: 84%; }
+    .assistente-linha.eu .coluna { align-items: flex-end; }
+    .assistente-msg, .assistente-balao { padding: .6rem .85rem; border-radius: 16px; line-height: 1.45; font-size: .92rem; overflow-wrap: anywhere; }
+    .assistente-msg.usuario { background: var(--bs-primary); color: #fff; border-bottom-right-radius: 5px; white-space: pre-wrap; }
+    .assistente-msg.assistente, .assistente-balao { background: var(--bs-body-bg); color: var(--bs-body-color); border: 1px solid var(--bs-border-color);
+                                                    border-bottom-left-radius: 5px; box-shadow: 0 1px 2px rgba(15, 23, 42, .06); }
+    .assistente-msg.assistente p, .assistente-balao p { margin-bottom: .45rem; }
     .assistente-msg.assistente p:last-child, .assistente-msg.assistente ul:last-child, .assistente-msg.assistente ol:last-child { margin-bottom: 0; }
     .assistente-msg.assistente ul, .assistente-msg.assistente ol { padding-left: 1.2rem; margin-bottom: .45rem; }
+    .assistente-hora { font-size: .68rem; color: var(--bs-secondary-color); margin-top: .2rem; padding: 0 .3rem; }
     .assistente-msg .cita { font-size: .72rem; vertical-align: super; text-decoration: none; font-weight: 700; }
     .assistente-fontes { margin-top: .5rem; padding-top: .4rem; border-top: 1px dashed var(--bs-border-color); font-size: .78rem; color: var(--bs-secondary-color); }
+    .assistente-fontes summary { cursor: pointer; }
     .assistente-fontes li.destaque { background: rgba(255, 193, 7, .25); border-radius: 4px; }
+    .assistente-sugestoes { display: flex; flex-wrap: wrap; gap: .4rem; margin: .2rem 0 0 2.6rem; }
+    .assistente-sugestoes button { border: 1px solid var(--bs-primary); color: var(--bs-primary); background: var(--bs-body-bg); border-radius: 999px;
+                                   font-size: .8rem; padding: .3rem .75rem; text-align: left; }
+    .assistente-sugestoes button:hover { background: var(--bs-primary); color: #fff; }
     .assistente-digitando span { display: inline-block; width: 7px; height: 7px; margin-right: 3px; border-radius: 50%; background: var(--bs-secondary-color);
                                  animation: assistentePulso 1s infinite ease-in-out; }
     .assistente-digitando span:nth-child(2) { animation-delay: .15s; } .assistente-digitando span:nth-child(3) { animation-delay: .3s; }
     @keyframes assistentePulso { 0%, 80%, 100% { opacity: .25; } 40% { opacity: 1; } }
-    @media print { #btnAssistente { display: none !important; } }
+    @media print { #janelaAssistente, #btnAssistenteMenu { display: none !important; } }
 </style>
 
 <script>
@@ -28,9 +68,11 @@ window.Assistente = (function () {
     const URL_ULTIMA = {{ url_for('assistente_ultima_conversa')|tojson }};
     const TXT = {
         fontes: {{ tt('Fontes')|tojson }}, semIa: {{ tt('sem IA')|tojson }}, versao: {{ tt('versão')|tojson }},
+        cache: {{ tt('resposta reaproveitada, sem custo')|tojson }},
         erro: {{ tt('Não foi possível falar com o Assistente agora. Tente de novo.')|tojson }},
-        vazio: {{ tt('Pergunte sobre as regras de negócio, os perfis, as rotas, a segurança ou o banco de dados da plataforma. Quando os documentos PRD, PTD e DTD forem cadastrados, eles também entram nas respostas.')|tojson }},
+        boasVindas: {{ (tt('Olá,') ~ ' ' ~ current_user.nome.split()[0] ~ '! ' ~ tt('Sou o Assistente da Plataforma. Respondo sobre regras de negócio, perfis, rotas, segurança e banco de dados, sempre citando as fontes. Como posso ajudar?'))|tojson }},
     };
+    const SUGESTOES = {{ [tt('Quais módulos cada perfil pode acessar?'), tt('O que o Gerente de Segurança verifica?'), tt('Quais são os parâmetros das avaliações e alertas?'), tt('Como funciona a desistência de um jovem?')]|tojson }};
     const TIPOS = {{ {'GERENTES': tt('Agentes gerentes'), 'PRD': 'PRD', 'PTD': 'PTD', 'DTD': 'DTD', 'OUTRO': tt('Outro documento')}|tojson }};
 
     function escapar(s) {
@@ -79,26 +121,41 @@ window.Assistente = (function () {
         return `<details class="assistente-fontes"><summary>${escapar(TXT.fontes)} (${fontes.length})</summary><ul class="list-unstyled mb-0 mt-1">${itens}</ul></details>`;
     }
 
+    const avatar = () => '<div class="assistente-avatar" aria-hidden="true"><i class="bi bi-stars"></i></div>';
+    const horaAgora = () => new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const hora = q => (q ? String(q).slice(-5) : horaAgora());
+
+    // Uma linha da conversa: avatar do Assistente à esquerda; mensagens da pessoa à direita; horário embaixo
     let contador = 0;
     function mensagem(m) {
-        const div = document.createElement('div');
-        div.className = 'assistente-msg ' + (m.papel === 'usuario' ? 'usuario' : 'assistente');
-        if (m.papel === 'usuario') {
-            div.textContent = m.texto;
+        const linha = document.createElement('div');
+        const doUsuario = m.papel === 'usuario';
+        linha.className = 'assistente-linha ' + (doUsuario ? 'eu' : 'bot');
+        const balao = document.createElement('div');
+        balao.className = 'assistente-msg ' + (doUsuario ? 'usuario' : 'assistente');
+        if (doUsuario) {
+            balao.textContent = m.texto;
         } else {
             const id = 'm' + (m.id || ++contador);
-            div.innerHTML = formatar(m.texto, m.fontes, id)
+            balao.innerHTML = formatar(m.texto, m.fontes, id)
                 + (m.modo === 'offline' ? `<div class="mt-1"><span class="badge text-bg-secondary">${escapar(TXT.semIa)}</span></div>` : '')
+                + (m.modo === 'cache' ? `<div class="mt-1"><span class="badge text-bg-light border">${escapar(TXT.cache)}</span></div>` : '')
                 + htmlFontes(m.fontes, id);
         }
-        return div;
+        const coluna = document.createElement('div');
+        coluna.className = 'coluna';
+        coluna.appendChild(balao);
+        coluna.insertAdjacentHTML('beforeend', `<div class="assistente-hora">${escapar(hora(m.quando))}</div>`);
+        if (!doUsuario) linha.insertAdjacentHTML('beforeend', avatar());
+        linha.appendChild(coluna);
+        return linha;
     }
 
     function digitando() {
-        const div = document.createElement('div');
-        div.className = 'assistente-msg assistente assistente-digitando';
-        div.innerHTML = '<span></span><span></span><span></span>';
-        return div;
+        const linha = document.createElement('div');
+        linha.className = 'assistente-linha bot';
+        linha.innerHTML = avatar() + '<div class="coluna"><div class="assistente-msg assistente assistente-digitando"><span></span><span></span><span></span></div></div>';
+        return linha;
     }
 
     // Clique numa citação [n]: abre a lista de fontes e destaca o trecho citado
@@ -139,19 +196,37 @@ window.Assistente = (function () {
         const lista = opcoes.lista, form = opcoes.form, campo = opcoes.campo, botao = form.querySelector('[type="submit"]');
         const estado = { conversaId: opcoes.conversaId || null };
         const rolar = () => { const area = opcoes.rolagem || lista; area.scrollTop = area.scrollHeight; };
-        const mostrarVazio = () => {
-            if (!lista.children.length) lista.innerHTML = `<div class="text-muted small text-center p-3 assistente-vazio">${escapar(TXT.vazio)}</div>`;
-        };
-        const limparVazio = () => { const v = lista.querySelector('.assistente-vazio'); if (v) v.remove(); };
+        const ajustarAltura = () => { campo.style.height = 'auto'; campo.style.height = Math.min(campo.scrollHeight, 120) + 'px'; };
+
+        // Conversa vazia: saudação do Assistente e sugestões de perguntas (como nos chats de atendimento)
+        function mostrarBoasVindas() {
+            if (lista.children.length) return;
+            const linha = document.createElement('div');
+            linha.className = 'assistente-linha bot assistente-vazio';
+            linha.innerHTML = avatar() + `<div class="coluna"><div class="assistente-balao">${escapar(TXT.boasVindas)}</div></div>`;
+            lista.appendChild(linha);
+            const chips = document.createElement('div');
+            chips.className = 'assistente-sugestoes assistente-vazio';
+            SUGESTOES.forEach(s => {
+                const b = document.createElement('button');
+                b.type = 'button';
+                b.textContent = s;
+                b.addEventListener('click', () => { campo.value = s; form.requestSubmit(); });
+                chips.appendChild(b);
+            });
+            lista.appendChild(chips);
+        }
+        const limparBoasVindas = () => lista.querySelectorAll('.assistente-vazio').forEach(el => el.remove());
 
         function carregar(mensagens, conversaId) {
             lista.innerHTML = '';
             estado.conversaId = conversaId || null;
             (mensagens || []).forEach(m => lista.appendChild(mensagem(m)));
-            mostrarVazio();
+            mostrarBoasVindas();
             rolar();
         }
 
+        campo.addEventListener('input', ajustarAltura);
         campo.addEventListener('keydown', function (ev) {
             if (ev.key === 'Enter' && !ev.shiftKey) { ev.preventDefault(); form.requestSubmit(); }
         });
@@ -159,11 +234,12 @@ window.Assistente = (function () {
             ev.preventDefault();
             const pergunta = campo.value.trim();
             if (!pergunta || botao.disabled) return;
-            limparVazio();
+            limparBoasVindas();
             lista.appendChild(mensagem({ papel: 'usuario', texto: pergunta }));
             const espera = digitando();
             lista.appendChild(espera);
             campo.value = '';
+            ajustarAltura();
             botao.disabled = true;
             rolar();
             try {
@@ -180,61 +256,78 @@ window.Assistente = (function () {
                 rolar();
             }
         });
-        mostrarVazio();
+        mostrarBoasVindas();
         return { carregar, estado, nova: () => carregar([], null) };
     }
 
-    return { ligar, ultima, formatar, mensagem, escapar };
+    // Ícone do menu: abre/fecha a janela de chat (na página do Assistente, leva ao chat da página)
+    function alternarJanela(forcar) {
+        const janela = document.getElementById('janelaAssistente');
+        if (!janela) {
+            const campo = document.getElementById('campoPergunta');
+            if (campo) { campo.scrollIntoView({ block: 'center', behavior: 'smooth' }); campo.focus(); }
+            return;
+        }
+        const abrir = typeof forcar === 'boolean' ? forcar : !janela.classList.contains('aberta');
+        janela.classList.toggle('aberta', abrir);
+        const botao = document.getElementById('btnAssistenteMenu');
+        if (botao) botao.setAttribute('aria-expanded', abrir ? 'true' : 'false');
+        janela.dispatchEvent(new CustomEvent(abrir ? 'assistente:aberta' : 'assistente:fechada'));
+    }
+
+    return { ligar, ultima, formatar, mensagem, escapar, alternarJanela };
 })();
 </script>
 
-{% if request.endpoint != 'assistente' %}
-<button type="button" class="btn btn-primary d-print-none" id="btnAssistente" data-bs-toggle="offcanvas" data-bs-target="#painelAssistente"
-        aria-controls="painelAssistente" title="{{ tt('Assistente da Plataforma') }}" aria-label="{{ tt('Assistente da Plataforma') }}">
-    <i class="bi bi-chat-dots-fill"></i>
-</button>
-
-<div class="offcanvas offcanvas-end" tabindex="-1" id="painelAssistente" aria-labelledby="tituloPainelAssistente">
-    <div class="offcanvas-header border-bottom py-2">
-        <h5 class="offcanvas-title fw-bold text-primary" id="tituloPainelAssistente"><i class="bi bi-chat-dots"></i> {{ tt('Assistente da Plataforma') }}</h5>
-        <div class="d-flex align-items-center gap-1">
-            <button type="button" class="btn btn-sm btn-outline-secondary" id="btnNovaConversaPainel" title="{{ tt('Nova conversa') }}"><i class="bi bi-plus-lg"></i></button>
-            <a href="{{ url_for('assistente') }}" class="btn btn-sm btn-outline-secondary" title="{{ tt('Abrir em tela cheia') }}"><i class="bi bi-arrows-fullscreen"></i></a>
-            <button type="button" class="btn-close ms-1" data-bs-dismiss="offcanvas" aria-label="{{ tt('Fechar') }}"></button>
+{% if request.endpoint != 'assistente' and ia_ligada('assistente') %}
+<div id="janelaAssistente" role="dialog" aria-modal="false" aria-labelledby="tituloJanelaAssistente" class="d-print-none">
+    <div class="assistente-topo">
+        <div class="assistente-avatar" aria-hidden="true"><i class="bi bi-stars"></i></div>
+        <div class="flex-grow-1">
+            <div class="titulo" id="tituloJanelaAssistente">{{ tt('Assistente da Plataforma') }}</div>
+            <div class="status">{{ tt('Online · responde com base na plataforma') }}</div>
+        </div>
+        <div class="acoes d-flex align-items-center">
+            <button type="button" id="btnNovaConversaPainel" title="{{ tt('Nova conversa') }}" aria-label="{{ tt('Nova conversa') }}"><i class="bi bi-pencil-square"></i></button>
+            <a href="{{ url_for('assistente') }}" title="{{ tt('Abrir em tela cheia') }}" aria-label="{{ tt('Abrir em tela cheia') }}"><i class="bi bi-arrows-angle-expand"></i></a>
+            <button type="button" id="btnFecharJanelaAssistente" title="{{ tt('Fechar') }}" aria-label="{{ tt('Fechar') }}"><i class="bi bi-x-lg"></i></button>
         </div>
     </div>
-    <div class="offcanvas-body d-flex flex-column p-0">
-        <div class="flex-grow-1 overflow-auto p-3" id="rolagemPainelAssistente">
-            <div class="assistente-mensagens" id="mensagensPainelAssistente"></div>
-        </div>
-        <form class="border-top p-2 d-flex gap-2 align-items-end" id="formPainelAssistente" autocomplete="off">
-            <textarea class="form-control form-control-sm" id="campoPainelAssistente" rows="2" maxlength="2000"
-                      placeholder="{{ tt('Escreva sua pergunta (Enter envia, Shift+Enter quebra a linha)') }}" aria-label="{{ tt('Pergunta') }}"></textarea>
-            <button type="submit" class="btn btn-primary btn-sm" title="{{ tt('Enviar') }}" aria-label="{{ tt('Enviar') }}"><i class="bi bi-send-fill"></i></button>
+    <div class="assistente-corpo" id="rolagemPainelAssistente">
+        <div class="assistente-mensagens" id="mensagensPainelAssistente"></div>
+    </div>
+    <div class="assistente-rodape">
+        <form class="assistente-campo" id="formPainelAssistente" autocomplete="off">
+            <textarea id="campoPainelAssistente" rows="1" maxlength="2000" placeholder="{{ tt('Digite sua mensagem…') }}" aria-label="{{ tt('Pergunta') }}"></textarea>
+            <button type="submit" class="btn btn-primary assistente-enviar" title="{{ tt('Enviar') }}" aria-label="{{ tt('Enviar') }}"><i class="bi bi-send-fill"></i></button>
         </form>
+        <div class="assistente-nota">{{ tt('Respostas geradas por IA com base na plataforma; confira as fontes citadas.') }}</div>
     </div>
 </div>
 <script>
 (function () {
-    const painel = document.getElementById('painelAssistente');
+    const janela = document.getElementById('janelaAssistente');
+    const campo = document.getElementById('campoPainelAssistente');
     const chat = Assistente.ligar({
         lista: document.getElementById('mensagensPainelAssistente'), rolagem: document.getElementById('rolagemPainelAssistente'),
-        form: document.getElementById('formPainelAssistente'), campo: document.getElementById('campoPainelAssistente'),
+        form: document.getElementById('formPainelAssistente'), campo: campo,
     });
     let carregado = false;
-    painel.addEventListener('shown.bs.offcanvas', async function () {
+    janela.addEventListener('assistente:aberta', async function () {
         if (!carregado) {
             carregado = true;
             const dados = await Assistente.ultima();
             chat.carregar(dados.mensagens, dados.conversa_id);
         }
-        document.getElementById('campoPainelAssistente').focus();
+        campo.focus();
     });
+    document.getElementById('btnFecharJanelaAssistente').addEventListener('click', () => Assistente.alternarJanela(false));
     document.getElementById('btnNovaConversaPainel').addEventListener('click', function () {
         chat.nova();
         carregado = true;
-        document.getElementById('campoPainelAssistente').focus();
+        campo.focus();
     });
+    document.addEventListener('keydown', ev => { if (ev.key === 'Escape' && janela.classList.contains('aberta')) Assistente.alternarJanela(false); });
 })();
 </script>
 {% endif %}

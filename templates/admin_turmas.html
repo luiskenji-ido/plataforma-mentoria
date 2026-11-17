@@ -853,6 +853,10 @@ function iniciarTourDaPagina() {
         { sel: '#hubTabs', texto: {{ t('tour_cur_form')|tojson }} },
         { sel: '#cursos > .card', texto: {{ tt('Cadastre um novo curso ou material, com a plataforma, a carga horária e o link.')|tojson }} },
         { sel: '#cursos table', texto: {{ t('tour_cur_tabela')|tojson }} },
+        { aba: '#parceiros', texto: {{ tt('Aba Parceiros B2B: cadastre as empresas parceiras, com o gestor e os mentores de cada uma; o logo da empresa vai para os certificados.')|tojson }} },
+        { aba: '#parceiros', sel: '.card-header.bg-dark', texto: {{ tt('Empresas Cadastradas: edite os dados, o gestor, os mentores e o logo de cada empresa parceira.')|tojson }} },
+        { aba: '#turmas', texto: {{ tt('Aba Turmas & Trilhas: crie as turmas, escolha os cursos da trilha e matricule os grupos e os alunos; cada aluno ganha o acompanhamento de cada curso.')|tojson }} },
+        { aba: '#turmas', sel: '.card-header.bg-dark', texto: {{ tt('Turmas Cadastradas: veja os cursos, os alunos e as datas de cada turma; edite ou encerre quando preciso.')|tojson }} },
     ]);
 }
 </script>

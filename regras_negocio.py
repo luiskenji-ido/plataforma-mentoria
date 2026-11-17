@@ -20,6 +20,7 @@ GRUPOS = [
     ('seguranca', 'Senhas e acesso', 'bi-shield-lock'),
     ('acompanhamento', 'Ocorrências e acompanhamento', 'bi-exclamation-triangle'),
     ('avaliacoes', 'Avaliações e alertas', 'bi-star-half'),
+    ('ia', 'Inteligência artificial (custos)', 'bi-cpu'),
     ('personalizadas', 'Regras criadas pela gestão', 'bi-plus-square'),
 ]
 
@@ -86,6 +87,19 @@ CATALOGO = {
     'avaliacao_minimo_respostas': ('avaliacoes', 'Mínimo de avaliações para mostrar resultados',
                                    'A pessoa só vê o que recebeu (sem nomes) e os alertas só disparam a partir deste número de avaliações.',
                                    'inteiro', 2, 1, 10, 'avaliações', 'Avaliações › Resultados e alertas'),
+    'ia_teto_mensal_usd': ('ia', 'Teto de gasto mensal com IA',
+                           'Somando todas as IAs (Assistente, Acompanhamento e Orquestrador). Ao atingir o teto, as IAs param até o mês '
+                           'seguinte: o Assistente passa a mostrar só os trechos encontrados. Zero desliga as IAs.',
+                           'decimal', 10.0, 0, 10000, 'US$ por mês', 'Provedores de IA (todas as chamadas)'),
+    'ia_aviso_teto_pct': ('ia', 'Aviso antes do teto',
+                          'Avisa os Administradores (sino e e-mail) quando o gasto do mês chega a esta parte do teto.',
+                          'inteiro', 80, 10, 100, '% do teto', 'Provedores de IA (aviso)'),
+    'assistente_trechos': ('ia', 'Trechos enviados à IA por pergunta',
+                           'Quantos trechos da base de conhecimento vão junto com cada pergunta. Menos trechos = resposta mais barata.',
+                           'inteiro', 5, 2, 12, 'trechos', 'Assistente da Plataforma'),
+    'assistente_cache_dias': ('ia', 'Reaproveitar respostas iguais por',
+                              'A mesma primeira pergunta, com a base sem mudança, reaproveita a resposta já dada (sem custo). Zero desliga.',
+                              'inteiro', 30, 0, 365, 'dias', 'Assistente da Plataforma'),
 }
 
 TIPOS = {'inteiro': 'Número inteiro', 'decimal': 'Número decimal', 'texto': 'Texto', 'sim_nao': 'Sim ou não'}

@@ -627,7 +627,7 @@
                                  'ocorrencias', 'nova_ocorrencia', 'detalhe_ocorrencia', 'desistencias', 'avaliacoes'] %}
       {% set grupo_projetos = ['projetos', 'minhas_bancas', 'biblioteca_tccs', 'meus_certificados', 'painel_banca'] %}
       {% set grupo_admin = ['gerenciar_usuarios', 'gestao_trilha_tcc', 'reunioes', 'agenda_bancas', 'avaliadores_banca', 'indicadores_voluntariado',
-                            'gerenciar_solicitacoes', 'agentes_ia', 'agentes_seguranca', 'agentes_banco', 'agentes_funcionalidades', 'manutencao_banco', 'gerenciar_grupos', 'perfis_acesso_view', 'parametros_regras', 'agentes_orquestrador', 'assistente', 'governanca_aprendizados'] %}
+                            'gerenciar_solicitacoes', 'agentes_ia', 'agentes_seguranca', 'agentes_banco', 'agentes_funcionalidades', 'manutencao_banco', 'gerenciar_grupos', 'perfis_acesso_view', 'parametros_regras', 'agentes_orquestrador', 'assistente', 'governanca_aprendizados', 'provedores_ia_view'] %}
 
       <ul class="navbar-nav me-auto mb-2 mb-xl-0 gap-xl-1">
         <!-- Painel Geral -->
@@ -751,9 +751,20 @@
             <li><a class="dropdown-item fw-bold" href="{{ url_for('governanca_aprendizados') }}"><i class="bi bi-mortarboard"></i> {{ tt('Governança de aprendizados') }}</a></li>
             {% endif %}
             {% if pode_modulo('assistente') %}<li><a class="dropdown-item fw-bold" href="{{ url_for('assistente') }}"><i class="bi bi-chat-dots"></i> {{ tt('Assistente da Plataforma') }}</a></li>{% endif %}
+            {% if pode_modulo('agentes_ia') %}<li><a class="dropdown-item fw-bold" href="{{ url_for('provedores_ia_view') }}"><i class="bi bi-cpu"></i> {{ tt('Provedores de IA e custos') }}</a></li>{% endif %}
             {% if pode_modulo('manutencao') %}<li><a class="dropdown-item fw-bold text-danger" href="{{ url_for('manutencao_banco') }}"><i class="bi bi-database-fill-gear"></i> {{ t('menu_manutencao') }}</a></li>{% endif %}
             {% endif %}
           </ul>
+        </li>
+        {% endif %}
+
+        <!-- Assistente da Plataforma (chat): ícone ao lado de Administração -->
+        {% if current_user.is_authenticated and current_user.tipo_usuario == 'Administrador' and pode_modulo('assistente') and ia_ligada('assistente') %}
+        <li class="nav-item">
+          <button type="button" class="nav-link fw-bold" id="btnAssistenteMenu" onclick="Assistente.alternarJanela()" aria-controls="janelaAssistente"
+                  aria-expanded="false" title="{{ tt('Assistente da Plataforma') }}" aria-label="{{ tt('Assistente da Plataforma') }}">
+            <i class="bi bi-chat-dots-fill"></i><span class="ponto-online"></span> <span class="d-xl-none">{{ tt('Assistente da Plataforma') }}</span>
+          </button>
         </li>
         {% endif %}
       </ul>

@@ -1719,6 +1719,157 @@ LITERAIS.update({
     'versão': ('version', 'versión'),
 })
 
+
+# Provedores de IA, custos e liga/desliga do Assistente
+LITERAIS.update({
+    'A IA do Agente Orquestrador está desligada. Ligue em Administração › Provedores de IA.': ('The Orchestrator Agent AI is turned off. Turn it on in Administration › AI providers.', 'La IA del Agente Orquestador está apagada. Enciéndala en Administración › Proveedores de IA.'),
+    'Adicionar': ('Add', 'Agregar'),
+    'Adicionar modelo': ('Add model', 'Agregar modelo'),
+    'Agente Orquestrador': ('Orchestrator Agent', 'Agente Orquestador'),
+    'As últimas chamadas: uso, modelo, tokens, custo e falhas.': ('The latest calls: use, model, tokens, cost and failures.', 'Las últimas llamadas: uso, modelo, tokens, costo y fallas.'),
+    'Assistente desligado: nenhuma pergunta vai para a IA e o botão de chat não aparece nas páginas. A base de conhecimento continua editável.': ('Assistant turned off: no question goes to the AI and the chat button does not appear on the pages. The knowledge base can still be edited.', 'Asistente apagado: ninguna pregunta va a la IA y el botón de chat no aparece en las páginas. La base de conocimiento sigue editable.'),
+    'Assistente do Acompanhamento': ('Study Assistant (Follow-up)', 'Asistente del Seguimiento'),
+    'Assistente ligado: as perguntas vão para a IA, dentro do teto de gasto do mês.': ('Assistant turned on: questions go to the AI, within the monthly spending ceiling.', 'Asistente encendido: las preguntas van a la IA, dentro del tope de gasto del mes.'),
+    'Cada uso tem o interruptor Ligada/Desligada, o modelo principal e até duas reservas, usadas quando o principal falha.': ('Each use has the On/Off switch, the main model and up to two backups, used when the main one fails.', 'Cada uso tiene el interruptor Encendida/Apagada, el modelo principal y hasta dos de reserva, usados cuando el principal falla.'),
+    'Chamadas recentes': ('Recent calls', 'Llamadas recientes'),
+    'Chaves das IAs': ('AI keys', 'Claves de las IAs'),
+    'Clique para desligar': ('Click to turn off', 'Haga clic para apagar'),
+    'Clique para ligar': ('Click to turn on', 'Haga clic para encender'),
+    'Confira o preço atual no site do provedor e preencha.': ("Check the current price on the provider's website and fill it in.", 'Verifique el precio actual en el sitio del proveedor y complételo.'),
+    'Corrige o código a partir dos achados dos agentes (precisa de modelo forte).': ("Fixes the code from the agents' findings (needs a strong model).", 'Corrige el código a partir de los hallazgos de los agentes (necesita un modelo fuerte).'),
+    'Desligada': ('Off', 'Apagada'),
+    'Desligar o Assistente': ('Turn off the Assistant', 'Apagar el Asistente'),
+    'Escolha pelo menos um modelo.': ('Choose at least one model.', 'Elija al menos un modelo.'),
+    'Esse modelo já está na lista.': ('This model is already on the list.', 'Ese modelo ya está en la lista.'),
+    'Gasto do mês': ('Spending this month', 'Gasto del mes'),
+    'IA desligada.': ('AI turned off.', 'IA apagada.'),
+    'IA ligada.': ('AI turned on.', 'IA encendida.'),
+    'IAs desligadas (teto zero)': ('AIs turned off (zero ceiling)', 'IAs apagadas (tope cero)'),
+    'Identificador de modelo inválido (use letras minúsculas, números, ponto e hífen, como no site do provedor).': ("Invalid model identifier (use lowercase letters, numbers, dot and hyphen, as on the provider's website).", 'Identificador de modelo inválido (use minúsculas, números, punto y guion, como en el sitio del proveedor).'),
+    'Identificador do modelo': ('Model identifier', 'Identificador del modelo'),
+    'Ligada': ('On', 'Encendida'),
+    'Ligar o Assistente': ('Turn on the Assistant', 'Encender el Asistente'),
+    'Ligue ou desligue a IA de cada uso, escolha o modelo principal e a reserva e acompanhe o gasto do mês. O modelo mais barato que dá conta do uso deixa a conta baixa.': ("Turn each use's AI on or off, choose the main and backup models and follow this month's spending. The cheapest model that does the job keeps the bill low.", 'Encienda o apague la IA de cada uso, elija el modelo principal y el de reserva y siga el gasto del mes. El modelo más barato que cumple con el uso mantiene la cuenta baja.'),
+    'Ligue ou desligue o Assistente aqui: desligado, nenhuma pergunta vai para a IA e o botão de chat some das páginas.': ('Turn the Assistant on or off here: when off, no question goes to the AI and the chat button disappears from the pages.', 'Encienda o apague el Asistente aquí: apagado, ninguna pregunta va a la IA y el botón de chat desaparece de las páginas.'),
+    'Modelo': ('Model', 'Modelo'),
+    'Modelo adicionado. Preencha os preços para ele entrar no controle do teto.': ('Model added. Fill in the prices so it counts toward the ceiling.', 'Modelo agregado. Complete los precios para que entre en el control del tope.'),
+    'Modelo principal': ('Main model', 'Modelo principal'),
+    'Modelo removido.': ('Model removed.', 'Modelo eliminado.'),
+    'Modo de teste: contas de teste não consomem a IA. Sua mensagem chegou ao assistente.': ('Test mode: test accounts do not use the AI. Your message reached the assistant.', 'Modo de prueba: las cuentas de prueba no usan la IA. Su mensaje llegó al asistente.'),
+    'Nenhuma chamada neste mês.': ('No calls this month.', 'Ninguna llamada este mes.'),
+    'Nenhuma chamada registrada ainda.': ('No calls recorded yet.', 'Ninguna llamada registrada todavía.'),
+    'Nome na tela': ('Display name', 'Nombre en pantalla'),
+    'O Assistente está desligado. Ligue em Administração › Provedores de IA.': ('The Assistant is turned off. Turn it on in Administration › AI providers.', 'El Asistente está apagado. Enciéndalo en Administración › Proveedores de IA.'),
+    'O Orquestrador não pode usar a IA agora': ('The Orchestrator cannot use the AI right now', 'El Orquestador no puede usar la IA ahora'),
+    'O assistente de estudos está desligado pelo Administrador.': ('The study assistant was turned off by the Administrator.', 'El asistente de estudios fue apagado por el Administrador.'),
+    'O gasto do mês comparado ao teto. Ao atingir o teto, as IAs param até o mês seguinte; o teto fica em Parâmetros de regras.': ("This month's spending compared to the ceiling. When it is reached, the AIs stop until next month; the ceiling is in Rule parameters.", 'El gasto del mes comparado con el tope. Al alcanzarlo, las IAs se detienen hasta el mes siguiente; el tope está en Parámetros de reglas.'),
+    'O mesmo modelo aparece duas vezes na ordem.': ('The same model appears twice in the order.', 'El mismo modelo aparece dos veces en el orden.'),
+    'Os preços de cada modelo, em US$ por milhão de tokens, para calcular o gasto. Modelo sem preço não entra na conta do teto.': ('The price of each model, in US$ per million tokens, to calculate spending. A model without a price does not count toward the ceiling.', 'Los precios de cada modelo, en US$ por millón de tokens, para calcular el gasto. Un modelo sin precio no entra en la cuenta del tope.'),
+    'Por modelo': ('By model', 'Por modelo'),
+    'Por uso': ('By use', 'Por uso'),
+    'Preços por milhão de tokens (US$)': ('Prices per million tokens (US$)', 'Precios por millón de tokens (US$)'),
+    'Preços salvos.': ('Prices saved.', 'Precios guardados.'),
+    'Provedor': ('Provider', 'Proveedor'),
+    'Provedor inválido.': ('Invalid provider.', 'Proveedor inválido.'),
+    'Provedores de IA e custos': ('AI providers and costs', 'Proveedores de IA y costos'),
+    'Provedores de IA e custos: escolha qual IA atende cada uso, ligue ou desligue cada uma e acompanhe o gasto do mês.': ("AI providers and costs: choose which AI serves each use, turn each one on or off and follow this month's spending.", 'Proveedores de IA y costos: elija qué IA atiende cada uso, encienda o apague cada una y siga el gasto del mes.'),
+    'Quando': ('When', 'Cuándo'),
+    'Quando o provedor lançar um modelo novo, cadastre aqui com o identificador exato.': ('When the provider releases a new model, register it here with the exact identifier.', 'Cuando el proveedor lance un modelo nuevo, regístrelo aquí con el identificador exacto.'),
+    'Remover este modelo da lista?': ('Remove this model from the list?', '¿Quitar este modelo de la lista?'),
+    'Remover modelo': ('Remove model', 'Quitar modelo'),
+    'Reserva': ('Backup', 'Reserva'),
+    'Responde o Administrador com base na base de conhecimento.': ('Answers the Administrator based on the knowledge base.', 'Responde al Administrador con base en la base de conocimiento.'),
+    'Salvar ordem': ('Save order', 'Guardar orden'),
+    'Salvar preços': ('Save prices', 'Guardar precios'),
+    'Se o principal falhar ou estiver sem chave, a plataforma tenta a reserva.': ('If the main model fails or has no key, the platform tries the backup.', 'Si el principal falla o no tiene clave, la plataforma intenta la reserva.'),
+    'Sem preço, o modelo não entra na conta do teto:': ('Without a price, the model does not count toward the ceiling:', 'Sin precio, el modelo no entra en la cuenta del tope:'),
+    'Só modelos cadastrados na tela podem ser removidos.': ('Only models registered on this screen can be removed.', 'Solo se pueden quitar los modelos registrados en esta pantalla.'),
+    'Teto atingido: as IAs voltam no mês que vem': ('Ceiling reached: the AIs come back next month', 'Tope alcanzado: las IAs vuelven el mes que viene'),
+    'Teto e regras': ('Ceiling and rules', 'Tope y reglas'),
+    'Tira dúvidas de jovens e mentores sobre os estudos.': ('Answers youth and mentors about their studies.', 'Resuelve dudas de jóvenes y mentores sobre los estudios.'),
+    'Use o identificador exato do site do provedor. Depois preencha os preços.': ("Use the exact identifier from the provider's website. Then fill in the prices.", 'Use el identificador exacto del sitio del proveedor. Después complete los precios.'),
+    'Uso': ('Use', 'Uso'),
+    'Uso desconhecido.': ('Unknown use.', 'Uso desconocido.'),
+    'chamada(s)': ('call(s)', 'llamada(s)'),
+    'chamada(s) com falha neste mês (sem custo)': ('failed call(s) this month (no cost)', 'llamada(s) con falla este mes (sin costo)'),
+    'do teto': ('of the ceiling', 'del tope'),
+    'falhou': ('failed', 'falló'),
+    'ok': ('ok', 'ok'),
+    'ordem de modelos salva.': ('model order saved.', 'orden de modelos guardado.'),
+    'resposta reaproveitada, sem custo': ('reused answer, no cost', 'respuesta reutilizada, sin costo'),
+    'sem chave': ('no key', 'sin clave'),
+    'sem reserva': ('no backup', 'sin reserva'),
+    'Inteligência artificial (custos)': ('Artificial intelligence (costs)', 'Inteligencia artificial (costos)'),
+    'Teto de gasto mensal com IA': ('Monthly AI spending ceiling', 'Tope de gasto mensual con IA'),
+    'Aviso antes do teto': ('Warning before the ceiling', 'Aviso antes del tope'),
+    'Trechos enviados à IA por pergunta': ('Passages sent to the AI per question', 'Fragmentos enviados a la IA por pregunta'),
+    'Reaproveitar respostas iguais por': ('Reuse identical answers for', 'Reutilizar respuestas iguales por'),
+    'Teto de gasto com IA atingido': ('AI spending ceiling reached', 'Tope de gasto con IA alcanzado'),
+    'Gasto com IA perto do teto': ('AI spending close to the ceiling', 'Gasto con IA cerca del tope'),
+})
+
+
+# Parâmetros de regras do grupo IA
+LITERAIS.update({
+    'Somando todas as IAs (Assistente, Acompanhamento e Orquestrador). Ao atingir o teto, as IAs param até o mês seguinte: o Assistente passa a mostrar só os trechos encontrados. Zero desliga as IAs.': ('Adding up all AIs (Assistant, Follow-up and Orchestrator). When the ceiling is reached, the AIs stop until next month: the Assistant shows only the passages found. Zero turns the AIs off.', 'Sumando todas las IAs (Asistente, Seguimiento y Orquestador). Al alcanzar el tope, las IAs se detienen hasta el mes siguiente: el Asistente muestra solo los fragmentos encontrados. Cero apaga las IAs.'),
+    'US$ por mês': ('US$ per month', 'US$ por mes'),
+    'Provedores de IA (todas as chamadas)': ('AI providers (all calls)', 'Proveedores de IA (todas las llamadas)'),
+    'Avisa os Administradores (sino e e-mail) quando o gasto do mês chega a esta parte do teto.': ('Warns the Administrators (bell and e-mail) when the monthly spending reaches this share of the ceiling.', 'Avisa a los Administradores (campana y e-mail) cuando el gasto del mes llega a esta parte del tope.'),
+    '% do teto': ('% of the ceiling', '% del tope'),
+    'Provedores de IA (aviso)': ('AI providers (warning)', 'Proveedores de IA (aviso)'),
+    'Quantos trechos da base de conhecimento vão junto com cada pergunta. Menos trechos = resposta mais barata.': ('How many knowledge base passages go with each question. Fewer passages = cheaper answer.', 'Cuántos fragmentos de la base de conocimiento van con cada pregunta. Menos fragmentos = respuesta más barata.'),
+    'A mesma primeira pergunta, com a base sem mudança, reaproveita a resposta já dada (sem custo). Zero desliga.': ('The same first question, with the knowledge base unchanged, reuses the answer already given (no cost). Zero turns it off.', 'La misma primera pregunta, con la base sin cambios, reutiliza la respuesta ya dada (sin costo). Cero lo apaga.'),
+})
+
+
+# Janela de chat do Assistente (ícone no menu)
+LITERAIS.update({
+    'Assistente da Plataforma: clique neste ícone, ao lado de Administração, para abrir o chat e tirar dúvidas sobre a plataforma. As respostas citam as fontes.': ('Platform Assistant: click this icon, next to Administration, to open the chat and ask questions about the platform. Answers cite the sources.', 'Asistente de la Plataforma: haga clic en este ícono, junto a Administración, para abrir el chat y resolver dudas sobre la plataforma. Las respuestas citan las fuentes.'),
+    'Digite sua mensagem…': ('Type your message…', 'Escriba su mensaje…'),
+    'O Agente Orquestrador corrige código e precisa de um modelo mais forte; ele só roda quando o Administrador inicia.': ('The Orchestrator Agent fixes code and needs a stronger model; it only runs when the Administrator starts it.', 'El Agente Orquestador corrige código y necesita un modelo más fuerte; solo se ejecuta cuando el Administrador lo inicia.'),
+    'O assistente de estudos do Acompanhamento, usado por jovens e mentores: um modelo barato costuma bastar.': ('The study assistant in Follow-up, used by youth and mentors: a cheap model is usually enough.', 'El asistente de estudios del Seguimiento, usado por jóvenes y mentores: un modelo barato suele bastar.'),
+    'Online · responde com base na plataforma': ('Online · answers based on the platform', 'En línea · responde con base en la plataforma'),
+    'Respostas geradas por IA com base na plataforma; confira as fontes citadas.': ('AI-generated answers based on the platform; check the cited sources.', 'Respuestas generadas por IA con base en la plataforma; verifique las fuentes citadas.'),
+    'Sou o Assistente da Plataforma. Respondo sobre regras de negócio, perfis, rotas, segurança e banco de dados, sempre citando as fontes. Como posso ajudar?': ('I am the Platform Assistant. I answer about business rules, profiles, routes, security and the database, always citing the sources. How can I help?', 'Soy el Asistente de la Plataforma. Respondo sobre reglas de negocio, perfiles, rutas, seguridad y base de datos, siempre citando las fuentes. ¿Cómo puedo ayudar?'),
+})
+
+
+# Tour: abas, atalhos e cobertura automática
+LITERAIS.update({
+    'Aba': ('Tab', 'Pestaña'),
+    'Aba Alertas: quem está com ruído de comunicação, engajamento baixo ou sem atividade na plataforma.': ('Alerts tab: who has communication noise, low engagement or no activity on the platform.', 'Pestaña Alertas: quién tiene ruido de comunicación, bajo compromiso o ninguna actividad en la plataforma.'),
+    'Aba Ciclos: abra um ciclo de avaliação 360° (ou uma microavaliação), defina o período e encerre quando terminar.': ('Cycles tab: open a 360° evaluation cycle (or a micro-evaluation), set the period and close it when it ends.', 'Pestaña Ciclos: abra un ciclo de evaluación 360° (o una microevaluación), defina el período y ciérrelo al terminar.'),
+    'Aba Corpo Discente: os jovens do programa, com a turma, o mentor e a situação de cada um.': ('Students tab: the youth in the program, with the class, mentor and status of each one.', 'Pestaña Cuerpo Estudiantil: los jóvenes del programa, con el grupo, el mentor y la situación de cada uno.'),
+    'Aba Gráficos do projeto: o cronograma (Gantt) e os gráficos das tarefas, carregados quando você abre a aba.': ('Project Charts tab: the schedule (Gantt) and the task charts, loaded when you open the tab.', 'Pestaña Gráficos del proyecto: el cronograma (Gantt) y los gráficos de las tareas, cargados al abrir la pestaña.'),
+    'Aba O que recebi: as médias das avaliações que você recebeu, sem mostrar quem avaliou.': ('What I received tab: the averages of the evaluations you received, without showing who evaluated.', 'Pestaña Lo que recibí: los promedios de las evaluaciones que usted recibió, sin mostrar quién evaluó.'),
+    'Aba Parceiros B2B: cadastre as empresas parceiras, com o gestor e os mentores de cada uma; o logo da empresa vai para os certificados.': ("B2B Partners tab: register the partner companies, with each one's manager and mentors; the company logo goes on the certificates.", 'Pestaña Socios B2B: registre las empresas socias, con el gestor y los mentores de cada una; el logo de la empresa va en los certificados.'),
+    'Aba Parceiros B2B: os gestores e os mentores das empresas parceiras.': ('B2B Partners tab: the managers and mentors of the partner companies.', 'Pestaña Socios B2B: los gestores y los mentores de las empresas socias.'),
+    'Aba Resultados: as médias por critério e os comentários de cada pessoa avaliada no ciclo.': ('Results tab: the averages per criterion and the comments for each person evaluated in the cycle.', 'Pestaña Resultados: los promedios por criterio y los comentarios de cada persona evaluada en el ciclo.'),
+    'Aba Turmas & Trilhas: crie as turmas, escolha os cursos da trilha e matricule os grupos e os alunos; cada aluno ganha o acompanhamento de cada curso.': ('Classes & Tracks tab: create the classes, choose the track courses and enroll the groups and students; each student gets a follow-up for each course.', 'Pestaña Grupos y Trayectos: cree los grupos, elija los cursos del trayecto y matricule a los grupos y alumnos; cada alumno recibe el seguimiento de cada curso.'),
+    'Desistências: atalho para os pedidos de saída de jovens e mentores, ligados às ocorrências.': ('Dropouts: shortcut to the exit requests of youth and mentors, linked to the incidents.', 'Deserciones: atajo a los pedidos de salida de jóvenes y mentores, ligados a las ocurrencias.'),
+    'Ocorrências: atalho para as situações registradas com os jovens, que muitas vezes antecedem um pedido de saída.': ('Incidents: shortcut to the situations recorded with the youth, which often come before an exit request.', 'Ocurrencias: atajo a las situaciones registradas con los jóvenes, que muchas veces anteceden un pedido de salida.'),
+    'abre o formulário para preencher.': ('opens the form to fill in.', 'abre el formulario para completar.'),
+    'atalho que abre a página': ('shortcut that opens the page', 'atajo que abre la página'),
+    'baixa o arquivo.': ('downloads the file.', 'descarga el archivo.'),
+    'executa esta ação na página.': ('runs this action on the page.', 'ejecuta esta acción en la página.'),
+    'imprime ou salva em PDF.': ('prints or saves as PDF.', 'imprime o guarda en PDF.'),
+    'mostra esta parte da página. Clique no nome da aba para abrir.': ('shows this part of the page. Click the tab name to open it.', 'muestra esta parte de la página. Haga clic en el nombre de la pestaña para abrirla.'),
+})
+
+
+# Governança: tipos de aprendizado do tour
+LITERAIS.update({
+    'Mapa do tour': ('Tour map', 'Mapa del tour'),
+    'Erro do tour': ('Tour error', 'Error del tour'),
+})
+
+
+# Tour do Hub: listas das abas
+LITERAIS.update({
+    'Empresas Cadastradas: edite os dados, o gestor, os mentores e o logo de cada empresa parceira.': ("Registered companies: edit each partner company's data, manager, mentors and logo.", 'Empresas registradas: edite los datos, el gestor, los mentores y el logo de cada empresa socia.'),
+    'Turmas Cadastradas: veja os cursos, os alunos e as datas de cada turma; edite ou encerre quando preciso.': ("Registered classes: see each class's courses, students and dates; edit or close them when needed.", 'Grupos registrados: vea los cursos, los alumnos y las fechas de cada grupo; edite o cierre cuando sea necesario.'),
+})
+
 _POR_IDIOMA = {'en': {pt: v[0] for pt, v in LITERAIS.items()}, 'es': {pt: v[1] for pt, v in LITERAIS.items()}}
 
 

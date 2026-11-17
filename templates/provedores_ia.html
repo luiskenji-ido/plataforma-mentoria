@@ -1,0 +1,164 @@
+{% extends "base.html" %}
+{% block title %}{{ tt('Provedores de IA e custos') }}{% endblock %}
+{% block content %}
+{% set o = r.orcamento %}
+{% set cor = 'bg-danger' if o.esgotado else ('bg-warning' if o.pct >= 80 else 'bg-success') %}
+
+<div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-3">
+    <div>
+        <h2 class="text-primary fw-bold mb-1"><i class="bi bi-cpu"></i> {{ tt('Provedores de IA e custos') }}</h2>
+        <p class="text-muted mb-0">{{ tt('Ligue ou desligue a IA de cada uso, escolha o modelo principal e a reserva e acompanhe o gasto do mês. O modelo mais barato que dá conta do uso deixa a conta baixa.') }}</p>
+    </div>
+    <div class="d-flex gap-2 flex-wrap">
+        <a href="{{ url_for('agentes_ia') }}#cardCredenciaisIa" class="btn btn-outline-secondary fw-bold"><i class="bi bi-key"></i> {{ tt('Chaves das IAs') }}</a>
+        <a href="{{ url_for('parametros_regras') }}#grupo_ia" class="btn btn-outline-primary fw-bold"><i class="bi bi-sliders"></i> {{ tt('Teto e regras') }}</a>
+    </div>
+</div>
+
+<!-- GASTO DO MÊS -->
+<div class="card shadow-sm border-0 mb-3" id="cardGastoIa">
+    <div class="card-body">
+        <div class="d-flex justify-content-between align-items-end flex-wrap gap-2 mb-2">
+            <div>
+                <div class="text-muted small fw-bold text-uppercase">{{ tt('Gasto do mês') }}</div>
+                <div class="fs-3 fw-bold">US$ {{ '%.2f'|format(o.gasto) }} <span class="fs-6 text-muted fw-normal">{{ tt('de') }} US$ {{ '%.2f'|format(o.teto) }}</span></div>
+            </div>
+            <div class="text-end small">
+                {% if o.desligada %}<span class="badge text-bg-danger">{{ tt('IAs desligadas (teto zero)') }}</span>
+                {% elif o.esgotado %}<span class="badge text-bg-danger">{{ tt('Teto atingido: as IAs voltam no mês que vem') }}</span>
+                {% else %}<span class="badge text-bg-success">{{ o.pct }}% {{ tt('do teto') }}</span>{% endif %}
+                {% if r.falhas %}<div class="text-muted mt-1">{{ r.falhas }} {{ tt('chamada(s) com falha neste mês (sem custo)') }}</div>{% endif %}
+            </div>
+        </div>
+        <div class="progress mb-3" style="height: 10px;" role="progressbar" aria-label="{{ tt('Gasto do mês') }}" aria-valuenow="{{ o.pct }}" aria-valuemin="0" aria-valuemax="100">
+            <div class="progress-bar {{ cor }}" style="width: {{ [o.pct, 100]|min }}%"></div>
+        </div>
+        <div class="row g-3 small">
+            <div class="col-md-6">
+                <div class="fw-bold mb-1">{{ tt('Por uso') }}</div>
+                {% for u in r.por_uso %}<div class="d-flex justify-content-between border-bottom py-1"><span>{{ tt(u.nome) }} · {{ u.chamadas }} {{ tt('chamada(s)') }}</span><span>US$ {{ '%.4f'|format(u.custo) }}</span></div>
+                {% else %}<div class="text-muted">{{ tt('Nenhuma chamada neste mês.') }}</div>{% endfor %}
+            </div>
+            <div class="col-md-6">
+                <div class="fw-bold mb-1">{{ tt('Por modelo') }}</div>
+                {% for m in r.por_modelo %}<div class="d-flex justify-content-between border-bottom py-1"><span>{{ m.nome }} · {{ '{:,}'.format(m.entrada + m.saida).replace(',', '.') }} tokens</span><span>US$ {{ '%.4f'|format(m.custo) }}</span></div>
+                {% else %}<div class="text-muted">{{ tt('Nenhuma chamada neste mês.') }}</div>{% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- USOS: liga/desliga e ordem dos modelos -->
+<div class="row g-3 mb-3" id="usosIa">
+    {% for uso, (nome, descricao, _) in usos.items() %}
+    {% set ligado = r.ativos[uso] %}
+    <div class="col-lg-4">
+        <div class="card shadow-sm border-0 h-100 {{ '' if ligado else 'opacity-75' }}" id="cardUso_{{ uso }}">
+            <div class="card-header bg-white d-flex justify-content-between align-items-center gap-2">
+                <span class="fw-bold text-primary">{{ tt(nome) }}</span>
+                <form method="POST" action="{{ url_for('provedores_ia_uso', uso=uso) }}" class="m-0">
+                    <input type="hidden" name="ligado" value="{{ '0' if ligado else '1' }}">
+                    <button type="submit" class="btn btn-sm fw-bold {{ 'btn-success' if ligado else 'btn-outline-secondary' }}" id="interruptor_{{ uso }}"
+                            title="{{ tt('Clique para desligar') if ligado else tt('Clique para ligar') }}">
+                        <i class="bi {{ 'bi-toggle-on' if ligado else 'bi-toggle-off' }}"></i> {{ tt('Ligada') if ligado else tt('Desligada') }}</button>
+                </form>
+            </div>
+            <form method="POST" action="{{ url_for('provedores_ia_uso', uso=uso) }}" class="card-body small">
+                <p class="text-muted">{{ tt(descricao) }}</p>
+                {% for i in range(maximo) %}
+                {% set atual = r.ordens[uso][i] if i < r.ordens[uso]|length else '' %}
+                <label class="form-label fw-bold mb-1" for="modelo_{{ uso }}_{{ i }}">{{ tt('Modelo principal') if i == 0 else tt('Reserva') ~ ' ' ~ i }}</label>
+                <select class="form-select form-select-sm mb-2" name="modelos" id="modelo_{{ uso }}_{{ i }}" {{ 'required' if i == 0 }}>
+                    {% if i > 0 %}<option value="">— {{ tt('sem reserva') }} —</option>{% endif %}
+                    {% for p, (nome_p, _) in provedores.items() %}
+                    <optgroup label="{{ nome_p }}{{ '' if r.chaves[p] else ' · ' ~ tt('sem chave') }}">
+                        {% for mid, m in r.modelos.items() if m.provedor == p %}
+                        <option value="{{ mid }}" {{ 'selected' if mid == atual }}>{{ m.nome }}{% if m.entrada is not none %} · US$ {{ m.entrada }}/{{ m.saida }}{% endif %}</option>
+                        {% endfor %}
+                    </optgroup>
+                    {% endfor %}
+                </select>
+                {% endfor %}
+                <button type="submit" class="btn btn-sm btn-primary fw-bold mt-1"><i class="bi bi-check2"></i> {{ tt('Salvar ordem') }}</button>
+                <div class="form-text">{{ tt('Se o principal falhar ou estiver sem chave, a plataforma tenta a reserva.') }}</div>
+            </form>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<!-- PREÇOS E MODELOS -->
+<div class="row g-3 mb-3">
+    <div class="col-lg-8">
+        <div class="card shadow-sm border-0 h-100" id="cardPrecosIa">
+            <div class="card-header bg-white fw-bold text-primary"><i class="bi bi-currency-dollar"></i> {{ tt('Preços por milhão de tokens (US$)') }}</div>
+            <form method="POST" action="{{ url_for('provedores_ia_precos') }}">
+                <div class="table-responsive">
+                    <table class="table table-sm align-middle small mb-0">
+                        <thead><tr><th>{{ tt('Modelo') }}</th><th>{{ tt('Provedor') }}</th><th style="width: 120px;">{{ tt('Entrada') }}</th><th style="width: 120px;">{{ tt('Saída') }}</th><th></th></tr></thead>
+                        <tbody>
+                            {% for mid, m in r.modelos.items() %}
+                            <tr>
+                                <td><span class="fw-bold">{{ m.nome }}</span><div class="text-muted"><code>{{ mid }}</code></div></td>
+                                <td>{{ provedores[m.provedor][0] }}{% if not r.chaves[m.provedor] %} <span class="badge text-bg-warning">{{ tt('sem chave') }}</span>{% endif %}</td>
+                                <td><input type="text" inputmode="decimal" class="form-control form-control-sm" name="entrada_{{ mid }}" value="{{ m.entrada if m.entrada is not none }}" aria-label="{{ tt('Entrada') }} {{ mid }}"></td>
+                                <td><input type="text" inputmode="decimal" class="form-control form-control-sm" name="saida_{{ mid }}" value="{{ m.saida if m.saida is not none }}" aria-label="{{ tt('Saída') }} {{ mid }}"></td>
+                                <td class="text-end">{% if m.extra %}<button type="submit" form="remover_{{ mid|replace('.', '_') }}" class="btn btn-sm btn-outline-danger" title="{{ tt('Remover modelo') }}" aria-label="{{ tt('Remover modelo') }}"><i class="bi bi-trash"></i></button>{% endif %}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                <div class="card-body pt-2">
+                    {% if r.sem_preco %}<div class="alert alert-warning small py-2 mb-2"><i class="bi bi-exclamation-triangle"></i> {{ tt('Sem preço, o modelo não entra na conta do teto:') }} {{ r.sem_preco|join(', ') }}. {{ tt('Confira o preço atual no site do provedor e preencha.') }}</div>{% endif %}
+                    <button type="submit" class="btn btn-sm btn-primary fw-bold"><i class="bi bi-check2"></i> {{ tt('Salvar preços') }}</button>
+                </div>
+            </form>
+            {% for mid, m in r.modelos.items() if m.extra %}
+            <form method="POST" action="{{ url_for('provedores_ia_modelos') }}" id="remover_{{ mid|replace('.', '_') }}" class="d-none"
+                  onsubmit="return confirm({{ tt('Remover este modelo da lista?')|tojson|forceescape }});">
+                <input type="hidden" name="acao" value="remover"><input type="hidden" name="modelo" value="{{ mid }}"></form>
+            {% endfor %}
+        </div>
+    </div>
+    <div class="col-lg-4">
+        <div class="card shadow-sm border-0 h-100" id="cardNovoModeloIa">
+            <div class="card-header bg-white fw-bold text-primary"><i class="bi bi-plus-square"></i> {{ tt('Adicionar modelo') }}</div>
+            <form method="POST" action="{{ url_for('provedores_ia_modelos') }}" class="card-body small row g-2">
+                <div class="col-12"><label class="form-label fw-bold mb-1" for="novoProvedor">{{ tt('Provedor') }}</label>
+                    <select class="form-select form-select-sm" name="provedor" id="novoProvedor">{% for p, (nome_p, _) in provedores.items() %}<option value="{{ p }}">{{ nome_p }}</option>{% endfor %}</select></div>
+                <div class="col-12"><label class="form-label fw-bold mb-1" for="novoModelo">{{ tt('Identificador do modelo') }}</label>
+                    <input type="text" class="form-control form-control-sm" name="modelo" id="novoModelo" required maxlength="80" placeholder="ex.: gemini-3.6-flash-lite"></div>
+                <div class="col-12"><label class="form-label fw-bold mb-1" for="novoNome">{{ tt('Nome na tela') }}</label>
+                    <input type="text" class="form-control form-control-sm" name="nome" id="novoNome" maxlength="80"></div>
+                <div class="col-12"><button type="submit" class="btn btn-sm btn-outline-primary fw-bold"><i class="bi bi-plus-lg"></i> {{ tt('Adicionar') }}</button>
+                    <div class="form-text">{{ tt('Use o identificador exato do site do provedor. Depois preencha os preços.') }}</div></div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- CHAMADAS RECENTES -->
+<div class="card shadow-sm border-0 mb-4" id="cardUsoRecenteIa">
+    <div class="card-header bg-white fw-bold text-primary"><i class="bi bi-clock-history"></i> {{ tt('Chamadas recentes') }}</div>
+    <div class="table-responsive">
+        <table class="table table-sm align-middle small mb-0">
+            <thead><tr><th>{{ tt('Quando') }}</th><th>{{ tt('Uso') }}</th><th>{{ tt('Modelo') }}</th><th class="text-end">{{ tt('Entrada') }}</th><th class="text-end">{{ tt('Saída') }}</th><th class="text-end">US$</th><th>{{ tt('Situação') }}</th></tr></thead>
+            <tbody>
+                {% for c in r.recentes %}
+                <tr>
+                    <td class="text-nowrap">{{ c.quando.strftime('%d/%m %H:%M') if c.quando }}</td>
+                    <td>{{ tt(usos[c.uso][0]) if c.uso in usos else c.uso }}</td>
+                    <td><code>{{ c.modelo }}</code></td>
+                    <td class="text-end">{{ c.tokens_entrada }}</td><td class="text-end">{{ c.tokens_saida }}</td>
+                    <td class="text-end">{{ '%.4f'|format(c.custo_usd or 0) }}</td>
+                    <td>{% if c.sucesso %}<span class="badge text-bg-success">{{ tt('ok') }}</span>{% else %}<span class="badge text-bg-danger" title="{{ c.motivo }}">{{ tt('falhou') }}</span> <span class="text-muted">{{ c.motivo }}</span>{% endif %}</td>
+                </tr>
+                {% else %}
+                <tr><td colspan="7" class="text-muted text-center py-3">{{ tt('Nenhuma chamada registrada ainda.') }}</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

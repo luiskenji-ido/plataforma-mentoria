@@ -1372,4 +1372,37 @@ class MensagemChat(db.Model):
     modelo = db.Column(db.String(60), nullable=True)
     tokens_entrada = db.Column(db.Integer, nullable=True)
     tokens_saida = db.Column(db.Integer, nullable=True)
+    custo_usd = db.Column(db.Float, nullable=True)
+    chave_cache = db.Column(db.String(64), nullable=True, index=True)  # pergunta + idioma + versão da base (reaproveita a resposta)
     criada_em = db.Column(db.DateTime, default=datetime.now, index=True)
+
+
+# ==============================================================================
+# PROVEDORES DE IA: escolha de modelos por uso, preços e consumo (teto mensal)
+# ==============================================================================
+class ConfiguracaoIA(db.Model):
+    """Configuração dos provedores de IA (JSON por chave): 'uso:<uso>' = ordem dos modelos; 'precos'; 'modelos_extras'."""
+    __tablename__ = 'configuracao_ia'
+    id = db.Column(db.Integer, primary_key=True)
+    chave = db.Column(db.String(60), unique=True, nullable=False)
+    valor = db.Column(db.Text, nullable=False, default='{}')
+    atualizado_em = db.Column(db.DateTime, default=datetime.now, onupdate=datetime.now)
+    atualizado_por_id = db.Column(db.Integer, db.ForeignKey('usuario.id'), nullable=True)
+
+    atualizado_por = db.relationship('Usuario')
+
+
+class UsoIA(db.Model):
+    """Cada chamada a uma IA (com sucesso ou não): base do gasto do mês e do teto."""
+    __tablename__ = 'uso_ia'
+    id = db.Column(db.Integer, primary_key=True)
+    quando = db.Column(db.DateTime, default=datetime.now, index=True)
+    uso = db.Column(db.String(30), nullable=False)            # assistente / acompanhamento / orquestrador
+    provedor = db.Column(db.String(20), nullable=False)       # claude / gemini
+    modelo = db.Column(db.String(80), nullable=False)
+    tokens_entrada = db.Column(db.Integer, nullable=False, default=0)
+    tokens_saida = db.Column(db.Integer, nullable=False, default=0)
+    custo_usd = db.Column(db.Float, nullable=False, default=0.0)
+    sucesso = db.Column(db.Boolean, nullable=False, default=True)
+    motivo = db.Column(db.String(300), nullable=True)
+    usuario_id = db.Column(db.Integer, db.ForeignKey('usuario.id'), nullable=True)

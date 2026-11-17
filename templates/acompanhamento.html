@@ -273,10 +273,12 @@
             </ul>
         </div>
         
-        <!-- Botão Gemini Notebook -->
+        <!-- Botão do assistente de estudos (some quando o Administrador desliga a IA do Acompanhamento) -->
+        {% if ia_ligada('acompanhamento') %}
         <button type="button" class="btn btn-integra-notebook fw-bold shadow-sm" data-bs-toggle="modal" data-bs-target="#modalNotebookLM">
             {{ t('btn_conectar_gemini') }}
         </button>
+        {% endif %}
 
         <!-- Botão Vincular Aluno (Apenas Mentores) -->
         {% if current_user.tipo_usuario != 'Aluno' %}

@@ -11,6 +11,7 @@
             { sel: 'form[action*="projeto"] input[name="nome"], .card.mb-4 form', texto: {{ tt('Cadastre um novo projeto e vincule o grupo responsável (jovens e mentores).')|tojson }} },
             { sel: 'select[name="grupo_filtro"], select[onchange]', texto: {{ tt('Filtre para ver só os projetos de um grupo.')|tojson }} },
             { sel: '[id^="projeto-"]', texto: {{ tt('Cada cartão mostra as tarefas, o progresso, a banca agendada e a entrega final do TCC.')|tojson }} },
+            { aba: '.tab-pane[id^="abaGraficos"]', texto: {{ tt('Aba Gráficos do projeto: o cronograma (Gantt) e os gráficos das tarefas, carregados quando você abre a aba.')|tojson }} },
         ],
         'gerenciar_frequencia': [
             { texto: {{ tt('Diário de frequência: presenças, faltas e justificativas de todos os jovens.')|tojson }} },
@@ -146,12 +147,14 @@
         ],
         'ocorrencias': [
             { texto: {{ tt('Ocorrências: registros de situações com os jovens (faltas, comportamento, saúde, família) e o retorno combinado com o responsável.')|tojson }} },
+            { sel: 'a.btn[href*="desistencias"]', texto: {{ tt('Desistências: atalho para os pedidos de saída de jovens e mentores, ligados às ocorrências.')|tojson }} },
             { sel: '#btnNovaOcorrencia', texto: {{ tt('Registre uma nova ocorrência, com a categoria, o responsável e o prazo para o retorno.')|tojson }} },
             { sel: '#sinaisOcorrencias', texto: {{ tt('Os sinais mostram quantas ocorrências estão em dia, vencendo ou com o retorno atrasado.')|tojson }} },
             { sel: '#cardOcorrencias', texto: {{ tt('Abra uma ocorrência para registrar o acompanhamento e encerrá-la quando o caso for resolvido.')|tojson }} },
         ],
         'desistencias': [
             { texto: {{ tt('Desistências: o pedido de saída de um jovem ou de um mentor, com o motivo e a confirmação da gestão.')|tojson }} },
+            { sel: 'a.btn[href*="ocorrencias"]', texto: {{ tt('Ocorrências: atalho para as situações registradas com os jovens, que muitas vezes antecedem um pedido de saída.')|tojson }} },
             { sel: '#cardNovaDesistencia', texto: {{ tt('Registre o pedido de desistência de um jovem: a data de saída, a categoria e o motivo.')|tojson }} },
             { sel: '#mentorDesistente', texto: {{ tt('Quando um mentor sai, escolha o substituto: ele assume os jovens e os grupos do mentor que saiu.')|tojson }} },
             { sel: '#cardDesistencias', texto: {{ tt('A gestão confirma ou recusa cada pedido; confirmado, o jovem sai da turma e do mentor e pode ser reativado depois.')|tojson }} },
@@ -160,6 +163,10 @@
             { texto: {{ tt('Avaliações: o ciclo 360° e as micro-avaliações entre jovens, mentores e gestão.')|tojson }} },
             { sel: '.nav-tabs', texto: {{ tt('Use as abas para responder as avaliações pendentes, ver as recebidas, os alertas, os resultados e os ciclos.')|tojson }} },
             { sel: '#pendentes .card, #pendentes', texto: {{ tt('Responda cada avaliação pendente dando uma nota de 1 a 5 em cada critério.')|tojson }} },
+            { aba: '#recebidas', texto: {{ tt('Aba O que recebi: as médias das avaliações que você recebeu, sem mostrar quem avaliou.')|tojson }} },
+            { aba: '#alertas', texto: {{ tt('Aba Alertas: quem está com ruído de comunicação, engajamento baixo ou sem atividade na plataforma.')|tojson }} },
+            { aba: '#resultados', texto: {{ tt('Aba Resultados: as médias por critério e os comentários de cada pessoa avaliada no ciclo.')|tojson }} },
+            { aba: '#ciclos', texto: {{ tt('Aba Ciclos: abra um ciclo de avaliação 360° (ou uma microavaliação), defina o período e encerre quando terminar.')|tojson }} },
         ],
         'perfis_acesso_view': [
             { texto: {{ tt('Perfis de acesso: crie perfis personalizados a partir de um perfil-base e escolha quais módulos cada um enxerga.')|tojson }} },
@@ -192,13 +199,24 @@
         ],
         'assistente': [
             { texto: {{ tt('Assistente da Plataforma: tire dúvidas sobre a plataforma; as respostas vêm da base de conhecimento e citam as fontes.')|tojson }} },
+            { sel: '#estadoAssistente', texto: {{ tt('Ligue ou desligue o Assistente aqui: desligado, nenhuma pergunta vai para a IA e o botão de chat some das páginas.')|tojson }} },
             { sel: '#resumoAssistente', texto: {{ tt('O modelo de IA em uso e o tamanho da base: fontes ativas e trechos.')|tojson }} },
             { sel: '#abasAssistente', texto: {{ tt('Em Conversar você faz as perguntas; em Base de conhecimento você cadastra os documentos PRD, PTD e DTD e escolhe quais fontes o Assistente usa.')|tojson }} },
             { sel: '#cardConversas', texto: {{ tt('Suas conversas ficam guardadas: abra uma para continuar ou comece uma nova.')|tojson }} },
             { sel: '#cardChat', texto: {{ tt('Escreva a pergunta e envie; cada resposta cita as fontes como [1], [2]. Clique no número para ver o trecho de origem.')|tojson }} },
-            { sel: '#cardFontesBase', texto: {{ tt('As fontes da base: veja os trechos, baixe o arquivo, ative, desative ou exclua cada uma.')|tojson }} },
-            { sel: '#cardEnviarDocumento', texto: {{ tt('Adicione o PRD, o PTD ou o DTD em .md, .txt, .html, .docx ou .pdf; enviar de novo com o mesmo título cria uma nova versão.')|tojson }} },
-            { sel: '#cardTiposDocumento', texto: {{ tt('O que cada tipo de fonte traz para o Assistente.')|tojson }} },
+            { aba: '#base', sel: '#cardFontesBase', texto: {{ tt('As fontes da base: veja os trechos, baixe o arquivo, ative, desative ou exclua cada uma.')|tojson }} },
+            { aba: '#base', sel: '#cardEnviarDocumento', texto: {{ tt('Adicione o PRD, o PTD ou o DTD em .md, .txt, .html, .docx ou .pdf; enviar de novo com o mesmo título cria uma nova versão.')|tojson }} },
+            { aba: '#base', sel: '#cardTiposDocumento', texto: {{ tt('O que cada tipo de fonte traz para o Assistente.')|tojson }} },
+        ],
+        'provedores_ia_view': [
+            { texto: {{ tt('Provedores de IA e custos: escolha qual IA atende cada uso, ligue ou desligue cada uma e acompanhe o gasto do mês.')|tojson }} },
+            { sel: '#cardGastoIa', texto: {{ tt('O gasto do mês comparado ao teto. Ao atingir o teto, as IAs param até o mês seguinte; o teto fica em Parâmetros de regras.')|tojson }} },
+            { sel: '#cardUso_assistente', texto: {{ tt('Cada uso tem o interruptor Ligada/Desligada, o modelo principal e até duas reservas, usadas quando o principal falha.')|tojson }} },
+            { sel: '#cardUso_acompanhamento', texto: {{ tt('O assistente de estudos do Acompanhamento, usado por jovens e mentores: um modelo barato costuma bastar.')|tojson }} },
+            { sel: '#cardUso_orquestrador', texto: {{ tt('O Agente Orquestrador corrige código e precisa de um modelo mais forte; ele só roda quando o Administrador inicia.')|tojson }} },
+            { sel: '#cardPrecosIa', texto: {{ tt('Os preços de cada modelo, em US$ por milhão de tokens, para calcular o gasto. Modelo sem preço não entra na conta do teto.')|tojson }} },
+            { sel: '#cardNovoModeloIa', texto: {{ tt('Quando o provedor lançar um modelo novo, cadastre aqui com o identificador exato.')|tojson }} },
+            { sel: '#cardUsoRecenteIa', texto: {{ tt('As últimas chamadas: uso, modelo, tokens, custo e falhas.')|tojson }} },
         ],
     };
 

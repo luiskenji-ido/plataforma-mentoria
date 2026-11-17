@@ -187,6 +187,7 @@ class AgenteAdministrador(AgenteDoFluxo):
     ROTEIRO = ["Login e onboarding do Administrador", "Matriz de acesso do perfil (regras aprendidas)",
                "Validações do cadastro de usuários: e-mail inválido, duplicado e senha fraca",
                "Assistente da Plataforma: base dos gerentes, documento PRD com versões, perguntas com fontes (sem consumir a IA)",
+               "Provedores de IA: liga/desliga do Assistente, ordem de modelos validada e gasto do mês",
                "Cria o Mentor Administrador e passa a vez para ele"]
 
     def rodar(self):
@@ -217,6 +218,7 @@ class AgenteAdministrador(AgenteDoFluxo):
         self.parametros_de_regras()
         self.credenciais_dos_agentes()
         self.assistente_da_plataforma()
+        self.provedores_de_ia()
 
         self.etapa("Cria o Mentor Administrador")
         self.criar_usuario("mentoradmin", "Mentor Administrador", "Mentor Administrador")
@@ -304,6 +306,42 @@ class AgenteAdministrador(AgenteDoFluxo):
         self.confere(sobras == 0 and not arquivos, "Excluir documento apaga os trechos e o arquivo", "FLX",
                      "Documentos de teste e arquivos removidos.", f"Sobraram {sobras} fonte(s) e {len(arquivos)} arquivo(s).",
                      "Exclusão de documento da base", "Média")
+
+    def provedores_de_ia(self):
+        """Provedores de IA: a tela mostra o gasto do mês e os usos; desligar o Assistente tira o chat do ar (e religa no fim,
+        voltando ao estado de antes); ordem com modelo inexistente é recusada sem mudar nada. Nenhuma IA é chamada."""
+        self.etapa("Provedores de IA (liga/desliga e ordem de modelos)")
+        status, _, pagina = self.cliente.pedir("GET", "/admin/provedores-ia")
+        self.confere(status == 200 and 'id="cardGastoIa"' in pagina and 'id="interruptor_assistente"' in pagina and 'id="cardPrecosIa"' in pagina,
+                     "Tela de Provedores de IA com gasto, usos e preços", "FLX", "Gasto do mês, interruptores e preços na tela.",
+                     f"HTTP {status} ou cartões ausentes.", "Administrador controla as IAs e o custo", "Alta", print_de="/admin/provedores-ia")
+
+        import provedores_ia
+        ligado_antes = self.banco(lambda: provedores_ia.ativo("assistente"))
+        ordem_antes = self.banco(lambda: provedores_ia.ordem("assistente"))
+        self.post("/admin/provedores-ia/uso/assistente", {"ligado": "0"})
+        st, _, corpo = self.post("/admin/assistente/perguntar", {"pergunta": "teste com o Assistente desligado"}, seguir=False)
+        _, _, painel = self.cliente.pedir("GET", "/dashboard")
+        botao_no_painel = 'id="btnAssistenteMenu"' in painel
+        self.confere(st == 409 and not botao_no_painel, "Assistente desligado não responde e some das páginas", "FLX",
+                     "Pergunta recusada (409) e o botão de chat sumiu.", f"HTTP {st}; botão no painel: {botao_no_painel}.",
+                     "Administrador liga e desliga o chat bot", "Alta",
+                     "Em assistente_perguntar, recusar quando provedores_ia.ativo('assistente') for falso; no base.html, não incluir o botão.")
+        self.post("/admin/provedores-ia/uso/assistente", {"ligado": "1" if ligado_antes else "0"})
+        self.post("/admin/provedores-ia/uso/assistente", {"modelos": ["modelo-que-nao-existe"]})
+        depois = self.banco(lambda: (provedores_ia.ativo("assistente"), provedores_ia.ordem("assistente")))
+        self.confere(depois == (ligado_antes, ordem_antes), "Ordem com modelo inexistente é recusada e o estado volta ao de antes", "VAL",
+                     f"Ordem mantida ({', '.join(ordem_antes)}) e Assistente {'ligado' if ligado_antes else 'desligado'} como antes.",
+                     f"Antes {(ligado_antes, ordem_antes)} → depois {depois}.", "Só modelos cadastrados entram na ordem", "Alta")
+
+        catalogo_antes = self.banco(lambda: provedores_ia.modelos())
+        self.post("/admin/provedores-ia/precos", {"entrada_claude-haiku-5-5": "abc", "saida_claude-haiku-5-5": "0.5"})
+        self.post("/admin/provedores-ia/modelos", {"provedor": "gemini", "modelo": "Modelo Inválido!", "nome": "x"})
+        catalogo_depois = self.banco(lambda: provedores_ia.modelos())
+        self.confere(catalogo_depois == catalogo_antes, "Preço e modelo inválidos são recusados sem gravar nada", "VAL",
+                     "Preço não numérico e identificador de modelo inválido recusados.",
+                     "O catálogo de modelos ou os preços mudaram.", "Preços e modelos só com valores válidos", "Média",
+                     "Em provedores_ia.salvar_precos/adicionar_modelo, validar antes de gravar.")
 
     def credenciais_dos_agentes(self):
         """Área Agentes IA: o quadro de credenciais existe e NUNCA mostra a senha das contas de teste (só a situação).

@@ -1377,6 +1377,9 @@ class AgenteOmniTest:
         const alvo = document.querySelector('.introjs-showElement');
         if (!alvo) { res.semAlvo = true; return res; }
         alvo.setAttribute('data-tour-visto', '1');
+        const painel = alvo.closest('.tab-pane');
+        if (painel) painel.setAttribute('data-tour-aba', '1');   // o tour abriu e explicou esta aba
+        alvo.querySelectorAll('.tab-pane.active').forEach(p => p.setAttribute('data-tour-aba', '1'));   // aba aberta dentro do bloco explicado
         const est = getComputedStyle(alvo);
         res.alvo = caixa(alvo);
         res.alvoOculto = !!alvo.closest('.dropdown-menu, .modal:not(.show), .tab-pane:not(.active)')
@@ -1421,7 +1424,67 @@ class AgenteOmniTest:
             const g = fixo ? null : grupos.find(x => !x.fixo && x.chave === chave);
             if (g) g.itens.push(c); else grupos.push({chave, fixo, itens: [c]});
         });
-        return grupos.filter(g => !g.itens.some(coberto)).map(g => titulo(g.itens[0]) || (g.itens[0].id ? '#' + g.itens[0].id : 'seção sem título'));
+        const secoes = grupos.filter(g => !g.itens.some(coberto)).map(g => titulo(g.itens[0]) || (g.itens[0].id ? '#' + g.itens[0].id : 'seção sem título'));
+
+        // Abas: cada aba que a pessoa vê precisa ser aberta e explicada pelo tour (abas repetidas por cartão contam uma vez)
+        const rotulo = el => Array.from(el.childNodes).filter(n => !(n.classList && n.classList.contains('badge')))
+            .map(n => n.textContent).join(' ').replace(/\s+/g, ' ').trim();
+        const aparece = el => {   // botões e abas são baixos: basta estar na tela
+            if (el.closest('.modal, .dropdown-menu, .tab-pane:not(.active), nav.navbar, .introjs-tooltip')) return false;
+            const e = getComputedStyle(el);
+            if (e.display === 'none' || e.visibility === 'hidden' || el.offsetParent === null) return false;
+            const r = el.getBoundingClientRect();
+            return r.width > 0 && r.height > 0;
+        };
+        const abas = new Map();
+        document.querySelectorAll('[data-bs-toggle="tab"], [data-bs-toggle="pill"]').forEach(b => {
+            if (b.closest('nav.navbar, .modal, .dropdown-menu') || !aparece(b)) return;
+            const alvoAba = b.getAttribute('data-bs-target') || b.getAttribute('href') || '';
+            let painel = null;
+            try { painel = alvoAba.startsWith('#') ? document.querySelector(alvoAba) : null; } catch (e) { painel = null; }
+            const nome = rotulo(b) || alvoAba;
+            const ok = !!painel && (painel.hasAttribute('data-tour-aba') || !!painel.querySelector('[data-tour-visto]'));
+            abas.set(nome, (abas.get(nome) || false) || ok);
+        });
+        const abasSemTour = Array.from(abas).filter(([, ok]) => !ok).map(([nome]) => nome);
+
+        // Seções das abas que o tour abriu (e que agora estão fechadas): cada cartão da aba também precisa de explicação
+        document.querySelectorAll('.tab-pane:not(.active)').forEach(painel => {
+            const botao = document.querySelector(`[data-bs-target="#${CSS.escape(painel.id || '')}"], [href="#${CSS.escape(painel.id || '')}"]`);
+            if (!painel.id || !botao || !aparece(botao)) return;
+            if (!(painel.hasAttribute('data-tour-aba') || painel.querySelector('[data-tour-visto]'))) return;   // aba não aberta já é falha acima
+            const estiloAntes = painel.getAttribute('style');
+            painel.style.display = 'block';
+            const cartoes = Array.from(painel.querySelectorAll('.card')).filter(c => {
+                const r = c.getBoundingClientRect();
+                return r.height >= 40 && !c.closest('.modal') && !c.parentElement.closest('.card');
+            });
+            const vistosAba = Array.from(painel.querySelectorAll('[data-tour-visto]'));
+            const gruposAba = [];
+            cartoes.forEach(c => {
+                const chave = assinatura(c);
+                const g = gruposAba.find(x => x.chave === chave && !(c.id && !/\d/.test(c.id)));
+                if (g) g.itens.push(c); else gruposAba.push({chave, itens: [c]});
+            });
+            gruposAba.filter(g => !g.itens.some(c => vistosAba.some(v => v === c || c.contains(v) || v.contains(c))))
+                .forEach(g => secoes.push(`${rotulo(botao)} › ${titulo(g.itens[0])}`));
+            if (estiloAntes === null) painel.removeAttribute('style'); else painel.setAttribute('style', estiloAntes);
+        });
+
+        // Botões principais da página (fora de cartões, tabelas e listas, que já contam como seções)
+        const botoesSemTour = [], todosBotoes = [];
+        document.querySelectorAll('.btn').forEach(b => {
+            if (b.closest('nav.navbar, .modal, .dropdown-menu, .introjs-tooltip, .card, table, .list-group, .alert, .nav-tabs, .nav-pills, .toast, .pagination')) return;
+            if (b.matches('[data-bs-toggle="tab"], [data-bs-toggle="pill"], .btn-close') || !aparece(b)) return;
+            const nome = (b.innerText || b.getAttribute('aria-label') || b.getAttribute('title') || '').replace(/\s+/g, ' ').trim().slice(0, 50);
+            if (!nome) return;
+            if (!todosBotoes.includes(nome)) todosBotoes.push(nome);
+            if (vistos.some(v => v === b || v.contains(b) || b.contains(v))) return;
+            if (!botoesSemTour.includes(nome)) botoesSemTour.push(nome);
+        });
+        const inventario = {abas: Array.from(abas.keys()), botoes: todosBotoes,
+                            secoes: grupos.map(g => titulo(g.itens[0]) || (g.itens[0].id ? '#' + g.itens[0].id : '')).filter(Boolean).slice(0, 40)};
+        return {secoes, abas: abasSemTour, botoes: botoesSemTour, inventario};
     }"""
 
     def percorrer_passos_do_tour(self, espera=4000, concluir=True):
@@ -1430,7 +1493,7 @@ class AgenteOmniTest:
         concluir=False sai com Escape no último passo (não dispara a ida para a próxima página)."""
         if not self.visivel(".introjs-tooltip", timeout=espera) and not self._esperar_tooltip(espera):
             return None
-        passos, ancora, secoes = [], [], []
+        passos, ancora, secoes = [], [], {"secoes": [], "abas": [], "botoes": [], "inventario": {}}
         for _ in range(60):
             self.page.wait_for_timeout(1200)  # o intro.js posiciona o balão ~350 ms após a troca e o motor confere a rolagem aos 600 e 1000 ms
             info = self.page.evaluate(self.JS_PASSO_TOUR) or {}
@@ -1442,7 +1505,7 @@ class AgenteOmniTest:
             botao = self.page.locator(".introjs-nextbutton").first
             ultimo = "introjs-donebutton" in (botao.get_attribute("class") or "")
             if ultimo:
-                secoes = self.page.evaluate(self.JS_SECOES_SEM_TOUR) or []
+                secoes = self.page.evaluate(self.JS_SECOES_SEM_TOUR) or secoes
                 if concluir:
                     botao.click()
                 else:
@@ -1454,7 +1517,8 @@ class AgenteOmniTest:
                 self.page.locator(".introjs-tooltiptext", has_not_text=texto).first.wait_for(state="visible", timeout=1500)
             except Exception:
                 break
-        return {"passos": passos, "ancora": ancora, "secoes": secoes}
+        return {"passos": passos, "ancora": ancora, "secoes": secoes["secoes"], "abas": secoes["abas"], "botoes": secoes["botoes"],
+                "inventario": secoes.get("inventario") or {}}
 
     @staticmethod
     def problemas_de_ancora(info):
@@ -1499,11 +1563,21 @@ class AgenteOmniTest:
         problemas = self.problemas_nos_passos(resultado["passos"]) + resultado["ancora"]
         if resultado["secoes"]:
             problemas.append("seções sem explicação no tour: " + "; ".join(f"'{s}'" for s in resultado["secoes"][:6]))
+        if resultado.get("abas"):
+            problemas.append("abas que o tour não abriu nem explicou: " + "; ".join(f"'{s}'" for s in resultado["abas"][:8]))
+        if resultado.get("botoes"):
+            problemas.append("botões sem explicação no tour: " + "; ".join(f"'{s}'" for s in resultado["botoes"][:8]))
         return problemas
 
     def teste_tour(self):
         valor_original = self.exibir_tour_no_banco()
         self.tratar_tour = False
+        self._tour_mapa, self._tour_problemas, self._tour_menu = {}, {}, []
+        try:
+            import conhecimento_tour
+            self._tour_ensinado = consultar_banco(lambda: conhecimento_tour.ensinado_para(self.chave_perfil))
+        except Exception:
+            self._tour_ensinado = ({}, {}, {})
         try:
             self.etapa("Tour", "Convite do primeiro acesso", self.tour_convite)
             self.etapa("Tour", "Lembrar Depois", self.tour_lembrar_depois)
@@ -1511,6 +1585,7 @@ class AgenteOmniTest:
             self.etapa("Tour", "Não mostrar novamente", self.tour_nao_mostrar)
             self.etapa("Tour", "Botão de tour em cada página", self.tour_botao_manual)
             self.etapa("Tour", "Textos do tour em en/es", self.tour_traducoes)
+            self.etapa("Tour", "Gerente Técnico: aprender e ensinar", self.tour_aprender_e_ensinar)
         finally:
             self.tratar_tour = True
             self.exibir_tour_no_banco(valor_original)
@@ -1571,7 +1646,7 @@ class AgenteOmniTest:
             self.registrar("Tour", "Fazer o Tour Agora", PULADO, "O convite não abriu.", evidencia=False)
             return
         # Páginas que o tour deve percorrer: as do menu deste perfil, na ordem do menu
-        esperadas = [p["caminho"] for p in (self.page.evaluate(
+        esperadas = self._tour_menu = [p["caminho"] for p in (self.page.evaluate(
             "() => (typeof paginasDoTour === 'function' ? paginasDoTour() : [])") or [])]
         self.page.locator('#modalTourInicial button:has-text("Fazer o Tour Agora")').click()
 
@@ -1590,6 +1665,10 @@ class AgenteOmniTest:
                 break
             resumo.append(f"{pagina} ({len(resultado['passos'])} passos)")
             da_pagina = self.problemas_do_tour_na_pagina(resultado)
+            if hasattr(self, '_tour_mapa'):
+                self._tour_mapa[pagina] = resultado.get("inventario") or {}
+                self._tour_problemas.setdefault(pagina, [])
+                self._tour_problemas[pagina] += [p for p in da_pagina if p not in self._tour_problemas[pagina]]
             if da_pagina:
                 paginas_com_erro.append(pagina)
                 problemas += [f"{pagina}: {p}" for p in da_pagina]
@@ -1676,7 +1755,12 @@ class AgenteOmniTest:
             resultado = self.percorrer_passos_do_tour(espera=2500, concluir=False)
             if resultado is not None:
                 com_tour.append(f"{nome} ({len(resultado['passos'])})")
-                erros_tour += [f"{nome}: {p}" for p in self.problemas_do_tour_na_pagina(resultado)]
+                da_pagina = self.problemas_do_tour_na_pagina(resultado)
+                erros_tour += [f"{nome}: {p}" for p in da_pagina]
+                if hasattr(self, '_tour_problemas'):
+                    self._tour_problemas.setdefault(caminho, [])
+                    self._tour_problemas[caminho] += [p for p in da_pagina if p not in self._tour_problemas[caminho]]
+                    self._tour_mapa.setdefault(caminho, resultado.get("inventario") or {})
             elif any("construído" in d for d in self._dialogos):
                 sem_tour.append(nome)
             else:
@@ -1695,6 +1779,62 @@ class AgenteOmniTest:
                            dica="Criar o roteiro da página em templates/_tours.html (por endpoint) ou um iniciarTourDaPagina() que chame rodarTour().")
         if com_tour and not falhas and not erros_tour:
             self.registrar("Tour", "Botão de tour em cada página", APROVADO, "Tour aberto em: " + ", ".join(com_tour), evidencia=False)
+
+    def tour_aprender_e_ensinar(self):
+        """O Gerente Técnico ensinou (antes do teste) o mapa do tour e os erros já vistos; aqui o agente confere cada um e
+        devolve ao Gerente o que encontrou nesta execução: o mapa novo, os erros novos e os corrigidos."""
+        import conhecimento_tour
+        mapa_ensinado, erros_ensinados, codigos = getattr(self, "_tour_ensinado", ({}, {}, {}))
+        visitadas = set(self._tour_problemas)
+
+        # Erros já ensinados: o agente confere primeiro estes pontos
+        for pagina, problemas_antigos in sorted(erros_ensinados.items()):
+            if pagina not in visitadas:
+                continue
+            agora = self._tour_problemas.get(pagina) or []
+            if agora:
+                self.registrar("Tour", f"Erro ensinado pelo Gerente continua em {pagina}", FALHA,
+                               f"Aprendizado {codigos.get('falha')}: " + "; ".join(agora[:4]),
+                               esperado="O erro ensinado pelo Gerente Técnico foi corrigido",
+                               dica="Completar o roteiro da página em rodarTour(): abas com {aba: '#painel'}, botões e seções com sel.",
+                               evidencia=False)
+            else:
+                self.registrar("Tour", f"Erro ensinado pelo Gerente corrigido em {pagina}", APROVADO,
+                               f"Aprendizado {codigos.get('falha')}: antes '{'; '.join(problemas_antigos[:2])}' — agora o tour está completo.",
+                               evidencia=False)
+
+        # Mapa ensinado: abas e botões que existiam e sumiram da página (pode ser regressão)
+        sumicos = []
+        for pagina, antes in sorted(mapa_ensinado.items()):
+            agora = self._tour_mapa.get(pagina)
+            if not agora or pagina not in (self._tour_menu or [pagina]):
+                continue
+            for tipo, nome_tipo in (("abas", "aba"), ("botoes", "botão")):
+                for item in antes.get(tipo, []):
+                    if item not in agora.get(tipo, []):
+                        sumicos.append(f"{pagina}: {nome_tipo} '{item}'")
+        if sumicos:
+            self.registrar("Tour", "Itens do mapa ensinado que sumiram", ALERTA,
+                           f"Aprendizado {codigos.get('mapa')}: " + "; ".join(sumicos[:10]),
+                           esperado="As abas e botões do mapa aprendido continuam na página (ou a mudança foi intencional)",
+                           dica="Se a mudança foi intencional, a próxima execução já ensina o mapa novo; senão, restaurar o item.",
+                           evidencia=False)
+
+        # Entrega ao Gerente o que esta execução encontrou
+        resumo = consultar_banco(lambda: conhecimento_tour.aprender_com_tour(
+            self.chave_perfil, self.perfil["tipo"], self._tour_menu, self._tour_mapa,
+            {p: v for p, v in self._tour_problemas.items()}))
+        partes = [f"mapa {resumo['mapa']}"]
+        if resumo["novos"]:
+            partes.append("erros novos em " + ", ".join(resumo["novos"]))
+        if resumo["persistentes"]:
+            partes.append("erros que continuam em " + ", ".join(resumo["persistentes"]))
+        if resumo["corrigidos"]:
+            partes.append("corrigidos em " + ", ".join(resumo["corrigidos"]))
+        if resumo["codigos"]:
+            partes.append("aprendizados " + ", ".join(resumo["codigos"]))
+        self.registrar("Tour", "Gerente Técnico: aprender e ensinar", APROVADO,
+                       f"{len(self._tour_mapa)} página(s) no mapa · " + "; ".join(partes) + ".", evidencia=False)
 
     def tour_traducoes(self):
         from traducoes import TEXTOS
