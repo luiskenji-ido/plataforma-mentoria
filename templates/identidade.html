@@ -1,0 +1,99 @@
+{% extends "base.html" %}
+{% block title %}{{ tt('Identidade da instituição') }}{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-3">
+    <div>
+        <h2 class="text-primary fw-bold mb-1"><i class="bi bi-building"></i> {{ tt('Identidade da instituição') }}</h2>
+        <p class="text-muted mb-0">{{ tt('Nome, apelido, plataforma e logo desta instalação. As telas, os e-mails, os certificados e o Assistente usam estes dados no lugar de nomes fixos.') }}</p>
+    </div>
+</div>
+
+{% if not dados.configurada %}
+<div class="alert alert-warning d-flex align-items-center gap-2" id="avisoIdentidadePendente">
+    <i class="bi bi-exclamation-triangle-fill fs-4"></i>
+    <div>{{ tt('A identidade ainda não foi preenchida: as telas mostram nomes genéricos até você salvar.') }}</div>
+</div>
+{% endif %}
+
+<div class="row g-3">
+    <div class="col-lg-7">
+        <div class="card shadow-sm border-0" id="cardDadosIdentidade">
+            <div class="card-header bg-white fw-bold"><i class="bi bi-card-text"></i> {{ tt('Dados da instituição') }}</div>
+            <div class="card-body">
+                <form method="POST" action="{{ url_for('identidade_instituicao') }}" id="formIdentidade">
+                    <div class="mb-3">
+                        <label class="form-label fw-bold" for="idNome">{{ tt('Nome da instituição') }} *</label>
+                        <input class="form-control" id="idNome" name="nome" maxlength="150" required
+                               value="{{ dados.nome if dados.configurada else '' }}" placeholder="{{ tt('Ex.: Instituto Exemplo de Educação') }}">
+                        <div class="form-text">{{ tt('Nome completo: aparece no termo de adesão, nos certificados e nos e-mails.') }}</div>
+                    </div>
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-5">
+                            <label class="form-label fw-bold" for="idApelido">{{ tt('Apelido (sigla)') }} *</label>
+                            <input class="form-control" id="idApelido" name="apelido" maxlength="30" required
+                                   value="{{ dados.apelido if dados.configurada else '' }}" placeholder="{{ tt('Ex.: IEX') }}">
+                            <div class="form-text">{{ tt('Forma curta usada nos botões e rótulos, como "Reuniões IEX × B2B".') }}</div>
+                        </div>
+                        <div class="col-md-7">
+                            <label class="form-label fw-bold" for="idPlataforma">{{ tt('Nome da plataforma ou do programa') }} *</label>
+                            <input class="form-control" id="idPlataforma" name="plataforma" maxlength="120" required
+                                   value="{{ dados.plataforma if dados.configurada else '' }}" placeholder="{{ tt('Ex.: Programa de Mentoria 2026') }}">
+                            <div class="form-text">{{ tt('Aparece no título das páginas, na assinatura dos e-mails e nos convites.') }}</div>
+                        </div>
+                    </div>
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold" for="idSite">{{ tt('Site') }}</label>
+                            <input class="form-control" id="idSite" name="site" maxlength="300" type="url" value="{{ dados.site or '' }}" placeholder="https://">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold" for="idEmail">{{ tt('E-mail de contato') }}</label>
+                            <input class="form-control" id="idEmail" name="email_contato" maxlength="150" type="email" value="{{ dados.email_contato or '' }}">
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold" for="idCargo">{{ tt('Cargo de quem assina o certificado pela instituição') }}</label>
+                        <input class="form-control" id="idCargo" name="cargo_assinatura" maxlength="120"
+                               value="{{ dados.cargo_assinatura or '' }}" placeholder="{{ padrao.cargo_assinatura }}">
+                    </div>
+                    <button class="btn btn-primary fw-bold" type="submit" id="btnSalvarIdentidade"><i class="bi bi-check-lg"></i> {{ tt('Salvar identidade') }}</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-5">
+        <div class="card shadow-sm border-0 mb-3" id="cardLogoIdentidade">
+            <div class="card-header bg-white fw-bold"><i class="bi bi-image"></i> {{ tt('Logo') }}</div>
+            <div class="card-body">
+                {% if marca.logo_url %}
+                <div class="border rounded p-3 mb-3 text-center bg-light"><img src="{{ marca.logo_url }}" alt="{{ tt('Logo da instituição') }}" style="max-height: 90px; max-width: 100%;"></div>
+                {% else %}
+                <p class="text-muted small">{{ tt('Nenhum logo enviado.') }}</p>
+                {% endif %}
+                <form method="POST" action="{{ url_for('identidade_logo') }}" enctype="multipart/form-data" class="d-flex gap-2 flex-wrap">
+                    <input class="form-control" type="file" name="logo" accept=".png,.jpg,.jpeg,.webp" required style="max-width: 100%;">
+                    <button class="btn btn-outline-primary fw-bold" type="submit"><i class="bi bi-upload"></i> {{ tt('Enviar logo') }}</button>
+                </form>
+                {% if marca.logo_url %}
+                <form method="POST" action="{{ url_for('identidade_logo') }}" class="mt-2">
+                    <input type="hidden" name="acao" value="remover">
+                    <button class="btn btn-sm btn-outline-danger" type="submit"><i class="bi bi-trash"></i> {{ tt('Remover logo') }}</button>
+                </form>
+                {% endif %}
+                <div class="form-text">{{ tt('PNG, JPG ou WEBP, até 2 MB. Aparece no menu, nos certificados e na verificação pública.') }}</div>
+            </div>
+        </div>
+
+        <div class="card shadow-sm border-0" id="cardPreviaIdentidade">
+            <div class="card-header bg-white fw-bold"><i class="bi bi-eye"></i> {{ tt('Como aparece nas telas') }}</div>
+            <ul class="list-group list-group-flush small">
+                <li class="list-group-item"><span class="text-muted">{{ tt('Menu') }}:</span> <strong>{{ tt('Reuniões {apelido} × B2B') }}</strong></li>
+                <li class="list-group-item"><span class="text-muted">{{ tt('Avaliações') }}:</span> <strong>{{ tt('Gestão {apelido}') }}</strong></li>
+                <li class="list-group-item"><span class="text-muted">{{ tt('E-mails') }}:</span> <strong>{{ tt('Equipe') }} {{ marca.plataforma }}</strong></li>
+                <li class="list-group-item"><span class="text-muted">{{ tt('Certificado') }}:</span> <strong>{{ marca.cargo_assinatura }} · {{ marca.apelido }}</strong></li>
+            </ul>
+        </div>
+    </div>
+</div>
+{% endblock %}

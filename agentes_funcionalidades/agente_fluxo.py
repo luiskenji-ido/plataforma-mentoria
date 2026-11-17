@@ -106,13 +106,13 @@ class AgenteDoFluxo(AgenteFuncional):
                            "O Gerente de Funcionalidades aprendeu estas funções novas; criar o passo de teste correspondente.")
 
     def regra_reuniao(self, participante):
-        """Reuniões ITM × B2B fora da gestão: participante vê a ata e salva na agenda; quem não participou não vê nada;
+        """Reuniões instituição × B2B fora da gestão: participante vê a ata e salva na agenda; quem não participou não vê nada;
         ninguém fora da gestão envia convite (o envio dispara e-mails em nome da coordenação)."""
         m = _modelos()
         reuniao_id = self.contexto["ids"].get("reuniao")
         if not reuniao_id:
             return
-        self.etapa(f"Regra: reunião ITM × B2B para o perfil {self.perfil}")
+        self.etapa(f"Regra: reunião instituição × B2B para o perfil {self.perfil}")
         status_ics, _, ics = self.cliente.pedir("GET", f"/reunioes/{reuniao_id}/agenda.ics")
         abriu = status_ics == 200 and "BEGIN:VCALENDAR" in ics
         if participante:
@@ -157,7 +157,7 @@ class AgenteDoFluxo(AgenteFuncional):
         presenca = self.banco(lambda: m.PresencaReuniao.query.filter_by(reuniao_id=reuniao_id, usuario_id=meu_id).first())
         self.confere(presenca is not None and presenca.check_out is not None, f"{self.perfil} faz check-in e check-out na reunião", "FLX",
                      "Entrada e saída registradas (base das horas ESG).", "Presença não registrada.",
-                     "Check-in/check-out real nas reuniões ITM × B2B", "Alta", print_de=f"/reunioes/{reuniao_id}")
+                     "Check-in/check-out real nas reuniões instituição × B2B", "Alta", print_de=f"/reunioes/{reuniao_id}")
         self.post(f"/reunioes/{reuniao_id}/feedback", {"nota": "9"})
         self.post(f"/reunioes/{reuniao_id}/feedback", {"nota": "4", "comentario": f"{MARCA} Reunião objetiva"})
         nota = self.banco(lambda: [f.nota for f in m.FeedbackReuniao.query.filter_by(reuniao_id=reuniao_id, usuario_id=meu_id).all()])
@@ -219,6 +219,7 @@ class AgenteAdministrador(AgenteDoFluxo):
         self.credenciais_dos_agentes()
         self.assistente_da_plataforma()
         self.provedores_de_ia()
+        self.identidade_da_instituicao()
 
         self.etapa("Cria o Mentor Administrador")
         self.criar_usuario("mentoradmin", "Mentor Administrador", "Mentor Administrador")
@@ -343,6 +344,51 @@ class AgenteAdministrador(AgenteDoFluxo):
                      "O catálogo de modelos ou os preços mudaram.", "Preços e modelos só com valores válidos", "Média",
                      "Em provedores_ia.salvar_precos/adicionar_modelo, validar antes de gravar.")
 
+    def identidade_da_instituicao(self):
+        """Identidade da instituição: campo obrigatório vazio é recusado; o apelido salvo aparece nos botões e o nome da
+        plataforma no menu; logo em SVG é recusado. No fim volta exatamente à identidade de antes (nada fica do teste)."""
+        self.etapa("Identidade da instituição (nome, apelido, plataforma e logo)")
+        status, _, pagina = self.cliente.pedir("GET", "/admin/identidade")
+        self.confere(status == 200 and 'id="cardDadosIdentidade"' in pagina and 'id="cardLogoIdentidade"' in pagina,
+                     "Tela de Identidade da instituição", "FLX", "Dados, logo e prévia na tela.", f"HTTP {status} ou cartões ausentes.",
+                     "Cada instalação cadastra a própria identidade", "Alta", print_de="/admin/identidade")
+
+        import identidade
+        antes = self.banco(lambda: {c: identidade._ler_do_banco().get(c) for c in (*identidade.LIMITES, 'configurada', 'logo_arquivo')})
+        self.post("/admin/identidade", {"nome": "", "apelido": "TST", "plataforma": "Plataforma"})
+        depois_vazio = self.banco(lambda: {c: identidade._ler_do_banco().get(c) for c in (*identidade.LIMITES, 'configurada', 'logo_arquivo')})
+        self.confere(depois_vazio == antes, "Nome da instituição vazio é recusado sem gravar nada", "VAL",
+                     "Identidade mantida.", "A identidade mudou com o nome vazio.", "Nome, apelido e plataforma são obrigatórios", "Alta",
+                     "Em identidade.salvar, recusar os campos obrigatórios vazios antes de gravar.")
+
+        apelido, plataforma = "FNX", f"{MARCA} Plataforma"
+        self.post("/admin/identidade", {"nome": f"{MARCA} Instituto", "apelido": apelido, "plataforma": plataforma,
+                                        "cargo_assinatura": "Direção"})
+        _, _, menu = self.cliente.pedir("GET", "/reunioes")
+        no_menu = f"Reuniões {apelido} × B2B" in menu and plataforma in menu
+        self.confere(no_menu, "Apelido e plataforma aparecem no menu (sem nome fixo no código)", "FLX",
+                     f"Menu mostra 'Reuniões {apelido} × B2B' e '{plataforma}'.", "O menu não usou a identidade salva.",
+                     "Botões e rótulos usam o apelido cadastrado", "Alta",
+                     "Nos textos, usar o marcador {apelido} em tt()/t() e {{ marca.* }} nos templates.", print_de="/reunioes")
+        self.post("/admin/identidade/logo", {}, arquivos={"logo": ("logo.svg", b"<svg xmlns='http://www.w3.org/2000/svg'/>")})
+        logo = self.banco(lambda: identidade._ler_do_banco().get('logo_arquivo'))
+        self.confere(logo == antes.get('logo_arquivo'), "Logo em SVG é recusado", "SEG", "Só PNG, JPG ou WEBP são aceitos.",
+                     "O SVG foi gravado como logo.", "Logo sem conteúdo ativo (SVG pode carregar script)", "Alta")
+
+        # Volta exatamente ao estado de antes: pelo próprio site (o servidor renova o cache na hora); instalação que ainda
+        # não tinha identidade volta a "não configurada" apagando a linha criada pelo teste
+        if antes.get('configurada'):
+            self.post("/admin/identidade", {c: antes.get(c) or '' for c in identidade.LIMITES})
+        else:
+            def apagar_linha():
+                from models import db, IdentidadeInstituicao
+                IdentidadeInstituicao.query.delete()
+                db.session.commit()
+            self.banco(apagar_linha)
+        final = self.banco(lambda: {c: identidade._ler_do_banco().get(c) for c in (*identidade.LIMITES, 'configurada', 'logo_arquivo')})
+        self.confere(final == antes, "Identidade volta à de antes do teste", "FLX", "Nenhum dado do teste ficou na identidade.",
+                     f"Ficou diferente: {final}", "O teste não deixa marcas", "Média")
+
     def credenciais_dos_agentes(self):
         """Área Agentes IA: o quadro de credenciais existe e NUNCA mostra a senha das contas de teste (só a situação).
         O agente não grava nada aqui: as credenciais reais do servidor não são alteradas pelo teste."""
@@ -385,7 +431,7 @@ class AgenteMentorAdministrador(AgenteDoFluxo):
                "Cria Gestor Parceiro, Mentor, Professor, 2 Alunos e o Avaliador da banca",
                "Cria a empresa parceira (gestor e mentor), o grupo e a turma (matrícula automática)",
                "Matricula outro aluno, cria o projeto, a tarefa e agenda a banca com o avaliador",
-               'Reunião ITM × B2B: ata, arquivo .ics, Salvar na agenda e convite que nunca vai para contas de teste']
+               'Reunião instituição × B2B: ata, arquivo .ics, Salvar na agenda e convite que nunca vai para contas de teste']
 
     def rodar(self):
         m = _modelos()
@@ -568,7 +614,7 @@ class AgenteMentorAdministrador(AgenteDoFluxo):
         ciclos = self.banco(lambda: [(c.id, c.empresa_id) for c in m.CicloAvaliacao.query.filter_by(titulo=titulo).all()])
         self.confere(len(ciclos) == 1 and ciclos[0][1] == empresa_id, "Abre o ciclo de avaliação 360° do parceiro", "FLX",
                      "Ciclo aberto (o período inválido foi recusado).", f"Ciclos gravados: {ciclos}.",
-                     "Avaliação de todos: jovem, mentor, gestores ITM e B2B e o programa", "Alta", print_de="/avaliacoes#ciclos")
+                     "Avaliação de todos: jovem, mentor, gestores da instituição e B2B e o programa", "Alta", print_de="/avaliacoes#ciclos")
         if not ciclos:
             return
         self.contexto["ids"]["ciclo"] = ciclos[0][0]
@@ -582,7 +628,7 @@ class AgenteMentorAdministrador(AgenteDoFluxo):
         m = _modelos()
         self.etapa("Reunião de Alinhamento: remarcação, pontos do parceiro e gravação")
         inicio = (datetime.now() - timedelta(minutes=10)).replace(second=0, microsecond=0)
-        form = dict(base, tipo="Alinhamento", data_hora=inicio.strftime("%Y-%m-%dT%H:%M"), modalidade="Presencial", local_ou_link="Sala do ITM",
+        form = dict(base, tipo="Alinhamento", data_hora=inicio.strftime("%Y-%m-%dT%H:%M"), modalidade="Presencial", local_ou_link="Sala da instituição",
                     pontos_parceiro=f"{MARCA} Jovens chegando atrasados às palestras", contar_voluntariado="on",
                     motivo_alteracao=f"{MARCA} Antecipada a pedido do parceiro")
         form.pop("enviar_convite", None)
@@ -633,18 +679,18 @@ class AgenteMentorAdministrador(AgenteDoFluxo):
                      "Em oauth_microsoft, comparar o state recebido com o guardado na sessão (hmac.compare_digest).")
 
     def reuniao_e_convite(self):
-        """Reuniões ITM × B2B: registra a ata, confere o arquivo de agenda (.ics) e os links "Salvar na agenda", e garante que
+        """Reuniões instituição × B2B: registra a ata, confere o arquivo de agenda (.ics) e os links "Salvar na agenda", e garante que
         o convite NUNCA sai para contas de teste — o agente não dispara e-mail de verdade (só contas @local.com e domínios .test)."""
         m = _modelos()
-        self.etapa("Reunião ITM × B2B e convite por e-mail")
+        self.etapa("Reunião instituição × B2B e convite por e-mail")
         mentor, gestor, professor = self.usuario("mentor"), self.usuario("gestor"), self.usuario("professor")
         empresa_id = self.contexto["ids"].get("empresa")
         _, _, formulario = self.cliente.pedir("GET", "/reunioes/nova")
         self.confere('id="rParceiro"' in formulario and f'value="{empresa_id}"' in formulario, "Formulário oferece o parceiro B2B da reunião", "FLX",
                      "Campo Parceiro B2B com a empresa parceira do programa.", "Campo Parceiro B2B ausente ou sem a empresa.",
-                     "Reunião ITM × B2B indica o parceiro", "Média")
+                     "Reunião instituição × B2B indica o parceiro", "Média")
         quando = (datetime.now() + timedelta(days=5)).replace(hour=14, minute=30, second=0, microsecond=0)
-        titulo = f"{MARCA} Alinhamento ITM × B2B"
+        titulo = f"{MARCA} Alinhamento instituição × B2B"
         # O Professor não pertence ao parceiro: mesmo enviado à força, o servidor tem de descartá-lo
         base_reuniao = {"titulo": titulo, "empresa_id": empresa_id or "", "data_hora": quando.strftime("%Y-%m-%dT%H:%M"),
                         "duracao_minutos": "45", "modalidade": "Online", "local_ou_link": "https://meet.google.com/funcional-teste",
@@ -654,7 +700,7 @@ class AgenteMentorAdministrador(AgenteDoFluxo):
         self.post("/reunioes/nova", base_reuniao)
         reuniao = self.banco(lambda: m.ReuniaoInstitucional.query.filter_by(titulo=titulo).first())
         participantes = self.banco(lambda: sorted(p.id for p in m.ReuniaoInstitucional.query.get(reuniao.id).participantes)) if reuniao else []
-        self.confere(reuniao is not None and all(x["id"] in participantes for x in (mentor, gestor) if x), "Registra a reunião ITM × B2B com participantes",
+        self.confere(reuniao is not None and all(x["id"] in participantes for x in (mentor, gestor) if x), "Registra a reunião instituição × B2B com participantes",
                      "FLX", f"Reunião gravada com {len(participantes)} participante(s) da plataforma.", "Reunião não gravada ou sem os participantes.",
                      "Gestão registra reuniões com participantes internos e externos", "Alta", print_de="/reunioes")
         if not reuniao:
@@ -760,10 +806,10 @@ class AgenteGestorParceiro(AgenteDoFluxo):
         mentor = self.usuario("mentor")
         if not self.contexto["ids"].get("ciclo"):
             return
-        self.etapa("Avaliação 360°: gestor B2B avalia o mentor, a gestão ITM e o programa")
+        self.etapa("Avaliação 360°: gestor B2B avalia o mentor, a gestão da instituição e o programa")
         ok = self.avaliar("Mentor", mentor["id"], [3, 4, 4, 4], f"{MARCA} Precisa responder mais rápido") and \
-            self.avaliar("Gestão ITM", None, [4, 4, 5]) and self.avaliar("Programa", None, [5, 4, 4])
-        self.confere(ok, "Gestor B2B avalia mentor, gestão ITM e programa", "FLX", "Três avaliações gravadas.", "Alguma avaliação não foi gravada.",
+            self.avaliar("Gestão {apelido}", None, [4, 4, 5]) and self.avaliar("Programa", None, [5, 4, 4])
+        self.confere(ok, "Gestor B2B avalia mentor, gestão da instituição e programa", "FLX", "Três avaliações gravadas.", "Alguma avaliação não foi gravada.",
                      "Gestores B2B avaliam mentores e o programa", "Alta", print_de="/avaliacoes")
         professor = self.usuario("professor")
         if professor:
@@ -1008,7 +1054,7 @@ class AgenteMentor(AgenteDoFluxo):
             self.post(f"/desistencias/{pedido.id}/decidir", {"acao": "confirmar"})
             situacao = self.banco(lambda: m.Desistencia.query.get(pedido.id).status)
             self.confere(situacao == "Solicitada", "Mentor não confirma a desistência", "PER", "Confirmação recusada ao mentor.",
-                         f"O mentor confirmou a desistência (status {situacao}).", "Só a gestão ITM ou o gestor B2B confirmam", "Alta",
+                         f"O mentor confirmou a desistência (status {situacao}).", "Só a gestão da instituição ou o gestor B2B confirmam", "Alta",
                          "Em decidir_desistencia, conferir pode_decidir_desistencia antes de qualquer ação.")
 
 
@@ -1277,7 +1323,7 @@ class AgenteEncerramento(AgenteDoFluxo):
                      "O alerta de ruído de comunicação não apareceu.", "Alerta de ruído de comunicação (limite em Parâmetros de regras)", "Alta",
                      print_de="/avaliacoes#alertas")
         resultados = pagina.split('id="resultados"')[-1].split('id="ciclos"')[0]
-        self.confere(f"{MARCA} Demora a responder no chat" in resultados, "Gestão ITM vê resultados e comentários", "FLX",
+        self.confere(f"{MARCA} Demora a responder no chat" in resultados, "Gestão da instituição vê resultados e comentários", "FLX",
                      "Médias por critério e comentários na aba Resultados.", "Comentários ausentes nos resultados.", "Resultados da avaliação 360°", "Média")
         self.post("/avaliacoes/ciclos", {"acao": "encerrar", "ciclo_id": ciclo_id})
         encerrado = self.banco(lambda: m.CicloAvaliacao.query.get(ciclo_id).encerrado_em is not None)
@@ -1350,7 +1396,7 @@ class AgenteEncerramento(AgenteDoFluxo):
             return
         self.etapa("Logo do parceiro B2B no certificado")
         _, _, html = self.cliente.pedir("GET", f"/certificado/{projeto_id}/{aluno['id']}")
-        self.confere(f"/empresas/{empresa_id}/logo" in html, "Certificado mostra o logo do parceiro B2B", "FLX", "Logo da empresa ao lado do logo ITM.",
+        self.confere(f"/empresas/{empresa_id}/logo" in html, "Certificado mostra o logo do parceiro B2B", "FLX", "Logo da empresa ao lado do logo da instituição.",
                      "O logo da empresa não aparece no certificado.", "Parceiros B2B colocam o logo no certificado", "Média",
                      print_de=f"/certificado/{projeto_id}/{aluno['id']}")
         self.post(f"/empresas/{empresa_id}/logo/enviar", {"acao": "remover"})

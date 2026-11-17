@@ -87,7 +87,7 @@
             { sel: '#receberEmail', texto: {{ tt('Escolha se também quer receber os avisos por e-mail.')|tojson }} },
         ],
         'reunioes': [
-            { texto: {{ tt('Reuniões ITM × B2B: pautas, atas, decisões e encaminhamentos com responsáveis e prazos.')|tojson }} },
+            { texto: {{ tt('Reuniões {apelido} × B2B: pautas, atas, decisões e encaminhamentos com responsáveis e prazos.')|tojson }} },
             { sel: 'form[method="GET"]', texto: {{ tt('Filtre as reuniões por período.')|tojson }} },
             { sel: 'table', texto: {{ tt('Abra uma reunião para ver a ata e acompanhar os encaminhamentos.')|tojson }} },
         ],
@@ -180,6 +180,12 @@
             { sel: '#cardNovaRegra', texto: {{ tt('Cadastre um novo parâmetro quando uma regra nova precisar de um valor ajustável.')|tojson }} },
             { sel: '#cardHistoricoParametros', texto: {{ tt('O histórico mostra quem mudou cada valor, quando e por quê.')|tojson }} },
         ],
+        'identidade_instituicao': [
+            { texto: {{ tt('Identidade da instituição: o nome, o apelido, a plataforma e o logo desta instalação. Nenhuma tela usa nomes fixos: todas leem daqui.')|tojson }} },
+            { sel: '#cardDadosIdentidade', texto: {{ tt('Preencha o nome completo da instituição, o apelido (a sigla curta que aparece nos botões, como "Reuniões {apelido} × B2B") e o nome da plataforma. Salve para aplicar em todas as telas.')|tojson }} },
+            { sel: '#cardLogoIdentidade', texto: {{ tt('Envie o logo em PNG, JPG ou WEBP: ele aparece no menu, nos certificados e na verificação pública.')|tojson }} },
+            { sel: '#cardPreviaIdentidade', texto: {{ tt('A prévia mostra como o apelido e a plataforma aparecem no menu, nas avaliações, nos e-mails e no certificado.')|tojson }} },
+        ],
         'agentes_orquestrador': [
             { texto: {{ tt('Agente Orquestrador executor: aplica as correções sugeridas pelos agentes de teste, com aprovação antes do commit.')|tojson }} },
             { sel: '#cardAmbiente', texto: {{ tt('O ambiente mostra onde o orquestrador está rodando e se ele pode alterar o código aqui.')|tojson }} },
@@ -211,6 +217,8 @@
         'provedores_ia_view': [
             { texto: {{ tt('Provedores de IA e custos: escolha qual IA atende cada uso, ligue ou desligue cada uma e acompanhe o gasto do mês.')|tojson }} },
             { sel: '#cardGastoIa', texto: {{ tt('O gasto do mês comparado ao teto. Ao atingir o teto, as IAs param até o mês seguinte; o teto fica em Parâmetros de regras.')|tojson }} },
+            { sel: '#custoPorCategoria', texto: {{ tt('Chatbots × Agentes: quanto do gasto vem das conversas (chatbots) e quanto vem do trabalho automático dos agentes.')|tojson }} },
+            { sel: '#cardKpiIa', texto: {{ tt('KPI de cada agente e chatbot: custo do mês, participação no gasto, chamadas, custo médio, taxa de sucesso, modelo mais usado e comparação com o mês anterior.')|tojson }} },
             { sel: '#cardUso_assistente', texto: {{ tt('Cada uso tem o interruptor Ligada/Desligada, o modelo principal e até duas reservas, usadas quando o principal falha.')|tojson }} },
             { sel: '#cardUso_acompanhamento', texto: {{ tt('O assistente de estudos do Acompanhamento, usado por jovens e mentores: um modelo barato costuma bastar.')|tojson }} },
             { sel: '#cardUso_orquestrador', texto: {{ tt('O Agente Orquestrador corrige código e precisa de um modelo mais forte; ele só roda quando o Administrador inicia.')|tojson }} },

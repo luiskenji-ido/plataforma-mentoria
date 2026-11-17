@@ -2,7 +2,12 @@
 """
 SERVIÇO DE BACKUP DA PLATAFORMA (Manutenção › DB)
 =================================================
-- Cópia consistente do SQLite com a API de backup (funciona com o app em uso) e verificação de integridade.
+- Cópia consistente conforme o banco em uso (DATABASE_URL) e verificação de integridade:
+    SQLite: API de backup do SQLite (funciona com o app em uso), arquivo .db;
+    MySQL / MariaDB: mysqldump --single-transaction compactado, arquivo .sql.gz. As credenciais vão num arquivo
+    temporário só do dono (--defaults-extra-file), nunca na linha de comando. Precisa do pacote mysql-client
+    (mysqldump e mysql); outro caminho pode ser indicado em MYSQLDUMP_BIN e MYSQL_BIN.
+- Restauração: .db no SQLite; .sql.gz no MySQL; um .db também restaura num MySQL (copiado por copiar_banco.py).
 - Agendamentos Diário / Semanal / Mensal com pausa, retenção por agendamento e próxima execução calculada.
 - Restauração com cópia de segurança do banco atual antes e com a auditoria preservada
   (os agendamentos e o histórico de execuções não voltam no tempo junto com os dados).
@@ -13,8 +18,12 @@ As funções rodam dentro de um app_context (rotas do Flask ou tarefas_agendadas
 import os
 import re
 import csv
+import gzip
+import shutil
 import sqlite3
 import calendar
+import tempfile
+import subprocess
 from datetime import datetime, timedelta, time as hora_do_dia
 
 from flask import current_app
@@ -27,6 +36,16 @@ STATUS_OK = ('Concluído', 'Sucesso')          # 'Sucesso' = registros antigos
 TIPOS_BACKUP = ('Imediato', 'Agendado', 'Agendado (manual)')
 DIAS_SEM_BACKUP_ATENCAO = 8                   # sem backup bem-sucedido há mais tempo que isto: "Atenção"
 TABELAS_PRESERVADAS = ('agendamento_backup', 'alteracao_agendamento_backup', 'registro_backup')
+EXTENSOES = ('.db', '.sql.gz')                # SQLite e MySQL
+
+
+def motor():
+    """Banco em uso: 'sqlite', 'mysql', 'postgresql'..."""
+    return db.engine.dialect.name
+
+
+def eh_mysql():
+    return motor() in ('mysql', 'mariadb')
 
 
 # ------------------------------------------------------------------------------
@@ -70,7 +89,7 @@ def listar_backups():
     base = pasta_base()
     for raiz, _, arquivos in os.walk(base):
         for nome in arquivos:
-            if nome.endswith('.db'):
+            if nome.endswith(EXTENSOES):
                 completo = os.path.join(raiz, nome)
                 itens.append({'relativo': os.path.relpath(completo, base).replace('\\', '/'), 'nome': nome,
                               'tamanho': os.path.getsize(completo), 'data': datetime.fromtimestamp(os.path.getmtime(completo))})
@@ -90,7 +109,9 @@ def tamanho_legivel(n):
 # Cópia, verificação e registro
 # ------------------------------------------------------------------------------
 def verificar_integridade(caminho):
-    """(ok, mensagem): arquivo SQLite íntegro e com as tabelas da plataforma."""
+    """(ok, mensagem): arquivo íntegro (SQLite .db ou dump do MySQL .sql.gz) e com as tabelas da plataforma."""
+    if caminho.endswith('.sql.gz'):
+        return _verificar_dump(caminho)
     try:
         with open(caminho, 'rb') as f:
             if f.read(16) != b'SQLite format 3\x00':
@@ -122,16 +143,26 @@ def registrar(tipo, status, detalhes, usuario_id=None, arquivo=None, tamanho=Non
 def copiar_banco(subpasta, prefixo):
     """Gera a cópia e confere a integridade. Devolve (caminho, tamanho, duração); levanta erro se falhar."""
     inicio = datetime.now()
-    nome = f"{prefixo}_{inicio.strftime('%Y%m%d_%H%M%S_%f')}.db"
+    if motor() != 'sqlite' and not eh_mysql():
+        raise RuntimeError(f'o backup automático cobre SQLite e MySQL; para {motor()}, use a ferramenta do próprio banco')
+    nome = f"{prefixo}_{inicio.strftime('%Y%m%d_%H%M%S_%f')}" + ('.sql.gz' if eh_mysql() else '.db')
     destino = os.path.join(pasta_de(subpasta), nome)
     db.session.commit()  # nada pendente na sessão antes da cópia
-    origem = sqlite3.connect(caminho_banco())
-    copia = sqlite3.connect(destino)
-    try:
-        origem.backup(copia)
-    finally:
-        copia.close()
-        origem.close()
+    if eh_mysql():
+        try:
+            _dump_mysql(destino)
+        except Exception:
+            if os.path.exists(destino):
+                os.remove(destino)
+            raise
+    else:
+        origem = sqlite3.connect(caminho_banco())
+        copia = sqlite3.connect(destino)
+        try:
+            origem.backup(copia)
+        finally:
+            copia.close()
+            origem.close()
     ok, mensagem = verificar_integridade(destino)
     if not ok:
         os.remove(destino)
@@ -165,7 +196,7 @@ def _sem_acento(texto):
 def aplicar_retencao(agendamento):
     """Mantém só os N arquivos mais novos deste agendamento. Devolve quantos foram apagados."""
     pasta = pasta_de(agendamento.pasta)
-    proprios = sorted((n for n in os.listdir(pasta) if n.startswith(f"mentoria_backup_ag{agendamento.id}_") and n.endswith('.db')),
+    proprios = sorted((n for n in os.listdir(pasta) if n.startswith(f"mentoria_backup_ag{agendamento.id}_") and n.endswith(EXTENSOES)),
                       reverse=True)  # o nome tem a data: ordem alfabética = cronológica
     apagados = 0
     for nome in proprios[max(agendamento.retencao or 1, 1):]:
@@ -266,36 +297,36 @@ def _identificador(nome, permitidos):
     return '"' + nome + '"'
 
 
+def _tabela(nome):
+    _identificador(nome, TABELAS_PRESERVADAS)
+    return db.metadata.tables[nome]
+
+
 def _ler_tabelas_preservadas():
-    con = sqlite3.connect(caminho_banco())
-    con.row_factory = sqlite3.Row
-    try:
-        return {t: [dict(r) for r in con.execute('SELECT * FROM ' + _identificador(t, TABELAS_PRESERVADAS))] for t in TABELAS_PRESERVADAS}
-    finally:
-        con.close()
+    """Agendamentos e histórico de backups (pelo SQLAlchemy: vale para qualquer banco)."""
+    from sqlalchemy import select
+    with db.engine.connect() as con:
+        return {t: [dict(r._mapping) for r in con.execute(select(_tabela(t)))] for t in TABELAS_PRESERVADAS}
 
 
 def _gravar_tabelas_preservadas(dados):
-    con = sqlite3.connect(caminho_banco())
-    try:
-        for tabela, linhas in dados.items():
-            nome_tabela = _identificador(tabela, TABELAS_PRESERVADAS)
-            colunas_atuais = {c[1] for c in con.execute('PRAGMA table_info(' + nome_tabela + ')')}
-            con.execute('DELETE FROM ' + nome_tabela)
-            for linha in linhas:
-                linha = {k: v for k, v in linha.items() if k in colunas_atuais}
-                campos = ', '.join(_identificador(c, colunas_atuais) for c in linha)
-                marcadores = ', '.join('?' for _ in linha)
-                con.execute('INSERT INTO ' + nome_tabela + ' (' + campos + ') VALUES (' + marcadores + ')', list(linha.values()))
-        con.commit()
-    finally:
-        con.close()
+    from sqlalchemy import inspect
+    with db.engine.begin() as con:
+        for nome, linhas in dados.items():
+            tabela = _tabela(nome)
+            colunas_atuais = {c['name'] for c in inspect(con).get_columns(nome)}
+            con.execute(tabela.delete())
+            linhas = [{k: v for k, v in linha.items() if k in colunas_atuais} for linha in linhas]
+            if linhas:
+                con.execute(tabela.insert(), linhas)
 
 
 def restaurar(caminho_arquivo, usuario_id, atualizar_estrutura):
     """Restaura o banco a partir de um arquivo validado. Devolve (ok, mensagem)."""
     ok, mensagem = verificar_integridade(caminho_arquivo)
     nome = os.path.basename(caminho_arquivo)
+    if ok and caminho_arquivo.endswith('.sql.gz') and not eh_mysql():
+        ok, mensagem = False, 'backup do MySQL (.sql.gz) só restaura num banco MySQL'
     if not ok:
         registrar('Restauração', 'Falha', f"Arquivo recusado ({nome}): {mensagem}", usuario_id, arquivo=nome)
         return False, mensagem
@@ -307,13 +338,21 @@ def restaurar(caminho_arquivo, usuario_id, atualizar_estrutura):
     inicio = datetime.now()
     db.session.remove()
     db.engine.dispose()
-    origem = sqlite3.connect(f"file:{caminho_arquivo}?mode=ro", uri=True)
-    destino = sqlite3.connect(caminho_banco())
-    try:
-        origem.backup(destino)
-    finally:
-        destino.close()
-        origem.close()
+    if caminho_arquivo.endswith('.sql.gz'):
+        _restaurar_mysql(caminho_arquivo)
+    elif motor() == 'sqlite':
+        origem = sqlite3.connect(f"file:{caminho_arquivo}?mode=ro", uri=True)
+        destino = sqlite3.connect(caminho_banco())
+        try:
+            origem.backup(destino)
+        finally:
+            destino.close()
+            origem.close()
+    else:  # backup .db (SQLite) restaurado num MySQL/PostgreSQL: cópia tabela a tabela
+        import copiar_banco
+        copiar_banco.copiar('sqlite:///' + os.path.abspath(caminho_arquivo).replace('\\', '/'),
+                            db.engine.url.render_as_string(hide_password=False), substituir=True, avisar=lambda *_: None)
+        db.engine.dispose()
     atualizar_estrutura()          # backup antigo pode não ter as tabelas/colunas novas
     _gravar_tabelas_preservadas(preservadas)
     registrar('Restauração', 'Concluído',
@@ -379,3 +418,94 @@ def migrar_agendamentos_antigos():
         registro.status = 'Migrado'
     if antigos:
         db.session.commit()
+
+
+# ------------------------------------------------------------------------------
+# MySQL / MariaDB: mysqldump e mysql com credenciais num arquivo temporário (nunca na linha de comando)
+# ------------------------------------------------------------------------------
+def _programa(variavel, nomes):
+    for nome in [os.environ.get(variavel)] + list(nomes):
+        if nome and (shutil.which(nome) or os.path.isfile(nome)):
+            return shutil.which(nome) or nome
+    raise RuntimeError(f"{nomes[0]} não encontrado: instale o pacote mysql-client (Ubuntu: sudo apt install mysql-client) "
+                       f"ou indique o caminho em {variavel}")
+
+
+def _arquivo_de_credenciais():
+    """Arquivo [client] só do dono (0600) com usuário, senha, servidor e porta do DATABASE_URL. Apague depois de usar."""
+    url = db.engine.url
+    def valor(v):
+        return '"' + str(v).replace('\\', '\\\\').replace('"', '\\"') + '"'
+    linhas = ['[client]', f'user={valor(url.username or "")}', f'password={valor(url.password or "")}',
+              f'host={valor(url.host or "localhost")}', 'default-character-set=utf8mb4']
+    if url.port:
+        linhas.append(f'port={int(url.port)}')
+    if url.query.get('unix_socket'):
+        linhas.append(f'socket={valor(url.query["unix_socket"])}')
+    descritor, caminho = tempfile.mkstemp(prefix='mentoria_', suffix='.cnf')
+    with os.fdopen(descritor, 'w', encoding='utf-8') as f:
+        f.write('\n'.join(linhas) + '\n')
+    os.chmod(caminho, 0o600)
+    return caminho
+
+
+def _erro_limpo(texto):
+    from base_conhecimento import sem_segredos
+    return sem_segredos((texto or b'').decode('utf-8', 'replace').strip())[:300] or 'erro desconhecido'
+
+
+def _dump_mysql(destino):
+    """mysqldump --single-transaction (cópia consistente sem travar o site), compactado em .sql.gz."""
+    programa = _programa('MYSQLDUMP_BIN', ('mysqldump', 'mariadb-dump'))
+    credenciais = _arquivo_de_credenciais()
+    try:
+        processo = subprocess.Popen([programa, f'--defaults-extra-file={credenciais}', '--single-transaction', '--quick',
+                                     '--routines', '--triggers', '--no-tablespaces', '--default-character-set=utf8mb4',
+                                     db.engine.url.database], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        with gzip.open(destino, 'wb') as saida:
+            shutil.copyfileobj(processo.stdout, saida)
+        erros = processo.stderr.read()
+        if processo.wait() != 0:
+            raise RuntimeError(f'mysqldump falhou: {_erro_limpo(erros)}')
+    finally:
+        os.remove(credenciais)
+
+
+def _verificar_dump(caminho):
+    """(ok, mensagem): .sql.gz legível, do mysqldump, completo e com as tabelas da plataforma."""
+    try:
+        inicio, tem_usuario, ultima = '', False, ''
+        with gzip.open(caminho, 'rt', encoding='utf-8', errors='replace') as f:
+            for n, linha in enumerate(f):
+                if n < 5:
+                    inicio += linha
+                if not tem_usuario and linha.startswith('CREATE TABLE `usuario`'):
+                    tem_usuario = True
+                if linha.strip():
+                    ultima = linha.strip()
+        if 'dump' not in inicio.lower():
+            return False, 'o arquivo não é um backup do mysqldump'
+        if not ultima.startswith('-- Dump completed'):
+            return False, 'o backup está incompleto (o mysqldump não terminou)'
+        if not tem_usuario:
+            return False, 'o backup não tem as tabelas da plataforma'
+        return True, 'íntegro'
+    except (OSError, EOFError, gzip.BadGzipFile) as e:
+        return False, f'arquivo compactado inválido: {e}'
+
+
+def _restaurar_mysql(caminho_arquivo):
+    """Envia o .sql.gz ao cliente mysql (o dump apaga e recria cada tabela)."""
+    programa = _programa('MYSQL_BIN', ('mysql', 'mariadb'))
+    credenciais = _arquivo_de_credenciais()
+    try:
+        processo = subprocess.Popen([programa, f'--defaults-extra-file={credenciais}', '--default-character-set=utf8mb4',
+                                     db.engine.url.database], stdin=subprocess.PIPE, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
+        with gzip.open(caminho_arquivo, 'rb') as entrada:
+            shutil.copyfileobj(entrada, processo.stdin)
+        processo.stdin.close()
+        erros = processo.stderr.read()
+        if processo.wait() != 0:
+            raise RuntimeError(f'mysql falhou ao restaurar: {_erro_limpo(erros)}')
+    finally:
+        os.remove(credenciais)

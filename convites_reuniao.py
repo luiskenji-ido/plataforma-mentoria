@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-CONVITES DAS REUNIÕES ITM × B2B
+CONVITES DAS REUNIÕES instituição × B2B
 ===============================
 - Arquivo de agenda (.ics, padrão iCalendar RFC 5545): abre no Outlook, Apple Calendar, Thunderbird e outros.
 - Links "adicionar à agenda" para Google Agenda, Outlook.com, Microsoft 365 (Outlook corporativo) e Yahoo Agenda.
@@ -38,6 +38,12 @@ PROVEDORES = [  # (chave, nome exibido, ícone Bootstrap)
 
 
 # ------------------------------------------------------------------------------ datas
+def _marca():
+    """Identidade da instituição (apelido e plataforma) usada no texto do convite e no remetente."""
+    import identidade
+    return identidade.obter()
+
+
 def inicio_fim(reuniao):
     inicio = reuniao.data_hora.replace(tzinfo=FUSO)
     return inicio, inicio + timedelta(minutes=reuniao.duracao_minutos or 60)
@@ -107,7 +113,7 @@ def gerar_ics(reuniao, link=None, metodo='PUBLISH', organizador=None, convidados
     """metodo PUBLISH = arquivo para salvar na agenda; REQUEST = convite por e-mail (com organizador e convidados)."""
     inicio, fim = inicio_fim(reuniao)
     dominio = re.sub(r'^https?://', '', os.environ.get('APP_BASE_URL', '') or 'mentoria').split('/')[0] or 'mentoria'
-    linhas = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Mentoria Jovem Seguro//Reunioes ITM x B2B//PT', 'CALSCALE:GREGORIAN',
+    linhas = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Plataforma de Mentoria//Reunioes//PT', 'CALSCALE:GREGORIAN',
               f'METHOD:{metodo}', 'BEGIN:VEVENT',
               f'UID:reuniao-{reuniao.id}@{dominio}',
               f'DTSTAMP:{_utc(datetime.now(timezone.utc))}',
@@ -160,7 +166,7 @@ def montar_email(reuniao, remetente, convidados, link=None, url_ics=None, atuali
     links = links_agenda(reuniao, link, url_ics)
     rotulos = {chave: nome for chave, nome, _ in PROVEDORES}
 
-    texto = [f"Você foi convidado(a) para a reunião ITM × B2B \"{reuniao.titulo}\".", '', f"Quando: {quando}",
+    texto = [f"Você foi convidado(a) para a reunião {_marca()['apelido']} × B2B \"{reuniao.titulo}\".", '', f"Quando: {quando}",
              f"Modalidade: {reuniao.modalidade or 'Online'}"]
     if reuniao.local_ou_link:
         texto.append(f"Local ou link: {reuniao.local_ou_link}")
@@ -169,7 +175,7 @@ def montar_email(reuniao, remetente, convidados, link=None, url_ics=None, atuali
     texto += ['', 'Salvar na sua agenda:'] + [f"- {rotulos[c]}: {u}" for c, u in links.items()]
     if link:
         texto += ['', f"Ata e encaminhamentos: {link}"]
-    texto += ['', f"Convite enviado por {remetente[0]} pela plataforma Jovem Seguro 2026."]
+    texto += ['', f"Convite enviado por {remetente[0]} pela plataforma {_marca()['plataforma']}."]
 
     botoes = ''.join(f'<a href="{escape(u)}" style="display:inline-block;margin:0 6px 6px 0;padding:7px 12px;border-radius:6px;'
                      f'background:#0d6efd;color:#fff;text-decoration:none;font-size:13px">{escape(rotulos[c])}</a>' for c, u in links.items())
@@ -183,7 +189,7 @@ def montar_email(reuniao, remetente, convidados, link=None, url_ics=None, atuali
             + (f'<p><b>Pauta:</b><br>{escape(reuniao.pauta).replace(chr(10), "<br>")}</p>' if reuniao.pauta else '')
             + f'<p style="margin-bottom:4px"><b>Salvar na sua agenda:</b></p><div>{botoes}</div>'
             + (f'<p><a href="{escape(link)}">Abrir a ata e os encaminhamentos na plataforma</a></p>' if link else '')
-            + f'<p style="color:#6b7280;font-size:12px">Convite enviado por {escape(remetente[0])} pela plataforma Jovem Seguro 2026.</p></div>')
+            + f'<p style="color:#6b7280;font-size:12px">Convite enviado por {escape(remetente[0])} pela plataforma {escape(_marca().get("plataforma", ""))}.</p></div>')
 
     ics = gerar_ics(reuniao, link, 'REQUEST', remetente, convidados)
     mensagem = EmailMessage()
@@ -203,7 +209,7 @@ def smtp_configurado():
 
 
 def remetente_smtp():
-    return (os.environ.get('MAIL_NOME_REMETENTE', 'Jovem Seguro 2026'), os.environ.get('MAIL_REMETENTE', ''))
+    return (os.environ.get('MAIL_NOME_REMETENTE') or _marca()['plataforma'], os.environ.get('MAIL_REMETENTE', ''))
 
 
 def enviar_smtp(mensagem):

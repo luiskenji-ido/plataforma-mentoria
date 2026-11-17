@@ -3,8 +3,13 @@ from flask_sqlalchemy import SQLAlchemy
 from flask_login import UserMixin
 from datetime import datetime, timezone, timedelta
 
-# Criando a "ponte" entre o nosso código Python e o arquivo do banco de dados (SQLite)
+from sqlalchemy.dialects.mysql import LONGTEXT
+
+# A "ponte" entre o código Python e o banco de dados (SQLite, MySQL, PostgreSQL... conforme DATABASE_URL)
 db = SQLAlchemy()
+
+# Texto sem limite prático em qualquer banco: no MySQL o TEXT guarda só 64 KB, então lá ele vira LONGTEXT (4 GB).
+TextoLongo = db.Text().with_variant(LONGTEXT(), 'mysql', 'mariadb')
 
 # ===========================================================================
 # NOVA TABELA PONTE: RELAÇÃO MUITOS-PARA-MUITOS (ALUNOS <-> MENTORES)
@@ -30,7 +35,7 @@ class Usuario(db.Model, UserMixin):
     tema = db.Column(db.String(20), default='claro')
     idioma = db.Column(db.String(10), default='pt')
     # Gráficos escolhidos no Painel Geral (JSON: [{fonte, tipo, cor}]); vazio = padrão do perfil
-    preferencias_painel = db.Column(db.Text, nullable=True)
+    preferencias_painel = db.Column(TextoLongo, nullable=True)
     # Perfil personalizado (herda de tipo_usuario e só restringe módulos); vazio = perfil padrão
     perfil_personalizado_id = db.Column(db.Integer, db.ForeignKey('perfil_personalizado.id'), nullable=True)
     perfil_personalizado = db.relationship('PerfilPersonalizado', foreign_keys=[perfil_personalizado_id])
@@ -45,9 +50,9 @@ class Usuario(db.Model, UserMixin):
     receber_email = db.Column(db.Boolean, default=True)
     # Último login (sinal de engajamento para o alerta de desengajamento)
     ultimo_acesso = db.Column(db.DateTime, nullable=True)
-    perfil_aluno = db.Column(db.Text, nullable=True)
-    objetivo_principal = db.Column(db.Text, nullable=True)
-    expectativa_mentoria = db.Column(db.Text, nullable=True)
+    perfil_aluno = db.Column(TextoLongo, nullable=True)
+    objetivo_principal = db.Column(TextoLongo, nullable=True)
+    expectativa_mentoria = db.Column(TextoLongo, nullable=True)
     
     # -------------------------------------------------------------
     # A LIGAÇÃO OFICIAL: Isso diz ao banco que um Aluno tem uma lista
@@ -75,7 +80,7 @@ class Curso(db.Model):
     data_inclusao = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
     criado_por_id = db.Column(db.Integer, db.ForeignKey('usuario.id'), nullable=True)
     desativado_por_id = db.Column(db.Integer, db.ForeignKey('usuario.id'), nullable=True)
-    motivo_desativacao = db.Column(db.Text, nullable=True)
+    motivo_desativacao = db.Column(TextoLongo, nullable=True)
     data_desativacao = db.Column(db.DateTime, nullable=True)
     # Relacionamento para puxar o nome de quem cadastrou o curso
     criador = db.relationship('Usuario', foreign_keys=[criado_por_id])
@@ -91,9 +96,9 @@ class Acompanhamento(db.Model):
     percentual_conclusao = db.Column(db.Integer, default=0)
     percentual_mentor = db.Column(db.Integer, default=0)
     certificado_anexado = db.Column(db.Boolean, default=False) 
-    observacao = db.Column(db.Text, nullable=True)
+    observacao = db.Column(TextoLongo, nullable=True)
     data_parecer_mentor = db.Column(db.DateTime, nullable=True)
-    observacao_aluno = db.Column(db.Text, nullable=True)
+    observacao_aluno = db.Column(TextoLongo, nullable=True)
     material_apoio = db.Column(db.String(200), nullable=True)
     data_limite = db.Column(db.DateTime, nullable=True)
     data_inicio = db.Column(db.DateTime, nullable=True)
@@ -114,11 +119,11 @@ class SessaoMentoria(db.Model):
     mentor_id = db.Column(db.Integer, db.ForeignKey('usuario.id'), nullable=False)
     aluno_id = db.Column(db.Integer, db.ForeignKey('usuario.id'), nullable=False)
     data_sessao = db.Column(db.DateTime, nullable=False)
-    observacoes = db.Column(db.Text, nullable=True)
+    observacoes = db.Column(TextoLongo, nullable=True)
     # Ata digital estruturada do encontro (resumo das deliberações, fontes recomendadas e plano de ação)
-    ata_resumo = db.Column(db.Text, nullable=True)
-    ata_fontes = db.Column(db.Text, nullable=True)
-    ata_plano_acao = db.Column(db.Text, nullable=True)  # um passo por linha
+    ata_resumo = db.Column(TextoLongo, nullable=True)
+    ata_fontes = db.Column(TextoLongo, nullable=True)
+    ata_plano_acao = db.Column(TextoLongo, nullable=True)  # um passo por linha
     ata_proximo_encontro = db.Column(db.Date, nullable=True)
     ata_registrada_em = db.Column(db.DateTime, nullable=True)
     ata_registrada_por_id = db.Column(db.Integer, db.ForeignKey('usuario.id'), nullable=True)
@@ -132,7 +137,7 @@ class FeedbackSessao(db.Model):
     sessao_id = db.Column(db.Integer, db.ForeignKey('sessao_mentoria.id'), nullable=False)
     autor_id = db.Column(db.Integer, db.ForeignKey('usuario.id'), nullable=False)
     papel_autor = db.Column(db.String(20), nullable=False)
-    comentario = db.Column(db.Text, nullable=False)
+    comentario = db.Column(TextoLongo, nullable=False)
     visibilidade = db.Column(db.String(20), default='Publico')
     data_envio = db.Column(db.DateTime, default=datetime.utcnow)
     
@@ -151,8 +156,8 @@ class QADuvida(db.Model):
     acompanhamento_id = db.Column(db.Integer, db.ForeignKey('acompanhamento.id'), nullable=False)
     autor_id = db.Column(db.Integer, db.ForeignKey('usuario.id'), nullable=False)
     
-    mensagem = db.Column(db.Text, nullable=False)
-    resposta = db.Column(db.Text, nullable=True)
+    mensagem = db.Column(TextoLongo, nullable=False)
+    resposta = db.Column(TextoLongo, nullable=True)
     
     lida_pelo_aluno = db.Column(db.Boolean, default=False)
     lida_pelo_mentor = db.Column(db.Boolean, default=True)
@@ -226,7 +231,7 @@ class SolicitacaoMentoria(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     nome = db.Column(db.String(100), nullable=False)
     email = db.Column(db.String(120), nullable=False)
-    motivo = db.Column(db.Text, nullable=False)
+    motivo = db.Column(TextoLongo, nullable=False)
     status = db.Column(db.String(20), default='Pendente') # Pendente, Aprovado, Negado
     data_solicitacao = db.Column(db.DateTime, default=datetime.utcnow)
 
@@ -241,7 +246,7 @@ class RegistroBackup(db.Model):
     data_registro = db.Column(db.DateTime, default=datetime.utcnow)
     data_agendada = db.Column(db.String(50), nullable=True) 
     destino = db.Column(db.String(255))
-    detalhes = db.Column(db.Text)
+    detalhes = db.Column(TextoLongo)
     usuario_id = db.Column(db.Integer, db.ForeignKey('usuario.id'))
     # Execução: arquivo gerado, tamanho, duração e o agendamento que a disparou (vazio = manual)
     arquivo = db.Column(db.String(255), nullable=True)
@@ -257,7 +262,7 @@ class RegistroBackup(db.Model):
 class Projeto(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     nome = db.Column(db.String(150), nullable=False)
-    descricao = db.Column(db.Text, nullable=True)
+    descricao = db.Column(TextoLongo, nullable=True)
     
     # NOVA LIGAÇÃO: Substituímos o aluno_id e mentor_id pelo grupo_id
     grupo_id = db.Column(db.Integer, db.ForeignKey('grupo.id'), nullable=False)
@@ -342,7 +347,7 @@ turma_curso = db.Table('turma_curso',
 class Grupo(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     nome = db.Column(db.String(150), nullable=False, unique=True)
-    descricao = db.Column(db.Text, nullable=True)
+    descricao = db.Column(TextoLongo, nullable=True)
     data_criacao = db.Column(db.DateTime, default=datetime.utcnow)
     
     # Relação N para N: A mágica que conecta o Grupo à tabela de Usuários usando a ponte acima
@@ -362,12 +367,12 @@ class Frequencia(db.Model):
     # Opções: 'Online', 'Presencial' ou 'Falta'
     tipo_presenca = db.Column(db.String(20), nullable=False)
     
-    observacoes = db.Column(db.Text, nullable=True)
+    observacoes = db.Column(TextoLongo, nullable=True)
     
     # Campos exclusivos para a equipe de gestão validar depois
     validado_admin = db.Column(db.Boolean, default=False)
     admin_id = db.Column(db.Integer, db.ForeignKey('usuario.id'), nullable=True)
-    observacoes_admin = db.Column(db.Text, nullable=True)
+    observacoes_admin = db.Column(TextoLongo, nullable=True)
     
     # Facilita buscar os dados do usuário e do admin que validou
     usuario = db.relationship('Usuario', foreign_keys=[usuario_id], backref=db.backref('frequencias', lazy=True))
@@ -384,7 +389,7 @@ class AvaliacaoProjeto(db.Model):
     # Notas do Comportamento Individual na Equipe e na Banca
     nota_postura = db.Column(db.Float, nullable=True)
     nota_dominio = db.Column(db.Float, nullable=True)
-    observacoes_mentor = db.Column(db.Text, nullable=True)
+    observacoes_mentor = db.Column(TextoLongo, nullable=True)
     
     # Relações para facilitar as buscas no painel
     projeto = db.relationship('Projeto', backref=db.backref('avaliacoes_individuais', lazy=True, cascade="all, delete-orphan"))
@@ -467,7 +472,7 @@ class CheckinAula(db.Model):
 
 
 # ==============================================================================
-# 20. MÓDULO 4: BANCA AVALIADORA (B2B / ITM) E VOLUNTARIADO DE LEITURA
+# 20. MÓDULO 4: BANCA AVALIADORA (B2B / instituição) E VOLUNTARIADO DE LEITURA
 # ==============================================================================
 
 class PerfilAvaliador(db.Model):
@@ -478,8 +483,8 @@ class PerfilAvaliador(db.Model):
     # Dados Corporativos do Executivo
     empresa_origem = db.Column(db.String(150), default="Parceiro B2B")
     area_atuacao = db.Column(db.String(150))
-    curriculo_minibio = db.Column(db.Text)
-    # Adequações ITM/B2B: ficha do executivo para a apresentação final
+    curriculo_minibio = db.Column(TextoLongo)
+    # Adequações instituição/B2B: ficha do executivo para a apresentação final
     nome_completo = db.Column(db.String(200), nullable=True)
     telefone = db.Column(db.String(40), nullable=True)
     linkedin = db.Column(db.String(300), nullable=True)
@@ -501,8 +506,8 @@ class CheckinVoluntariado(db.Model):
     data_hora_fim = db.Column(db.DateTime, nullable=True) # Fica vazio até o executivo fazer o Check-out
     total_minutos = db.Column(db.Integer, default=0)
     
-    observacoes = db.Column(db.Text)
-    # Adequações ITM/B2B: com qual grupo foi o extra e se a hora é Regular ou Extra (fora do cronograma)
+    observacoes = db.Column(TextoLongo)
+    # Adequações instituição/B2B: com qual grupo foi o extra e se a hora é Regular ou Extra (fora do cronograma)
     grupo_id = db.Column(db.Integer, db.ForeignKey('grupo.id'), nullable=True)
     categoria = db.Column(db.String(20), default='Regular')
     # Lançamento gerado por uma reunião institucional (atualizado quando a reunião é editada)
@@ -518,8 +523,8 @@ class QABanca(db.Model):
     projeto_id = db.Column(db.Integer, db.ForeignKey('projeto.id'), nullable=False)
     avaliador_id = db.Column(db.Integer, db.ForeignKey('usuario.id'), nullable=False)
     
-    pergunta_feita = db.Column(db.Text, nullable=False)
-    resposta_jovens = db.Column(db.Text) # Resumo de como os jovens se saíram na resposta
+    pergunta_feita = db.Column(TextoLongo, nullable=False)
+    resposta_jovens = db.Column(TextoLongo) # Resumo de como os jovens se saíram na resposta
 
     data_registro = db.Column(db.DateTime, default=datetime.utcnow)
     banca_id = db.Column(db.Integer, db.ForeignKey('banca.id'), nullable=True)
@@ -528,7 +533,7 @@ class QABanca(db.Model):
 
 
 # ==============================================================================
-# 21. MÓDULO 5: PORTAL DE DEMANDAS INSTITUCIONAIS (TICKETS ITM & B2B)
+# 21. MÓDULO 5: PORTAL DE DEMANDAS INSTITUCIONAIS (TICKETS INSTITUIÇÃO & B2B)
 # ==============================================================================
 
 class DemandaInstitucional(db.Model):
@@ -543,10 +548,10 @@ class DemandaInstitucional(db.Model):
     
     # Conteúdo
     titulo = db.Column(db.String(200), nullable=False)
-    descricao = db.Column(db.Text, nullable=False)
+    descricao = db.Column(TextoLongo, nullable=False)
     
     # Resolução (Preenchido pelos Gestores/Admins)
-    resposta_oficial = db.Column(db.Text, nullable=True) 
+    resposta_oficial = db.Column(TextoLongo, nullable=True) 
     
     # Datas de rastreio
     data_criacao = db.Column(db.DateTime, default=datetime.utcnow)
@@ -578,7 +583,7 @@ class ComentarioDemanda(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     demanda_id = db.Column(db.Integer, db.ForeignKey('demanda_institucional.id'), nullable=False)
     autor_id = db.Column(db.Integer, db.ForeignKey('usuario.id'), nullable=False)
-    texto = db.Column(db.Text, nullable=False)
+    texto = db.Column(TextoLongo, nullable=False)
     data_criacao = db.Column(db.DateTime, default=datetime.utcnow)
 
     demanda = db.relationship('DemandaInstitucional', backref=db.backref(
@@ -597,7 +602,7 @@ class ModuloOnboardingTCC(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     ordem = db.Column(db.Integer, default=1)
     titulo = db.Column(db.String(200), nullable=False)
-    conteudo_html = db.Column(db.Text, nullable=False)
+    conteudo_html = db.Column(TextoLongo, nullable=False)
     link_video = db.Column(db.String(500), nullable=True)
     ativo = db.Column(db.Boolean, default=True)
     versao = db.Column(db.Integer, default=1)
@@ -626,7 +631,7 @@ class Notificacao(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     usuario_id = db.Column(db.Integer, db.ForeignKey('usuario.id'), nullable=False, index=True)
     titulo = db.Column(db.String(200), nullable=False)
-    mensagem = db.Column(db.Text, nullable=True)
+    mensagem = db.Column(TextoLongo, nullable=True)
     link = db.Column(db.String(500), nullable=True)
     tipo = db.Column(db.String(50), default='geral')
     referencia = db.Column(db.String(100), nullable=True, index=True)
@@ -645,7 +650,7 @@ class AtividadeExtra(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     grupo_id = db.Column(db.Integer, db.ForeignKey('grupo.id'), nullable=False)
     titulo = db.Column(db.String(200), nullable=False)
-    motivo = db.Column(db.Text, nullable=False)
+    motivo = db.Column(TextoLongo, nullable=False)
     data_hora_inicio_prevista = db.Column(db.DateTime, nullable=False)
     duracao_prevista_min = db.Column(db.Integer, default=60)
     modalidade = db.Column(db.String(20), default='Presencial')  # Presencial / Online
@@ -683,7 +688,7 @@ class PresencaAtividadeExtra(db.Model):
 
 
 # ==============================================================================
-# TABELAS: Reuniões institucionais ITM × B2B (ata, participantes e encaminhamentos)
+# TABELAS: Reuniões institucionais instituição × B2B (ata, participantes e encaminhamentos)
 # Objetivo: nada corre por fora; todo alinhamento fica registrado na plataforma.
 # ==============================================================================
 reuniao_participante = db.Table('reuniao_participante',
@@ -700,9 +705,9 @@ class ReuniaoInstitucional(db.Model):
     duracao_minutos = db.Column(db.Integer, default=60)
     modalidade = db.Column(db.String(20), default='Online')
     local_ou_link = db.Column(db.String(500), nullable=True)
-    pauta = db.Column(db.Text, nullable=True)
-    deliberacoes = db.Column(db.Text, nullable=True)
-    participantes_externos = db.Column(db.Text, nullable=True)  # "Nome – Instituição", um por linha
+    pauta = db.Column(TextoLongo, nullable=True)
+    deliberacoes = db.Column(TextoLongo, nullable=True)
+    participantes_externos = db.Column(TextoLongo, nullable=True)  # "Nome – Instituição", um por linha
     contar_voluntariado = db.Column(db.Boolean, default=True)
     demanda_id = db.Column(db.Integer, db.ForeignKey('demanda_institucional.id'), nullable=True)
     empresa_id = db.Column(db.Integer, db.ForeignKey('empresa.id'), nullable=True)  # parceiro B2B da reunião
@@ -713,13 +718,13 @@ class ReuniaoInstitucional(db.Model):
     convite_sequencia = db.Column(db.Integer, default=0)
     convite_enviado_em = db.Column(db.DateTime, nullable=True)
     convite_enviado_via = db.Column(db.String(20), nullable=True)  # Gmail / SMTP
-    convite_destinatarios = db.Column(db.Text, nullable=True)  # e-mails convidados no último envio, um por linha
+    convite_destinatarios = db.Column(TextoLongo, nullable=True)  # e-mails convidados no último envio, um por linha
     # Convite como evento do Outlook (Microsoft 365): o evento fica na agenda de quem organizou e é atualizado ao remarcar
     outlook_evento_id = db.Column(db.String(300), nullable=True)
     outlook_organizador_id = db.Column(db.Integer, db.ForeignKey('usuario.id'), nullable=True)
     # Reunião de Alinhamento: tipo, pontos levantados pelo parceiro B2B, gravação e presença real
     tipo = db.Column(db.String(30), default='Alinhamento')  # reuniões antigas ficam sem tipo (= Institucional)
-    pontos_parceiro = db.Column(db.Text, nullable=True)  # falhas/pontos que o parceiro B2B trouxe para o programa
+    pontos_parceiro = db.Column(TextoLongo, nullable=True)  # falhas/pontos que o parceiro B2B trouxe para o programa
     link_gravacao = db.Column(db.String(500), nullable=True)
     # Horas ESG pelo check-in/out real; reuniões antigas (NULL) continuam com a duração prevista para todos
     controle_presenca = db.Column(db.Boolean, default=True)
@@ -749,8 +754,8 @@ class ReuniaoAlteracao(db.Model):
     reuniao_id = db.Column(db.Integer, db.ForeignKey('reuniao_institucional.id'), nullable=False)
     autor_id = db.Column(db.Integer, db.ForeignKey('usuario.id'), nullable=True)
     criado_em = db.Column(db.DateTime, default=datetime.now)
-    mudancas = db.Column(db.Text, nullable=False)  # "Data: 03/12 14:30 → 05/12 10:00", uma por linha
-    motivo = db.Column(db.Text, nullable=True)
+    mudancas = db.Column(TextoLongo, nullable=False)  # "Data: 03/12 14:30 → 05/12 10:00", uma por linha
+    motivo = db.Column(TextoLongo, nullable=True)
 
     autor = db.relationship('Usuario')
 
@@ -781,7 +786,7 @@ class FeedbackReuniao(db.Model):
     reuniao_id = db.Column(db.Integer, db.ForeignKey('reuniao_institucional.id'), nullable=False)
     usuario_id = db.Column(db.Integer, db.ForeignKey('usuario.id'), nullable=False)
     nota = db.Column(db.Integer, nullable=False)
-    comentario = db.Column(db.Text, nullable=True)
+    comentario = db.Column(TextoLongo, nullable=True)
     criado_em = db.Column(db.DateTime, default=datetime.now)
     atualizado_em = db.Column(db.DateTime, default=datetime.now, onupdate=datetime.now)
 
@@ -793,7 +798,7 @@ class EncaminhamentoReuniao(db.Model):
     __tablename__ = 'encaminhamento_reuniao'
     id = db.Column(db.Integer, primary_key=True)
     reuniao_id = db.Column(db.Integer, db.ForeignKey('reuniao_institucional.id'), nullable=False)
-    descricao = db.Column(db.Text, nullable=False)
+    descricao = db.Column(TextoLongo, nullable=False)
     responsavel_id = db.Column(db.Integer, db.ForeignKey('usuario.id'), nullable=True)
     prazo = db.Column(db.Date, nullable=True)
     status = db.Column(db.String(20), default='Pendente')  # Pendente / Concluído
@@ -855,7 +860,7 @@ class HistoricoDataBanca(db.Model):
     banca_id = db.Column(db.Integer, db.ForeignKey('banca.id'), nullable=False)
     data_anterior = db.Column(db.DateTime, nullable=False)
     data_nova = db.Column(db.DateTime, nullable=False)
-    motivo = db.Column(db.Text, nullable=False)
+    motivo = db.Column(TextoLongo, nullable=False)
     alterado_por_id = db.Column(db.Integer, db.ForeignKey('usuario.id'), nullable=True)
     data_alteracao = db.Column(db.DateTime, default=datetime.utcnow)
 
@@ -872,7 +877,7 @@ class EntregaTCC(db.Model):
     versao = db.Column(db.Integer, default=1)
     enviado_por_id = db.Column(db.Integer, db.ForeignKey('usuario.id'), nullable=False)
     data_envio = db.Column(db.DateTime, default=datetime.now)
-    observacao = db.Column(db.Text, nullable=True)
+    observacao = db.Column(TextoLongo, nullable=True)
     entregue_no_prazo = db.Column(db.Boolean, default=True)
 
     projeto = db.relationship('Projeto', backref=db.backref('entregas', lazy=True, order_by='EntregaTCC.data_envio.desc()'))
@@ -886,11 +891,11 @@ class AvaliacaoBanca(db.Model):
     banca_id = db.Column(db.Integer, db.ForeignKey('banca.id'), nullable=True)
     avaliador_id = db.Column(db.Integer, db.ForeignKey('usuario.id'), nullable=False)
     nota_escrita = db.Column(db.Float, nullable=True)
-    justificativa_escrita = db.Column(db.Text, nullable=True)
+    justificativa_escrita = db.Column(TextoLongo, nullable=True)
     nota_apresentacao = db.Column(db.Float, nullable=True)
     nota_visual = db.Column(db.Float, nullable=True)
-    justificativa_oral = db.Column(db.Text, nullable=True)
-    feedback_jovens = db.Column(db.Text, nullable=True)
+    justificativa_oral = db.Column(TextoLongo, nullable=True)
+    feedback_jovens = db.Column(TextoLongo, nullable=True)
     etapa_escrita_concluida_em = db.Column(db.DateTime, nullable=True)
     etapa_oral_concluida_em = db.Column(db.DateTime, nullable=True)
 
@@ -920,7 +925,7 @@ class CertificadoEmitido(db.Model):
     projeto_id = db.Column(db.Integer, db.ForeignKey('projeto.id'), nullable=False)
     tipo = db.Column(db.String(40), nullable=False)  # Avaliador da Banca / Mentor / Jovem participante
     minutos_total = db.Column(db.Integer, default=0)
-    detalhe_minutos = db.Column(db.Text, nullable=True)  # JSON: {"Leitura": 40, ...}
+    detalhe_minutos = db.Column(TextoLongo, nullable=True)  # JSON: {"Leitura": 40, ...}
     data_emissao = db.Column(db.DateTime, default=datetime.utcnow)
     data_atualizacao = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
@@ -938,7 +943,7 @@ class TCCAcervo(db.Model):
     projeto_id = db.Column(db.Integer, db.ForeignKey('projeto.id'), nullable=True)  # vazio nos TCCs históricos importados
     titulo = db.Column(db.String(250), nullable=False)
     tema = db.Column(db.String(200), nullable=True)
-    resumo = db.Column(db.Text, nullable=True)
+    resumo = db.Column(TextoLongo, nullable=True)
     palavras_chave = db.Column(db.String(300), nullable=True)
     ano_edicao = db.Column(db.Integer, nullable=True)
     edicao = db.Column(db.String(120), nullable=True)
@@ -962,7 +967,7 @@ class MaterialApoio(db.Model):
     __tablename__ = 'material_apoio'
     id = db.Column(db.Integer, primary_key=True)
     titulo = db.Column(db.String(200), nullable=False)
-    descricao = db.Column(db.Text, nullable=True)
+    descricao = db.Column(TextoLongo, nullable=True)
     categoria = db.Column(db.String(80), default='Metodologia')
     arquivo = db.Column(db.String(255), nullable=False)  # em uploads/acervo/
     nome_original = db.Column(db.String(255), nullable=True)
@@ -1000,7 +1005,7 @@ class AlteracaoAgendamentoBackup(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     agendamento_id = db.Column(db.Integer, nullable=False)  # sem FK: o registro sobrevive à exclusão do agendamento
     acao = db.Column(db.String(30), nullable=False)
-    detalhes = db.Column(db.Text, nullable=True)
+    detalhes = db.Column(TextoLongo, nullable=True)
     usuario_id = db.Column(db.Integer, db.ForeignKey('usuario.id'), nullable=True)
     data = db.Column(db.DateTime, default=datetime.now)
 
@@ -1013,7 +1018,7 @@ class ManutencaoBanco(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     acao = db.Column(db.String(30), nullable=False)          # otimizar / vacuum / indices / integridade
     status = db.Column(db.String(20), nullable=False)        # Concluída / Falha
-    detalhes = db.Column(db.Text, nullable=True)
+    detalhes = db.Column(TextoLongo, nullable=True)
     duracao_seg = db.Column(db.Float, nullable=True)
     backup_arquivo = db.Column(db.String(255), nullable=True)
     usuario_id = db.Column(db.Integer, db.ForeignKey('usuario.id'), nullable=True)
@@ -1030,9 +1035,9 @@ class PerfilPersonalizado(db.Model):
     __tablename__ = 'perfil_personalizado'
     id = db.Column(db.Integer, primary_key=True)
     nome = db.Column(db.String(80), unique=True, nullable=False)
-    descricao = db.Column(db.Text, nullable=True)
+    descricao = db.Column(TextoLongo, nullable=True)
     perfil_base = db.Column(db.String(30), nullable=False)        # um dos perfis do sistema (tipo_usuario)
-    modulos = db.Column(db.Text, nullable=False, default='[]')     # JSON: chaves de perfis_acesso.MODULOS
+    modulos = db.Column(TextoLongo, nullable=False, default='[]')     # JSON: chaves de perfis_acesso.MODULOS
     ativo = db.Column(db.Boolean, default=True)
     criado_por_id = db.Column(db.Integer, db.ForeignKey('usuario.id'), nullable=True)
     data_criacao = db.Column(db.DateTime, default=datetime.now)
@@ -1052,7 +1057,7 @@ class HistoricoPerfilAcesso(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     perfil_id = db.Column(db.Integer, nullable=False)
     acao = db.Column(db.String(30), nullable=False)
-    detalhes = db.Column(db.Text, nullable=True)
+    detalhes = db.Column(TextoLongo, nullable=True)
     usuario_id = db.Column(db.Integer, db.ForeignKey('usuario.id'), nullable=True)
     data = db.Column(db.DateTime, default=datetime.now)
 
@@ -1069,9 +1074,9 @@ class AprendizadoAgente(db.Model):
     codigo = db.Column(db.String(20), unique=True, nullable=False)      # APR-0001
     titulo = db.Column(db.String(200), nullable=False)
     tipo = db.Column(db.String(30), nullable=False)                     # perfil_novo, perfil_alterado, perfil_removido, rota_nova, rota_removida, linha_base, referencia_externa
-    descricao = db.Column(db.Text, nullable=True)
-    conteudo = db.Column(db.Text, nullable=False, default='{}')         # JSON usado pelos agentes
-    agentes_destino = db.Column(db.Text, nullable=False, default='["todos"]')
+    descricao = db.Column(TextoLongo, nullable=True)
+    conteudo = db.Column(TextoLongo, nullable=False, default='{}')         # JSON usado pelos agentes
+    agentes_destino = db.Column(TextoLongo, nullable=False, default='["todos"]')
     origem = db.Column(db.String(60), nullable=False)                   # Detecção interna / Fonte oficial
     fonte_url = db.Column(db.String(500), nullable=True)
     status = db.Column(db.String(20), nullable=False, default='Aplicado')  # Aplicado / Pendente / Revogado / Rejeitado
@@ -1080,7 +1085,7 @@ class AprendizadoAgente(db.Model):
     aplicado_em = db.Column(db.DateTime, nullable=True)
     revisado_por_id = db.Column(db.Integer, db.ForeignKey('usuario.id'), nullable=True)
     revisado_em = db.Column(db.DateTime, nullable=True)
-    motivo = db.Column(db.Text, nullable=True)
+    motivo = db.Column(TextoLongo, nullable=True)
     vezes_consumido = db.Column(db.Integer, default=0)
 
     revisado_por = db.relationship('Usuario', foreign_keys=[revisado_por_id])
@@ -1092,7 +1097,7 @@ class EventoAprendizado(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     aprendizado_codigo = db.Column(db.String(20), nullable=True)
     acao = db.Column(db.String(40), nullable=False)
-    detalhes = db.Column(db.Text, nullable=True)
+    detalhes = db.Column(TextoLongo, nullable=True)
     agente = db.Column(db.String(60), nullable=True)
     usuario_id = db.Column(db.Integer, db.ForeignKey('usuario.id'), nullable=True)
     data = db.Column(db.DateTime, default=datetime.now)
@@ -1115,7 +1120,7 @@ class EstadoConhecimento(db.Model):
     """Retrato da plataforma que o Gerente Técnico usa para perceber mudanças (chave → JSON)."""
     __tablename__ = 'estado_conhecimento'
     chave = db.Column(db.String(60), primary_key=True)
-    valor = db.Column(db.Text, nullable=True)
+    valor = db.Column(TextoLongo, nullable=True)
     atualizado_em = db.Column(db.DateTime, default=datetime.now)
 
 
@@ -1128,16 +1133,16 @@ class Desistencia(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     usuario_id = db.Column(db.Integer, db.ForeignKey('usuario.id'), nullable=False, index=True)
     categoria = db.Column(db.String(40), nullable=False)           # Pessoal, Estudos, Trabalho, Saúde, Mudança, Sem interesse, Outro
-    motivo = db.Column(db.Text, nullable=False)
+    motivo = db.Column(TextoLongo, nullable=False)
     data_saida = db.Column(db.Date, nullable=False)
     status = db.Column(db.String(20), default='Solicitada')         # Solicitada / Confirmada / Recusada / Revertida
     solicitado_por_id = db.Column(db.Integer, db.ForeignKey('usuario.id'), nullable=True)
     solicitado_em = db.Column(db.DateTime, default=datetime.utcnow)
     decidido_por_id = db.Column(db.Integer, db.ForeignKey('usuario.id'), nullable=True)
     decidido_em = db.Column(db.DateTime, nullable=True)
-    observacao_decisao = db.Column(db.Text, nullable=True)
-    vinculos = db.Column(db.Text, nullable=True)                   # JSON {"grupos": [...], "turmas": [...], "mentores": [...]}
-    empresas = db.Column(db.Text, nullable=True)                   # JSON [ids] das empresas parceiras do jovem na saída
+    observacao_decisao = db.Column(TextoLongo, nullable=True)
+    vinculos = db.Column(TextoLongo, nullable=True)                   # JSON {"grupos": [...], "turmas": [...], "mentores": [...]}
+    empresas = db.Column(TextoLongo, nullable=True)                   # JSON [ids] das empresas parceiras do jovem na saída
     revertido_por_id = db.Column(db.Integer, db.ForeignKey('usuario.id'), nullable=True)
     revertido_em = db.Column(db.DateTime, nullable=True)
     # Mentor desistente: quem assumiu os jovens, os grupos e as turmas dele
@@ -1151,7 +1156,7 @@ class Desistencia(db.Model):
 
 
 # ==============================================================================
-# OCORRÊNCIAS: o mentor (B2B ou ITM) relata o que observou sobre o jovem, as ações tomadas e quem deve dar retorno.
+# OCORRÊNCIAS: o mentor (B2B ou da instituição) relata o que observou sobre o jovem, as ações tomadas e quem deve dar retorno.
 # Cada ocorrência tem prazo de resposta; os sinais (amarelo/vermelho) mostram retornos pendentes para todos que acompanham.
 # ==============================================================================
 class Ocorrencia(db.Model):
@@ -1162,8 +1167,8 @@ class Ocorrencia(db.Model):
     categoria = db.Column(db.String(40), nullable=False)           # Progresso, Comportamento, Frequência, Entregas, Comunicação, Outro
     contexto = db.Column(db.String(40), nullable=False)            # Sala de aula, Palestra, Mentoria, Banca, Online, Outro
     gravidade = db.Column(db.String(10), default='Média')          # Baixa / Média / Alta
-    descricao = db.Column(db.Text, nullable=False)
-    acoes = db.Column(db.Text, nullable=True)                      # ações já tomadas por quem registrou
+    descricao = db.Column(TextoLongo, nullable=False)
+    acoes = db.Column(TextoLongo, nullable=True)                      # ações já tomadas por quem registrou
     responsavel_id = db.Column(db.Integer, db.ForeignKey('usuario.id'), nullable=False)
     prazo_resposta = db.Column(db.Date, nullable=False)
     status = db.Column(db.String(20), default='Aberta')            # Aberta / Em tratativa / Resolvida
@@ -1186,7 +1191,7 @@ class OcorrenciaRegistro(db.Model):
     ocorrencia_id = db.Column(db.Integer, db.ForeignKey('ocorrencia.id'), nullable=False, index=True)
     autor_id = db.Column(db.Integer, db.ForeignKey('usuario.id'), nullable=False)
     tipo = db.Column(db.String(20), default='Comentário')          # Retorno / Ação / Comentário / Status
-    texto = db.Column(db.Text, nullable=False)
+    texto = db.Column(TextoLongo, nullable=False)
     criado_em = db.Column(db.DateTime, default=datetime.utcnow)
     autor = db.relationship('Usuario')
 
@@ -1199,10 +1204,10 @@ class OcorrenciaRegistro(db.Model):
 class ParametroRegra(db.Model):
     __tablename__ = 'parametro_regra'
     chave = db.Column(db.String(60), primary_key=True)
-    valor = db.Column(db.Text, nullable=False)                      # guardado como texto; o tipo vem do catálogo
+    valor = db.Column(TextoLongo, nullable=False)                      # guardado como texto; o tipo vem do catálogo
     personalizado = db.Column(db.Boolean, default=False)            # regra nova criada pela gestão
     nome = db.Column(db.String(150), nullable=True)                 # só para as personalizadas
-    descricao = db.Column(db.Text, nullable=True)
+    descricao = db.Column(TextoLongo, nullable=True)
     tipo = db.Column(db.String(20), nullable=True)                  # inteiro / decimal / texto / sim_nao
     atualizado_em = db.Column(db.DateTime, default=datetime.utcnow)
     atualizado_por_id = db.Column(db.Integer, db.ForeignKey('usuario.id'), nullable=True)
@@ -1214,9 +1219,9 @@ class HistoricoParametro(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     chave = db.Column(db.String(60), nullable=False, index=True)
     acao = db.Column(db.String(30), nullable=False)                 # Alterado / Restaurado / Criado / Excluído
-    valor_anterior = db.Column(db.Text, nullable=True)
-    valor_novo = db.Column(db.Text, nullable=True)
-    motivo = db.Column(db.Text, nullable=True)
+    valor_anterior = db.Column(TextoLongo, nullable=True)
+    valor_novo = db.Column(TextoLongo, nullable=True)
+    motivo = db.Column(TextoLongo, nullable=True)
     usuario_id = db.Column(db.Integer, db.ForeignKey('usuario.id'), nullable=True)
     data = db.Column(db.DateTime, default=datetime.utcnow)
     usuario = db.relationship('Usuario')
@@ -1241,7 +1246,7 @@ def _conta_nova_sem_heranca(mapper, conexao, usuario):
 
 
 # ==============================================================================
-# AVALIAÇÕES 360° E MICROAVALIAÇÕES (jovem ↔ mentor, gestores ITM/B2B e o programa)
+# AVALIAÇÕES 360° E MICROAVALIAÇÕES (jovem ↔ mentor, gestores da instituição/B2B e o programa)
 # ==============================================================================
 class CicloAvaliacao(db.Model):
     """Período de avaliação: '360' (todos avaliam todos, com mais critérios) ou 'Micro' (quinzenal, jovem ↔ mentor)."""
@@ -1266,16 +1271,16 @@ class CicloAvaliacao(db.Model):
 
 
 class RespostaAvaliacao(db.Model):
-    """Uma avaliação de uma pessoa (ou do programa / da gestão ITM) num ciclo, com nota de 1 a 5 por critério."""
+    """Uma avaliação de uma pessoa (ou do programa / da gestão da instituição) num ciclo, com nota de 1 a 5 por critério."""
     __tablename__ = 'resposta_avaliacao'
     id = db.Column(db.Integer, primary_key=True)
     ciclo_id = db.Column(db.Integer, db.ForeignKey('ciclo_avaliacao.id'), nullable=False)
     avaliador_id = db.Column(db.Integer, db.ForeignKey('usuario.id'), nullable=False)
-    alvo_tipo = db.Column(db.String(20), nullable=False)  # Mentor / Jovem / Gestor B2B / Gestão ITM / Programa
-    avaliado_id = db.Column(db.Integer, db.ForeignKey('usuario.id'), nullable=True)  # vazio para Programa e Gestão ITM
-    notas = db.Column(db.Text, nullable=False)  # JSON {critério: nota}
+    alvo_tipo = db.Column(db.String(20), nullable=False)  # Mentor / Jovem / Gestor B2B / Gestão {apelido} / Programa
+    avaliado_id = db.Column(db.Integer, db.ForeignKey('usuario.id'), nullable=True)  # vazio para Programa e Gestão {apelido}
+    notas = db.Column(TextoLongo, nullable=False)  # JSON {critério: nota}
     media = db.Column(db.Float, nullable=False)
-    comentario = db.Column(db.Text, nullable=True)
+    comentario = db.Column(TextoLongo, nullable=True)
     criado_em = db.Column(db.DateTime, default=datetime.now)
     atualizado_em = db.Column(db.DateTime, default=datetime.now, onupdate=datetime.now)
 
@@ -1288,7 +1293,7 @@ class CredencialAgente(db.Model):
     __tablename__ = 'credencial_agente'
     id = db.Column(db.Integer, primary_key=True)
     chave = db.Column(db.String(60), unique=True, nullable=False)
-    valor_cifrado = db.Column(db.Text, nullable=False)
+    valor_cifrado = db.Column(TextoLongo, nullable=False)
     atualizado_em = db.Column(db.DateTime, default=datetime.now, onupdate=datetime.now)
     atualizado_por_id = db.Column(db.Integer, db.ForeignKey('usuario.id'), nullable=True)
 
@@ -1303,8 +1308,8 @@ class ContaConectada(db.Model):
     provedor = db.Column(db.String(20), nullable=False, default='microsoft')
     email = db.Column(db.String(200), nullable=True)
     nome = db.Column(db.String(150), nullable=True)
-    acesso_cifrado = db.Column(db.Text, nullable=True)
-    renovacao_cifrada = db.Column(db.Text, nullable=True)
+    acesso_cifrado = db.Column(TextoLongo, nullable=True)
+    renovacao_cifrada = db.Column(TextoLongo, nullable=True)
     expira_em = db.Column(db.DateTime, nullable=True)
     conectado_em = db.Column(db.DateTime, default=datetime.utcnow)
 
@@ -1323,7 +1328,7 @@ class FonteConhecimento(db.Model):
     tipo = db.Column(db.String(20), nullable=False)               # GERENTES / PRD / PTD / DTD / OUTRO
     titulo = db.Column(db.String(200), nullable=False)
     versao = db.Column(db.Integer, nullable=False, default=1)
-    descricao = db.Column(db.Text, nullable=True)
+    descricao = db.Column(TextoLongo, nullable=True)
     arquivo_nome = db.Column(db.String(255), nullable=True)       # nome original do arquivo enviado
     arquivo_caminho = db.Column(db.String(500), nullable=True)    # caminho dentro de uploads/base_conhecimento
     hash_conteudo = db.Column(db.String(64), nullable=True)       # SHA-256 do texto extraído (detecta mudança)
@@ -1345,7 +1350,7 @@ class TrechoConhecimento(db.Model):
     fonte_id = db.Column(db.Integer, db.ForeignKey('fonte_conhecimento.id'), nullable=False, index=True)
     ordem = db.Column(db.Integer, nullable=False, default=0)
     secao = db.Column(db.String(300), nullable=True)
-    texto = db.Column(db.Text, nullable=False)
+    texto = db.Column(TextoLongo, nullable=False)
 
 
 class ConversaChat(db.Model):
@@ -1366,8 +1371,8 @@ class MensagemChat(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     conversa_id = db.Column(db.Integer, db.ForeignKey('conversa_chat.id'), nullable=False, index=True)
     papel = db.Column(db.String(12), nullable=False)              # usuario / assistente
-    texto = db.Column(db.Text, nullable=False)
-    fontes = db.Column(db.Text, nullable=True)                    # JSON: trechos citados [{n, fonte, tipo, versao, secao}]
+    texto = db.Column(TextoLongo, nullable=False)
+    fontes = db.Column(TextoLongo, nullable=True)                    # JSON: trechos citados [{n, fonte, tipo, versao, secao}]
     modo = db.Column(db.String(12), nullable=True)                # ia / offline
     modelo = db.Column(db.String(60), nullable=True)
     tokens_entrada = db.Column(db.Integer, nullable=True)
@@ -1385,7 +1390,7 @@ class ConfiguracaoIA(db.Model):
     __tablename__ = 'configuracao_ia'
     id = db.Column(db.Integer, primary_key=True)
     chave = db.Column(db.String(60), unique=True, nullable=False)
-    valor = db.Column(db.Text, nullable=False, default='{}')
+    valor = db.Column(TextoLongo, nullable=False, default='{}')
     atualizado_em = db.Column(db.DateTime, default=datetime.now, onupdate=datetime.now)
     atualizado_por_id = db.Column(db.Integer, db.ForeignKey('usuario.id'), nullable=True)
 
@@ -1406,3 +1411,24 @@ class UsoIA(db.Model):
     sucesso = db.Column(db.Boolean, nullable=False, default=True)
     motivo = db.Column(db.String(300), nullable=True)
     usuario_id = db.Column(db.Integer, db.ForeignKey('usuario.id'), nullable=True)
+
+
+# ==============================================================================
+# IDENTIDADE DA INSTITUIÇÃO (uma linha só): nome, apelido dos botões, plataforma, logo e assinatura
+# ==============================================================================
+class IdentidadeInstituicao(db.Model):
+    """Quem opera esta instalação. Cada cliente tem a sua instalação e preenche aqui a própria identidade
+    (Administração › Sistema › Identidade da instituição). As telas leem estes campos em vez de nomes fixos."""
+    __tablename__ = 'identidade_instituicao'
+    id = db.Column(db.Integer, primary_key=True)
+    nome = db.Column(db.String(150), nullable=False)                   # nome completo da instituição
+    apelido = db.Column(db.String(30), nullable=False)                 # sigla ou nome curto, usado em botões e rótulos
+    plataforma = db.Column(db.String(120), nullable=False)             # nome do programa ou da plataforma
+    logo_arquivo = db.Column(db.String(255), nullable=True)
+    site = db.Column(db.String(300), nullable=True)
+    email_contato = db.Column(db.String(150), nullable=True)
+    cargo_assinatura = db.Column(db.String(120), nullable=True)        # quem assina o certificado pela instituição
+    atualizado_em = db.Column(db.DateTime, default=datetime.now, onupdate=datetime.now)
+    atualizado_por_id = db.Column(db.Integer, db.ForeignKey('usuario.id'), nullable=True)
+
+    atualizado_por = db.relationship('Usuario')

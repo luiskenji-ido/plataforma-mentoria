@@ -231,7 +231,7 @@ LITERAIS = {
 
     # ---------------- Portal de Demandas
     'Portal de Demandas (Tickets)': ('Requests Portal (Tickets)', 'Portal de Solicitudes (Tickets)'),
-    'Canal Oficial de Alinhamento, Melhorias e Suporte entre ITM e Parceiros B2B.': ('Official channel for alignment, improvements and support between ITM and B2B partners.', 'Canal oficial de alineación, mejoras y soporte entre ITM y los socios B2B.'),
+    'Canal Oficial de Alinhamento, Melhorias e Suporte entre {apelido} e Parceiros B2B.': ('Official channel for alignment, improvements and support between {apelido} and B2B partners.', 'Canal oficial de alineación, mejoras y soporte entre {apelido} y los socios B2B.'),
     'Abrir Novo Ticket': ('Open new ticket', 'Abrir nuevo ticket'), 'Enviar Ticket': ('Send ticket', 'Enviar ticket'), '# Ticket': ('# Ticket', '# Ticket'),
     'Assunto / Título': ('Subject / title', 'Asunto / título'), 'Descrição Detalhada': ('Detailed description', 'Descripción detallada'),
     'Explique detalhadamente o contexto da sua solicitação para a equipe de gestão...': ('Explain the context of your request to the management team in detail...', 'Explique en detalle el contexto de su solicitud al equipo de gestión...'),
@@ -241,7 +241,7 @@ LITERAIS = {
     'Normal (Análise Padrão)': ('Normal (standard review)', 'Normal (análisis estándar)'), 'Alta (Requer atenção breve)': ('High (needs attention soon)', 'Alta (requiere atención pronto)'),
     'Urgente (Trava o andamento do projeto)': ('Urgent (blocks the project)', 'Urgente (bloquea el avance del proyecto)'),
     'Ver / Responder': ('View / reply', 'Ver / responder'), 'Alterar Status': ('Change status', 'Cambiar estado'), 'Gravar Resposta': ('Save reply', 'Guardar respuesta'),
-    'Resposta Oficial (ITM / Parceiro B2B)': ('Official reply (ITM / B2B partner)', 'Respuesta oficial (ITM / socio B2B)'),
+    'Resposta Oficial ({apelido} / Parceiro B2B)': ('Official reply ({apelido} / B2B partner)', 'Respuesta oficial ({apelido} / socio B2B)'),
     'Escreva a resposta oficial para este ticket...': ('Write the official reply for this ticket...', 'Escriba la respuesta oficial para este ticket...'),
     'A equipe de gestão ainda não respondeu a este ticket.': ('The management team has not replied to this ticket yet.', 'El equipo de gestión aún no respondió este ticket.'),
     'Nenhum ticket registrado no momento. Todos alinhados!': ('No tickets at the moment. All aligned!', 'No hay tickets por ahora. ¡Todo alineado!'),
@@ -357,8 +357,8 @@ LITERAIS = {
     'Abra o formulário para lançar as notas da banca.': ('Open the form to enter the panel grades.', 'Abra el formulario para registrar las notas del tribunal.'),
     'Notificações: avisos de bancas, entregas, tickets e reuniões.': ('Notifications: alerts about panels, submissions, tickets and meetings.', 'Notificaciones: avisos de tribunales, entregas, tickets y reuniones.'),
     'Escolha se também quer receber os avisos por e-mail.': ('Choose whether you also want the alerts by email.', 'Elija si también quiere recibir los avisos por correo.'),
-    'Reuniões ITM × B2B: pautas, atas, decisões e encaminhamentos com responsáveis e prazos.': (
-        'ITM × B2B meetings: agendas, minutes, decisions and action items with owners and deadlines.', 'Reuniones ITM × B2B: agendas, actas, decisiones y acciones con responsables y plazos.'),
+    'Reuniões {apelido} × B2B: pautas, atas, decisões e encaminhamentos com responsáveis e prazos.': (
+        '{apelido} × B2B meetings: agendas, minutes, decisions and action items with owners and deadlines.', 'Reuniones {apelido} × B2B: agendas, actas, decisiones y acciones con responsables y plazos.'),
     'Filtre as reuniões por período.': ('Filter meetings by period.', 'Filtre las reuniones por período.'),
     'Abra uma reunião para ver a ata e acompanhar os encaminhamentos.': (
         'Open a meeting to see the minutes and follow the action items.', 'Abra una reunión para ver el acta y seguir las acciones.'),
@@ -381,7 +381,7 @@ LITERAIS = {
     'Nenhum perfil personalizado ainda. Clique em Novo perfil para criar o primeiro.': ('No custom profiles yet. Click New profile to create the first one.', 'Aún no hay perfiles personalizados. Haga clic en Nuevo perfil para crear el primero.'),
     'Excluir este perfil? Os usuários dele voltam ao perfil-base.': ('Delete this profile? Its users go back to the base profile.', '¿Eliminar este perfil? Sus usuarios vuelven al perfil base.'),
     'Histórico de alterações dos perfis': ('Profile change history', 'Historial de cambios de los perfiles'),
-    'Nome do perfil': ('Profile name', 'Nombre del perfil'), 'Ex.: Coordenador ITM': ('E.g. ITM Coordinator', 'Ej.: Coordinador ITM'),
+    'Nome do perfil': ('Profile name', 'Nombre del perfil'), 'Ex.: Coordenador {apelido}': ('E.g. {apelido} Coordinator', 'Ej.: Coordinador {apelido}'),
     'Módulos que este perfil pode usar': ('Modules this profile can use', 'Módulos que este perfil puede usar'),
     'Marcar todos': ('Select all', 'Marcar todos'), 'Desmarcar': ('Clear', 'Desmarcar'), 'sempre': ('always', 'siempre'),
     'Só aparecem os módulos que o perfil-base tem.': ('Only the modules the base profile has are shown.', 'Solo aparecen los módulos que tiene el perfil base.'),
@@ -400,7 +400,7 @@ LITERAIS = {
     'Biblioteca de TCCs': ('Final paper library', 'Biblioteca de TCC'), 'Certificados': ('Certificates', 'Certificados'),
     'Portal de Demandas': ('Requests Portal', 'Portal de Solicitudes'), 'Relógio de voluntariado e relatórios ESG': ('Volunteering clock and ESG reports', 'Reloj de voluntariado e informes ESG'),
     'Cadastros e grupos': ('Users and groups', 'Registros y grupos'), 'Solicitações de mentoria': ('Mentoring requests', 'Solicitudes de mentoría'),
-    'Gestão da trilha do TCC': ('Final paper track management', 'Gestión de la ruta del TCC'), 'Reuniões ITM × B2B': ('ITM × B2B meetings', 'Reuniones ITM × B2B'),
+    'Gestão da trilha do TCC': ('Final paper track management', 'Gestión de la ruta del TCC'), 'Reuniões {apelido} × B2B': ('{apelido} × B2B meetings', 'Reuniones {apelido} × B2B'),
     'Agenda de bancas e avaliadores': ('Panel schedule and evaluators', 'Agenda de tribunales y evaluadores'), 'Indicadores de voluntariado': ('Volunteering indicators', 'Indicadores de voluntariado'),
     'Agentes IA e governança de aprendizados': ('AI agents and learning governance', 'Agentes IA y gobernanza de aprendizajes'),
     'Manutenção do banco de dados': ('Database maintenance', 'Mantenimiento de la base de datos'),
@@ -1221,9 +1221,9 @@ LITERAIS.update({
     'Nenhuma ocorrência neste filtro.': ('No incidents for this filter.', 'Ninguna incidencia en este filtro.'),
     'O que aconteceu': ('What happened', 'Qué pasó'),
     'O que foi observado': ('What was observed', 'Qué se observó'),
-    'O que os mentores ITM e B2B observam sobre os jovens (palestra, sala de aula, mentoria…), as ações tomadas e quem deve dar o retorno. Os sinais mostram para todos os retornos pendentes.': (
-        'What ITM and B2B mentors observe about the students (talk, classroom, mentoring…), the actions taken and who must respond. The signals show everyone the pending responses.',
-        'Lo que los mentores ITM y B2B observan sobre los jóvenes (charla, aula, mentoría…), las acciones tomadas y quién debe responder. Las señales muestran a todos las respuestas pendientes.'),
+    'O que os mentores {apelido} e B2B observam sobre os jovens (palestra, sala de aula, mentoria…), as ações tomadas e quem deve dar o retorno. Os sinais mostram para todos os retornos pendentes.': (
+        'What {apelido} and B2B mentors observe about the students (talk, classroom, mentoring…), the actions taken and who must respond. The signals show everyone the pending responses.',
+        'Lo que los mentores {apelido} y B2B observan sobre los jóvenes (charla, aula, mentoría…), las acciones tomadas y quién debe responder. Las señales muestran a todos las respuestas pendientes.'),
     'O responsável, os mentores do jovem e o gestor B2B da empresa são avisados. O jovem não vê as ocorrências.': (
         "The owner, the student's mentors and the company's B2B manager are notified. The student does not see incidents.",
         'Se avisa al responsable, a los mentores del joven y al gestor B2B de la empresa. El joven no ve las incidencias.'),
@@ -1289,7 +1289,7 @@ LITERAIS.update({
     'Pedido de desistência recusado.': ('Dropout request rejected.', 'Solicitud de deserción rechazada.'),
     'Jovem reativado: voltou aos grupos, turmas e mentores de antes.': ('Student reactivated: back to their previous groups, classes and mentors.',
                                                                         'Joven reactivado: volvió a sus grupos, clases y mentores anteriores.'),
-    'Escolha quem deve dar o retorno (equipe ITM ou B2B).': ('Choose who must respond (ITM or B2B team).', 'Elija quién debe responder (equipo ITM o B2B).'),
+    'Escolha quem deve dar o retorno (equipe {apelido} ou B2B).': ('Choose who must respond ({apelido} or B2B team).', 'Elija quién debe responder (equipo {apelido} o B2B).'),
     'Preencha categoria, contexto, gravidade, o que foi observado (mínimo de 10 caracteres) e um prazo a partir de hoje.': (
         'Fill in category, context, severity, what was observed (at least 10 characters) and a due date from today on.',
         'Complete categoría, contexto, gravedad, lo observado (mínimo 10 caracteres) y un plazo desde hoy.'),
@@ -1320,7 +1320,7 @@ LITERAIS.update({
 })
 
 
-# Fase 2: Reunião de Alinhamento ITM × B2B (tipo, gravação, alterações, presença e avaliação)
+# Fase 2: Reunião de Alinhamento instituição × B2B (tipo, gravação, alterações, presença e avaliação)
 LITERAIS.update({
     'Tipo de reunião': ('Meeting type', 'Tipo de reunión'),
     'Alinhamento': ('Alignment', 'Alineación'),
@@ -1379,7 +1379,7 @@ LITERAIS.update({
 # Fase 3: avaliações 360°, microavaliações e alertas de ruído de comunicação e desengajamento
 LITERAIS.update({
     'Avaliações': ('Evaluations', 'Evaluaciones'),
-    'Avaliação 360° em ciclos (jovens, mentores, gestores ITM e B2B e o programa) e microavaliações quinzenais entre jovem e mentor. Notas de 1 a 5.': ('360° evaluation in cycles (youth, mentors, ITM and B2B managers and the program) and biweekly micro-evaluations between youth and mentor. Scores from 1 to 5.', 'Evaluación 360° en ciclos (jóvenes, mentores, gestores ITM y B2B y el programa) y microevaluaciones quincenales entre joven y mentor. Notas de 1 a 5.'),
+    'Avaliação 360° em ciclos (jovens, mentores, gestores {apelido} e B2B e o programa) e microavaliações quinzenais entre jovem e mentor. Notas de 1 a 5.': ('360° evaluation in cycles (youth, mentors, {apelido} and B2B managers and the program) and biweekly micro-evaluations between youth and mentor. Scores from 1 to 5.', 'Evaluación 360° en ciclos (jóvenes, mentores, gestores {apelido} y B2B y el programa) y microevaluaciones quincenales entre joven y mentor. Notas de 1 a 5.'),
     'Para avaliar': ('To evaluate', 'Para evaluar'),
     'O que recebi': ('What I received', 'Lo que recibí'),
     'Alertas': ('Alerts', 'Alertas'),
@@ -1416,7 +1416,7 @@ LITERAIS.update({
     'Encerrar': ('Close', 'Cerrar'),
     'Encerrado': ('Closed', 'Cerrado'),
     'Nenhum ciclo ainda.': ('No cycles yet.', 'Ningún ciclo todavía.'),
-    'Gestão ITM': ('ITM management', 'Gestión ITM'),
+    'Gestão {apelido}': ('{apelido} management', 'Gestión {apelido}'),
     'Disponibilidade': ('Availability', 'Disponibilidad'),
     'Apoio no aprendizado': ('Learning support', 'Apoyo en el aprendizaje'),
     'Pontualidade': ('Punctuality', 'Puntualidad'),
@@ -1673,7 +1673,7 @@ LITERAIS.update({
     'Escreva a pergunta e envie; cada resposta cita as fontes como [1], [2]. Clique no número para ver o trecho de origem.': ('Write the question and send it; each answer cites the sources like [1], [2]. Click the number to see the original passage.', 'Escriba la pregunta y envíela; cada respuesta cita las fuentes como [1], [2]. Haga clic en el número para ver el fragmento de origen.'),
     'Escreva a sua pergunta.': ('Write your question.', 'Escriba su pregunta.'),
     'Escreva sua pergunta (Enter envia, Shift+Enter quebra a linha)': ('Write your question (Enter sends, Shift+Enter adds a line)', 'Escriba su pregunta (Enter envía, Shift+Enter agrega una línea)'),
-    'Ex.: PRD Jovem Seguro 2026 (vazio = nome do arquivo)': ('E.g.: PRD Jovem Seguro 2026 (empty = file name)', 'Ej.: PRD Jovem Seguro 2026 (vacío = nombre del archivo)'),
+    'Ex.: PRD {plataforma} (vazio = nome do arquivo)': ('E.g.: PRD {plataforma} (empty = file name)', 'Ej.: PRD {plataforma} (vacío = nombre del archivo)'),
     'Excluir conversa': ('Delete conversation', 'Eliminar conversación'),
     'Excluir esta conversa?': ('Delete this conversation?', '¿Eliminar esta conversación?'),
     'Excluir este documento da base? O arquivo e os trechos serão apagados e não dá para desfazer.': ('Delete this document from the knowledge base? The file and its passages will be erased and this cannot be undone.', '¿Eliminar este documento de la base? El archivo y los fragmentos se borrarán y no se puede deshacer.'),
@@ -1870,11 +1870,93 @@ LITERAIS.update({
     'Turmas Cadastradas: veja os cursos, os alunos e as datas de cada turma; edite ou encerre quando preciso.': ("Registered classes: see each class's courses, students and dates; edit or close them when needed.", 'Grupos registrados: vea los cursos, los alumnos y las fechas de cada grupo; edite o cierre cuando sea necesario.'),
 })
 
+
+# Provedores de IA: KPI de custo por agente e chatbot
+LITERAIS.update({
+    'Chatbots × Agentes': ('Chatbots × Agents', 'Chatbots × Agentes'),
+    'Chatbots': ('Chatbots', 'Chatbots'), 'Agentes': ('Agents', 'Agentes'), 'Chatbot': ('Chatbot', 'Chatbot'), 'Agente': ('Agent', 'Agente'),
+    'do gasto': ('of spending', 'del gasto'), 'do gasto do mês': ("of this month's spending", 'del gasto del mes'),
+    'Mês anterior': ('Previous month', 'Mes anterior'), 'Chamadas': ('Calls', 'Llamadas'),
+    'Custo por agente e chatbot (mês atual)': ('Cost per agent and chatbot (current month)', 'Costo por agente y chatbot (mes actual)'),
+    'Participação no gasto': ('Share of spending', 'Participación en el gasto'),
+    'Custo médio por chamada': ('Average cost per call', 'Costo medio por llamada'),
+    'Tokens (entrada / saída)': ('Tokens (input / output)', 'Tokens (entrada / salida)'),
+    'Taxa de sucesso': ('Success rate', 'Tasa de éxito'), 'falha(s)': ('failure(s)', 'falla(s)'),
+    'Modelo mais usado': ('Most used model', 'Modelo más usado'), 'Última chamada': ('Last call', 'Última llamada'),
+    'Sem custo de IA (rodam na própria plataforma):': ('No AI cost (they run on the platform itself):', 'Sin costo de IA (se ejecutan en la propia plataforma):'),
+    'Agentes OmniTest (testes por perfil)': ('OmniTest agents (tests per profile)', 'Agentes OmniTest (pruebas por perfil)'),
+    'Agentes gerentes (Técnico, Segurança, Banco e Funcionalidades)': ('Manager agents (Technical, Security, Database and Features)', 'Agentes gerentes (Técnico, Seguridad, Base de datos y Funcionalidades)'),
+    'Conversas com as pessoas: Assistente da Plataforma e Assistente do Acompanhamento.': ('Conversations with people: Platform Assistant and Progress Assistant.', 'Conversaciones con las personas: Asistente de la Plataforma y Asistente del Seguimiento.'),
+    'Trabalho automático dos agentes: hoje só o Agente Orquestrador usa IA paga.': ("Agents' automatic work: today only the Orchestrator Agent uses paid AI.", 'Trabajo automático de los agentes: hoy solo el Agente Orquestador usa IA paga.'),
+    'KPI de cada agente e chatbot: custo do mês, participação no gasto, chamadas, custo médio, taxa de sucesso, modelo mais usado e comparação com o mês anterior.': (
+        'KPI for each agent and chatbot: monthly cost, share of spending, calls, average cost, success rate, most used model and comparison with the previous month.',
+        'KPI de cada agente y chatbot: costo del mes, participación en el gasto, llamadas, costo medio, tasa de éxito, modelo más usado y comparación con el mes anterior.'),
+    'Chatbots × Agentes: quanto do gasto vem das conversas (chatbots) e quanto vem do trabalho automático dos agentes.': (
+        'Chatbots × Agents: how much of the spending comes from conversations (chatbots) and how much from the agents\' automatic work.',
+        'Chatbots × Agentes: cuánto del gasto viene de las conversaciones (chatbots) y cuánto del trabajo automático de los agentes.'),
+})
+
+# Identidade da instituição (nome, apelido, plataforma e logo de cada instalação)
+LITERAIS.update({
+    'Identidade da instituição': ('Institution identity', 'Identidad de la institución'),
+    'Nome, apelido, plataforma e logo desta instalação. As telas, os e-mails, os certificados e o Assistente usam estes dados no lugar de nomes fixos.': ('Name, short name, platform and logo of this installation. Pages, e-mails, certificates and the Assistant use this data instead of fixed names.', 'Nombre, sigla, plataforma y logo de esta instalación. Las pantallas, los correos, los certificados y el Asistente usan estos datos en lugar de nombres fijos.'),
+    'A identidade ainda não foi preenchida: as telas mostram nomes genéricos até você salvar.': ('The identity has not been filled in yet: pages show generic names until you save.', 'La identidad aún no se ha completado: las pantallas muestran nombres genéricos hasta que guarde.'),
+    'Dados da instituição': ('Institution details', 'Datos de la institución'),
+    'Nome da instituição': ('Institution name', 'Nombre de la institución'),
+    'Ex.: Instituto Exemplo de Educação': ('E.g.: Example Education Institute', 'Ej.: Instituto Ejemplo de Educación'),
+    'Nome completo: aparece no termo de adesão, nos certificados e nos e-mails.': ('Full name: shown on the membership agreement, certificates and e-mails.', 'Nombre completo: aparece en el término de adhesión, en los certificados y en los correos.'),
+    'Apelido (sigla)': ('Short name (acronym)', 'Sigla (nombre corto)'),
+    'Ex.: IEX': ('E.g.: EXI', 'Ej.: IEJ'),
+    'Forma curta usada nos botões e rótulos, como "Reuniões IEX × B2B".': ('Short form used on buttons and labels, such as "EXI × B2B meetings".', 'Forma corta usada en botones y etiquetas, como "Reuniones IEJ × B2B".'),
+    'Nome da plataforma ou do programa': ('Platform or program name', 'Nombre de la plataforma o del programa'),
+    'Ex.: Programa de Mentoria 2026': ('E.g.: Mentoring Program 2026', 'Ej.: Programa de Mentoría 2026'),
+    'Aparece no título das páginas, na assinatura dos e-mails e nos convites.': ('Shown in page titles, e-mail signatures and invitations.', 'Aparece en el título de las páginas, en la firma de los correos y en las invitaciones.'),
+    'Site': ('Website', 'Sitio web'),
+    'E-mail de contato': ('Contact e-mail', 'Correo de contacto'),
+    'Cargo de quem assina o certificado pela instituição': ('Title of the person who signs the certificate for the institution', 'Cargo de quien firma el certificado por la institución'),
+    'Salvar identidade': ('Save identity', 'Guardar identidad'),
+    'Logo': ('Logo', 'Logo'),
+    'Logo da instituição': ('Institution logo', 'Logo de la institución'),
+    'Nenhum logo enviado.': ('No logo uploaded.', 'Ningún logo enviado.'),
+    'PNG, JPG ou WEBP, até 2 MB. Aparece no menu, nos certificados e na verificação pública.': ('PNG, JPG or WEBP, up to 2 MB. Shown in the menu, on certificates and on the public verification page.', 'PNG, JPG o WEBP, hasta 2 MB. Aparece en el menú, en los certificados y en la verificación pública.'),
+    'Como aparece nas telas': ('How it looks on the pages', 'Cómo aparece en las pantallas'),
+    'Menu': ('Menu', 'Menú'),
+    'E-mails': ('E-mails', 'Correos'),
+    'Configure a identidade da instituição (nome, apelido, plataforma e logo): até lá as telas mostram nomes genéricos.': ('Set up the institution identity (name, short name, platform and logo): until then pages show generic names.', 'Configure la identidad de la institución (nombre, sigla, plataforma y logo): hasta entonces las pantallas muestran nombres genéricos.'),
+    'Configurar agora': ('Set up now', 'Configurar ahora'),
+    'Identidade da instituição salva: as telas, os e-mails e os certificados já usam os novos dados.': ('Institution identity saved: pages, e-mails and certificates already use the new data.', 'Identidad de la institución guardada: las pantallas, los correos y los certificados ya usan los nuevos datos.'),
+    'Salve primeiro o nome, o apelido e a plataforma; depois envie o logo.': ('Save the name, short name and platform first; then upload the logo.', 'Guarde primero el nombre, la sigla y la plataforma; después envíe el logo.'),
+    'Logo da instituição atualizado: ele aparece no menu, nos certificados e na verificação pública.': ('Institution logo updated: it is shown in the menu, on certificates and on the public verification page.', 'Logo de la institución actualizado: aparece en el menú, en los certificados y en la verificación pública.'),
+    'O nome da instituição é obrigatório.': ('The institution name is required.', 'El nombre de la institución es obligatorio.'),
+    'O apelido é obrigatório.': ('The short name is required.', 'La sigla es obligatoria.'),
+    'O nome da plataforma é obrigatório.': ('The platform name is required.', 'El nombre de la plataforma es obligatorio.'),
+    'O site deve começar com https://': ('The website must start with https://', 'El sitio web debe comenzar con https://'),
+    'E-mail de contato inválido.': ('Invalid contact e-mail.', 'Correo de contacto inválido.'),
+    'Identidade da instituição: o nome, o apelido, a plataforma e o logo desta instalação. Nenhuma tela usa nomes fixos: todas leem daqui.': ('Institution identity: the name, short name, platform and logo of this installation. No page uses fixed names: they all read from here.', 'Identidad de la institución: el nombre, la sigla, la plataforma y el logo de esta instalación. Ninguna pantalla usa nombres fijos: todas leen de aquí.'),
+    'Preencha o nome completo da instituição, o apelido (a sigla curta que aparece nos botões, como "Reuniões {apelido} × B2B") e o nome da plataforma. Salve para aplicar em todas as telas.': ('Fill in the full institution name, the short name (the acronym shown on buttons, such as "{apelido} × B2B meetings") and the platform name. Save to apply it to every page.', 'Complete el nombre de la institución, la sigla (el nombre corto de los botones, como "Reuniones {apelido} × B2B") y el nombre de la plataforma. Guarde para aplicarlo en todas las pantallas.'),
+    'Envie o logo em PNG, JPG ou WEBP: ele aparece no menu, nos certificados e na verificação pública.': ('Upload the logo as PNG, JPG or WEBP: it is shown in the menu, on certificates and on the public verification page.', 'Envíe el logo en PNG, JPG o WEBP: aparece en el menú, en los certificados y en la verificación pública.'),
+    'A prévia mostra como o apelido e a plataforma aparecem no menu, nas avaliações, nos e-mails e no certificado.': ('The preview shows how the short name and the platform appear in the menu, evaluations, e-mails and certificate.', 'La vista previa muestra cómo aparecen la sigla y la plataforma en el menú, las evaluaciones, los correos y el certificado.'),
+})
+
+# Backup conforme o banco (SQLite .db ou MySQL .sql.gz)
+LITERAIS.update({
+    'Ou envie um arquivo de backup (.db ou .sql.gz)': ('Or upload a backup file (.db or .sql.gz)', 'O envíe un archivo de copia de seguridad (.db o .sql.gz)'),
+    'Envie um arquivo .db (SQLite) ou .sql.gz (MySQL) gerado pelo backup da plataforma.': (
+        'Upload a .db (SQLite) or .sql.gz (MySQL) file generated by the platform backup.',
+        'Envíe un archivo .db (SQLite) o .sql.gz (MySQL) generado por la copia de seguridad de la plataforma.'),
+})
+
+
 _POR_IDIOMA = {'en': {pt: v[0] for pt, v in LITERAIS.items()}, 'es': {pt: v[1] for pt, v in LITERAIS.items()}}
 
 
 def tt(texto, idioma='pt'):
     """Traduz um texto das telas antigas pelo próprio texto em português (sem tradução, devolve o original)."""
-    if not isinstance(texto, str) or idioma not in _POR_IDIOMA:
+    if not isinstance(texto, str):
         return texto
-    return _POR_IDIOMA[idioma].get(texto, _POR_IDIOMA[idioma].get(texto.strip(), texto))
+    if idioma in _POR_IDIOMA:
+        texto = _POR_IDIOMA[idioma].get(texto, _POR_IDIOMA[idioma].get(texto.strip(), texto))
+    if '{' in texto:
+        from identidade import aplicar  # marcadores {instituicao}, {apelido} e {plataforma}: Identidade da instituição
+        texto = aplicar(texto)
+    return texto

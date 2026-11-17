@@ -5,6 +5,7 @@ AÇÕES DO DBA (Administração › Agentes de Banco de Dados)
 Os agentes só LEEM o banco. As ações que alteram o banco são disparadas pelo administrador na tela e seguem sempre:
   1. backup imediato validado (backup_servico, pasta "pre_manutencao"); se o backup falhar, nada é alterado;
   2. a ação (ANALYZE + PRAGMA optimize, VACUUM, criação de índices sugeridos, verificação de integridade);
+     no MySQL / MariaDB: ANALYZE TABLE, OPTIMIZE TABLE, CREATE INDEX e CHECK TABLE em todas as tabelas da plataforma;
   3. registro no histórico de manutenção (tabela manutencao_banco_dados), com duração e o arquivo de backup.
 """
 import re
@@ -23,7 +24,56 @@ _IDENT = re.compile(r'^[A-Za-z_][A-Za-z0-9_]*$')
 
 
 def suportado():
-    return db.engine.dialect.name == 'sqlite'
+    return db.engine.dialect.name in ('sqlite', 'mysql', 'mariadb')
+
+
+def _eh_mysql():
+    return db.engine.dialect.name in ('mysql', 'mariadb')
+
+
+def _tabelas_mysql(con):
+    """Tabelas do banco atual, com o nome conferido (só letras, números e _) e entre crases."""
+    nomes = [n for n in inspect(con).get_table_names() if _IDENT.match(n)]
+    return nomes, ', '.join(f'`{n}`' for n in nomes)
+
+
+def _tamanho_mysql(con):
+    from sqlalchemy import text
+    return con.execute(text('SELECT COALESCE(SUM(data_length + index_length), 0) FROM information_schema.tables '
+                            'WHERE table_schema = DATABASE()')).scalar() or 0
+
+
+def _executar_mysql(acao, registro, indices):
+    """Mesmas ações do DBA no MySQL (o backup de segurança já foi feito por executar())."""
+    from sqlalchemy import text, Index
+    with db.engine.connect() as con:
+        nomes, lista = _tabelas_mysql(con)
+        if acao == 'integridade':
+            linhas = con.execute(text(f'CHECK TABLE {lista}')).fetchall()
+            problemas = [f"{r[0]}: {r[3]}" for r in linhas if r[2] in ('error', 'warning') or (r[2] == 'status' and r[3] != 'OK')]
+            registro.detalhes = f"CHECK TABLE em {len(nomes)} tabela(s): " + ('; '.join(problemas[:5]) if problemas else 'todas OK')
+            return 'Falha' if problemas else 'Concluída'
+        if acao == 'otimizar':
+            con.execute(text(f'ANALYZE TABLE {lista}')).fetchall()
+            registro.detalhes = f"Estatísticas atualizadas para {len(nomes)} tabela(s)."
+        elif acao == 'vacuum':
+            antes = _tamanho_mysql(con)
+            con.execute(text(f'OPTIMIZE TABLE {lista}')).fetchall()
+            depois = _tamanho_mysql(con)
+            registro.detalhes = f"Tabelas reorganizadas (OPTIMIZE TABLE): {int(antes) // 1024} KB → {int(depois) // 1024} KB."
+        else:
+            validas = {i['nome']: i for i in indices_sugeridos(usar_cache=False)}
+            escolhidos = [validas[n] for n in (indices or []) if n in validas]
+            if not escolhidos:
+                raise RuntimeError('nenhum índice sugerido foi selecionado')
+            for item in escolhidos:
+                tabela = db.metadata.tables.get(item['tabela'])
+                if tabela is None:
+                    continue
+                Index(item['nome'], *[tabela.c[c] for c in item['colunas']]).create(con, checkfirst=True)
+            con.commit()
+            registro.detalhes = 'Índices criados: ' + ', '.join(i['nome'] for i in escolhidos) + '.'
+    return 'Concluída'
 
 
 def _nome_indice(tabela, colunas):
@@ -99,9 +149,15 @@ def executar(acao, usuario_id, indices=None):
     registro = ManutencaoBanco(acao=acao, status='Em andamento', usuario_id=usuario_id, data=datetime.now())
     try:
         if not suportado():
-            raise RuntimeError('as ações automáticas do DBA estão disponíveis para SQLite; use as ferramentas do seu banco')
-        caminho = backup_servico.caminho_banco()
-        if acao == 'integridade':
+            raise RuntimeError('as ações automáticas do DBA estão disponíveis para SQLite e MySQL; use as ferramentas do seu banco')
+        if _eh_mysql():
+            if acao != 'integridade':
+                registro.backup_arquivo = _backup_antes(usuario_id)
+                db.session.commit()
+            registro.status = _executar_mysql(acao, registro, indices)
+            caminho = None
+        elif acao == 'integridade':
+            caminho = backup_servico.caminho_banco()
             con = sqlite3.connect(f"file:{caminho}?mode=ro", uri=True)
             try:
                 resultado = [r[0] for r in con.execute('PRAGMA integrity_check').fetchall()]
@@ -111,6 +167,7 @@ def executar(acao, usuario_id, indices=None):
             registro.detalhes = f"integrity_check: {'; '.join(resultado[:5])} · foreign_key_check: {len(chaves)} registro(s) órfão(s)"
             registro.status = 'Concluída' if resultado == ['ok'] else 'Falha'
         else:
+            caminho = backup_servico.caminho_banco()
             registro.backup_arquivo = _backup_antes(usuario_id)
             db.session.commit()
             db.session.remove()

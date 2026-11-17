@@ -98,7 +98,7 @@ ROTAS = {
     "banco": {"caminho": "/admin/banco", "nome": "Manutenção (DB)"},
     "banca": {"caminho": "/projetos/banca/{projeto_id}", "nome": "Sala da Banca"},
     "atividades_extras": {"caminho": "/atividades-extras", "nome": "Atividades extras"},
-    "reunioes": {"caminho": "/reunioes", "nome": "Reuniões ITM × B2B"},
+    "reunioes": {"caminho": "/reunioes", "nome": "Reuniões instituição × B2B"},
     "agenda_bancas": {"caminho": "/bancas", "nome": "Agenda de bancas"},
     "avaliadores_banca": {"caminho": "/bancas/avaliadores", "nome": "Avaliadores da banca"},
     "minhas_bancas": {"caminho": "/minhas-bancas", "nome": "Minhas bancas"},
@@ -142,7 +142,7 @@ ARQUIVOS_POR_MODULO = {
     "Certificados": "app.py (meus_certificados, emitir_certificado, registrar_certificado, verificar_certificado), templates/meus_certificados.html, certificado.html",
     "Repositório público": "app.py (repositorio_publico, baixar_repositorio_publico, aprovar_versao_final), templates/repositorio_publico.html",
     "Sala da Banca": "app.py (painel_banca, consolidar_banca, perguntas_banca, cronometro_banca), templates/banca_avaliacao.html, templates/banca_telao.html",
-    "Reuniões ITM × B2B": "app.py (reunioes, editar_reuniao, detalhe_reuniao, sincronizar_voluntariado_reuniao, enviar_convite, agenda_reuniao_ics, conectar_gmail), convites_reuniao.py, templates/reunioes.html, reuniao_form.html, reuniao_detalhe.html",
+    "Reuniões instituição × B2B": "app.py (reunioes, editar_reuniao, detalhe_reuniao, sincronizar_voluntariado_reuniao, enviar_convite, agenda_reuniao_ics, conectar_gmail), convites_reuniao.py, templates/reunioes.html, reuniao_form.html, reuniao_detalhe.html",
     "Tour": "templates/dashboard.html (modalTourInicial, iniciarTourDaPagina, desativarTourBackend), app.py (rota desativar_tour), "
             "templates/base.html (botão de tour manual) e a função iniciarTourDaPagina do template de cada página",
     "Tema": "templates/base.html (CSS por html[data-theme]) e o template da página citada",

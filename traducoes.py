@@ -983,7 +983,7 @@ TEXTOS = {
     }
 }
 
-# Chaves das adequações ITM/B2B, mantidas em traducoes_adequacoes.py
+# Chaves das adequações instituição/B2B, mantidas em traducoes_adequacoes.py
 from traducoes_adequacoes import TEXTOS_ADEQUACOES
 for _idioma, _textos in TEXTOS_ADEQUACOES.items():
     TEXTOS[_idioma].update(_textos)
@@ -992,4 +992,8 @@ def t(chave, idioma='pt'):
     """Retorna a tradução com base na chave e no idioma escolhido."""
     if idioma not in TEXTOS:
         idioma = 'pt'
-    return TEXTOS[idioma].get(chave, TEXTOS['pt'].get(chave, chave))
+    texto = TEXTOS[idioma].get(chave, TEXTOS['pt'].get(chave, chave))
+    if isinstance(texto, str) and '{' in texto:
+        from identidade import aplicar  # marcadores {instituicao}, {apelido} e {plataforma}: Identidade da instituição
+        texto = aplicar(texto)
+    return texto

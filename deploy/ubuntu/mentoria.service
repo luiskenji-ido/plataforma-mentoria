@@ -1,0 +1,19 @@
+# /etc/systemd/system/mentoria.service
+# Site da plataforma com gunicorn (porta local 8000; o nginx atende o público).
+# --preload: a atualização da estrutura do banco roda uma vez só, antes de abrir os processos.
+[Unit]
+Description=Plataforma de Mentoria (gunicorn)
+After=network.target mysql.service
+Wants=mysql.service
+
+[Service]
+User=mentoria
+Group=www-data
+WorkingDirectory=/srv/mentoria
+EnvironmentFile=/srv/mentoria/.env
+ExecStart=/srv/mentoria/.venv/bin/gunicorn --preload --workers 3 --timeout 180 --bind 127.0.0.1:8000 app:app
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

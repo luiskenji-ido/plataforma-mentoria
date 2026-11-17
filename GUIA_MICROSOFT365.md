@@ -5,7 +5,7 @@ Guia para a equipe de TI da empresa. Leva uns 10 minutos.
 ## O que a plataforma faz com a conta Microsoft
 
 - Cada pessoa conecta a **própria conta corporativa** pelo login oficial da Microsoft. A senha fica só com a Microsoft. A plataforma guarda apenas os tokens de acesso, cifrados.
-- **Reuniões ITM × B2B:** o convite vira um **evento na agenda do Outlook** de quem organiza.
+- **Reuniões da instituição × B2B:** o convite vira um **evento na agenda do Outlook** de quem organiza.
   - O Outlook envia o convite aos participantes, com aceitar e recusar.
   - Remarcações atualizam o mesmo evento.
   - Reunião on-line sem link ganha uma sala do **Teams**.
@@ -26,7 +26,7 @@ A plataforma **não lê e-mails** e **não envia e-mail** pela conta da pessoa.
 1. Acesse **https://entra.microsoft.com** com uma conta de administrador.
 2. Vá em **Identidade › Aplicativos › Registros de aplicativo › Novo registro**.
 3. Preencha:
-   - **Nome:** `Mentoria Jovem Seguro` (é o nome que as pessoas verão no login).
+   - **Nome:** o nome da plataforma cadastrado em Identidade da instituição (é o nome que as pessoas verão no login).
    - **Tipos de conta com suporte:** *Contas em qualquer diretório organizacional (qualquer locatário do Microsoft Entra ID, multilocatário)*. Assim, cada empresa parceira B2B pode entrar com o próprio Microsoft 365.
      - Se a plataforma for usada por uma só empresa, escolha *Somente contas deste diretório organizacional*.
    - **URI de redirecionamento:** plataforma **Web**, com o endereço `https://luiskenjiido.pythonanywhere.com/oauth-microsoft/callback`.
@@ -68,7 +68,7 @@ Também funciona pelo `.env` do servidor, com as variáveis `MS365_CLIENT_ID`, `
 ## 5. Como as pessoas usam
 
 - **Acompanhamento:** na lista **Agenda**, escolher **Microsoft 365 (Outlook)** e fazer o login.
-- **Reuniões ITM × B2B:** na lista **Contas conectadas**, escolher **Microsoft 365 (Outlook)**. Depois, no convite, escolher **Enviar por: Microsoft 365 / Outlook**.
+- **Reuniões da instituição × B2B:** na lista **Contas conectadas**, escolher **Microsoft 365 (Outlook)**. Depois, no convite, escolher **Enviar por: Microsoft 365 / Outlook**.
 - Para desconectar, use a mesma lista.
 
 ## Problemas comuns

@@ -117,6 +117,10 @@ class AgenteBackup(AgenteBanco):
             self.achado("O arquivo do último backup está corrompido", "Crítica", "BKP", caminho, mensagem, "Fazer um backup novo imediatamente.")
             return
         self.ok(f"Último backup íntegro ({tamanho_legivel(os.path.getsize(caminho))})")
+        if caminho.endswith(".sql.gz"):
+            # Dump do MySQL: completo e com as tabelas conferido acima; restaurar de verdade só num banco de teste separado
+            self.ok("Backup do MySQL completo (mysqldump terminou e tem as tabelas da plataforma)")
+            return
         # Teste de restauração: copia para uma pasta temporária, abre e compara com o banco atual
         pasta = tempfile.mkdtemp(prefix="teste_restauracao_")
         try:

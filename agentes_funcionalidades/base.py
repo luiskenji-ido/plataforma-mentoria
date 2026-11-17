@@ -339,7 +339,7 @@ class AgenteFuncional:
         meus = set(regras.get(base, []))
         rotas = self.regras.get("rotas_get", {})
         abertas, bloqueadas_errado, liberadas_errado = 0, [], []
-        # Exceção da plataforma: quem PARTICIPOU de uma reunião ITM × B2B vê a lista e a ata, mesmo sem o módulo de gestão
+        # Exceção da plataforma: quem PARTICIPOU de uma reunião instituição × B2B vê a lista e a ata, mesmo sem o módulo de gestão
         por_participacao = self._modulos_por_participacao()
         if por_participacao:
             self.log(f"Acesso por participação (permitido): {', '.join(sorted(por_participacao))}")

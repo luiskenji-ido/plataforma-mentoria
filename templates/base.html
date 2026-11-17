@@ -2,7 +2,7 @@
 <html lang="{{ current_user.idioma if current_user.is_authenticated else 'pt' }}" data-theme="{{ current_user.tema if current_user.is_authenticated else 'claro' }}"></html>
 <head>
     <meta charset="UTF-8">
-    <title>{% block title %}Mentoria{% endblock %}</title>
+    <title>{% block title %}{{ marca.plataforma if marca.configurada else t('nome_app') }}{% endblock %}</title>
     <!-- Bootstrap CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-9ndCyUaIbzAi2FUVXJi0CjmCapSmO7SnpJef0486qhLnuZ2cdeRhO02iuK6FUUVM" crossorigin="anonymous">
     <!-- Ícones bi-* usados nas telas (robô dos Agentes IA, pastas, downloads etc.) -->
@@ -610,8 +610,9 @@
 <!-- MENU DE NAVEGAÇÃO GLOBAL -->
 <nav class="navbar navbar-expand-xl mb-4 shadow-sm menu-topo">
   <div class="container-fluid">
-   <a class="navbar-brand fw-bold text-primary" href="{{ url_for('dashboard') }}">
-    🚀 {{ t('nome_app') }}
+   <a class="navbar-brand fw-bold text-primary d-flex align-items-center gap-2" href="{{ url_for('dashboard') }}" title="{{ marca.nome }}">
+    {% if marca.logo_url %}<img src="{{ marca.logo_url }}" alt="{{ marca.apelido }}" style="max-height: 32px; max-width: 120px;">{% else %}🚀{% endif %}
+    <span>{{ marca.plataforma if marca.configurada else t('nome_app') }}</span>
    </a>
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#menuPrincipal" aria-controls="menuPrincipal" aria-expanded="false" aria-label="Menu">
@@ -627,7 +628,7 @@
                                  'ocorrencias', 'nova_ocorrencia', 'detalhe_ocorrencia', 'desistencias', 'avaliacoes'] %}
       {% set grupo_projetos = ['projetos', 'minhas_bancas', 'biblioteca_tccs', 'meus_certificados', 'painel_banca'] %}
       {% set grupo_admin = ['gerenciar_usuarios', 'gestao_trilha_tcc', 'reunioes', 'agenda_bancas', 'avaliadores_banca', 'indicadores_voluntariado',
-                            'gerenciar_solicitacoes', 'agentes_ia', 'agentes_seguranca', 'agentes_banco', 'agentes_funcionalidades', 'manutencao_banco', 'gerenciar_grupos', 'perfis_acesso_view', 'parametros_regras', 'agentes_orquestrador', 'assistente', 'governanca_aprendizados', 'provedores_ia_view'] %}
+                            'gerenciar_solicitacoes', 'agentes_ia', 'agentes_seguranca', 'agentes_banco', 'agentes_funcionalidades', 'manutencao_banco', 'gerenciar_grupos', 'perfis_acesso_view', 'parametros_regras', 'agentes_orquestrador', 'assistente', 'governanca_aprendizados', 'provedores_ia_view', 'identidade_instituicao'] %}
 
       <ul class="navbar-nav me-auto mb-2 mb-xl-0 gap-xl-1">
         <!-- Painel Geral -->
@@ -739,9 +740,10 @@
             {% if pode_modulo('reunioes') %}<li><a class="dropdown-item fw-bold" href="{{ url_for('reunioes') }}"><i class="bi bi-journal-text"></i> {{ t('menu_reunioes') }}</a></li>{% endif %}
             {% if pode_modulo('agenda_bancas') %}<li><a class="dropdown-item fw-bold" href="{{ url_for('agenda_bancas') }}"><i class="bi bi-calendar-event"></i> {{ t('menu_agenda_bancas') }}</a></li>{% endif %}
             {% if pode_modulo('indicadores') %}<li><a class="dropdown-item fw-bold" href="{{ url_for('indicadores_voluntariado') }}"><i class="bi bi-bar-chart-line"></i> {{ t('menu_indicadores') }}</a></li>{% endif %}
-            {% if current_user.tipo_usuario == 'Administrador' and (pode_modulo('agentes_ia') or pode_modulo('manutencao')) %}
+            {% if current_user.tipo_usuario == 'Administrador' and (pode_modulo('agentes_ia') or pode_modulo('manutencao') or pode_modulo('identidade')) %}
             <li><hr class="dropdown-divider"></li>
             <li><h6 class="dropdown-header">{{ tt('Sistema') }}</h6></li>
+            {% if pode_modulo('identidade') %}<li><a class="dropdown-item fw-bold" href="{{ url_for('identidade_instituicao') }}"><i class="bi bi-building"></i> {{ tt('Identidade da instituição') }}</a></li>{% endif %}
             {% if pode_modulo('agentes_ia') %}
             <li><a class="dropdown-item fw-bold" href="{{ url_for('agentes_ia') }}"><i class="bi bi-robot"></i> {{ tt('Agentes IA') }}</a></li>
             <li><a class="dropdown-item fw-bold" href="{{ url_for('agentes_seguranca') }}"><i class="bi bi-shield-lock-fill"></i> {{ tt('Agentes de Segurança') }}</a></li>
@@ -886,6 +888,15 @@
         </div>
       {% endif %}
     {% endwith %}
+
+    {# Instalação nova: o Administrador é lembrado de preencher a identidade da instituição #}
+    {% if current_user.is_authenticated and current_user.tipo_usuario == 'Administrador' and not marca.configurada
+          and request.endpoint != 'identidade_instituicao' and pode_modulo('identidade') %}
+    <div class="alert alert-warning d-flex justify-content-between align-items-center flex-wrap gap-2 shadow-sm" id="avisoConfigurarIdentidade">
+        <div><i class="bi bi-building"></i> {{ tt('Configure a identidade da instituição (nome, apelido, plataforma e logo): até lá as telas mostram nomes genéricos.') }}</div>
+        <a class="btn btn-sm btn-warning fw-bold" href="{{ url_for('identidade_instituicao') }}">{{ tt('Configurar agora') }}</a>
+    </div>
+    {% endif %}
 
     {% block content %}
     {% endblock %}

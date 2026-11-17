@@ -1,0 +1,12 @@
+# /etc/systemd/system/mentoria-tarefas.service
+# Lembretes automáticos e backups agendados (tarefas_agendadas.py). Disparado de hora em hora pelo mentoria-tarefas.timer.
+[Unit]
+Description=Plataforma de Mentoria - tarefas agendadas
+After=mysql.service
+
+[Service]
+Type=oneshot
+User=mentoria
+WorkingDirectory=/srv/mentoria
+EnvironmentFile=/srv/mentoria/.env
+ExecStart=/srv/mentoria/.venv/bin/python tarefas_agendadas.py

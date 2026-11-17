@@ -35,15 +35,63 @@
         </div>
         <div class="row g-3 small">
             <div class="col-md-6">
-                <div class="fw-bold mb-1">{{ tt('Por uso') }}</div>
-                {% for u in r.por_uso %}<div class="d-flex justify-content-between border-bottom py-1"><span>{{ tt(u.nome) }} · {{ u.chamadas }} {{ tt('chamada(s)') }}</span><span>US$ {{ '%.4f'|format(u.custo) }}</span></div>
-                {% else %}<div class="text-muted">{{ tt('Nenhuma chamada neste mês.') }}</div>{% endfor %}
+                <div class="fw-bold mb-1">{{ tt('Chatbots × Agentes') }}</div>
+                <div class="row g-2" id="custoPorCategoria">
+                    {% for chave, c in r.categorias.items() %}
+                    <div class="col-6">
+                        <div class="border rounded-3 p-2 h-100" id="custoCategoria_{{ chave }}" title="{{ tt(c.descricao) }}">
+                            <div class="text-muted fw-bold"><i class="bi {{ c.icone }}"></i> {{ tt(c.nome) }}</div>
+                            <div class="fs-5 fw-bold">US$ {{ '%.4f'|format(c.custo) }}</div>
+                            <div class="text-muted">{{ c.pct }}% {{ tt('do gasto') }} · {{ c.chamadas }} {{ tt('chamada(s)') }}</div>
+                            <div class="text-muted">{{ tt('Mês anterior') }}: US$ {{ '%.4f'|format(c.custo_anterior) }}</div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
             </div>
             <div class="col-md-6">
                 <div class="fw-bold mb-1">{{ tt('Por modelo') }}</div>
                 {% for m in r.por_modelo %}<div class="d-flex justify-content-between border-bottom py-1"><span>{{ m.nome }} · {{ '{:,}'.format(m.entrada + m.saida).replace(',', '.') }} tokens</span><span>US$ {{ '%.4f'|format(m.custo) }}</span></div>
                 {% else %}<div class="text-muted">{{ tt('Nenhuma chamada neste mês.') }}</div>{% endfor %}
             </div>
+        </div>
+    </div>
+</div>
+
+<!-- KPI POR AGENTE E CHATBOT: custo e uso de cada um no mês -->
+<div class="card shadow-sm border-0 mb-3" id="cardKpiIa">
+    <div class="card-header bg-white fw-bold text-primary"><i class="bi bi-speedometer"></i> {{ tt('Custo por agente e chatbot (mês atual)') }}</div>
+    <div class="card-body">
+        <div class="row g-3">
+            {% for k in r.kpis %}
+            <div class="col-lg-4 col-md-6">
+                <div class="border rounded-3 p-3 h-100 {{ '' if k.ligado else 'opacity-75' }}" id="kpiUso_{{ k.uso }}">
+                    <div class="d-flex justify-content-between align-items-start gap-2 mb-1">
+                        <div class="fw-bold">{{ tt(k.nome) }}</div>
+                        <span class="badge {{ 'text-bg-primary' if k.categoria == 'chatbot' else 'text-bg-dark' }}">
+                            <i class="bi {{ 'bi-chat-dots' if k.categoria == 'chatbot' else 'bi-robot' }}"></i> {{ tt('Chatbot') if k.categoria == 'chatbot' else tt('Agente') }}</span>
+                    </div>
+                    <div class="fs-4 fw-bold">US$ {{ '%.4f'|format(k.custo) }}</div>
+                    <div class="small text-muted mb-2">{{ k.pct }}% {{ tt('do gasto do mês') }}{% if not k.ligado %} · <span class="text-danger">{{ tt('Desligada') }}</span>{% endif %}</div>
+                    <div class="progress mb-2" style="height: 6px;" role="progressbar" aria-label="{{ tt('Participação no gasto') }}" aria-valuenow="{{ k.pct }}" aria-valuemin="0" aria-valuemax="100">
+                        <div class="progress-bar {{ 'bg-primary' if k.categoria == 'chatbot' else 'bg-dark' }}" style="width: {{ k.pct }}%"></div>
+                    </div>
+                    <dl class="row small mb-0">
+                        <dt class="col-7 fw-normal text-muted">{{ tt('Chamadas') }}</dt><dd class="col-5 text-end mb-1">{{ k.chamadas }}</dd>
+                        <dt class="col-7 fw-normal text-muted">{{ tt('Custo médio por chamada') }}</dt><dd class="col-5 text-end mb-1">US$ {{ '%.5f'|format(k.medio) }}</dd>
+                        <dt class="col-7 fw-normal text-muted">{{ tt('Tokens (entrada / saída)') }}</dt><dd class="col-5 text-end mb-1">{{ '{:,}'.format(k.entrada).replace(',', '.') }} / {{ '{:,}'.format(k.saida).replace(',', '.') }}</dd>
+                        <dt class="col-7 fw-normal text-muted">{{ tt('Taxa de sucesso') }}</dt><dd class="col-5 text-end mb-1">{{ '%d%%'|format(k.taxa_sucesso) if k.taxa_sucesso is not none else '—' }}{% if k.falhas %} <span class="text-danger">({{ k.falhas }} {{ tt('falha(s)') }})</span>{% endif %}</dd>
+                        <dt class="col-7 fw-normal text-muted">{{ tt('Modelo mais usado') }}</dt><dd class="col-5 text-end mb-1">{{ k.modelo or '—' }}</dd>
+                        <dt class="col-7 fw-normal text-muted">{{ tt('Mês anterior') }}</dt><dd class="col-5 text-end mb-1">US$ {{ '%.4f'|format(k.custo_anterior) }}</dd>
+                        <dt class="col-7 fw-normal text-muted">{{ tt('Última chamada') }}</dt><dd class="col-5 text-end mb-0">{{ k.ultima.strftime('%d/%m %H:%M') if k.ultima else '—' }}</dd>
+                    </dl>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        <div class="small text-muted mt-3" id="agentesSemIa">
+            <i class="bi bi-check-circle text-success"></i> {{ tt('Sem custo de IA (rodam na própria plataforma):') }}
+            {% for a in r.agentes_sem_ia %}<span class="badge text-bg-light border fw-normal">{{ tt(a) }} · US$ 0.00</span> {% endfor %}
         </div>
     </div>
 </div>

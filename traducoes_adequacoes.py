@@ -1,5 +1,5 @@
 # ==============================================================================
-# TEXTOS DAS ADEQUAÇÕES B2B / ITM (Jovem Seguro 2026)
+# TEXTOS DAS ADEQUAÇÕES B2B / instituição
 # Ficam num arquivo próprio para não misturar com o dicionário original;
 # o traducoes.py mescla estas chaves em TEXTOS ao ser importado.
 # ==============================================================================
@@ -538,11 +538,11 @@ TEXTOS_ADEQUACOES['es'].update({
 })
 
 # ------------------------------------------------------------------------------
-# P05 — Reuniões institucionais ITM × B2B
+# P05 — Reuniões institucionais instituição × B2B
 # ------------------------------------------------------------------------------
 TEXTOS_ADEQUACOES['pt'].update({
-    'menu_reunioes': 'Reuniões ITM × B2B',
-    'reuniao_titulo': 'Reuniões ITM × B2B',
+    'menu_reunioes': 'Reuniões {apelido} × B2B',
+    'reuniao_titulo': 'Reuniões {apelido} × B2B',
     'reuniao_subtitulo': 'Todo alinhamento entre as instituições fica registrado: participantes, pauta, deliberações e encaminhamentos.',
     'reuniao_nova': 'Registrar reunião',
     'reuniao_editar': 'Editar reunião',
@@ -610,8 +610,8 @@ TEXTOS_ADEQUACOES['pt'].update({
     'notif_enc_msg': '"{descricao}" (reunião {reuniao}) venceu em {prazo}. Atualize o status na plataforma.',
 })
 TEXTOS_ADEQUACOES['en'].update({
-    'menu_reunioes': 'ITM × B2B meetings',
-    'reuniao_titulo': 'ITM × B2B meetings',
+    'menu_reunioes': '{apelido} × B2B meetings',
+    'reuniao_titulo': '{apelido} × B2B meetings',
     'reuniao_subtitulo': 'Every alignment between the institutions is recorded: participants, agenda, decisions and follow-ups.',
     'reuniao_nova': 'Record meeting',
     'reuniao_editar': 'Edit meeting',
@@ -679,8 +679,8 @@ TEXTOS_ADEQUACOES['en'].update({
     'notif_enc_msg': '"{descricao}" (meeting {reuniao}) was due on {prazo}. Update its status on the platform.',
 })
 TEXTOS_ADEQUACOES['es'].update({
-    'menu_reunioes': 'Reuniones ITM × B2B',
-    'reuniao_titulo': 'Reuniones ITM × B2B',
+    'menu_reunioes': 'Reuniones {apelido} × B2B',
+    'reuniao_titulo': 'Reuniones {apelido} × B2B',
     'reuniao_subtitulo': 'Todo alineamiento entre las instituciones queda registrado: participantes, agenda, decisiones y acciones.',
     'reuniao_nova': 'Registrar reunión',
     'reuniao_editar': 'Editar reunión',
@@ -1040,7 +1040,7 @@ TEXTOS_ADEQUACOES['es'].update({
 })
 
 # ------------------------------------------------------------------------------
-# Reuniões ITM × B2B — convite por e-mail (Gmail conectado ou SMTP) e "salvar na agenda"
+# Reuniões instituição × B2B — convite por e-mail (Gmail conectado ou SMTP) e "salvar na agenda"
 # ------------------------------------------------------------------------------
 TEXTOS_ADEQUACOES['pt'].update({
     'reuniao_participantes_externos': 'Outros participantes (um por linha: Nome – Instituição – e-mail)',
@@ -1113,7 +1113,7 @@ TEXTOS_ADEQUACOES['es'].update({
 })
 
 # ------------------------------------------------------------------------------
-# Reuniões ITM × B2B — parceiro B2B da reunião e filtro dos participantes
+# Reuniões instituição × B2B — parceiro B2B da reunião e filtro dos participantes
 # ------------------------------------------------------------------------------
 TEXTOS_ADEQUACOES['pt'].update({
     'reuniao_campo_parceiro': 'Parceiro B2B',

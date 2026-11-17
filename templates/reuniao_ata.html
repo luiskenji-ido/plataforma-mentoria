@@ -81,6 +81,6 @@
     <ul>{% for f in reuniao.feedbacks if f.comentario %}<li>{{ f.nota }}/5 · {{ f.comentario }}</li>{% endfor %}</ul>
     {% endif %}
 
-    <p style="margin-top: 28px; color: #888; font-size: 0.8em;">Registrada na plataforma Jovem Seguro 2026 por {{ reuniao.criado_por.nome if reuniao.criado_por else '—' }}.</p>
+    <p style="margin-top: 28px; color: #888; font-size: 0.8em;">Registrada na plataforma {{ marca.plataforma }} por {{ reuniao.criado_por.nome if reuniao.criado_por else '—' }}.</p>
 </body>
 </html>

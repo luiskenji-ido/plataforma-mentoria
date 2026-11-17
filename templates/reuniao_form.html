@@ -66,7 +66,7 @@
             </div>
             <div class="col-md-6">
                 <label class="form-label fw-bold" for="rExternos">{{ t('reuniao_participantes_externos') }}</label>
-                <textarea class="form-control" id="rExternos" name="participantes_externos" rows="7" placeholder="Maria Souza – Instituto ITM – maria@itm.org.br">{{ reuniao.participantes_externos or '' if reuniao else '' }}</textarea>
+                <textarea class="form-control" id="rExternos" name="participantes_externos" rows="7" placeholder="Maria Souza – {{ marca.nome }} – maria@exemplo.org.br">{{ reuniao.participantes_externos or '' if reuniao else '' }}</textarea>
                 <div class="form-text">{{ t('convite_dica_externos') }}</div>
             </div>
 

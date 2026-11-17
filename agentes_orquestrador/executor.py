@@ -314,10 +314,27 @@ def ambiente_de_teste():
     # Vazias de propósito: o .env da cópia não sobrescreve variáveis já definidas, então o SMTP fica desligado de verdade
     env.update(MAIL_SERVER='', MAIL_REMETENTE='', MAIL_USERNAME='', MAIL_PASSWORD='')
     env.update(PYTHONIOENCODING='utf-8', MENTORIA_VALIDACAO='1')  # sem backups automáticos para as pastas reais
+    # A validação SEMPRE usa a cópia SQLite (instance/mentoria.db da cópia), nunca o banco real do DATABASE_URL (MySQL)
+    env['DATABASE_URL'] = 'sqlite:///mentoria.db'
     return env
 
 
 def copiar_banco(destino_raiz):
+    """Cópia do banco para a validação, sempre em SQLite. Com o banco principal em MySQL (DATABASE_URL), as tabelas
+    são copiadas pelo copiar_banco.py da raiz; com SQLite, pela API de backup do SQLite."""
+    if RAIZ not in sys.path:
+        sys.path.insert(0, RAIZ)
+    import banco_config
+    principal = banco_config.endereco_do_banco()
+    if not banco_config.eh_sqlite(principal):
+        import copiar_banco as copia
+        pasta = os.path.join(destino_raiz, 'instance')
+        os.makedirs(pasta, exist_ok=True)
+        arquivo = os.path.join(pasta, 'mentoria.db')
+        if os.path.exists(arquivo):
+            os.remove(arquivo)
+        copia.copiar(principal, 'sqlite:///' + arquivo.replace('\\', '/'), avisar=lambda *_: None)
+        return
     banco = os.path.join(RAIZ, 'instance', 'mentoria.db')
     if os.path.exists(banco):
         os.makedirs(os.path.join(destino_raiz, 'instance'), exist_ok=True)

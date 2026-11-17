@@ -89,7 +89,7 @@
     <div class="modal-body">
         <div class="row g-3">
             <div class="col-md-6"><label class="form-label fw-bold small" for="nome{{ sufixo }}">{{ tt('Nome do perfil') }}</label>
-                <input class="form-control" id="nome{{ sufixo }}" name="nome" maxlength="80" value="{{ p.nome if p else '' }}" placeholder="{{ tt('Ex.: Coordenador ITM') }}" required></div>
+                <input class="form-control" id="nome{{ sufixo }}" name="nome" maxlength="80" value="{{ p.nome if p else '' }}" placeholder="{{ tt('Ex.: Coordenador {apelido}') }}" required></div>
             <div class="col-md-6"><label class="form-label fw-bold small" for="base{{ sufixo }}">{{ tt('Herda as permissões de') }}</label>
                 <select class="form-select seletor-base" id="base{{ sufixo }}" name="perfil_base" data-sufixo="{{ sufixo }}" required>
                     {% for b in perfis_base %}<option value="{{ b }}" {% if p and p.perfil_base == b %}selected{% endif %}>{{ tt(b) }}</option>{% endfor %}

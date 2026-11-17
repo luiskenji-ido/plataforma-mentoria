@@ -19,7 +19,7 @@ Todas as funções rodam dentro de um app_context.
 import os
 import re
 import json
-from datetime import datetime
+from datetime import datetime, timedelta
 
 PROVEDORES = {
     'claude': ('Claude (Anthropic)', ('ANTHROPIC_API_KEY', 'ANTHROPIC_AUTH_TOKEN')),
@@ -436,6 +436,81 @@ def gerar(uso, sistema, mensagens, max_tokens=4000, esforco='low', usuario_id=No
 # ------------------------------------------------------------------------------
 # Tela
 # ------------------------------------------------------------------------------
+# Separa o gasto do chat (quem conversa com as pessoas) do gasto dos agentes (que trabalham sozinhos)
+CATEGORIA_USO = {'assistente': 'chatbot', 'acompanhamento': 'chatbot', 'orquestrador': 'agente'}
+CATEGORIAS = {'chatbot': ('Chatbots', 'bi-chat-dots', 'Conversas com as pessoas: Assistente da Plataforma e Assistente do Acompanhamento.'),
+              'agente': ('Agentes', 'bi-robot', 'Trabalho automático dos agentes: hoje só o Agente Orquestrador usa IA paga.')}
+# Agentes que rodam na própria plataforma, sem chamar IA paga (custo zero; ficam na tela para a comparação)
+AGENTES_SEM_IA = ['Agentes OmniTest (testes por perfil)', 'Agentes de Segurança', 'Agentes de Banco de Dados',
+                  'Agentes de Funcionalidades', 'Agentes gerentes (Técnico, Segurança, Banco e Funcionalidades)']
+
+
+def kpis_por_uso(inicio=None):
+    """KPI de cada uso no mês: chamadas, falhas, tokens, custo, custo médio, participação no gasto, modelo mais usado,
+    última chamada e comparação com o mês anterior."""
+    from models import db, UsoIA
+    inicio = inicio or _inicio_do_mes()
+    anterior = _inicio_do_mes(inicio - timedelta(days=1))
+    catalogo = modelos()
+
+    def somar(desde, ate=None):
+        consulta = db.session.query(UsoIA.uso, UsoIA.sucesso, db.func.count(UsoIA.id), db.func.sum(UsoIA.tokens_entrada),
+                                    db.func.sum(UsoIA.tokens_saida), db.func.sum(UsoIA.custo_usd)).filter(UsoIA.quando >= desde)
+        if ate:
+            consulta = consulta.filter(UsoIA.quando < ate)
+        return consulta.group_by(UsoIA.uso, UsoIA.sucesso).all()
+
+    dados = {uso: {'uso': uso, 'nome': USOS[uso][0], 'categoria': CATEGORIA_USO.get(uso, 'agente'), 'chamadas': 0, 'falhas': 0,
+                   'entrada': 0, 'saida': 0, 'custo': 0.0, 'custo_anterior': 0.0, 'modelo': None, 'ultima': None, 'ligado': ativo(uso)}
+             for uso in USOS}
+    for uso, sucesso, n, e, s, c in somar(inicio):
+        d = dados.get(uso)
+        if d is None:
+            continue
+        if sucesso:
+            d['chamadas'] += n
+            d['entrada'] += e or 0
+            d['saida'] += s or 0
+            d['custo'] += c or 0
+        else:
+            d['falhas'] += n
+    for uso, sucesso, n, e, s, c in somar(anterior, inicio):
+        if uso in dados and sucesso:
+            dados[uso]['custo_anterior'] += c or 0
+    mais_usado = db.session.query(UsoIA.uso, UsoIA.modelo, db.func.count(UsoIA.id)) \
+        .filter(UsoIA.quando >= inicio, UsoIA.sucesso.is_(True)).group_by(UsoIA.uso, UsoIA.modelo).all()
+    for uso, modelo, n in sorted(mais_usado, key=lambda x: x[2]):
+        if uso in dados:
+            dados[uso]['modelo'] = catalogo.get(modelo, {}).get('nome', modelo)
+    for uso, quando in db.session.query(UsoIA.uso, db.func.max(UsoIA.quando)).group_by(UsoIA.uso).all():
+        if uso in dados:
+            dados[uso]['ultima'] = quando
+
+    total = sum(d['custo'] for d in dados.values())
+    for d in dados.values():
+        d['custo'] = round(d['custo'], 4)
+        d['custo_anterior'] = round(d['custo_anterior'], 4)
+        d['medio'] = round(d['custo'] / d['chamadas'], 5) if d['chamadas'] else 0.0
+        d['pct'] = round(100 * d['custo'] / total, 1) if total else 0.0
+        tentativas = d['chamadas'] + d['falhas']
+        d['taxa_sucesso'] = round(100 * d['chamadas'] / tentativas) if tentativas else None
+    return list(dados.values())
+
+
+def _totais_por_categoria(kpis):
+    totais = {}
+    for chave, (nome, icone, descricao) in CATEGORIAS.items():
+        itens = [k for k in kpis if k['categoria'] == chave]
+        custo = round(sum(k['custo'] for k in itens), 4)
+        totais[chave] = {'nome': nome, 'icone': icone, 'descricao': descricao, 'custo': custo,
+                         'chamadas': sum(k['chamadas'] for k in itens), 'falhas': sum(k['falhas'] for k in itens),
+                         'custo_anterior': round(sum(k['custo_anterior'] for k in itens), 4)}
+    geral = sum(t['custo'] for t in totais.values())
+    for t in totais.values():
+        t['pct'] = round(100 * t['custo'] / geral, 1) if geral else 0.0
+    return totais
+
+
 def resumo_para_tela():
     from models import db, UsoIA
     importar_uso_externo()
@@ -448,7 +523,9 @@ def resumo_para_tela():
     falhas = UsoIA.query.filter(UsoIA.quando >= inicio, UsoIA.sucesso.is_(False)).count()
     recentes = UsoIA.query.order_by(UsoIA.id.desc()).limit(30).all()
     catalogo = modelos()
-    return {'orcamento': situacao_do_orcamento(), 'modelos': catalogo,
+    kpis = kpis_por_uso(inicio)
+    return {'orcamento': situacao_do_orcamento(), 'modelos': catalogo, 'kpis': kpis, 'categorias': _totais_por_categoria(kpis),
+            'agentes_sem_ia': AGENTES_SEM_IA,
             'ordens': {uso: ordem(uso) for uso in USOS}, 'ativos': {uso: ativo(uso) for uso in USOS},
             'por_uso': [{'uso': u, 'nome': USOS.get(u, (u,))[0], 'chamadas': n, 'custo': round(c or 0, 4)} for u, n, c in por_uso],
             'por_modelo': [{'modelo': m, 'nome': catalogo.get(m, {}).get('nome', m), 'chamadas': n, 'entrada': e or 0, 'saida': s or 0,

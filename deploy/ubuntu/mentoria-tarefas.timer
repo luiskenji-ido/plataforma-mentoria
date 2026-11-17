@@ -1,0 +1,10 @@
+# /etc/systemd/system/mentoria-tarefas.timer
+[Unit]
+Description=Plataforma de Mentoria - tarefas agendadas de hora em hora
+
+[Timer]
+OnCalendar=hourly
+Persistent=true
+
+[Install]
+WantedBy=timers.target

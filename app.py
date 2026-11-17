@@ -199,14 +199,24 @@ import seguranca_web
 from seguranca_web import voltar
 seguranca_web.configurar_seguranca(
     app, lambda texto: tt(texto, current_user.idioma if current_user.is_authenticated else session.get('idioma', 'pt')))
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///mentoria.db' 
+# Banco de dados: DATABASE_URL (arquivo .env ou variável de ambiente) escolhe o motor, sem mudar o código.
+#   SQLite (padrão, desenvolvimento):  sqlite:///mentoria.db  (arquivo em instance/)
+#   MySQL / MariaDB:                   mysql+pymysql://usuario:senha@localhost:3306/mentoria?charset=utf8mb4
+#   PostgreSQL:                        postgresql+psycopg://usuario:senha@localhost:5432/mentoria
+# Detalhes em banco_config.py e no guia de instalação (ReadME.md › Instalação em servidor Ubuntu).
+import banco_config
+app.config['SQLALCHEMY_DATABASE_URI'] = banco_config.endereco_do_banco()
+app.config['SQLALCHEMY_ENGINE_OPTIONS'] = banco_config.opcoes_do_motor(app.config['SQLALCHEMY_DATABASE_URI'])
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 # ===========================================================================
 # INICIALIZANDO AS EXTENSÕES
 # ===========================================================================
-db.init_app(app)          
-bcrypt = Bcrypt(app)      
+db.init_app(app)
+# Versões da estrutura do banco (Flask-Migrate / Alembic): migrations/. render_as_batch deixa o SQLite alterar colunas.
+from flask_migrate import Migrate
+migrate = Migrate(app, db, directory=os.path.join(app.root_path, 'migrations'), render_as_batch=True)
+bcrypt = Bcrypt(app)
 login_manager = LoginManager(app) 
 
 login_manager.login_view = 'login' 
@@ -1986,16 +1996,16 @@ def sessoes():
         lista_alunos = Usuario.query.filter_by(tipo_usuario='Aluno').all()
 
     return render_template('sessoes.html', sessoes=sessoes_detalhadas, alunos=lista_alunos, agora=datetime.now(),
-                           pode_ata=lambda s: s.mentor_id == current_user.id or current_user.tipo_usuario in PERFIS_GESTAO_ITM)
+                           pode_ata=lambda s: s.mentor_id == current_user.id or current_user.tipo_usuario in PERFIS_GESTAO_INSTITUICAO)
 
 @app.route('/sessoes/<int:id>/ata', methods=['POST'])
 @login_required
 def ata_sessao(id):
     """Ata digital do encontro: resumo das deliberações, fontes recomendadas e plano de ação (próximos passos).
-    O mentor da sessão (ou a gestão ITM) registra; ao salvar com o plano de ação, o jovem recebe os próximos passos por e-mail."""
+    O mentor da sessão (ou a gestão da instituição) registra; ao salvar com o plano de ação, o jovem recebe os próximos passos por e-mail."""
     idioma = current_user.idioma
     sessao = db.session.get(SessaoMentoria, id)
-    if not sessao or not (sessao.mentor_id == current_user.id or current_user.tipo_usuario in PERFIS_GESTAO_ITM):
+    if not sessao or not (sessao.mentor_id == current_user.id or current_user.tipo_usuario in PERFIS_GESTAO_INSTITUICAO):
         flash("Acesso negado.", "danger")
         return redirect(url_for('sessoes'))
     resumo = (request.form.get('ata_resumo') or '').strip()[:5000]
@@ -2318,7 +2328,7 @@ def bater_ponto_voluntariado():
 
 
 # ==============================================================================
-# ROTA: PORTAL DE DEMANDAS INSTITUCIONAIS (TICKETS ITM & B2B)
+# ROTA: PORTAL DE DEMANDAS INSTITUCIONAIS (TICKETS INSTITUIÇÃO & B2B)
 # ==============================================================================
 # ==============================================================================
 # ATIVIDADES EXTRAS DO GRUPO (fora do cronograma) — check-in/out de mentores e jovens
@@ -2507,7 +2517,7 @@ def relatorio_atividade_extra(id):
 
 
 # ==============================================================================
-# REUNIÕES INSTITUCIONAIS ITM × B2B (ata, participantes, encaminhamentos e horas)
+# REUNIÕES INSTITUCIONAIS instituição × B2B (ata, participantes, encaminhamentos e horas)
 # ==============================================================================
 PERFIS_GESTAO_REUNIOES = ['Administrador', 'Mentor Administrador', 'Admin B2B']
 TIPOS_REUNIAO = ['Alinhamento', 'Acompanhamento do programa', 'Planejamento', 'Institucional']
@@ -3181,7 +3191,7 @@ def encaminhamentos_atrasados(usuario):
 # ==============================================================================
 # ACOMPANHAMENTO DOS JOVENS: DESISTÊNCIAS E OCORRÊNCIAS (pedidos da reunião de alinhamento com a B2B)
 # ==============================================================================
-PERFIS_GESTAO_ITM = ['Administrador', 'Mentor Administrador']
+PERFIS_GESTAO_INSTITUICAO = ['Administrador', 'Mentor Administrador']
 PERFIS_EQUIPE = ['Administrador', 'Mentor Administrador', 'Admin B2B', 'Mentor', 'Professor']
 CATEGORIAS_DESISTENCIA = ['Pessoal', 'Estudos', 'Trabalho', 'Saúde', 'Mudança de cidade', 'Sem interesse', 'Outro']
 CATEGORIAS_OCORRENCIA = ['Progresso', 'Comportamento', 'Frequência', 'Entregas', 'Comunicação', 'Outro']
@@ -3202,7 +3212,7 @@ def pode_ver_jovem(usuario, aluno):
 
 
 def jovens_da_equipe(usuario, incluir_desistentes=False):
-    """Jovens que a pessoa acompanha (gestão ITM: todos)."""
+    """Jovens que a pessoa acompanha (gestão da instituição: todos)."""
     consulta = Usuario.query.filter(Usuario.tipo_usuario == 'Aluno')
     if not incluir_desistentes:
         consulta = consulta.filter(Usuario.status != 'Desistente')
@@ -3213,7 +3223,7 @@ def jovens_da_equipe(usuario, incluir_desistentes=False):
 
 
 def equipe_ativa():
-    """Quem pode ser responsável por responder uma ocorrência: equipe ITM e B2B ativa (sem jovens e sem avaliadores)."""
+    """Quem pode ser responsável por responder uma ocorrência: equipe da instituição e B2B ativa (sem jovens e sem avaliadores)."""
     return Usuario.query.filter(Usuario.tipo_usuario.in_(PERFIS_EQUIPE), Usuario.status == 'Ativo').order_by(Usuario.nome).all()
 
 
@@ -3226,13 +3236,13 @@ def gestores_b2b_das_empresas(ids_empresas):
 
 
 def gestao_itm_ativa():
-    return Usuario.query.filter(Usuario.tipo_usuario.in_(PERFIS_GESTAO_ITM), Usuario.status == 'Ativo').all()
+    return Usuario.query.filter(Usuario.tipo_usuario.in_(PERFIS_GESTAO_INSTITUICAO), Usuario.status == 'Ativo').all()
 
 
 # ------------------------------------------------------------------------------ desistências
 def pode_decidir_desistencia(usuario, desistencia):
-    """Confirma, recusa ou reativa: gestão ITM, ou o gestor B2B da empresa do jovem."""
-    if usuario.tipo_usuario in PERFIS_GESTAO_ITM:
+    """Confirma, recusa ou reativa: gestão da instituição, ou o gestor B2B da empresa do jovem."""
+    if usuario.tipo_usuario in PERFIS_GESTAO_INSTITUICAO:
         return True
     if usuario.tipo_usuario == 'Admin B2B':
         geridas = {e.id for e in usuario.empresas_gerenciadas or []}
@@ -3243,7 +3253,7 @@ def pode_decidir_desistencia(usuario, desistencia):
 def desistencias_visiveis(usuario):
     from models import Desistencia
     todas = Desistencia.query.order_by(Desistencia.solicitado_em.desc()).all()
-    if usuario.tipo_usuario in PERFIS_GESTAO_ITM:
+    if usuario.tipo_usuario in PERFIS_GESTAO_INSTITUICAO:
         return todas
     visiveis = ids_jovens_visiveis(usuario) or set()
     def ve(d):
@@ -3255,7 +3265,7 @@ def desistencias_visiveis(usuario):
 
 def confirmar_desistencia(desistencia, usuario, observacao=''):
     """O jovem sai dos grupos, turmas e mentores (guardados para uma reativação), deixa de entrar na plataforma,
-    de contar na frequência e nos indicadores e não recebe certificado. Avisa mentores, gestor B2B e gestão ITM."""
+    de contar na frequência e nos indicadores e não recebe certificado. Avisa mentores, gestor B2B e gestão da instituição."""
     aluno = desistencia.usuario
     vinculos = {'grupos': [g.id for g in aluno.grupos], 'turmas': [t.id for t in aluno.turmas_como_aluno],
                 'mentores': [m.id for m in aluno.mentores]}
@@ -3342,16 +3352,16 @@ def desistencias():
                            mentores_geridos=geridos, substitutos=substitutos,
                            categorias=CATEGORIAS_DESISTENCIA, hoje=datetime.now().date(),
                            pode_decidir=lambda d: pode_decidir_desistencia(current_user, d),
-                           decide_algo=current_user.tipo_usuario in PERFIS_GESTAO_ITM + ['Admin B2B'])
+                           decide_algo=current_user.tipo_usuario in PERFIS_GESTAO_INSTITUICAO + ['Admin B2B'])
 
 
 PERFIS_MENTOR_SUBSTITUIVEL = ['Mentor', 'Professor']
 
 
 def mentores_geridos(usuario):
-    """Mentores que a pessoa pode registrar como desistentes: gestão ITM, todos; gestor B2B, os das suas empresas."""
+    """Mentores que a pessoa pode registrar como desistentes: gestão da instituição, todos; gestor B2B, os das suas empresas."""
     consulta = Usuario.query.filter(Usuario.tipo_usuario.in_(PERFIS_MENTOR_SUBSTITUIVEL), Usuario.status == 'Ativo')
-    if usuario.tipo_usuario in PERFIS_GESTAO_ITM:
+    if usuario.tipo_usuario in PERFIS_GESTAO_INSTITUICAO:
         return consulta.order_by(Usuario.nome).all()
     if usuario.tipo_usuario == 'Admin B2B':
         ids = {m.id for e in (usuario.empresas_gerenciadas or []) for m in e.mentores}
@@ -3392,12 +3402,12 @@ def substituir_mentor(mentor, substituto):
 @app.route('/desistencias/mentor', methods=['POST'])
 @login_required
 def desistencia_mentor():
-    """Mentor desistente: a gestão ITM (ou o gestor B2B da empresa) registra a saída e escolhe o substituto,
+    """Mentor desistente: a gestão da instituição (ou o gestor B2B da empresa) registra a saída e escolhe o substituto,
     que assume na hora os jovens, grupos, turmas e sessões futuras. O histórico e as horas ficam guardados."""
     from models import Desistencia
     idioma = current_user.idioma
     voltar = redirect(url_for('desistencias') + '#mentorDesistente')
-    if current_user.tipo_usuario not in PERFIS_GESTAO_ITM + ['Admin B2B']:
+    if current_user.tipo_usuario not in PERFIS_GESTAO_INSTITUICAO + ['Admin B2B']:
         flash("Acesso negado.", "danger")
         return voltar
     geridos = {m.id: m for m in mentores_geridos(current_user)}
@@ -3489,14 +3499,14 @@ def decidir_desistencia(id):
 
 # ------------------------------------------------------------------------------ ocorrências
 def pode_ver_ocorrencia(usuario, ocorrencia):
-    if usuario.tipo_usuario in PERFIS_GESTAO_ITM or usuario.id in (ocorrencia.registrado_por_id, ocorrencia.responsavel_id):
+    if usuario.tipo_usuario in PERFIS_GESTAO_INSTITUICAO or usuario.id in (ocorrencia.registrado_por_id, ocorrencia.responsavel_id):
         return True
     return usuario.tipo_usuario in PERFIS_EQUIPE and pode_ver_jovem(usuario, ocorrencia.aluno)
 
 
 def pode_tratar_ocorrencia(usuario, ocorrencia):
-    """Mudar o status (inclusive resolver): o responsável, quem registrou e a gestão ITM."""
-    return usuario.tipo_usuario in PERFIS_GESTAO_ITM or usuario.id in (ocorrencia.registrado_por_id, ocorrencia.responsavel_id)
+    """Mudar o status (inclusive resolver): o responsável, quem registrou e a gestão da instituição."""
+    return usuario.tipo_usuario in PERFIS_GESTAO_INSTITUICAO or usuario.id in (ocorrencia.registrado_por_id, ocorrencia.responsavel_id)
 
 
 def sinal_ocorrencia(ocorrencia, hoje=None):
@@ -3528,7 +3538,7 @@ def ocorrencias_pendentes_para(usuario):
     saida = []
     for o in ocorrencias_visiveis(usuario):
         sinal = sinal_ocorrencia(o)
-        if sinal['chave'] in ('atrasada', 'vence') and (usuario.tipo_usuario in PERFIS_GESTAO_ITM
+        if sinal['chave'] in ('atrasada', 'vence') and (usuario.tipo_usuario in PERFIS_GESTAO_INSTITUICAO
                                                        or usuario.id in (o.responsavel_id, o.registrado_por_id)):
             saida.append((o, sinal))
     return saida
@@ -3586,7 +3596,7 @@ def nova_ocorrencia():
         if not aluno or aluno.tipo_usuario != 'Aluno' or not pode_ver_jovem(current_user, aluno):
             flash(tt('Escolha um jovem que você acompanha.', idioma), 'warning')
         elif not responsavel or responsavel.tipo_usuario not in PERFIS_EQUIPE or responsavel.status != 'Ativo':
-            flash(tt('Escolha quem deve dar o retorno (equipe ITM ou B2B).', idioma), 'warning')
+            flash(tt('Escolha quem deve dar o retorno (equipe {apelido} ou B2B).', idioma), 'warning')
         elif (f.get('categoria') not in CATEGORIAS_OCORRENCIA or f.get('contexto') not in CONTEXTOS_OCORRENCIA
               or f.get('gravidade') not in GRAVIDADES_OCORRENCIA or len(descricao) < 10 or not prazo or prazo < datetime.now().date()):
             flash(tt('Preencha categoria, contexto, gravidade, o que foi observado (mínimo de 10 caracteres) e um prazo a partir de hoje.', idioma), 'warning')
@@ -3661,7 +3671,7 @@ CRITERIOS_AVALIACAO = {
     'Mentor': ['Comunicação', 'Disponibilidade', 'Apoio no aprendizado', 'Pontualidade'],
     'Jovem': ['Comunicação', 'Engajamento', 'Entregas', 'Pontualidade'],
     'Gestor B2B': ['Comunicação', 'Organização', 'Apoio ao programa'],
-    'Gestão ITM': ['Comunicação', 'Organização', 'Apoio ao programa'],
+    'Gestão {apelido}': ['Comunicação', 'Organização', 'Apoio ao programa'],  # chave gravada; a tela mostra a sigla cadastrada
     'Programa': ['Conteúdo', 'Organização', 'Comunicação'],
 }
 # Microavaliação (quinzenal): rápida, só entre jovem e mentor
@@ -3693,12 +3703,12 @@ def mentores_com_jovens():
 
 def alvos_da_avaliacao(usuario, ciclo):
     """Quem (ou o quê) a pessoa avalia no ciclo: [(alvo_tipo, pessoa ou None)].
-    Jovem → mentores (e no 360: gestor B2B, gestão ITM, programa); mentor → jovens (e no 360: gestor B2B, gestão ITM, programa);
-    gestor B2B → mentores da empresa, gestão ITM e programa; gestão ITM → mentores, gestores B2B e programa."""
+    Jovem → mentores (e no 360: gestor B2B, gestão da instituição, programa); mentor → jovens (e no 360: gestor B2B, gestão da instituição, programa);
+    gestor B2B → mentores da empresa, gestão da instituição e programa; gestão da instituição → mentores, gestores B2B e programa."""
     tipo, micro, empresa_id = usuario.tipo_usuario, ciclo.tipo == 'Micro', ciclo.empresa_id
     if usuario.status != 'Ativo' or tipo == 'Avaliador Banca':
         return []
-    if tipo not in PERFIS_GESTAO_ITM and not _na_empresa(usuario, empresa_id):
+    if tipo not in PERFIS_GESTAO_INSTITUICAO and not _na_empresa(usuario, empresa_id):
         return []
     alvos = []
     if tipo == 'Aluno':
@@ -3712,13 +3722,13 @@ def alvos_da_avaliacao(usuario, ciclo):
     elif tipo == 'Admin B2B' and not micro:
         for empresa in Empresa.query.filter_by(gestor_id=usuario.id).all():
             alvos += [('Mentor', m) for m in _ativos(empresa.mentores)]
-    elif tipo in PERFIS_GESTAO_ITM and not micro:
+    elif tipo in PERFIS_GESTAO_INSTITUICAO and not micro:
         alvos += [('Mentor', m) for m in mentores_com_jovens()]
         alvos += [('Gestor B2B', e.gestor) for e in Empresa.query.filter(Empresa.gestor_id.isnot(None)).all()
                   if e.gestor and e.gestor.status == 'Ativo']
     if not micro:
-        if tipo not in PERFIS_GESTAO_ITM:
-            alvos.append(('Gestão ITM', None))
+        if tipo not in PERFIS_GESTAO_INSTITUICAO:
+            alvos.append(('Gestão {apelido}', None))
         alvos.append(('Programa', None))
     vistos, final = set(), []
     for alvo_tipo, pessoa in alvos:
@@ -3753,7 +3763,7 @@ def pendencias_avaliacao(usuario):
 
 
 def reunioes_sem_avaliacao(usuario, dias=14):
-    """Reuniões ITM × B2B em que a pessoa esteve (check-out feito) e que ainda não avaliou."""
+    """Reuniões instituição × B2B em que a pessoa esteve (check-out feito) e que ainda não avaliou."""
     from models import PresencaReuniao, FeedbackReuniao
     agora = datetime.now()
     avaliadas = {f.reuniao_id for f in FeedbackReuniao.query.filter_by(usuario_id=usuario.id).all()}
@@ -3805,16 +3815,16 @@ def ids_pessoas_da_empresa_gerida(usuario):
 
 
 def resultados_avaliacao(usuario):
-    """Médias recebidas por pessoa/entidade nos últimos 180 dias, no escopo de quem vê (gestão ITM e gestor B2B)."""
+    """Médias recebidas por pessoa/entidade nos últimos 180 dias, no escopo de quem vê (gestão da instituição e gestor B2B)."""
     from models import RespostaAvaliacao
     tipo = usuario.tipo_usuario
-    if tipo not in PERFIS_GESTAO_ITM + ['Admin B2B']:
+    if tipo not in PERFIS_GESTAO_INSTITUICAO + ['Admin B2B']:
         return []
     respostas = RespostaAvaliacao.query.filter(RespostaAvaliacao.criado_em >= datetime.now() - timedelta(days=JANELA_RESULTADOS_DIAS)).all()
     if tipo == 'Admin B2B':
         ids = ids_pessoas_da_empresa_gerida(usuario)
         respostas = [r for r in respostas if r.avaliado_id in ids or r.alvo_tipo == 'Programa']
-    return _agrupar_respostas(respostas, com_autor=tipo in PERFIS_GESTAO_ITM)
+    return _agrupar_respostas(respostas, com_autor=tipo in PERFIS_GESTAO_INSTITUICAO)
 
 
 def avaliacoes_recebidas(usuario):
@@ -3857,7 +3867,7 @@ def ultima_atividade(ids):
 
 def alertas_acompanhamento(usuario):
     """Ruído de comunicação (média de 'Comunicação' abaixo do limite), engajamento baixo nas avaliações e
-    desengajamento (dias sem nenhuma atividade). Escopo: gestão ITM vê todos; gestor B2B, a sua empresa; mentor, os seus jovens."""
+    desengajamento (dias sem nenhuma atividade). Escopo: gestão da instituição vê todos; gestor B2B, a sua empresa; mentor, os seus jovens."""
     from models import RespostaAvaliacao
     from regras_negocio import regra
     tipo = usuario.tipo_usuario
@@ -3867,7 +3877,7 @@ def alertas_acompanhamento(usuario):
     minimo = int(regra('avaliacao_minimo_respostas', 2) or 1)
     dias = int(regra('desengajamento_dias', 14))
     jovens = [j for j in jovens_da_equipe(usuario) if j.status == 'Ativo' and j.turmas_como_aluno]
-    if tipo in PERFIS_GESTAO_ITM:
+    if tipo in PERFIS_GESTAO_INSTITUICAO:
         mentores = mentores_com_jovens()
     elif tipo == 'Admin B2B':
         mentores = [m for e in Empresa.query.filter_by(gestor_id=usuario.id).all() for m in _ativos(e.mentores)]
@@ -3906,9 +3916,9 @@ def avaliacoes():
         feitas = respostas_do_avaliador(current_user, ciclo)
         for alvo_tipo, pessoa in alvos_da_avaliacao(current_user, ciclo):
             pendentes.append((ciclo, alvo_tipo, pessoa, feitas.get((alvo_tipo, pessoa.id if pessoa else None))))
-    gestao = current_user.tipo_usuario in PERFIS_GESTAO_ITM
+    gestao = current_user.tipo_usuario in PERFIS_GESTAO_INSTITUICAO
     ciclos = CicloAvaliacao.query.order_by(CicloAvaliacao.inicio.desc()).limit(30).all() \
-        if current_user.tipo_usuario in PERFIS_GESTAO_ITM + ['Admin B2B'] else []
+        if current_user.tipo_usuario in PERFIS_GESTAO_INSTITUICAO + ['Admin B2B'] else []
     return render_template('avaliacoes.html', pendentes=pendentes, criterios_do_alvo=criterios_do_alvo,
                            json_notas=lambda r: json.loads(r.notas) if r else {}, ciclos=ciclos, gestao=gestao,
                            resultados=resultados_avaliacao(current_user), recebidas=avaliacoes_recebidas(current_user),
@@ -3954,11 +3964,11 @@ def responder_avaliacao():
 @app.route('/avaliacoes/ciclos', methods=['POST'])
 @login_required
 def ciclos_avaliacao():
-    """Gestão ITM abre ciclos de avaliação 360° (ou micro) e encerra antes do prazo, se precisar."""
+    """A gestão da instituição abre ciclos de avaliação 360° (ou micro) e encerra antes do prazo, se precisar."""
     from models import CicloAvaliacao
     idioma = current_user.idioma
     voltar = redirect(url_for('avaliacoes') + '#ciclos')
-    if current_user.tipo_usuario not in PERFIS_GESTAO_ITM:
+    if current_user.tipo_usuario not in PERFIS_GESTAO_INSTITUICAO:
         flash("Acesso negado.", "danger")
         return voltar
     if request.form.get('acao') == 'encerrar':
@@ -4258,7 +4268,6 @@ def exportar_relatorio_esg_pdf():
 # O @app.before_request age como um segurança de porta: ele roda ANTES de qualquer página abrir
 # Versão vigente do Termo de Adesão (Lei 9.608/98). Mudar a versão obriga todos a assinar de novo.
 VERSAO_TERMO_ATUAL = "2.0 - Lei 9.608/98"
-TERMO_ORGANIZACAO = "Instituto ITM e empresas parceiras (B2B)"  # padrão; o termo usa o nome do parceiro de cada pessoa
 
 
 PARCEIRO_PADRAO = 'empresa parceira (B2B)'
@@ -4314,7 +4323,8 @@ def parceiros_do_projeto(projeto):
 
 def organizacao_do_termo(usuario):
     parceiros = parceiros_do_usuario(usuario)
-    return f"Instituto ITM e {', '.join(parceiros)}" if parceiros else TERMO_ORGANIZACAO
+    instituicao = identidade.obter()['nome']  # o termo usa a instituição desta instalação e os parceiros de cada pessoa
+    return f"{instituicao} e {', '.join(parceiros)}" if parceiros else f"{instituicao} e empresas parceiras (B2B)"
 
 
 # Disponível em qualquer tela: {{ nome_parceiro_b2b(current_user) }}, {{ nome_parceiro_b2b(projeto) }}, empresas_parceiras(...)
@@ -4389,7 +4399,87 @@ def enviar_logo_empresa(id):
         _apagar_logo(antigo)
         flash(tt('Logo do parceiro atualizado: ele aparece nos certificados dos participantes desta empresa.', idioma), 'success')
     return voltar('gerenciar_turmas')
-TERMO_PROJETO = "Jovem Seguro 2026"
+
+
+# ==============================================================================
+# IDENTIDADE DA INSTITUIÇÃO (Administração › Sistema › Identidade da instituição)
+# Cada cliente tem a sua instalação: nome, apelido dos botões, plataforma, logo, site, e-mail e cargo da assinatura.
+# ==============================================================================
+import identidade
+
+
+@app.context_processor
+def _marca_no_template():
+    """{{ marca.nome }}, {{ marca.apelido }}, {{ marca.plataforma }}, {{ marca.logo_url }} em qualquer tela."""
+    dados = dict(identidade.obter())
+    dados['logo_url'] = url_for('logo_instituicao') if dados.get('logo_arquivo') else ''
+    return {'marca': dados}
+
+
+@app.route('/instituicao/logo')
+def logo_instituicao():
+    """Logo da instituição (público: aparece no login, nos certificados e na verificação pública)."""
+    nome = identidade.obter().get('logo_arquivo')
+    caminho = os.path.join(PASTA_LOGOS, os.path.basename(nome)) if nome else ''
+    if not caminho or not os.path.exists(caminho):
+        return ('', 404)
+    resposta = send_file(caminho, max_age=300)
+    resposta.headers['X-Content-Type-Options'] = 'nosniff'
+    return resposta
+
+
+@app.route('/admin/identidade', methods=['GET', 'POST'])
+@login_required
+def identidade_instituicao():
+    bloqueio = _somente_administrador()
+    if bloqueio:
+        return bloqueio
+    idioma = current_user.idioma
+    if request.method == 'POST':
+        erros = identidade.salvar(request.form, current_user.id)
+        if erros:
+            for erro in erros:
+                flash(tt(erro, idioma), 'warning')
+        else:
+            flash(tt('Identidade da instituição salva: as telas, os e-mails e os certificados já usam os novos dados.', idioma), 'success')
+        return redirect(url_for('identidade_instituicao'))
+    return render_template('identidade.html', dados=identidade.obter(), padrao=identidade.PADRAO)
+
+
+@app.route('/admin/identidade/logo', methods=['POST'])
+@login_required
+def identidade_logo():
+    """Mesmas regras do logo dos parceiros: PNG, JPG ou WEBP (SVG não), até 2 MB, conferindo o conteúdo."""
+    bloqueio = _somente_administrador()
+    if bloqueio:
+        return bloqueio
+    idioma = current_user.idioma
+    if not identidade.obter().get('configurada'):
+        flash(tt('Salve primeiro o nome, o apelido e a plataforma; depois envie o logo.', idioma), 'warning')
+        return redirect(url_for('identidade_instituicao'))
+    if request.form.get('acao') == 'remover':
+        antigo = identidade.definir_logo(None)
+        _apagar_logo(os.path.join(PASTA_LOGOS, os.path.basename(antigo)) if antigo else None)
+        flash(tt('Logo removido.', idioma), 'info')
+        return redirect(url_for('identidade_instituicao'))
+    arquivo = request.files.get('logo')
+    extensao = (arquivo.filename.rsplit('.', 1)[-1].lower() if arquivo and '.' in arquivo.filename else '')
+    conteudo = arquivo.read(LIMITE_LOGO_BYTES + 1) if arquivo else b''
+    assinatura = FORMATOS_LOGO.get(extensao)
+    if not assinatura or not conteudo.startswith(assinatura) or (extensao == 'webp' and conteudo[8:12] != b'WEBP'):
+        flash(tt('Envie o logo em PNG, JPG ou WEBP.', idioma), 'warning')
+    elif len(conteudo) > LIMITE_LOGO_BYTES:
+        flash(tt('O logo deve ter no máximo 2 MB.', idioma), 'warning')
+    else:
+        os.makedirs(PASTA_LOGOS, exist_ok=True)
+        nome = f"instituicao_{secrets.token_hex(6)}.{'jpg' if extensao == 'jpeg' else extensao}"
+        with open(os.path.join(PASTA_LOGOS, nome), 'wb') as f:
+            f.write(conteudo)
+        antigo = identidade.definir_logo(nome)
+        _apagar_logo(os.path.join(PASTA_LOGOS, os.path.basename(antigo)) if antigo else None)
+        flash(tt('Logo da instituição atualizado: ele aparece no menu, nos certificados e na verificação pública.', idioma), 'success')
+    return redirect(url_for('identidade_instituicao'))
+
 
 # Perfis que precisam concluir a trilha de orientação do TCC antes de usar a plataforma
 PERFIS_TRILHA_TCC = ['Mentor', 'Professor', 'Mentor Administrador']
@@ -4454,7 +4544,7 @@ def onboarding():
     if current_user.tipo_usuario == 'Aluno':
         return redirect(url_for('dashboard'))
     return render_template('onboarding.html', versao_termo=VERSAO_TERMO_ATUAL, organizacao=organizacao_do_termo(current_user),
-                           projeto=TERMO_PROJETO, data_hoje=datetime.now().strftime('%d/%m/%Y'))
+                           projeto=identidade.obter()['plataforma'], data_hoje=datetime.now().strftime('%d/%m/%Y'))
 
 # Rota de gravação da assinatura
 @app.route('/onboarding/aceitar', methods=['POST'])
@@ -4747,8 +4837,8 @@ def manutencao_banco():
             caminho = bs.caminho_seguro(request.form.get('arquivo_existente'))
             enviado = request.files.get('arquivo_db')
             if not caminho and enviado and enviado.filename:
-                if not enviado.filename.lower().endswith('.db'):
-                    flash(tt('Envie um arquivo .db gerado pelo backup da plataforma.', idioma), "warning")
+                if not enviado.filename.lower().endswith(bs.EXTENSOES):
+                    flash(tt('Envie um arquivo .db (SQLite) ou .sql.gz (MySQL) gerado pelo backup da plataforma.', idioma), "warning")
                     return redirect(url_for('manutencao_banco'))
                 caminho = os.path.join(bs.pasta_de('enviados'), f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_{secure_filename(enviado.filename)}")
                 enviado.save(caminho)
@@ -7141,7 +7231,7 @@ def baixar_acervo(id, tipo):
 
 @app.route('/repositorio')
 def repositorio_publico():
-    """Acervo aberto (sem login) para o Instituto ITM, as empresas parceiras (B2B) e o mercado: só TCCs públicos e autorizados."""
+    """Acervo aberto (sem login) para a instituição, as empresas parceiras (B2B) e o mercado: só TCCs públicos e autorizados."""
     from models import TCCAcervo
     busca = (request.args.get('q') or '').strip().lower()
     itens = TCCAcervo.query.filter_by(visibilidade='Pública', autorizacao_publicacao=True).order_by(TCCAcervo.ano_edicao.desc(), TCCAcervo.titulo).all()
@@ -8900,9 +8990,24 @@ def migrar_respostas_seguranca():
 # ATUALIZAÇÃO DO BANCO DE DADOS (Garante que roda no PythonAnywhere)
 # ===========================================================================
 def atualizar_estrutura_banco():
-    """Cria tabelas e colunas novas. Roda ao iniciar e depois de restaurar um backup antigo."""
-    from sqlalchemy import text
+    """Cria tabelas e colunas novas. Roda ao iniciar e depois de restaurar um backup antigo.
+
+    Versões da estrutura (migrations/, Flask-Migrate):
+    - banco já versionado (tem a tabela alembic_version): aplica as migrações pendentes (flask db upgrade) antes de tudo;
+    - banco novo ou instalação antiga sem versão: create_all cria o que falta e o banco é marcado na versão atual.
+    Os ALTER TABLE abaixo são das instalações SQLite anteriores às migrações e só rodam no SQLite.
+    Com vários processos (gunicorn), inicie com --preload para esta rotina rodar uma vez só."""
+    from sqlalchemy import text, inspect as inspecionar
+    from flask_migrate import upgrade as migrar_para_ultima, stamp as marcar_versao
+    versionado = 'alembic_version' in inspecionar(db.engine).get_table_names()
+    if versionado and os.environ.get('MIGRAR_AO_INICIAR', '1') == '1':
+        migrar_para_ultima()
     db.create_all()
+    if not banco_config.eh_sqlite(app.config['SQLALCHEMY_DATABASE_URI']):
+        if not versionado:
+            marcar_versao()
+        _rotinas_de_dados_ao_iniciar()
+        return
     colunas_novas = [
         # Perfis personalizados (Administração › Perfis de acesso)
         "ALTER TABLE usuario ADD COLUMN perfil_personalizado_id INTEGER REFERENCES perfil_personalizado(id)",
@@ -8924,7 +9029,7 @@ def atualizar_estrutura_banco():
         "ALTER TABLE projeto ADD COLUMN nota_apresentacao FLOAT",
         "ALTER TABLE empresa ADD COLUMN contato_sec_nome VARCHAR(150)",
         "ALTER TABLE empresa ADD COLUMN contato_sec_email VARCHAR(150)",
-        # Adequações ITM/B2B
+        # Adequações instituição/B2B
         "ALTER TABLE usuario ADD COLUMN modalidade_participacao VARCHAR(20) DEFAULT 'Presencial'",
         "ALTER TABLE usuario ADD COLUMN receber_email BOOLEAN DEFAULT 1",
         "ALTER TABLE checkin_voluntariado ADD COLUMN grupo_id INTEGER REFERENCES grupo(id)",
@@ -8945,7 +9050,7 @@ def atualizar_estrutura_banco():
         "ALTER TABLE qa_banca ADD COLUMN ordem INTEGER DEFAULT 0",
         # Segurança: token que invalida a sessão no logout
         "ALTER TABLE usuario ADD COLUMN token_sessao VARCHAR(64)",
-        # Reuniões ITM × B2B: convite por e-mail
+        # Reuniões instituição × B2B: convite por e-mail
         "ALTER TABLE reuniao_institucional ADD COLUMN convite_sequencia INTEGER DEFAULT 0",
         "ALTER TABLE reuniao_institucional ADD COLUMN convite_enviado_em DATETIME",
         "ALTER TABLE reuniao_institucional ADD COLUMN convite_enviado_via VARCHAR(20)",
@@ -8975,7 +9080,19 @@ def atualizar_estrutura_banco():
             db.session.commit()
         except Exception:
             db.session.rollback()
+    if not versionado:
+        marcar_versao()
+    _rotinas_de_dados_ao_iniciar()
 
+
+def _rotinas_de_dados_ao_iniciar():
+    """Ajustes de dados idempotentes que valem para qualquer banco."""
+    from sqlalchemy import text
+    try:  # avaliação 360°: a chave antiga com o nome do cliente vira a chave neutra
+        db.session.execute(text("UPDATE resposta_avaliacao SET alvo_tipo = 'Gestão {apelido}' WHERE alvo_tipo = 'Gestão ITM'"))
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
     migrar_respostas_seguranca()
     garantir_modulos_trilha_tcc()
     import backup_servico
@@ -8987,8 +9104,9 @@ def atualizar_estrutura_banco():
         db.session.rollback()
 
 
-with app.app_context():
-    atualizar_estrutura_banco()
+if os.environ.get('PULAR_ATUALIZACAO_BANCO') != '1':  # 1 = só para gerar migrações (flask db migrate) num banco vazio
+    with app.app_context():
+        atualizar_estrutura_banco()
 
 # ===========================================================================
 # EXECUÇÃO DO APLICATIVO

@@ -57,7 +57,7 @@ def avisar_ocorrencias_atrasadas(agora):
 
 
 def lembrar_encaminhamentos_vencidos(agora):
-    """Encaminhamento de reunião ITM × B2B com prazo vencido: avisa o responsável uma vez."""
+    """Encaminhamento de reunião instituição × B2B com prazo vencido: avisa o responsável uma vez."""
     vencidos = EncaminhamentoReuniao.query.filter(EncaminhamentoReuniao.status == 'Pendente',
                                                   EncaminhamentoReuniao.prazo < agora.date(),
                                                   EncaminhamentoReuniao.responsavel_id.isnot(None)).all()
@@ -121,7 +121,7 @@ def fechar_checkin_banca_esquecido(agora):
 
 
 def lembrar_saida_esquecida(agora):
-    """Saída esquecida: X minutos (Parâmetros de regras, padrão 30) depois do fim previsto da reunião ITM × B2B,
+    """Saída esquecida: X minutos (Parâmetros de regras, padrão 30) depois do fim previsto da reunião instituição × B2B,
     da atividade extra ou da banca, avisa por e-mail quem ainda não fez o check-out (uma vez por presença)."""
     from models import PresencaReuniao, PresencaAtividadeExtra
     from regras_negocio import regra
@@ -206,7 +206,7 @@ def lembrar_avaliacao_pendente(agora):
 
 
 def lembrar_avaliacao_reuniao(agora):
-    """Reunião ITM × B2B: 1 hora depois do fim, lembra quem esteve presente e ainda não avaliou (uma vez)."""
+    """Reunião instituição × B2B: 1 hora depois do fim, lembra quem esteve presente e ainda não avaliou (uma vez)."""
     from models import PresencaReuniao, FeedbackReuniao
     local, enviados = datetime.now(), 0
     for presenca in PresencaReuniao.query.filter(PresencaReuniao.check_out.isnot(None)).all():
@@ -222,7 +222,7 @@ def lembrar_avaliacao_reuniao(agora):
 
 
 def fechar_presenca_reuniao_esquecida(agora):
-    """Reunião ITM × B2B: check-out esquecido fecha no fim previsto, 2 h depois do fim (marcado como automático)."""
+    """Reunião instituição × B2B: check-out esquecido fecha no fim previsto, 2 h depois do fim (marcado como automático)."""
     from models import PresencaReuniao
     from app import fechar_presenca_reuniao, sincronizar_voluntariado_reuniao, CHECKOUT_REUNIAO_AUTOMATICO_H
     local = datetime.now()  # a reunião é gravada em hora local

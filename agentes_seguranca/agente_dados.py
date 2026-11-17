@@ -259,6 +259,21 @@ class AgenteDados(AgenteSeguranca):
     def integridade(self):
         from models import db, EntregaTCC, Banca
         self.etapa("Integridade do banco e dos arquivos")
+        if db.engine.dialect.name != "sqlite":
+            # MySQL/PostgreSQL verificam as chaves estrangeiras sozinhos (InnoDB); confere só os vínculos de grupo e os arquivos
+            from sqlalchemy import text
+            with db.engine.connect() as conexao:
+                orfaos_grupo = conexao.execute(text("SELECT COUNT(*) FROM grupo_usuario gu LEFT JOIN usuario u ON u.id = gu.usuario_id "
+                                                    "WHERE u.id IS NULL")).scalar()
+            self.ok(f"Banco {db.engine.dialect.name}: chaves estrangeiras verificadas pelo próprio banco")
+            resultado, chaves, fk_ligado = "ok", [], 1
+        else:
+            resultado = chaves = fk_ligado = orfaos_grupo = None
+        if resultado is None:
+            resultado, chaves, fk_ligado, orfaos_grupo = self._integridade_sqlite(db)
+        self._relatar_integridade(resultado, chaves, fk_ligado, orfaos_grupo, EntregaTCC)
+
+    def _integridade_sqlite(self, db):
         con = db.engine.raw_connection()
         try:
             cur = con.cursor()
@@ -268,6 +283,9 @@ class AgenteDados(AgenteSeguranca):
             orfaos_grupo = cur.execute("SELECT COUNT(*) FROM grupo_usuario gu LEFT JOIN usuario u ON u.id = gu.usuario_id WHERE u.id IS NULL").fetchone()[0]
         finally:
             con.close()
+        return resultado, chaves, fk_ligado, orfaos_grupo
+
+    def _relatar_integridade(self, resultado, chaves, fk_ligado, orfaos_grupo, EntregaTCC):
         if resultado != "ok":
             self.achado("Banco SQLite com erro de integridade", "Alta", "A08", "CWE-1284", "instance/mentoria.db", resultado,
                         "Restaurar um backup íntegro (Manutenção › Restaurar) e investigar a causa.")
@@ -293,6 +311,7 @@ class AgenteDados(AgenteSeguranca):
                         ", ".join(sumidos[:6]), "Restaurar os arquivos do backup ou marcar as entregas como indisponíveis.")
         else:
             self.ok("Todos os arquivos de entrega existem")
+        from models import Banca
         sem_projeto = [b.id for b in Banca.query.all() if not b.projeto]
         if sem_projeto:
             self.achado("Bancas sem projeto", "Baixa", "A08", "CWE-1284", "tabela banca", f"Bancas: {sem_projeto[:8]}", "Apagar ou reatribuir as bancas órfãs.")

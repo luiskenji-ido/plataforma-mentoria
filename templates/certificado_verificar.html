@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Verificação de certificado · Jovem Seguro 2026</title>
+    <title>Verificação de certificado · {{ marca.plataforma }}</title>
     <style>
         :root { --fundo: #f4f6fa; --cartao: #ffffff; --texto: #1d2633; --suave: #5d6878; --ok: #1b7a43; --erro: #b42318; --linha: #dde2ea; }
         @media (prefers-color-scheme: dark) { :root { --fundo: #11161e; --cartao: #18202b; --texto: #e6ebf2; --suave: #9aa6b6; --ok: #6fcf97; --erro: #f2877c; --linha: #2a3442; } }
@@ -21,7 +21,7 @@
 <body>
     <main class="cartao">
         <h1>Verificação de certificado</h1>
-        <p>Jovem Seguro 2026 · Instituto ITM e {{ parceiros }}</p>
+        <p>{{ marca.plataforma }} · {{ marca.nome }} e {{ parceiros }}</p>
         {% if certificado %}
         <div class="selo ok">✔ Certificado autêntico</div>
         <dl>

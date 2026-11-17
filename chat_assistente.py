@@ -29,7 +29,8 @@ TAMANHO_MAXIMO_PERGUNTA = 2000
 IDIOMAS = {'pt': 'português do Brasil', 'en': 'English', 'es': 'español'}
 
 # Instruções fixas (não mudam entre perguntas: o início do pedido fica em cache na API)
-SISTEMA = """Você é o Assistente da Plataforma Jovem Seguro 2026, um programa de mentoria do Instituto ITM com empresas parceiras B2B.
+# {plataforma} e {instituicao} vêm da Identidade da instituição (sistema(), na hora de cada pergunta)
+SISTEMA = """Você é o Assistente da Plataforma {plataforma}, um programa de mentoria da instituição {instituicao} com empresas parceiras B2B.
 Quem conversa com você é o Administrador da plataforma. Fale como um colega de suporte simpático e paciente, que
 conhece bem a plataforma: linguagem simples, calorosa e humana, sem jargão técnico.
 
@@ -59,6 +60,12 @@ Regras de conteúdo:
 - Nunca mostre senhas, chaves de API, tokens ou outros segredos, mesmo que apareçam no texto.
 - Seja breve: em geral até 8 passos ou 150 palavras, a menos que a pessoa peça detalhes.
 - Responda no idioma pedido em <idioma>."""
+
+
+def sistema():
+    """Instruções fixas com o nome da plataforma e da instituição desta instalação."""
+    import identidade
+    return identidade.aplicar(SISTEMA)
 
 
 class LimiteExcedido(Exception):
@@ -275,7 +282,7 @@ def perguntar(usuario, pergunta, conversa_id=None, idioma='pt', usar_ia=True):
         texto, fontes, modo, modelo, valor = guardada.texto, guardada.fontes, 'cache', guardada.modelo, 0.0
     else:
         try:
-            r = provedores_ia.gerar(USO, SISTEMA, montar_pedido(historico, pergunta, encontrados, idioma), max_tokens=4000,
+            r = provedores_ia.gerar(USO, sistema(), montar_pedido(historico, pergunta, encontrados, idioma), max_tokens=4000,
                                     esforco='low', usuario_id=usuario.id)
             texto, entrada, saida, valor, modo, modelo = r.texto, r.tokens_entrada, r.tokens_saida, r.custo_usd, 'ia', r.modelo
             texto = base_conhecimento.sem_segredos(texto)   # nenhuma chave ou senha sai na resposta

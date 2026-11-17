@@ -1,0 +1,11 @@
+Migracoes da estrutura do banco (Flask-Migrate / Alembic)
+
+Valem para qualquer banco configurado em DATABASE_URL (SQLite, MySQL, PostgreSQL...).
+
+- Aplicar as migracoes pendentes (deploy):   flask --app app db upgrade
+- Criar uma migracao depois de mudar models.py:
+    PULAR_ATUALIZACAO_BANCO=1 flask --app app db migrate -m "descricao"
+  Revise o arquivo gerado em migrations/versions/ antes de aplicar.
+- Ver a versao atual do banco:              flask --app app db current
+
+O app tambem aplica as pendentes ao iniciar (MIGRAR_AO_INICIAR=1, padrao). Com gunicorn use --preload.

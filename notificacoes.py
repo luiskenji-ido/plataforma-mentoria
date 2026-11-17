@@ -22,7 +22,12 @@ from traducoes import t
 log = logging.getLogger("notificacoes")
 
 PERFIS_GESTAO = ['Administrador', 'Mentor Administrador', 'Admin B2B']
-ASSINATURA = "Equipe Jovem Seguro 2026"
+
+
+def _plataforma():
+    """Nome da plataforma cadastrado em Identidade da instituição (assinatura e assunto dos e-mails)."""
+    import identidade
+    return identidade.obter()['plataforma']
 
 
 def email_configurado():
@@ -95,8 +100,8 @@ def notificar(usuarios, titulo, mensagem, link=None, tipo='geral', referencia=No
             corpo = t('notif_email_ola', idioma).format(nome=usuario.nome) + f"\n\n{mensagem_pessoa}\n"
             if link:
                 corpo += f"\n{t('notif_email_acesse', idioma)}: {link_absoluto(link)}\n"
-            corpo += f"\n{ASSINATURA}"
-            enviar_email(usuario.email, f"Jovem Seguro 2026: {titulo_pessoa}", corpo)
+            corpo += f"\nEquipe {_plataforma()}"
+            enviar_email(usuario.email, f"{_plataforma()}: {titulo_pessoa}", corpo)
     db.session.commit()
     return criadas
 

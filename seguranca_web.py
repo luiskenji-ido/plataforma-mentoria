@@ -137,8 +137,9 @@ limitador = LimitadorRequisicoes()
 
 
 def ip_do_cliente():
-    # No PythonAnywhere o IP real vem do proxy; localmente não se confia em cabeçalhos do cliente
-    if os.environ.get("PYTHONANYWHERE_DOMAIN"):
+    # No PythonAnywhere ou atrás do nginx do próprio servidor (ATRAS_DE_PROXY=1) o IP real vem do proxy, que sobrescreve
+    # o X-Real-IP; localmente não se confia em cabeçalhos do cliente
+    if os.environ.get("PYTHONANYWHERE_DOMAIN") or os.environ.get("ATRAS_DE_PROXY") == "1":
         return request.headers.get("X-Real-IP") or request.remote_addr or "?"
     return request.remote_addr or "?"
 

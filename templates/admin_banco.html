@@ -174,8 +174,8 @@
                     {% for b in backups %}<option value="{{ b.relativo }}">{{ b.relativo }} · {{ tamanho_legivel(b.tamanho) }} · {{ data_hora(b.data) }}</option>{% endfor %}
                 </select></div>
             <div class="col-md-4 d-grid"><button class="btn btn-danger fw-bold" type="submit">{{ tt('Restaurar') }}</button></div>
-            <div class="col-md-8"><label class="form-label small fw-bold" for="arquivoDb">{{ tt('Ou envie um arquivo .db') }}</label>
-                <input type="file" class="form-control" id="arquivoDb" name="arquivo_db" accept=".db"></div>
+            <div class="col-md-8"><label class="form-label small fw-bold" for="arquivoDb">{{ tt('Ou envie um arquivo de backup (.db ou .sql.gz)') }}</label>
+                <input type="file" class="form-control" id="arquivoDb" name="arquivo_db" accept=".db,.gz"></div>
         </form>
         {% if backups %}
         <details class="mt-3">

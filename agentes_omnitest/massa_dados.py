@@ -3,7 +3,7 @@ MASSA DE DADOS DO OMNITEST
 ==========================
 Cria (ou remove) um cenário completo de teste, tudo marcado com "[OmniTest]":
 
-  - grupo "[OmniTest] Grupo Jovem Seguro" com o Aluno e o Mentor de teste
+  - grupo "[OmniTest] Grupo de Mentoria" com o Aluno e o Mentor de teste
   - TCC em andamento com banca agendada para daqui a 1 hora, escrito final e slides entregues,
     tendo o Avaliador Banca de teste como avaliador
   - TCC concluído, com banca realizada, avaliação completa e resultado publicado
@@ -24,7 +24,7 @@ from datetime import datetime, timedelta
 
 from nucleo import preparar_usuario, PERFIS
 
-GRUPO = "[OmniTest] Grupo Jovem Seguro"
+GRUPO = "[OmniTest] Grupo de Mentoria"
 PROJETO_ABERTO = "[OmniTest] TCC Educação Financeira"
 PROJETO_CONCLUIDO = "[OmniTest] TCC Seguro para Jovens"
 PROJETO_OUTRO = "[OmniTest] TCC de outro grupo"  # banca sem o avaliador de teste (isolamento)

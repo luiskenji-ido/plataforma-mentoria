@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Repositório de TCCs · Jovem Seguro</title>
+    <title>Repositório de TCCs · {{ marca.plataforma }}</title>
     <style>
         :root { --fundo: #f4f6fa; --cartao: #ffffff; --texto: #1d2633; --suave: #5d6878; --acento: #0b5cad; --linha: #dde2ea; --etiqueta: #eef3fa; }
         @media (prefers-color-scheme: dark) { :root { --fundo: #11161e; --cartao: #18202b; --texto: #e6ebf2; --suave: #9aa6b6; --acento: #6aa8ec; --linha: #2a3442; --etiqueta: #1c2c40; } }
@@ -29,8 +29,8 @@
 </head>
 <body>
     <main class="pagina">
-        <h1>Repositório de TCCs — Jovem Seguro</h1>
-        <p class="sub">Trabalhos de conclusão aprovados nas bancas do programa do Instituto ITM com as empresas parceiras (B2B), publicados com autorização dos jovens e responsáveis. Material aberto para pesquisa de jovens, mentores, institutos e mercado.</p>
+        <h1>Repositório de TCCs — {{ marca.plataforma }}</h1>
+        <p class="sub">Trabalhos de conclusão aprovados nas bancas do programa {{ marca.nome }} com as empresas parceiras (B2B), publicados com autorização dos jovens e responsáveis. Material aberto para pesquisa de jovens, mentores, institutos e mercado.</p>
         <form method="GET" role="search">
             <label for="q" style="position:absolute;left:-9999px;">Buscar</label>
             <input type="search" id="q" name="q" value="{{ busca }}" placeholder="Buscar por título, tema ou palavra-chave">

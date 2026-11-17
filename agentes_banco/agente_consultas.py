@@ -232,6 +232,10 @@ class AgenteConsultas(AgenteBanco):
                     item["rotas"].add(p["rota"])
         varreduras, ordenacoes, sugestoes = [], [], {}
         with app.app_context():
+            if db.engine.dialect.name != "sqlite":
+                self.ok(f"Plano de execução: EXPLAIN QUERY PLAN é do SQLite; no {db.engine.dialect.name} use EXPLAIN "
+                        "e o log de consultas lentas (slow query log)")
+                return
             linhas_por_tabela = {}
             con = db.engine.raw_connection()
             try:

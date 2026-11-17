@@ -16,7 +16,8 @@ Markdown
 	- **Flask** – Framework web principal.
 	- **Flask-Login** – Controle de sessões e autenticação.
 	- **Flask-Bcrypt** – Criptografia avançada de senhas.
-	- **Flask-SQLAlchemy** – ORM para o banco de dados SQLite.
+	- **Flask-SQLAlchemy** – ORM: o mesmo código roda em SQLite, MySQL/MariaDB ou PostgreSQL (DATABASE_URL).
+	- **Flask-Migrate (Alembic)** – versões da estrutura do banco (pasta migrations/).
 	- **Bootstrap 5 & CSS3** – Interface visual moderna, responsiva e com alertas dinâmicos.
 	- **Chart.js** – Renderização de gráficos para dashboards de indicadores.
 	- **Werkzeug** – Gerenciamento e segurança no upload de arquivos físicos (Certificados e Materiais).
@@ -208,6 +209,59 @@ mentoria/
 		sozinho os botões e abas que nenhum passo cobre. Os agentes OmniTest cobram balões no lugar, seções, abas e botões;
 		o Agente Gerente Técnico aprende o mapa de cada perfil e os erros do tour (conhecimento_tour.py) e ensina os agentes,
 		que conferem primeiro os erros já vistos e avisam quando foram corrigidos.
+
+	🏢 Identidade da instituição (Administração › Sistema › Identidade da instituição)
+		Cada cliente tem a sua própria instalação. Nenhum nome de instituição ou de programa fica no código: as telas,
+		os e-mails, os convites, os certificados e o Assistente leem os dados cadastrados nesta tela:
+		- Nome da instituição (ex.: "Instituto Exemplo") – termo de adesão, certificados, verificação pública;
+		- Apelido (sigla) – forma curta dos botões e rótulos, ex.: "Reuniões IEX × B2B", "Gestão IEX";
+		- Nome da plataforma ou do programa – menu, título das páginas, assinatura dos e-mails e convites;
+		- Logo, site, e-mail de contato e o cargo de quem assina o certificado pela instituição.
+		Enquanto a identidade não for salva, as telas mostram nomes genéricos e o Administrador vê um aviso.
+		Nos textos traduzidos use os marcadores {apelido}, {instituicao} e {plataforma}: t() e tt() trocam pelo
+		cadastrado. Nos templates: {{ marca.apelido }}, {{ marca.nome }}, {{ marca.plataforma }}. Código: identidade.py.
+
+	🗄️ Banco de dados (SQLite, MySQL, PostgreSQL)
+		O endereço vem de DATABASE_URL (arquivo .env). Sem ela, usa o SQLite de desenvolvimento (instance/mentoria.db).
+		- MySQL / MariaDB: mysql+pymysql://usuario:senha@localhost:3306/mentoria?charset=utf8mb4
+		- PostgreSQL:      postgresql+psycopg://usuario:senha@localhost:5432/mentoria (pip install "psycopg[binary]")
+		Estrutura: migrations/ (Flask-Migrate). O app aplica as migrações pendentes ao iniciar; banco novo é criado e
+		marcado na versão atual. Depois de mudar models.py, gere a migração:
+		    PULAR_ATUALIZACAO_BANCO=1 flask --app app db migrate -m "o que mudou"
+		Trocar de motor numa instalação com dados: copiar_banco.py copia todas as tabelas e confere as quantidades.
+		    python copiar_banco.py --de sqlite:///mentoria.db --para "mysql+pymysql://..."   (--substituir apaga o destino)
+		Backup (Manutenção › DB): SQLite gera .db; MySQL gera .sql.gz pelo mysqldump (pacote mysql-client), com a senha
+		num arquivo temporário, nunca na linha de comando. Um .db também restaura num MySQL.
+		Textos longos usam LONGTEXT no MySQL (o TEXT de lá guarda só 64 KB). Código: banco_config.py.
+
+	🐧 Instalação em servidor Ubuntu 24.04 com MySQL (uma instalação por cliente)
+		Arquivos prontos em deploy/ubuntu/ (systemd, nginx, tarefas de hora em hora e o modelo do .env).
+		1. Pacotes:
+		    sudo apt update && sudo apt install -y python3-venv python3-dev build-essential git nginx mysql-server mysql-client
+		2. Banco (sudo mysql):
+		    CREATE DATABASE mentoria CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci;
+		    CREATE USER 'mentoria'@'localhost' IDENTIFIED BY 'senha-forte';
+		    GRANT ALL PRIVILEGES ON mentoria.* TO 'mentoria'@'localhost';
+		3. Usuário do sistema e código:
+		    sudo adduser --system --group --home /srv/mentoria mentoria
+		    sudo -u mentoria git clone <repositório> /srv/mentoria   (ou copie os arquivos)
+		    cd /srv/mentoria && sudo -u mentoria python3 -m venv .venv
+		    sudo -u mentoria .venv/bin/pip install -r requirements.txt
+		4. Configuração: copie deploy/ubuntu/env.exemplo para /srv/mentoria/.env, preencha (DATABASE_URL, SECRET_KEY,
+		   APP_BASE_URL...) e proteja: sudo chown mentoria: .env && sudo chmod 600 .env
+		5. Estrutura do banco: sudo -u mentoria .venv/bin/flask --app app db upgrade
+		   Vindo de uma instalação SQLite (ex.: PythonAnywhere): copie o arquivo mentoria.db e a pasta uploads/ para o
+		   servidor e rode: sudo -u mentoria .venv/bin/python copiar_banco.py --de sqlite:////caminho/mentoria.db
+		   (o destino é o DATABASE_URL do .env).
+		6. Serviços:
+		    sudo cp deploy/ubuntu/mentoria.service deploy/ubuntu/mentoria-tarefas.* /etc/systemd/system/
+		    sudo systemctl daemon-reload && sudo systemctl enable --now mentoria mentoria-tarefas.timer
+		7. nginx e HTTPS: copie deploy/ubuntu/nginx-mentoria.conf para /etc/nginx/sites-available/mentoria, ajuste o
+		   domínio, ative o site, sudo nginx -t && sudo systemctl reload nginx e depois sudo certbot --nginx -d <domínio>.
+		8. Primeiro acesso: entre como Administrador e preencha Administração › Sistema › Identidade da instituição.
+		Atualizar a versão: git pull, pip install -r requirements.txt, flask --app app db upgrade e
+		sudo systemctl restart mentoria. Backups: agende em Manutenção › DB (as tarefas de hora em hora executam) e copie
+		a pasta instance/backups para fora do servidor.
 
 	5️⃣ Start da Aplicação
 		Inicie o servidor Flask principal:

@@ -8,7 +8,7 @@
     <div class="col-md-3"><label class="form-label fw-bold small" for="ano{{ sufixo }}">{{ t('acervo_ano') }}</label>
         <input type="number" class="form-control form-control-sm" id="ano{{ sufixo }}" name="ano_edicao" min="2000" max="2100" value="{{ item.ano_edicao if item else ano_atual }}"></div>
     <div class="col-md-3"><label class="form-label fw-bold small" for="edicao{{ sufixo }}">{{ t('acervo_edicao') }}</label>
-        <input class="form-control form-control-sm" id="edicao{{ sufixo }}" name="edicao" value="{{ item.edicao or '' if item else 'Jovem Seguro ' ~ ano_atual }}"></div>
+        <input class="form-control form-control-sm" id="edicao{{ sufixo }}" name="edicao" value="{{ item.edicao or '' if item else marca.plataforma }}"></div>
     <div class="col-12"><label class="form-label fw-bold small" for="palavras{{ sufixo }}">{{ t('acervo_palavras') }}</label>
         <input class="form-control form-control-sm" id="palavras{{ sufixo }}" name="palavras_chave" value="{{ item.palavras_chave or '' if item else '' }}" placeholder="finanças pessoais, seguros, jovens"></div>
     <div class="col-12"><label class="form-label fw-bold small" for="resumo{{ sufixo }}">{{ t('acervo_resumo') }}</label>
