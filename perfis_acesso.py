@@ -68,7 +68,7 @@ MODULOS = {
                    ['assistente', 'assistente_perguntar', 'assistente_conversa', 'assistente_ultima_conversa', 'assistente_excluir_conversa',
                     'assistente_documentos', 'assistente_situacao_documento', 'assistente_excluir_documento',
                     'assistente_arquivo_documento', 'assistente_trechos_documento', 'assistente_sincronizar'], False),
-    'manutencao': ('Manutenção do banco de dados', 'bi-database-fill-gear', ['manutencao_banco', 'baixar_backup', 'relatorio_auditoria_backup'], False),
+    'manutencao': ('Manutenção do banco de dados', 'bi-database-fill-gear', ['manutencao_banco', 'baixar_backup', 'relatorio_auditoria_backup', 'ambiente_compatibilidade', 'ambiente_backups_padrao'], False),
 }
 
 _comum = ['painel', 'biblioteca', 'certificados', 'demandas']

@@ -1,0 +1,4 @@
+# Driver do PostgreSQL (instalado pelo instalar.py quando o banco escolhido é o PostgreSQL)
+# Backups: o servidor precisa do pacote postgresql-client (pg_dump e pg_restore).
+-r requirements.txt
+psycopg[binary]>=3.2,<4

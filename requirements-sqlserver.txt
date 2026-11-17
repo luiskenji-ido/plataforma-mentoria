@@ -1,0 +1,5 @@
+# Driver do SQL Server (instalado pelo instalar.py quando o banco escolhido é o SQL Server)
+# O servidor também precisa do "ODBC Driver 18 for SQL Server" da Microsoft (Ubuntu: pacote msodbcsql18).
+# Crie o banco com collation UTF-8 (SQL Server 2019+): CREATE DATABASE mentoria COLLATE Latin1_General_100_CI_AI_SC_UTF8
+-r requirements.txt
+pyodbc>=5.2,<6

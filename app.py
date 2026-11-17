@@ -4428,6 +4428,42 @@ def logo_instituicao():
     return resposta
 
 
+def _recurso_indisponivel(chave):
+    """Mensagem (traduzida) quando o recurso não funciona nesta hospedagem; '' quando funciona (ambiente.py)."""
+    import ambiente
+    ok, motivo = ambiente.disponivel(chave)
+    return '' if ok else tt(motivo, current_user.idioma) + ' ' + tt('Detalhes em Administração › Sistema › Ambiente e compatibilidade.', current_user.idioma)
+
+
+@app.route('/admin/ambiente')
+@login_required
+def ambiente_compatibilidade():
+    """Onde a plataforma está publicada, o banco em uso, as pastas de backup e o que funciona aqui (ligado, atenção
+    ou desligado, com o motivo e como ligar). Só o Administrador."""
+    bloqueio = _somente_administrador()
+    if bloqueio:
+        return bloqueio
+    import ambiente
+    import backup_servico
+    from models import AgendamentoBackup
+    return render_template('ambiente.html', a=ambiente.resumo(), agendamentos=AgendamentoBackup.query.order_by(AgendamentoBackup.id).all(),
+                           tamanho_legivel=backup_servico.tamanho_legivel)
+
+
+@app.route('/admin/ambiente/backups-padrao', methods=['POST'])
+@login_required
+def ambiente_backups_padrao():
+    """Cria os agendamentos padrão (Diário 7, Semanal 4, Mensal 12) quando ainda não há nenhum."""
+    bloqueio = _somente_administrador()
+    if bloqueio:
+        return bloqueio
+    import backup_servico
+    criados = backup_servico.criar_agendamentos_padrao(current_user.id)
+    flash(tt('Agendamentos padrão criados: Diário, Semanal e Mensal.', current_user.idioma) if criados
+          else tt('Já existem agendamentos de backup: nada foi alterado.', current_user.idioma), 'success' if criados else 'info')
+    return redirect(url_for('ambiente_compatibilidade'))
+
+
 @app.route('/admin/identidade', methods=['GET', 'POST'])
 @login_required
 def identidade_instituicao():
@@ -7706,6 +7742,10 @@ def iniciar_agentes_ia():
     if estado and estado.get('status') == 'executando':
         flash(tt('Já existe uma execução em andamento.', current_user.idioma), "warning")
         return redirect(url_for('agentes_ia'))
+    indisponivel = _recurso_indisponivel('omnitest')
+    if indisponivel:
+        flash(indisponivel, 'danger')
+        return redirect(url_for('agentes_ia'))
     if importlib.util.find_spec('playwright') is None:
         flash(tt('Este servidor não tem o Playwright instalado: rode os agentes num computador com o Playwright.', current_user.idioma), "danger")
         return redirect(url_for('agentes_ia'))
@@ -7865,6 +7905,10 @@ def iniciar_agentes_seguranca():
     estado = estado_agentes_seguranca()
     if estado and estado.get('status') == 'executando':
         flash(tt('Já existe uma execução em andamento.', current_user.idioma), "warning")
+        return redirect(url_for('agentes_seguranca'))
+    indisponivel = _recurso_indisponivel('agentes')
+    if indisponivel:
+        flash(indisponivel, 'danger')
         return redirect(url_for('agentes_seguranca'))
     validos = [c for c, *_ in ORDEM_AGENTES_SEG]
     agentes = [a for a in request.form.getlist('agentes') if a in validos] or validos
@@ -8040,6 +8084,10 @@ def iniciar_agentes_banco():
     if estado and estado.get('status') == 'executando':
         flash(tt('Já existe uma execução em andamento.', current_user.idioma), "warning")
         return redirect(url_for('agentes_banco'))
+    indisponivel = _recurso_indisponivel('agentes')
+    if indisponivel:
+        flash(indisponivel, 'danger')
+        return redirect(url_for('agentes_banco'))
     validos = [c for c, *_ in ORDEM_AGENTES_BANCO]
     agentes = [a for a in request.form.getlist('agentes') if a in validos] or validos
     raiz = os.path.dirname(os.path.abspath(__file__))
@@ -8147,6 +8195,10 @@ def iniciar_agentes_funcionalidades():
     estado = estado_agentes_funcionalidades()
     if estado and estado.get('status') == 'executando':
         flash(tt('Já existe uma execução em andamento.', current_user.idioma), "warning")
+        return redirect(url_for('agentes_funcionalidades'))
+    indisponivel = _recurso_indisponivel('agentes')
+    if indisponivel:
+        flash(indisponivel, 'danger')
         return redirect(url_for('agentes_funcionalidades'))
     raiz = os.path.dirname(os.path.abspath(__file__))
     cmd = [_sys.executable, os.path.join(raiz, 'agentes_funcionalidades', 'gestor_funcionalidades.py'), '--url', request.host_url.rstrip('/')]

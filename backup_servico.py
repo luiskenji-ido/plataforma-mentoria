@@ -7,11 +7,19 @@ SERVIÇO DE BACKUP DA PLATAFORMA (Manutenção › DB)
     MySQL / MariaDB: mysqldump --single-transaction compactado, arquivo .sql.gz. As credenciais vão num arquivo
     temporário só do dono (--defaults-extra-file), nunca na linha de comando. Precisa do pacote mysql-client
     (mysqldump e mysql); outro caminho pode ser indicado em MYSQLDUMP_BIN e MYSQL_BIN.
-- Restauração: .db no SQLite; .sql.gz no MySQL; um .db também restaura num MySQL (copiado por copiar_banco.py).
+    PostgreSQL: pg_dump no formato próprio (compactado), arquivo .dump. A senha vai num arquivo .pgpass temporário
+    só do dono (PGPASSFILE), nunca na linha de comando. Precisa do pacote postgresql-client (pg_dump e pg_restore);
+    outro caminho pode ser indicado em PG_DUMP_BIN e PG_RESTORE_BIN.
+    SQL Server: o backup fica a cargo do próprio servidor do banco (ou do Azure); a plataforma não gera o arquivo.
+- Restauração: .db no SQLite; .sql.gz no MySQL; .dump no PostgreSQL; um .db também restaura em MySQL ou PostgreSQL
+  (copiado por copiar_banco.py).
 - Agendamentos Diário / Semanal / Mensal com pausa, retenção por agendamento e próxima execução calculada.
 - Restauração com cópia de segurança do banco atual antes e com a auditoria preservada
   (os agendamentos e o histórico de execuções não voltam no tempo junto com os dados).
-- Todos os arquivos ficam dentro de instance/backups/<subpasta>: nada é gravado fora dessa pasta.
+- Todos os arquivos ficam dentro da pasta de backups (BACKUP_DIR; padrão instance/backups), em <subpasta>:
+  nada é gravado fora dela. Com BACKUP_DIR_EXTERNO, cada backup ganha uma segunda cópia fora do servidor,
+  com a mesma retenção (ambiente.py).
+- Instalação nova: criar_agendamentos_padrao() cria Diário (7 cópias), Semanal (4) e Mensal (12).
 
 As funções rodam dentro de um app_context (rotas do Flask ou tarefas_agendadas.py).
 """
@@ -36,7 +44,7 @@ STATUS_OK = ('Concluído', 'Sucesso')          # 'Sucesso' = registros antigos
 TIPOS_BACKUP = ('Imediato', 'Agendado', 'Agendado (manual)')
 DIAS_SEM_BACKUP_ATENCAO = 8                   # sem backup bem-sucedido há mais tempo que isto: "Atenção"
 TABELAS_PRESERVADAS = ('agendamento_backup', 'alteracao_agendamento_backup', 'registro_backup')
-EXTENSOES = ('.db', '.sql.gz')                # SQLite e MySQL
+EXTENSOES = ('.db', '.sql.gz', '.dump')       # SQLite, MySQL e PostgreSQL
 
 
 def motor():
@@ -48,6 +56,10 @@ def eh_mysql():
     return motor() in ('mysql', 'mariadb')
 
 
+def eh_postgresql():
+    return motor() == 'postgresql'
+
+
 # ------------------------------------------------------------------------------
 # Caminhos
 # ------------------------------------------------------------------------------
@@ -56,7 +68,8 @@ def caminho_banco():
 
 
 def pasta_base():
-    pasta = os.path.join(current_app.instance_path, 'backups')
+    import ambiente
+    pasta = ambiente.pasta_backups(current_app.instance_path)
     os.makedirs(pasta, exist_ok=True)
     return pasta
 
@@ -73,7 +86,7 @@ def pasta_de(subpasta):
 
 
 def caminho_seguro(relativo):
-    """Caminho dentro de instance/backups ou None (bloqueia ../ e caminhos absolutos)."""
+    """Caminho dentro da pasta de backups ou None (bloqueia ../ e caminhos absolutos)."""
     base = os.path.realpath(pasta_base())
     alvo = os.path.realpath(os.path.join(base, relativo or ''))
     return alvo if alvo.startswith(base + os.sep) and os.path.isfile(alvo) else None
@@ -112,6 +125,8 @@ def verificar_integridade(caminho):
     """(ok, mensagem): arquivo íntegro (SQLite .db ou dump do MySQL .sql.gz) e com as tabelas da plataforma."""
     if caminho.endswith('.sql.gz'):
         return _verificar_dump(caminho)
+    if caminho.endswith('.dump'):
+        return _verificar_dump_postgresql(caminho)
     try:
         with open(caminho, 'rb') as f:
             if f.read(16) != b'SQLite format 3\x00':
@@ -142,15 +157,18 @@ def registrar(tipo, status, detalhes, usuario_id=None, arquivo=None, tamanho=Non
 
 def copiar_banco(subpasta, prefixo):
     """Gera a cópia e confere a integridade. Devolve (caminho, tamanho, duração); levanta erro se falhar."""
+    import ambiente
     inicio = datetime.now()
-    if motor() != 'sqlite' and not eh_mysql():
-        raise RuntimeError(f'o backup automático cobre SQLite e MySQL; para {motor()}, use a ferramenta do próprio banco')
-    nome = f"{prefixo}_{inicio.strftime('%Y%m%d_%H%M%S_%f')}" + ('.sql.gz' if eh_mysql() else '.db')
+    pode, motivo = ambiente.disponivel('backup')
+    if not pode:
+        raise RuntimeError(motivo)
+    extensao = '.sql.gz' if eh_mysql() else '.dump' if eh_postgresql() else '.db'
+    nome = f"{prefixo}_{inicio.strftime('%Y%m%d_%H%M%S_%f')}" + extensao
     destino = os.path.join(pasta_de(subpasta), nome)
     db.session.commit()  # nada pendente na sessão antes da cópia
-    if eh_mysql():
+    if eh_mysql() or eh_postgresql():
         try:
-            _dump_mysql(destino)
+            (_dump_mysql if eh_mysql() else _dump_postgresql)(destino)
         except Exception:
             if os.path.exists(destino):
                 os.remove(destino)
@@ -177,6 +195,9 @@ def fazer_backup(tipo, subpasta, usuario_id=None, agendamento=None):
         caminho, tamanho, duracao = copiar_banco(subpasta, prefixo)
         nome = os.path.basename(caminho)
         detalhes = f"Backup criado e validado: {nome} ({tamanho_legivel(tamanho)})"
+        externa = copiar_para_fora(caminho, subpasta)
+        if externa:
+            detalhes += f"; cópia fora do servidor: {externa}"
         if agendamento:
             removidos = aplicar_retencao(agendamento)
             if removidos:
@@ -202,7 +223,60 @@ def aplicar_retencao(agendamento):
     for nome in proprios[max(agendamento.retencao or 1, 1):]:
         os.remove(os.path.join(pasta, nome))
         apagados += 1
+    # A cópia fora do servidor segue a mesma retenção
+    import ambiente
+    externa = ambiente.pasta_backups_externa()
+    pasta_fora = os.path.join(externa, nome_de_pasta(agendamento.pasta)) if externa else ''
+    if pasta_fora and os.path.isdir(pasta_fora):
+        fora = sorted((n for n in os.listdir(pasta_fora) if n.startswith(f"mentoria_backup_ag{agendamento.id}_") and n.endswith(EXTENSOES)),
+                      reverse=True)
+        for nome in fora[max(agendamento.retencao or 1, 1):]:
+            try:
+                os.remove(os.path.join(pasta_fora, nome))
+            except OSError:
+                pass
     return apagados
+
+
+def copiar_para_fora(caminho, subpasta):
+    """Segunda cópia em BACKUP_DIR_EXTERNO/<subpasta> (disco de rede, volume da nuvem, pasta do rclone).
+    Devolve o caminho da cópia ou '' (sem pasta externa ou falha: o backup principal continua valendo)."""
+    import ambiente
+    externa = ambiente.pasta_backups_externa()
+    if not externa:
+        return ''
+    try:
+        destino = os.path.join(externa, nome_de_pasta(subpasta))
+        os.makedirs(destino, exist_ok=True)
+        alvo = os.path.join(destino, os.path.basename(caminho))
+        shutil.copy2(caminho, alvo + '.parcial')
+        os.replace(alvo + '.parcial', alvo)   # nunca deixa uma cópia pela metade com o nome final
+        return alvo
+    except OSError as e:
+        print(f"Cópia externa do backup falhou: {e}")
+        return ''
+
+
+def criar_agendamentos_padrao(usuario_id=None):
+    """Instalação nova: Diário, Semanal e Mensal (ambiente.AGENDAMENTOS_PADRAO) nas subpastas diario, semanal e mensal.
+    Não faz nada se já existe algum agendamento. Devolve quantos criou."""
+    import ambiente
+    if AgendamentoBackup.query.count():
+        return 0
+    agora = datetime.now()
+    for frequencia, horario, pasta, retencao in ambiente.AGENDAMENTOS_PADRAO:
+        agendamento = AgendamentoBackup(frequencia=frequencia, horario=horario, data_inicio=agora.date(), status='Ativo',
+                                        retencao=retencao, pasta=pasta, criado_por_id=usuario_id)
+        agendamento.proxima_execucao = calcular_proxima(agendamento, agora)
+        db.session.add(agendamento)
+        db.session.flush()
+        registrar_alteracao(agendamento.id, 'Criado', 'Agendamento padrão da instalação: ' + descrever(agendamento), usuario_id)
+        try:
+            pasta_de(pasta)
+        except OSError:
+            pass   # sem permissão agora: a tela Ambiente e compatibilidade mostra como resolver
+    db.session.commit()
+    return len(ambiente.AGENDAMENTOS_PADRAO)
 
 
 # ------------------------------------------------------------------------------
@@ -327,6 +401,8 @@ def restaurar(caminho_arquivo, usuario_id, atualizar_estrutura):
     nome = os.path.basename(caminho_arquivo)
     if ok and caminho_arquivo.endswith('.sql.gz') and not eh_mysql():
         ok, mensagem = False, 'backup do MySQL (.sql.gz) só restaura num banco MySQL'
+    if ok and caminho_arquivo.endswith('.dump') and not eh_postgresql():
+        ok, mensagem = False, 'backup do PostgreSQL (.dump) só restaura num banco PostgreSQL'
     if not ok:
         registrar('Restauração', 'Falha', f"Arquivo recusado ({nome}): {mensagem}", usuario_id, arquivo=nome)
         return False, mensagem
@@ -340,6 +416,8 @@ def restaurar(caminho_arquivo, usuario_id, atualizar_estrutura):
     db.engine.dispose()
     if caminho_arquivo.endswith('.sql.gz'):
         _restaurar_mysql(caminho_arquivo)
+    elif caminho_arquivo.endswith('.dump'):
+        _restaurar_postgresql(caminho_arquivo)
     elif motor() == 'sqlite':
         origem = sqlite3.connect(f"file:{caminho_arquivo}?mode=ro", uri=True)
         destino = sqlite3.connect(caminho_banco())
@@ -507,5 +585,76 @@ def _restaurar_mysql(caminho_arquivo):
         erros = processo.stderr.read()
         if processo.wait() != 0:
             raise RuntimeError(f'mysql falhou ao restaurar: {_erro_limpo(erros)}')
+    finally:
+        os.remove(credenciais)
+
+
+# ------------------------------------------------------------------------------
+# PostgreSQL: pg_dump e pg_restore com a senha num .pgpass temporário (nunca na linha de comando)
+# ------------------------------------------------------------------------------
+def _programa_pg(variavel, nome):
+    for opcao in (os.environ.get(variavel), nome):
+        if opcao and (shutil.which(opcao) or os.path.isfile(opcao)):
+            return shutil.which(opcao) or opcao
+    raise RuntimeError(f"{nome} não encontrado: instale o pacote postgresql-client (Ubuntu: sudo apt install postgresql-client) "
+                       f"ou indique o caminho em {variavel}")
+
+
+def _conexao_pg():
+    """(argumentos de conexão sem senha, ambiente com PGPASSFILE, caminho do .pgpass para apagar depois)."""
+    url = db.engine.url
+    host, porta = url.host or 'localhost', str(url.port or 5432)
+    usuario, banco = url.username or '', url.database or ''
+
+    def escapar(v):
+        return str(v).replace(chr(92), chr(92) * 2).replace(':', chr(92) + ':')   # .pgpass escapa \ e : com \
+    descritor, caminho = tempfile.mkstemp(prefix='mentoria_', suffix='.pgpass')
+    with os.fdopen(descritor, 'w', encoding='utf-8') as f:
+        f.write(':'.join(escapar(v) for v in (host, porta, banco, usuario, url.password or '')) + '\n')
+    os.chmod(caminho, 0o600)
+    ambiente_pg = dict(os.environ, PGPASSFILE=caminho)
+    ambiente_pg.pop('PGPASSWORD', None)
+    return ['--host', host, '--port', porta, '--username', usuario, '--no-password'], banco, ambiente_pg, caminho
+
+
+def _dump_postgresql(destino):
+    """pg_dump no formato próprio (-Fc): compactado, consistente com o site no ar e restaurável tabela a tabela."""
+    programa = _programa_pg('PG_DUMP_BIN', 'pg_dump')
+    argumentos, banco, ambiente_pg, credenciais = _conexao_pg()
+    try:
+        r = subprocess.run([programa, *argumentos, '--format=custom', '--no-owner', '--file', destino, banco],
+                           env=ambiente_pg, capture_output=True, timeout=3600)
+        if r.returncode != 0:
+            raise RuntimeError(f'pg_dump falhou: {_erro_limpo(r.stderr)}')
+    finally:
+        os.remove(credenciais)
+
+
+def _verificar_dump_postgresql(caminho):
+    """(ok, mensagem): o pg_restore lê o índice do arquivo e ele tem a tabela usuario."""
+    try:
+        with open(caminho, 'rb') as f:
+            if f.read(5) != b'PGDMP':
+                return False, 'o arquivo não é um backup do pg_dump'
+        programa = _programa_pg('PG_RESTORE_BIN', 'pg_restore')
+        r = subprocess.run([programa, '--list', caminho], capture_output=True, timeout=300)
+        if r.returncode != 0:
+            return False, f'arquivo ilegível: {_erro_limpo(r.stderr)}'
+        if not re.search(r'TABLE \S+ usuario ', r.stdout.decode('utf-8', 'replace')):
+            return False, 'o backup não tem as tabelas da plataforma'
+        return True, 'íntegro'
+    except (OSError, RuntimeError, subprocess.TimeoutExpired) as e:
+        return False, str(e)
+
+
+def _restaurar_postgresql(caminho_arquivo):
+    """pg_restore --clean: apaga e recria cada objeto do backup, numa única transação."""
+    programa = _programa_pg('PG_RESTORE_BIN', 'pg_restore')
+    argumentos, banco, ambiente_pg, credenciais = _conexao_pg()
+    try:
+        r = subprocess.run([programa, *argumentos, '--clean', '--if-exists', '--no-owner', '--single-transaction',
+                            '--dbname', banco, caminho_arquivo], env=ambiente_pg, capture_output=True, timeout=3600)
+        if r.returncode != 0:
+            raise RuntimeError(f'pg_restore falhou: {_erro_limpo(r.stderr)}')
     finally:
         os.remove(credenciais)

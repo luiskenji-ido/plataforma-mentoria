@@ -1,0 +1,7 @@
+# Arquivos que rodam no Linux (servidor, contêiner) sempre com fim de linha LF, mesmo vindos do Windows
+*.sh text eol=lf
+*.service text eol=lf
+*.timer text eol=lf
+*.conf text eol=lf
+Dockerfile text eol=lf
+deploy/** text eol=lf

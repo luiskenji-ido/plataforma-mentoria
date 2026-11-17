@@ -214,6 +214,13 @@
             { aba: '#base', sel: '#cardEnviarDocumento', texto: {{ tt('Adicione o PRD, o PTD ou o DTD em .md, .txt, .html, .docx ou .pdf; enviar de novo com o mesmo título cria uma nova versão.')|tojson }} },
             { aba: '#base', sel: '#cardTiposDocumento', texto: {{ tt('O que cada tipo de fonte traz para o Assistente.')|tojson }} },
         ],
+        'ambiente_compatibilidade': [
+            { texto: {{ tt('Onde a plataforma está publicada, o banco em uso, as pastas de backup e o que funciona aqui. O que este servidor não suporta fica desligado, com o motivo e como ligar.')|tojson }} },
+            { sel: '#resumoAmbiente', texto: {{ tt('Ambiente e compatibilidade: a hospedagem, o banco e as pastas de backup desta instalação.')|tojson }} },
+            { sel: '#cardRecursos', texto: {{ tt('Cada recurso aparece ligado, com atenção ou desligado, com o motivo e o comando para ligar.')|tojson }} },
+            { sel: '#cardAgendamentosPadrao', texto: {{ tt('Os backups agendados desta instalação; numa instalação nova, crie aqui o Diário, o Semanal e o Mensal.')|tojson }} },
+            { sel: '#cardMatriz', texto: {{ tt('O que funciona em cada tipo de hospedagem; a coluna destacada é a desta instalação.')|tojson }} },
+        ],
         'provedores_ia_view': [
             { texto: {{ tt('Provedores de IA e custos: escolha qual IA atende cada uso, ligue ou desligue cada uma e acompanhe o gasto do mês.')|tojson }} },
             { sel: '#cardGastoIa', texto: {{ tt('O gasto do mês comparado ao teto. Ao atingir o teto, as IAs param até o mês seguinte; o teto fica em Parâmetros de regras.')|tojson }} },

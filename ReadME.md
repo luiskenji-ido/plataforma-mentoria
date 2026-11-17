@@ -230,29 +230,47 @@ mentoria/
 		    PULAR_ATUALIZACAO_BANCO=1 flask --app app db migrate -m "o que mudou"
 		Trocar de motor numa instalação com dados: copiar_banco.py copia todas as tabelas e confere as quantidades.
 		    python copiar_banco.py --de sqlite:///mentoria.db --para "mysql+pymysql://..."   (--substituir apaga o destino)
-		Backup (Manutenção › DB): SQLite gera .db; MySQL gera .sql.gz pelo mysqldump (pacote mysql-client), com a senha
-		num arquivo temporário, nunca na linha de comando. Um .db também restaura num MySQL.
+		Backup (Manutenção › DB): SQLite gera .db; MySQL gera .sql.gz pelo mysqldump (pacote mysql-client); PostgreSQL
+		gera .dump pelo pg_dump (pacote postgresql-client). A senha vai num arquivo temporário, nunca na linha de comando.
+		Um .db também restaura num MySQL ou PostgreSQL. No SQL Server o backup é do próprio servidor do banco (ou do Azure).
+		Drivers opcionais: requirements-postgresql.txt (psycopg) e requirements-sqlserver.txt (pyodbc + ODBC Driver 18).
 		Textos longos usam LONGTEXT no MySQL (o TEXT de lá guarda só 64 KB). Código: banco_config.py.
 
-	🐧 Instalação em servidor Ubuntu 24.04 com MySQL (uma instalação por cliente)
+	🧭 Instalador e hospedagens (cada cliente escolhe a nuvem e o banco)
+		python3 instalar.py pergunta a hospedagem, o banco, a conexão e as pastas de backup, grava o .env, cria o banco e
+		a estrutura, copia os dados de um SQLite antigo (opcional) e cria os backups agendados padrão. Pode rodar de novo.
+		Hospedagens (HOSPEDAGEM no .env) e o que funciona em cada uma:
+		- Servidor próprio ou máquina virtual na AWS (EC2/Lightsail), GCP (Compute Engine) ou Azure: tudo funciona.
+		- Contêiner (AWS App Runner/ECS, GCP Cloud Run, Azure App Service/Container Apps): banco gerenciado; arquivos e
+		  backups só com volume montado; agentes e Orquestrador desligados; tarefas por agendador da nuvem.
+		- PythonAnywhere: MySQL incluso (PostgreSQL pago, sem SQL Server); agentes OmniTest desligados (sem Chromium).
+		Bancos por hospedagem: máquina virtual = MySQL, PostgreSQL, SQL Server ou SQLite; contêiner = MySQL, PostgreSQL ou
+		SQL Server gerenciados; PythonAnywhere = MySQL, PostgreSQL ou SQLite.
+		Pastas de backup padrão (BACKUP_DIR): máquina virtual /var/backups/mentoria; PythonAnywhere ~/backups/mentoria;
+		contêiner /dados/backups (volume); computador instance/backups. Subpastas diario (guarda 7), semanal (4),
+		mensal (12) e manuais. BACKUP_DIR_EXTERNO recebe uma segunda cópia de cada backup fora do servidor (disco de
+		rede, volume da nuvem ou pasta do rclone), com a mesma retenção.
+		Guias: deploy/ubuntu, deploy/aws, deploy/gcp, deploy/azure, deploy/pythonanywhere; imagem em deploy/conteiner/Dockerfile.
+		Tela: Administração › Sistema › Ambiente e compatibilidade mostra a hospedagem, o banco, as pastas e cada recurso
+		ligado, com atenção ou desligado (com o motivo e como ligar). As rotas dos agentes e o backup consultam a mesma
+		verificação e se desligam sozinhos onde não funcionam. Código: ambiente.py e instalar.py.
+
+	🐧 Instalação em servidor Ubuntu 24.04 (uma instalação por cliente)
 		Arquivos prontos em deploy/ubuntu/ (systemd, nginx, tarefas de hora em hora e o modelo do .env).
-		1. Pacotes:
+		1. Pacotes (MySQL; para PostgreSQL troque por postgresql postgresql-client):
 		    sudo apt update && sudo apt install -y python3-venv python3-dev build-essential git nginx mysql-server mysql-client
-		2. Banco (sudo mysql):
-		    CREATE DATABASE mentoria CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci;
-		    CREATE USER 'mentoria'@'localhost' IDENTIFIED BY 'senha-forte';
-		    GRANT ALL PRIVILEGES ON mentoria.* TO 'mentoria'@'localhost';
-		3. Usuário do sistema e código:
+		2. Usuário do sistema, código e pasta de backups:
 		    sudo adduser --system --group --home /srv/mentoria mentoria
 		    sudo -u mentoria git clone <repositório> /srv/mentoria   (ou copie os arquivos)
 		    cd /srv/mentoria && sudo -u mentoria python3 -m venv .venv
 		    sudo -u mentoria .venv/bin/pip install -r requirements.txt
-		4. Configuração: copie deploy/ubuntu/env.exemplo para /srv/mentoria/.env, preencha (DATABASE_URL, SECRET_KEY,
-		   APP_BASE_URL...) e proteja: sudo chown mentoria: .env && sudo chmod 600 .env
-		5. Estrutura do banco: sudo -u mentoria .venv/bin/flask --app app db upgrade
-		   Vindo de uma instalação SQLite (ex.: PythonAnywhere): copie o arquivo mentoria.db e a pasta uploads/ para o
-		   servidor e rode: sudo -u mentoria .venv/bin/python copiar_banco.py --de sqlite:////caminho/mentoria.db
-		   (o destino é o DATABASE_URL do .env).
+		    sudo mkdir -p /var/backups/mentoria && sudo chown mentoria: /var/backups/mentoria
+		3. Instalador: sudo -u mentoria .venv/bin/python instalar.py
+		   Escolha "Servidor próprio" (ou a máquina virtual da sua nuvem), o banco e "o banco fica neste mesmo servidor".
+		   Ele grava o .env (só o dono lê) e o SQL que cria o banco e o usuário; rode o comando que ele mostrar
+		   (ex.: sudo mysql -e "source /srv/mentoria/instance/criar_banco_mysql.sql"), apague o arquivo e rode o instalador de novo para criar a
+		   estrutura e os backups agendados. Vindo de uma instalação SQLite (ex.: PythonAnywhere), informe o arquivo
+		   mentoria.db quando ele perguntar e copie também a pasta uploads/.
 		6. Serviços:
 		    sudo cp deploy/ubuntu/mentoria.service deploy/ubuntu/mentoria-tarefas.* /etc/systemd/system/
 		    sudo systemctl daemon-reload && sudo systemctl enable --now mentoria mentoria-tarefas.timer
@@ -260,8 +278,8 @@ mentoria/
 		   domínio, ative o site, sudo nginx -t && sudo systemctl reload nginx e depois sudo certbot --nginx -d <domínio>.
 		8. Primeiro acesso: entre como Administrador e preencha Administração › Sistema › Identidade da instituição.
 		Atualizar a versão: git pull, pip install -r requirements.txt, flask --app app db upgrade e
-		sudo systemctl restart mentoria. Backups: agende em Manutenção › DB (as tarefas de hora em hora executam) e copie
-		a pasta instance/backups para fora do servidor.
+		sudo systemctl restart mentoria. Backups: o instalador cria Diário, Semanal e Mensal (Manutenção › DB para
+		mudar); as tarefas de hora em hora executam. Configure BACKUP_DIR_EXTERNO para a cópia fora do servidor.
 
 	5️⃣ Start da Aplicação
 		Inicie o servidor Flask principal:

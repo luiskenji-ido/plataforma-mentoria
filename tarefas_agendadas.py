@@ -293,6 +293,8 @@ def executar_tarefas():
             except Exception as erro:
                 db.session.rollback()
                 print(f"[{agora:%d/%m/%Y %H:%M}] {tarefa.__name__}: ERRO {erro}")
+    import ambiente
+    ambiente.anotar_execucao_das_tarefas()   # a tela Ambiente e compatibilidade mostra se as tarefas estão rodando
 
 
 if __name__ == "__main__":

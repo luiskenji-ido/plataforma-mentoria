@@ -58,16 +58,36 @@ def _versao_das_migracoes():
         return None
 
 
-def _desligar_chaves(conexao, dialeto):
+def _desligar_chaves(conexao, dialeto, tabelas=()):
+    """Sem conferência de chaves estrangeiras durante a carga (as tabelas vêm na ordem das dependências, mas há
+    referências circulares e para a própria tabela)."""
     if dialeto in ('mysql', 'mariadb'):
         conexao.execute(text('SET FOREIGN_KEY_CHECKS=0'))
     elif dialeto == 'sqlite':
         conexao.execute(text('PRAGMA foreign_keys=OFF'))
+    elif dialeto == 'postgresql':
+        # Só o dono com permissão de superusuário pode; sem ela, vale a ordem das dependências
+        try:
+            with conexao.begin_nested():
+                conexao.execute(text('SET LOCAL session_replication_role = replica'))
+        except Exception:
+            pass
+    elif dialeto == 'mssql':
+        for tabela in tabelas:
+            conexao.execute(text(f'ALTER TABLE [{tabela.name}] NOCHECK CONSTRAINT ALL'))
 
 
-def _religar_chaves(conexao, dialeto):
+def _religar_chaves(conexao, dialeto, tabelas=()):
     if dialeto in ('mysql', 'mariadb'):
         conexao.execute(text('SET FOREIGN_KEY_CHECKS=1'))
+    elif dialeto == 'mssql':
+        for tabela in tabelas:
+            conexao.execute(text(f'ALTER TABLE [{tabela.name}] WITH CHECK CHECK CONSTRAINT ALL'))
+
+
+def _com_identidade(tabela):
+    """SQL Server: tabela com coluna IDENTITY (id automático) precisa de IDENTITY_INSERT para receber os ids copiados."""
+    return 'id' in tabela.c and tabela.c.id.primary_key and getattr(tabela.c.id, 'autoincrement', True) is not False
 
 
 def _acertar_sequencias(conexao, dialeto, tabelas):
@@ -102,7 +122,7 @@ def copiar(origem_url, destino_url, substituir=False, avisar=print):
         if com_dados and not substituir:
             raise ValueError('O destino já tem dados (' + ', '.join(com_dados[:5]) + ('…' if len(com_dados) > 5 else '')
                              + '). Use --substituir para apagar os dados do destino antes de copiar.')
-        _desligar_chaves(conexao, dialeto)
+        _desligar_chaves(conexao, dialeto, tabelas)
         for tabela in reversed(tabelas):
             if tabela.name in com_dados:
                 conexao.execute(tabela.delete())
@@ -115,6 +135,9 @@ def copiar(origem_url, destino_url, substituir=False, avisar=print):
                 continue
             colunas = [c for c in tabela.c if c.name in existentes]
             total = 0
+            identidade = dialeto == 'mssql' and _com_identidade(tabela)
+            if identidade:
+                conexao.execute(text(f'SET IDENTITY_INSERT [{tabela.name}] ON'))
             with origem.connect() as leitura:
                 resultado = leitura.execution_options(stream_results=True).execute(select(*colunas))
                 while True:
@@ -123,17 +146,22 @@ def copiar(origem_url, destino_url, substituir=False, avisar=print):
                         break
                     conexao.execute(tabela.insert(), [dict(linha._mapping) for linha in linhas])
                     total += len(linhas)
+            if identidade:
+                conexao.execute(text(f'SET IDENTITY_INSERT [{tabela.name}] OFF'))
             copiadas[tabela.name] = total
             if total:
                 avisar(f'  {tabela.name}: {total} linha(s)')
-        _religar_chaves(conexao, dialeto)
+        _religar_chaves(conexao, dialeto, tabelas)
         _acertar_sequencias(conexao, dialeto, tabelas)
 
         versao = _versao_das_migracoes()
         if versao:
-            conexao.execute(text('CREATE TABLE IF NOT EXISTS alembic_version (version_num VARCHAR(32) NOT NULL PRIMARY KEY)'))
-            conexao.execute(text('DELETE FROM alembic_version'))
-            conexao.execute(text('INSERT INTO alembic_version (version_num) VALUES (:v)'), {'v': versao})
+            # Tabela de controle das migrações, criada do jeito de cada banco (SQL Server não tem CREATE TABLE IF NOT EXISTS)
+            from sqlalchemy import MetaData, Table, Column, String
+            controle = Table('alembic_version', MetaData(), Column('version_num', String(32), primary_key=True))
+            controle.create(conexao, checkfirst=True)
+            conexao.execute(controle.delete())
+            conexao.execute(controle.insert(), {'version_num': versao})
 
     # Conferência: mesma quantidade de linhas nos dois lados
     diferencas = []

@@ -1,0 +1,145 @@
+{% extends "base.html" %}
+{% block title %}{{ tt('Ambiente e compatibilidade') }}{% endblock %}
+{% block content %}
+{% set cores = {'ligado': 'success', 'atencao': 'warning', 'desligado': 'danger'} %}
+{% set icones = {'ligado': 'bi-check-circle-fill', 'atencao': 'bi-exclamation-triangle-fill', 'desligado': 'bi-x-circle-fill'} %}
+{% set rotulos = {'ligado': tt('Ligado'), 'atencao': tt('Atenção'), 'desligado': tt('Desligado')} %}
+
+<div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-3">
+    <div>
+        <h2 class="text-primary fw-bold mb-1"><i class="bi bi-hdd-network"></i> {{ tt('Ambiente e compatibilidade') }}</h2>
+        <p class="text-muted mb-0">{{ tt('Onde a plataforma está publicada, o banco em uso, as pastas de backup e o que funciona aqui. O que este servidor não suporta fica desligado, com o motivo e como ligar.') }}</p>
+    </div>
+    <a href="{{ url_for('manutencao_banco') }}" class="btn btn-outline-primary fw-bold"><i class="bi bi-database-fill-gear"></i> {{ tt('Backups e manutenção') }}</a>
+</div>
+
+<!-- RESUMO: hospedagem, banco e pastas -->
+<div class="row g-3 mb-3" id="resumoAmbiente">
+    <div class="col-md-4">
+        <div class="card shadow-sm border-0 h-100" id="cardHospedagem">
+            <div class="card-body">
+                <div class="text-muted small fw-bold text-uppercase">{{ tt('Hospedagem') }}</div>
+                <div class="fs-5 fw-bold">{{ tt(a.hospedagem_nome) }}</div>
+                {% if not a.definida %}<div class="small text-warning-emphasis mt-1"><i class="bi bi-info-circle"></i> {{ tt('Detectada automaticamente. O instalador grava a escolha em HOSPEDAGEM no .env.') }}</div>{% endif %}
+                <div class="small text-muted mt-2">Python {{ a.python }}</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card shadow-sm border-0 h-100" id="cardBancoAmbiente">
+            <div class="card-body">
+                <div class="text-muted small fw-bold text-uppercase">{{ tt('Banco de dados') }}</div>
+                <div class="fs-5 fw-bold">{{ a.banco_nome }}</div>
+                <div class="small text-muted text-break"><code>{{ a.endereco }}</code></div>
+                <div class="small text-muted mt-1">{{ tt(a.bancos[a.banco].nota) if a.banco in a.bancos else '' }}</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card shadow-sm border-0 h-100" id="cardPastasBackup">
+            <div class="card-body small">
+                <div class="text-muted fw-bold text-uppercase">{{ tt('Pastas de backup') }}</div>
+                <div class="mt-1"><span class="text-muted">{{ tt('Principal') }}:</span> <code class="text-break">{{ a.pasta_backups }}</code></div>
+                <div class="text-muted">{{ tt('Espaço livre') }}: {{ tamanho_legivel(a.livre) }}</div>
+                <div class="mt-1"><span class="text-muted">{{ tt('Fora do servidor') }}:</span>
+                    {% if a.pasta_externa %}<code class="text-break">{{ a.pasta_externa }}</code>{% else %}<span class="text-warning-emphasis">{{ tt('não configurada') }}</span>{% endif %}</div>
+                <div class="text-muted mt-1">{{ tt('Subpastas') }}: diario · semanal · mensal · manuais</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- RECURSOS: ligado / atenção / desligado -->
+<div class="card shadow-sm border-0 mb-3" id="cardRecursos">
+    <div class="card-header bg-white d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <span class="fw-bold text-primary"><i class="bi bi-ui-checks"></i> {{ tt('O que funciona neste servidor') }}</span>
+        <span class="small">
+            <span class="badge text-bg-success">{{ a.contagem.ligado }} {{ tt('ligado(s)') }}</span>
+            <span class="badge text-bg-warning">{{ a.contagem.atencao }} {{ tt('com atenção') }}</span>
+            <span class="badge text-bg-danger">{{ a.contagem.desligado }} {{ tt('desligado(s)') }}</span>
+        </span>
+    </div>
+    <div class="table-responsive">
+        <table class="table table-sm align-middle mb-0 small">
+            <thead class="table-light"><tr><th>{{ tt('Recurso') }}</th><th>{{ tt('Situação') }}</th><th>{{ tt('Motivo') }}</th><th>{{ tt('Como ligar') }}</th></tr></thead>
+            <tbody>
+            {% for grupo, itens in a.itens|groupby('grupo') %}
+                <tr class="table-light"><td colspan="4" class="fw-bold text-muted">{{ tt(grupo) }}</td></tr>
+                {% for i in itens %}
+                <tr id="recurso_{{ i.chave }}">
+                    <td class="fw-bold">{{ tt(i.nome) }}</td>
+                    <td class="text-nowrap"><span class="badge text-bg-{{ cores[i.estado] }}"><i class="bi {{ icones[i.estado] }}"></i> {{ rotulos[i.estado] }}</span></td>
+                    <td>{{ tt(i.motivo) }}</td>
+                    <td>{% if i.como_ligar %}<code class="text-break">{{ tt(i.como_ligar) }}</code>{% else %}—{% endif %}</td>
+                </tr>
+                {% endfor %}
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="row g-3 mb-3">
+    <!-- AGENDAMENTOS DE BACKUP -->
+    <div class="col-lg-5">
+        <div class="card shadow-sm border-0 h-100" id="cardAgendamentosPadrao">
+            <div class="card-header bg-white fw-bold text-primary"><i class="bi bi-calendar2-week"></i> {{ tt('Backups agendados') }}</div>
+            <div class="card-body small">
+                {% if agendamentos %}
+                <ul class="list-unstyled mb-2">
+                    {% for g in agendamentos %}
+                    <li class="border-bottom py-1 d-flex justify-content-between gap-2">
+                        <span><b>{{ tt(g.frequencia) }}</b> {{ tt('às') }} {{ g.horario }} · <code>{{ g.pasta }}</code></span>
+                        <span class="text-muted text-nowrap">{{ tt('guarda') }} {{ g.retencao }} · {{ tt(g.status) }}</span>
+                    </li>
+                    {% endfor %}
+                </ul>
+                {% else %}
+                <p class="text-muted">{{ tt('Nenhum backup agendado. A instalação sugere:') }}</p>
+                <ul class="mb-2">
+                    {% for freq, hora, pasta, ret in a.agendamentos_padrao %}
+                    <li><b>{{ tt(freq) }}</b> {{ tt('às') }} {{ hora }} · <code>{{ pasta }}</code> · {{ tt('guarda') }} {{ ret }}</li>
+                    {% endfor %}
+                </ul>
+                <form method="POST" action="{{ url_for('ambiente_backups_padrao') }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button class="btn btn-sm btn-primary fw-bold" id="btnBackupsPadrao"><i class="bi bi-calendar-plus"></i> {{ tt('Criar os agendamentos padrão') }}</button>
+                </form>
+                {% endif %}
+                <p class="text-muted mb-0 mt-2">{{ tt('Pasta padrão para esta hospedagem') }}: <code>{{ a.pasta_padrao or 'instance/backups' }}</code></p>
+            </div>
+        </div>
+    </div>
+
+    <!-- MATRIZ DE COMPATIBILIDADE -->
+    <div class="col-lg-7">
+        <div class="card shadow-sm border-0 h-100" id="cardMatriz">
+            <div class="card-header bg-white fw-bold text-primary"><i class="bi bi-grid-3x3-gap"></i> {{ tt('Compatibilidade por tipo de hospedagem') }}</div>
+            <div class="table-responsive">
+                <table class="table table-sm align-middle mb-0 small">
+                    <thead class="table-light">
+                        <tr><th>{{ tt('Recurso') }}</th>
+                            {% for col, nome in [(1, tt('Máquina virtual')), (2, tt('Contêiner')), (3, 'PythonAnywhere')] %}
+                            <th class="{{ 'table-primary' if col == a.coluna }}">{{ nome }}</th>{% endfor %}</tr>
+                    </thead>
+                    <tbody>
+                    {% for linha in a.matriz %}
+                    <tr><td>{{ tt(linha[0]) }}</td>
+                        {% for col in [1, 2, 3] %}{% set c = linha[col] %}
+                        <td class="{{ 'table-primary' if col == a.coluna }}">
+                            <span class="text-{{ 'success' if c[0] == 'ligado' else 'warning-emphasis' if c[0] == 'limitado' else 'danger' }}">
+                                <i class="bi {{ 'bi-check-circle-fill' if c[0] == 'ligado' else 'bi-exclamation-triangle-fill' if c[0] == 'limitado' else 'bi-x-circle-fill' }}"></i></span>
+                            {% if c[1] %}<span class="text-muted">{{ tt(c[1]) }}</span>{% endif %}
+                        </td>{% endfor %}
+                    </tr>
+                    {% endfor %}
+                    <tr class="table-light"><td class="fw-bold">{{ tt('Bancos suportados') }}</td>
+                        {% for tipo in ['vm', 'conteiner', 'gerenciada'] %}
+                        <td>{% for b in a.bancos_por_tipo[tipo] %}{{ a.bancos[b].nome }}{{ ', ' if not loop.last }}{% endfor %}</td>{% endfor %}</tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

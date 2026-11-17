@@ -1,0 +1,14 @@
+.git
+.venv
+.venv-1
+__pycache__
+*.pyc
+.env
+.env.*
+instance/
+uploads/
+Agent Reports/
+Backup_repository/
+Log_auditoria_backup/
+client_secret.json
+*.db

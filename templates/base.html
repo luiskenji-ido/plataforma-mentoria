@@ -628,7 +628,7 @@
                                  'ocorrencias', 'nova_ocorrencia', 'detalhe_ocorrencia', 'desistencias', 'avaliacoes'] %}
       {% set grupo_projetos = ['projetos', 'minhas_bancas', 'biblioteca_tccs', 'meus_certificados', 'painel_banca'] %}
       {% set grupo_admin = ['gerenciar_usuarios', 'gestao_trilha_tcc', 'reunioes', 'agenda_bancas', 'avaliadores_banca', 'indicadores_voluntariado',
-                            'gerenciar_solicitacoes', 'agentes_ia', 'agentes_seguranca', 'agentes_banco', 'agentes_funcionalidades', 'manutencao_banco', 'gerenciar_grupos', 'perfis_acesso_view', 'parametros_regras', 'agentes_orquestrador', 'assistente', 'governanca_aprendizados', 'provedores_ia_view', 'identidade_instituicao'] %}
+                            'gerenciar_solicitacoes', 'agentes_ia', 'agentes_seguranca', 'agentes_banco', 'agentes_funcionalidades', 'manutencao_banco', 'gerenciar_grupos', 'perfis_acesso_view', 'parametros_regras', 'agentes_orquestrador', 'assistente', 'governanca_aprendizados', 'provedores_ia_view', 'identidade_instituicao', 'ambiente_compatibilidade'] %}
 
       <ul class="navbar-nav me-auto mb-2 mb-xl-0 gap-xl-1">
         <!-- Painel Geral -->
@@ -744,6 +744,7 @@
             <li><hr class="dropdown-divider"></li>
             <li><h6 class="dropdown-header">{{ tt('Sistema') }}</h6></li>
             {% if pode_modulo('identidade') %}<li><a class="dropdown-item fw-bold" href="{{ url_for('identidade_instituicao') }}"><i class="bi bi-building"></i> {{ tt('Identidade da instituição') }}</a></li>{% endif %}
+            {% if pode_modulo('manutencao') %}<li><a class="dropdown-item fw-bold" href="{{ url_for('ambiente_compatibilidade') }}"><i class="bi bi-hdd-network"></i> {{ tt('Ambiente e compatibilidade') }}</a></li>{% endif %}
             {% if pode_modulo('agentes_ia') %}
             <li><a class="dropdown-item fw-bold" href="{{ url_for('agentes_ia') }}"><i class="bi bi-robot"></i> {{ tt('Agentes IA') }}</a></li>
             <li><a class="dropdown-item fw-bold" href="{{ url_for('agentes_seguranca') }}"><i class="bi bi-shield-lock-fill"></i> {{ tt('Agentes de Segurança') }}</a></li>

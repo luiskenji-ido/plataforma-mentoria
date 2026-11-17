@@ -1947,6 +1947,138 @@ LITERAIS.update({
 })
 
 
+# Ambiente e compatibilidade (ambiente.py, templates/ambiente.html)
+LITERAIS.update({
+    'Ambiente e compatibilidade': ('Environment and compatibility', 'Entorno y compatibilidad'),
+    'Onde a plataforma está publicada, o banco em uso, as pastas de backup e o que funciona aqui. O que este servidor não suporta fica desligado, com o motivo e como ligar.': (
+        'Where the platform is published, the database in use, the backup folders and what works here. What this server does not support is turned off, with the reason and how to turn it on.',
+        'Dónde está publicada la plataforma, la base de datos en uso, las carpetas de copia de seguridad y lo que funciona aquí. Lo que este servidor no admite queda desactivado, con el motivo y cómo activarlo.'),
+    'Backups e manutenção': ('Backups and maintenance', 'Copias de seguridad y mantenimiento'),
+    'Hospedagem': ('Hosting', 'Alojamiento'), 'Banco de dados': ('Database', 'Base de datos'),
+    'Detectada automaticamente. O instalador grava a escolha em HOSPEDAGEM no .env.': (
+        'Detected automatically. The installer saves the choice in HOSPEDAGEM in the .env.', 'Detectado automáticamente. El instalador guarda la elección en HOSPEDAGEM en el .env.'),
+    'Pastas de backup': ('Backup folders', 'Carpetas de copia de seguridad'), 'Principal': ('Main', 'Principal'),
+    'Espaço livre': ('Free space', 'Espacio libre'), 'Fora do servidor': ('Off the server', 'Fuera del servidor'),
+    'não configurada': ('not set', 'no configurada'), 'Subpastas': ('Subfolders', 'Subcarpetas'),
+    'O que funciona neste servidor': ('What works on this server', 'Lo que funciona en este servidor'),
+    'ligado(s)': ('on', 'activado(s)'), 'com atenção': ('need attention', 'con atención'), 'desligado(s)': ('off', 'desactivado(s)'),
+    'Recurso': ('Feature', 'Recurso'), 'Como ligar': ('How to turn on', 'Cómo activarlo'),
+    'Ligado': ('On', 'Activado'), 'Desligado': ('Off', 'Desactivado'),
+    'Backups agendados': ('Scheduled backups', 'Copias de seguridad programadas'), 'guarda': ('keeps', 'guarda'),
+    'Nenhum backup agendado. A instalação sugere:': ('No scheduled backup. The installation suggests:', 'Ninguna copia programada. La instalación sugiere:'),
+    'Criar os agendamentos padrão': ('Create the default schedules', 'Crear las programaciones predeterminadas'),
+    'Pasta padrão para esta hospedagem': ('Default folder for this hosting', 'Carpeta predeterminada para este alojamiento'),
+    'Compatibilidade por tipo de hospedagem': ('Compatibility by hosting type', 'Compatibilidad por tipo de alojamiento'),
+    'Máquina virtual': ('Virtual machine', 'Máquina virtual'), 'Contêiner': ('Container', 'Contenedor'),
+    'Bancos suportados': ('Supported databases', 'Bases de datos admitidas'),
+    'Agendamentos padrão criados: Diário, Semanal e Mensal.': ('Default schedules created: Daily, Weekly and Monthly.', 'Programaciones predeterminadas creadas: Diaria, Semanal y Mensual.'),
+    'Já existem agendamentos de backup: nada foi alterado.': ('Backup schedules already exist: nothing was changed.', 'Ya existen programaciones de copia: no se cambió nada.'),
+    'Detalhes em Administração › Sistema › Ambiente e compatibilidade.': (
+        'Details in Administration › System › Environment and compatibility.', 'Detalles en Administración › Sistema › Entorno y compatibilidad.'),
+    # Hospedagens e bancos
+    'Servidor próprio (Linux)': ('Own server (Linux)', 'Servidor propio (Linux)'),
+    'AWS · máquina virtual (EC2 / Lightsail)': ('AWS · virtual machine (EC2 / Lightsail)', 'AWS · máquina virtual (EC2 / Lightsail)'),
+    'GCP · máquina virtual (Compute Engine)': ('GCP · virtual machine (Compute Engine)', 'GCP · máquina virtual (Compute Engine)'),
+    'Azure · máquina virtual': ('Azure · virtual machine', 'Azure · máquina virtual'),
+    'AWS · contêiner (App Runner / ECS)': ('AWS · container (App Runner / ECS)', 'AWS · contenedor (App Runner / ECS)'),
+    'GCP · contêiner (Cloud Run)': ('GCP · container (Cloud Run)', 'GCP · contenedor (Cloud Run)'),
+    'Azure · contêiner (App Service / Container Apps)': ('Azure · container (App Service / Container Apps)', 'Azure · contenedor (App Service / Container Apps)'),
+    'Computador de desenvolvimento': ('Development computer', 'Computadora de desarrollo'),
+    'Arquivo único: bom para um servidor pequeno e para testes.': ('Single file: good for a small server and for tests.', 'Archivo único: bueno para un servidor pequeño y para pruebas.'),
+    'Recomendado para produção num servidor Linux.': ('Recommended for production on a Linux server.', 'Recomendado para producción en un servidor Linux.'),
+    'Alternativa ao MySQL; muito usada como banco gerenciado nas nuvens.': ('Alternative to MySQL; widely used as a managed database in the clouds.', 'Alternativa a MySQL; muy usada como base gestionada en las nubes.'),
+    'Precisa do ODBC Driver 18 da Microsoft. O backup fica a cargo do próprio SQL Server (ele grava no disco do servidor do banco) ou do Azure.': (
+        "Needs Microsoft's ODBC Driver 18. Backups are handled by SQL Server itself (it writes to the database server's disk) or by Azure.",
+        'Necesita el ODBC Driver 18 de Microsoft. La copia la hace el propio SQL Server (graba en el disco del servidor de la base) o Azure.'),
+    # Matriz
+    'Telas, cadastros, relatórios e certificados': ('Screens, records, reports and certificates', 'Pantallas, registros, informes y certificados'),
+    'Arquivos enviados, logos e documentos': ('Uploaded files, logos and documents', 'Archivos enviados, logos y documentos'),
+    'Lembretes e avisos automáticos': ('Automatic reminders and notices', 'Recordatorios y avisos automáticos'),
+    'E-mail, Google e Microsoft 365': ('E-mail, Google and Microsoft 365', 'Correo, Google y Microsoft 365'),
+    'Assistente e IAs (Claude / Gemini)': ('Assistant and AIs (Claude / Gemini)', 'Asistente e IAs (Claude / Gemini)'),
+    'Agentes de Segurança, Banco e Funcionalidades': ('Security, Database and Feature agents', 'Agentes de Seguridad, Base de datos y Funcionalidades'),
+    'Agentes OmniTest (navegador)': ('OmniTest agents (browser)', 'Agentes OmniTest (navegador)'),
+    'Agente Orquestrador (corrige o código)': ('Orchestrator Agent (fixes the code)', 'Agente Orquestador (corrige el código)'),
+    'só com volume montado em /app/uploads e /app/instance': ('only with a volume mounted at /app/uploads and /app/instance', 'solo con un volumen montado en /app/uploads y /app/instance'),
+    'use o backup do banco gerenciado; com volume, também o da plataforma': ("use the managed database's backup; with a volume, the platform's too", 'use la copia de la base gestionada; con volumen, también la de la plataforma'),
+    'tarefa agendada na aba Tasks': ('scheduled task in the Tasks tab', 'tarea programada en la pestaña Tasks'),
+    'timer do systemd': ('systemd timer', 'temporizador de systemd'),
+    'agendador da nuvem chamando tarefas_agendadas.py': ('cloud scheduler calling tarefas_agendadas.py', 'programador de la nube llamando a tarefas_agendadas.py'),
+    'aba Tasks': ('Tasks tab', 'pestaña Tasks'),
+    'Google e Microsoft exigem conta paga (lista de sites liberados)': ('Google and Microsoft require a paid account (allow list)', 'Google y Microsoft exigen cuenta paga (lista de sitios permitidos)'),
+    'conta paga para acessar as APIs': ('paid account to reach the APIs', 'cuenta paga para acceder a las API'),
+    'processos em segundo plano são encerrados': ('background processes are stopped', 'los procesos en segundo plano se detienen'),
+    'rodam mais devagar': ('run more slowly', 'se ejecutan más lento'),
+    'precisa do Chromium': ('needs Chromium', 'necesita Chromium'), 'sem navegador no contêiner': ('no browser in the container', 'sin navegador en el contenedor'),
+    'sem Chromium': ('no Chromium', 'sin Chromium'), 'precisa do Git': ('needs Git', 'necesita Git'),
+    'código só de leitura': ('read-only code', 'código de solo lectura'), 'Git e processos limitados': ('limited Git and processes', 'Git y procesos limitados'),
+    # Recursos (nome, motivo, como ligar)
+    'Integrações': ('Integrations', 'Integraciones'), 'Agentes': ('Agents', 'Agentes'), 'Plataforma': ('Platform', 'Plataforma'),
+    'Estrutura do banco (migrações)': ('Database structure (migrations)', 'Estructura de la base (migraciones)'),
+    'Na versão mais recente.': ('On the latest version.', 'En la versión más reciente.'),
+    'Há mudanças de estrutura por aplicar.': ('There are structure changes to apply.', 'Hay cambios de estructura por aplicar.'),
+    'Não foi possível ler a versão da estrutura.': ('Could not read the structure version.', 'No se pudo leer la versión de la estructura.'),
+    'Conectado.': ('Connected.', 'Conectado.'), 'Configurado.': ('Configured.', 'Configurado.'), 'Indisponível.': ('Unavailable.', 'No disponible.'),
+    'O driver do banco não está instalado.': ('The database driver is not installed.', 'El controlador de la base no está instalado.'),
+    'Confira DATABASE_URL no .env e se o servidor do banco está ligado.': ('Check DATABASE_URL in the .env and whether the database server is running.', 'Revise DATABASE_URL en el .env y si el servidor de la base está encendido.'),
+    'Banco num contêiner': ('Database in a container', 'Base en un contenedor'),
+    'O SQLite fica no disco do contêiner e se perde a cada reinício.': ("SQLite lives on the container's disk and is lost on every restart.", 'SQLite queda en el disco del contenedor y se pierde en cada reinicio.'),
+    'Use um banco gerenciado (RDS, Cloud SQL ou Azure Database) no DATABASE_URL.': ('Use a managed database (RDS, Cloud SQL or Azure Database) in DATABASE_URL.', 'Use una base gestionada (RDS, Cloud SQL o Azure Database) en DATABASE_URL.'),
+    'Backup pela plataforma': ('Backup by the platform', 'Copia por la plataforma'),
+    'No SQL Server o backup é feito pelo próprio servidor do banco (ou pelo Azure), não pela plataforma.': (
+        'On SQL Server the backup is done by the database server itself (or by Azure), not by the platform.',
+        'En SQL Server la copia la hace el propio servidor de la base (o Azure), no la plataforma.'),
+    'Configure o plano de manutenção do SQL Server ou o backup automático do Azure SQL.': ('Set up the SQL Server maintenance plan or Azure SQL automatic backups.', 'Configure el plan de mantenimiento de SQL Server o la copia automática de Azure SQL.'),
+    'O disco do contêiner é apagado a cada reinício.': ("The container's disk is wiped on every restart.", 'El disco del contenedor se borra en cada reinicio.'),
+    'Monte um volume e defina DISCO_PERSISTENTE=1 e BACKUP_DIR; ou use o backup do banco gerenciado.': ("Mount a volume and set DISCO_PERSISTENTE=1 and BACKUP_DIR; or use the managed database's backup.", 'Monte un volumen y defina DISCO_PERSISTENTE=1 y BACKUP_DIR; o use la copia de la base gestionada.'),
+    'Libere espaço no disco.': ('Free up disk space.', 'Libere espacio en el disco.'),
+    'Cópia dos backups fora do servidor': ('Copy of the backups off the server', 'Copia de las copias fuera del servidor'),
+    'Sem segunda cópia: se o disco do servidor falhar, o banco e os backups se perdem juntos.': (
+        "No second copy: if the server's disk fails, the database and the backups are lost together.", 'Sin segunda copia: si falla el disco del servidor, la base y las copias se pierden juntas.'),
+    'Defina BACKUP_DIR_EXTERNO com um disco de rede, um volume da nuvem ou uma pasta sincronizada pelo rclone.': (
+        'Set BACKUP_DIR_EXTERNO to a network disk, a cloud volume or a folder synced by rclone.', 'Defina BACKUP_DIR_EXTERNO con un disco de red, un volumen de la nube o una carpeta sincronizada por rclone.'),
+    'Gravados no disco do servidor.': ("Saved on the server's disk.", 'Guardados en el disco del servidor.'),
+    'Monte volumes em /app/uploads e /app/instance e defina DISCO_PERSISTENTE=1.': ('Mount volumes at /app/uploads and /app/instance and set DISCO_PERSISTENTE=1.', 'Monte volúmenes en /app/uploads y /app/instance y defina DISCO_PERSISTENTE=1.'),
+    'Lembretes, avisos e backups agendados': ('Reminders, notices and scheduled backups', 'Recordatorios, avisos y copias programadas'),
+    'As tarefas agendadas ainda não rodaram neste servidor.': ('The scheduled tasks have not run on this server yet.', 'Las tareas programadas aún no se ejecutaron en este servidor.'),
+    'PythonAnywhere › Tasks: tarefa de hora em hora com python tarefas_agendadas.py': ('PythonAnywhere › Tasks: hourly task with python tarefas_agendadas.py', 'PythonAnywhere › Tasks: tarea cada hora con python tarefas_agendadas.py'),
+    'Agendador da nuvem (EventBridge, Cloud Scheduler ou Azure Logic Apps) chamando tarefas_agendadas.py': (
+        'Cloud scheduler (EventBridge, Cloud Scheduler or Azure Logic Apps) calling tarefas_agendadas.py', 'Programador de la nube (EventBridge, Cloud Scheduler o Azure Logic Apps) llamando a tarefas_agendadas.py'),
+    'Rode python tarefas_agendadas.py (o python app.py faz só os backups).': ('Run python tarefas_agendadas.py (python app.py only does the backups).', 'Ejecute python tarefas_agendadas.py (python app.py solo hace las copias).'),
+    'E-mail (SMTP)': ('E-mail (SMTP)', 'Correo (SMTP)'),
+    'Sem servidor de e-mail: avisos só aparecem na plataforma.': ('No e-mail server: notices only show up in the platform.', 'Sin servidor de correo: los avisos solo aparecen en la plataforma.'),
+    'Preencha MAIL_SERVER, MAIL_USERNAME e MAIL_PASSWORD no .env.': ('Fill in MAIL_SERVER, MAIL_USERNAME and MAIL_PASSWORD in the .env.', 'Complete MAIL_SERVER, MAIL_USERNAME y MAIL_PASSWORD en el .env.'),
+    'Google (Agenda e Gmail)': ('Google (Calendar and Gmail)', 'Google (Calendario y Gmail)'),
+    'Sem client_secret.json: Conectar Google fica indisponível.': ('No client_secret.json: Connect Google is unavailable.', 'Sin client_secret.json: Conectar Google no está disponible.'),
+    'Coloque o client_secret.json do Google Cloud na pasta da plataforma.': ("Put the Google Cloud client_secret.json in the platform's folder.", 'Coloque el client_secret.json de Google Cloud en la carpeta de la plataforma.'),
+    'Microsoft 365 (Outlook e Agenda)': ('Microsoft 365 (Outlook and Calendar)', 'Microsoft 365 (Outlook y Calendario)'),
+    'Sem MS365_CLIENT_ID: Conectar Microsoft 365 fica indisponível.': ('No MS365_CLIENT_ID: Connect Microsoft 365 is unavailable.', 'Sin MS365_CLIENT_ID: Conectar Microsoft 365 no está disponible.'),
+    'Preencha MS365_CLIENT_ID e MS365_CLIENT_SECRET (GUIA_MICROSOFT365.md).': ('Fill in MS365_CLIENT_ID and MS365_CLIENT_SECRET (GUIA_MICROSOFT365.md).', 'Complete MS365_CLIENT_ID y MS365_CLIENT_SECRET (GUIA_MICROSOFT365.md).'),
+    'IAs (Claude / Gemini)': ('AIs (Claude / Gemini)', 'IAs (Claude / Gemini)'),
+    'Sem chave: o Assistente responde só com a base, sem IA.': ('No key: the Assistant answers from the knowledge base only, without AI.', 'Sin clave: el Asistente responde solo con la base, sin IA.'),
+    'Cadastre as chaves em Agentes IA › Credenciais.': ('Add the keys in AI Agents › Credentials.', 'Registre las claves en Agentes IA › Credenciales.'),
+    'Rodam em segundo plano neste servidor.': ('They run in the background on this server.', 'Se ejecutan en segundo plano en este servidor.'),
+    'O contêiner encerra processos em segundo plano.': ('The container stops background processes.', 'El contenedor detiene los procesos en segundo plano.'),
+    'Rode os agentes numa máquina virtual ou no computador de desenvolvimento.': ('Run the agents on a virtual machine or on the development computer.', 'Ejecute los agentes en una máquina virtual o en la computadora de desarrollo.'),
+    'Agentes OmniTest (testes no navegador)': ('OmniTest agents (browser tests)', 'Agentes OmniTest (pruebas en el navegador)'),
+    'Chromium disponível.': ('Chromium available.', 'Chromium disponible.'), 'Sem o navegador Chromium.': ('No Chromium browser.', 'Sin el navegador Chromium.'),
+    'Repositório Git gravável e processos em segundo plano.': ('Writable Git repository and background processes.', 'Repositorio Git con escritura y procesos en segundo plano.'),
+    'Precisa de máquina virtual com o código num repositório Git (git clone).': ('Needs a virtual machine with the code in a Git repository (git clone).', 'Necesita una máquina virtual con el código en un repositorio Git (git clone).'),
+    # Mensagens das rotas desligadas (ambiente.disponivel)
+    'O contêiner encerra processos em segundo plano: rode os agentes numa máquina virtual.': ('The container stops background processes: run the agents on a virtual machine.', 'El contenedor detiene los procesos en segundo plano: ejecute los agentes en una máquina virtual.'),
+    'Sem o navegador Chromium neste servidor: os agentes OmniTest não rodam aqui.': ('No Chromium browser on this server: the OmniTest agents do not run here.', 'Sin el navegador Chromium en este servidor: los agentes OmniTest no se ejecutan aquí.'),
+    'O disco do contêiner é apagado a cada reinício: monte um volume ou use o backup do banco gerenciado.': (
+        "The container's disk is wiped on every restart: mount a volume or use the managed database's backup.", 'El disco del contenedor se borra en cada reinicio: monte un volumen o use la copia de la base gestionada.'),
+    'Ambiente e compatibilidade: a hospedagem, o banco e as pastas de backup desta instalação.': (
+        "Environment and compatibility: this installation's hosting, database and backup folders.", 'Entorno y compatibilidad: el alojamiento, la base de datos y las carpetas de copia de esta instalación.'),
+    'Cada recurso aparece ligado, com atenção ou desligado, com o motivo e o comando para ligar.': (
+        'Each feature shows as on, needing attention or off, with the reason and the command to turn it on.', 'Cada recurso aparece activado, con atención o desactivado, con el motivo y el comando para activarlo.'),
+    'Os backups agendados desta instalação; numa instalação nova, crie aqui o Diário, o Semanal e o Mensal.': (
+        "This installation's scheduled backups; on a new installation, create the Daily, Weekly and Monthly ones here.", 'Las copias programadas de esta instalación; en una instalación nueva, cree aquí la Diaria, la Semanal y la Mensual.'),
+    'O que funciona em cada tipo de hospedagem; a coluna destacada é a desta instalação.': (
+        "What works on each hosting type; the highlighted column is this installation's.", 'Lo que funciona en cada tipo de alojamiento; la columna destacada es la de esta instalación.'),
+})
+
 _POR_IDIOMA = {'en': {pt: v[0] for pt, v in LITERAIS.items()}, 'es': {pt: v[1] for pt, v in LITERAIS.items()}}
 
 
