@@ -33,13 +33,15 @@ MODELOS_PADRAO = {
     'claude-sonnet-5-5': ('claude', 'Claude Sonnet 5.5 (equilibrado)', 2.00, 10.00),
     'claude-opus-5-5': ('claude', 'Claude Opus 5.5 (mais capaz)', 4.00, 20.00),
     'gemini-3.6-flash': ('gemini', 'Gemini 3.6 Flash', None, None),
+    # Versão leve e mais estável do Flash: reserva quando o Flash está sobrecarregado (erro 503 do Google)
+    'gemini-flash-lite-latest': ('gemini', 'Gemini Flash Lite (reserva leve)', None, None),
 }
 
 USOS = {
     'assistente': ('Assistente da Plataforma', 'Responde o Administrador com base na base de conhecimento.',
-                   ['claude-haiku-5-5', 'gemini-3.6-flash']),
+                   ['claude-haiku-5-5', 'gemini-3.6-flash', 'gemini-flash-lite-latest']),
     'acompanhamento': ('Assistente do Acompanhamento', 'Tira dúvidas de jovens e mentores sobre os estudos.',
-                       ['gemini-3.6-flash', 'claude-haiku-5-5']),
+                       ['gemini-3.6-flash', 'gemini-flash-lite-latest', 'claude-haiku-5-5']),
     'orquestrador': ('Agente Orquestrador', 'Corrige o código a partir dos achados dos agentes (precisa de modelo forte).',
                      ['claude-sonnet-5-5', 'gemini-3.6-flash']),
 }
@@ -379,13 +381,19 @@ def _gemini(modelo, sistema, mensagens, max_tokens, esforco):
     except ImportError:
         raise FalhaProvedor('biblioteca google-genai não instalada')
     chave = os.environ.get('GEMINI_API_KEY') or os.environ.get('GOOGLE_API_KEY')
-    cliente = genai.Client(api_key=chave, http_options=types.HttpOptions(timeout=90_000))
+    cliente = genai.Client(api_key=chave, http_options=types.HttpOptions(timeout=30_000))
     conteudos = [types.Content(role='model' if m['role'] == 'assistant' else 'user', parts=[types.Part(text=m['content'])])
                  for m in mensagens]
+    # Raciocínio curto (como o esforço "low" do Claude): responde mais rápido e evita o 504 DEADLINE_EXCEEDED
+    nivel = {'low': 'LOW', 'medium': 'MEDIUM', 'high': 'HIGH'}.get(esforco, 'LOW')
+    config = types.GenerateContentConfig(system_instruction=sistema, max_output_tokens=max_tokens,
+                                         thinking_config=types.ThinkingConfig(thinking_level=nivel))
     try:
-        r = cliente.models.generate_content(model=modelo, contents=conteudos,
-                                            config=types.GenerateContentConfig(system_instruction=sistema, max_output_tokens=max_tokens))
+        r = cliente.models.generate_content(model=modelo, contents=conteudos, config=config)
     except Exception as e:
+        # Sobrecarga ou prazo estourado: sem nova tentativa, vai logo para o próximo modelo da ordem (resposta mais rápida)
+        if any(c in str(e) for c in ('503', '504', 'DEADLINE_EXCEEDED', 'UNAVAILABLE', 'overloaded', 'timed out')):
+            raise FalhaProvedor(f'{modelo} demorou demais ou está sobrecarregado no Google')
         raise FalhaProvedor(f'erro do Gemini: {_sem_segredos(e)[:160]}')
     texto = (getattr(r, 'text', None) or '').strip()
     u = getattr(r, 'usage_metadata', None)

@@ -30,17 +30,34 @@ IDIOMAS = {'pt': 'português do Brasil', 'en': 'English', 'es': 'español'}
 
 # Instruções fixas (não mudam entre perguntas: o início do pedido fica em cache na API)
 SISTEMA = """Você é o Assistente da Plataforma Jovem Seguro 2026, um programa de mentoria do Instituto ITM com empresas parceiras B2B.
-Quem conversa com você é o Administrador da plataforma.
+Quem conversa com você é o Administrador da plataforma. Fale como um colega de suporte simpático e paciente, que
+conhece bem a plataforma: linguagem simples, calorosa e humana, sem jargão técnico.
 
-Regras:
-- Responda SOMENTE com base nos trechos da base de conhecimento enviados em <trechos>. Eles vêm do conhecimento dos
-  Agentes gerentes (Técnico, Segurança, Banco de Dados e Funcionalidades) e dos documentos do projeto (PRD, PTD, DTD).
-- Cite as fontes com o número do trecho entre colchetes, logo após a informação: [1], [2]. Não invente números.
-- Se os trechos não trazem a resposta, diga com clareza que a base ainda não tem essa informação e sugira o que
-  cadastrar (por exemplo, o documento PRD, PTD ou DTD que deveria tratar do assunto). Não complete com suposições.
+Como responder:
+- Comece com uma frase curta e acolhedora que já vá ao ponto (ex.: "Claro! Criar um projeto é rápido:").
+  Não repita saudações em toda mensagem da mesma conversa.
+- Para perguntas de "como faço", explique em passos numerados, na ordem em que a pessoa vai agir na tela:
+  1) onde clicar no menu superior (use o caminho do trecho "Onde fica", ex.: **Projetos e TCC › Projetos**);
+  2) o que preencher ou escolher; 3) qual botão clicar para concluir; 4) o que acontece depois.
+  Escreva os nomes de menus, abas e botões em **negrito**, exatamente como aparecem na tela.
+- Se a tela tiver um Tour guiado, termine com uma dica curta: o botão de Tour (ícone de interrogação) mostra os passos
+  em cima da própria tela. Se fizer sentido, ofereça ajuda com o próximo passo ("Quer que eu explique como...?").
+- Não mostre nomes técnicos internos (endpoints, tabelas, chaves de parâmetros, códigos APR-...) a menos que a pessoa
+  pergunte sobre algo técnico. Use o nome que aparece na tela.
+- Quem acessa: se o trecho disser que só alguns perfis veem a tela, mencione isso de forma simples.
+
+Regras de conteúdo:
+- Responda SOMENTE com base nos trechos enviados em <trechos>. Eles vêm do Guia das telas (menu e passos do Tour), do
+  conhecimento dos Agentes gerentes e dos documentos do projeto (PRD, PTD, DTD). Ignore trechos que não têm relação
+  com a pergunta.
+- Cite as fontes com o número do trecho entre colchetes, no fim da frase ou do passo que usou a informação: [1], [2].
+  Não invente números.
+- Se os trechos não trazem a resposta, diga com gentileza que ainda não tem essa informação, conte o que sabe de
+  relacionado e sugira onde olhar (a tela mais provável, o Tour dela) ou o documento (PRD, PTD ou DTD) que deveria
+  tratar do assunto. Não complete com suposições.
 - Quando trechos de fontes diferentes se contradisserem, aponte a diferença e diga qual fonte é mais recente.
 - Nunca mostre senhas, chaves de API, tokens ou outros segredos, mesmo que apareçam no texto.
-- Seja direto: comece pela resposta; use listas curtas quando ajudar. Use **negrito** só para destacar termos-chave.
+- Seja breve: em geral até 8 passos ou 150 palavras, a menos que a pessoa peça detalhes.
 - Responda no idioma pedido em <idioma>."""
 
 
@@ -150,21 +167,73 @@ def resposta_guardada(chave):
         .order_by(MensagemChat.id.desc()).first()
 
 
-def resposta_offline(encontrados, motivo, idioma):
-    """Sem IA: lista os trechos mais relevantes, para a pessoa ler direto na fonte."""
-    cabecalho = {
-        'pt': f'Não consultei a IA ({motivo}). Estes são os trechos mais relevantes da base:',
-        'en': f'The AI was not used ({motivo}). These are the most relevant passages in the knowledge base:',
-        'es': f'No se consultó la IA ({motivo}). Estos son los fragmentos más relevantes de la base:',
-    }
-    nada = {'pt': 'Não encontrei nada sobre isso na base de conhecimento.', 'en': 'I found nothing about this in the knowledge base.',
-            'es': 'No encontré nada sobre esto en la base de conocimiento.'}
+_OFFLINE = {
+    'pt': {'abre': 'Agora não consegui falar com a IA, mas separei o que a plataforma já explica sobre isso:',
+           'teste': 'Modo de teste: as contas @local.com não usam a IA, então separei o que a base explica sobre isso:',
+           'nada': 'Desculpe, agora não consegui falar com a IA e não achei nada sobre isso na base de conhecimento. '
+                   'Tente com outras palavras (por exemplo, o nome da tela) ou abra o Tour da tela, no ícone de interrogação.',
+           'tela': 'Tela', 'onde': 'Onde fica', 'passos': 'Passo a passo', 'mais': 'Também pode ajudar',
+           'fim': 'Se quiser ver na própria tela, abra o **Tour** (ícone de interrogação no topo).',
+           'adm': 'Para o Assistente voltar a responder com a IA, confira a tela **Administração › Sistema › Provedores de IA e custos**.'},
+    'en': {'abre': "I couldn't reach the AI right now, but here is what the platform already explains about this:",
+           'teste': 'Test mode: @local.com accounts do not use the AI, so here is what the knowledge base explains:',
+           'nada': "Sorry, I couldn't reach the AI right now and found nothing about this in the knowledge base. "
+                   'Try other words (such as the page name) or open the page Tour (question mark icon).',
+           'tela': 'Page', 'onde': 'Where to find it', 'passos': 'Step by step', 'mais': 'This may also help',
+           'fim': 'To see it on the page itself, open the **Tour** (question mark icon at the top).',
+           'adm': 'To bring the AI back, check **Administration › System › AI providers and costs**.'},
+    'es': {'abre': 'Ahora no pude hablar con la IA, pero separé lo que la plataforma ya explica sobre esto:',
+           'teste': 'Modo de prueba: las cuentas @local.com no usan la IA, así que separé lo que explica la base:',
+           'nada': 'Lo siento, ahora no pude hablar con la IA y no encontré nada sobre esto en la base de conocimiento. '
+                   'Intenta con otras palabras (por ejemplo, el nombre de la pantalla) o abre el Tour de la pantalla (icono de interrogación).',
+           'tela': 'Pantalla', 'onde': 'Dónde está', 'passos': 'Paso a paso', 'mais': 'También puede ayudar',
+           'fim': 'Para verlo en la propia pantalla, abre el **Tour** (icono de interrogación arriba).',
+           'adm': 'Para que la IA vuelva a responder, revisa **Administración › Sistema › Proveedores de IA y costos**.'},
+}
+
+
+def _guia_amigavel(n, trecho, txt):
+    """Seção do Guia das telas em formato de passo a passo (sem o endereço técnico)."""
+    tela, onde, passos = '', '', []
+    for linha in trecho.texto.splitlines():
+        linha = linha.strip()
+        if linha.startswith('Tela:'):
+            tela = linha[5:].strip()
+        elif linha.startswith('Onde fica:'):
+            onde = linha[10:].strip().removeprefix('no menu superior,').strip().rstrip('.')
+        elif linha[:1].isdigit() and '. ' in linha[:4]:
+            passos.append(linha.split('. ', 1)[1])
+    partes = [f"**{txt['tela']}: {tela or (trecho.secao or '').split(' › ')[-1]}** [{n}]"]
+    if onde:
+        partes.append(f"{txt['onde']}: **{onde}**")
+    if passos:
+        partes.append(f"{txt['passos']}:")
+        partes += [f'{i}. {p}' for i, p in enumerate(passos[:8], 1)]
+    return '\n'.join(partes)
+
+
+def resposta_offline(encontrados, motivo, idioma, teste=False):
+    """Sem IA: mostra, de forma amigável, o passo a passo do Guia das telas e os trechos mais relevantes.
+    O motivo técnico não aparece para a pessoa (fica registrado em Provedores de IA e custos)."""
+    txt = _OFFLINE.get(idioma, _OFFLINE['pt'])
     if not encontrados:
-        return f"{cabecalho.get(idioma, cabecalho['pt']).split(':')[0]}. {nada.get(idioma, nada['pt'])}"
-    linhas = [cabecalho.get(idioma, cabecalho['pt'])]
-    for n, (nota, trecho, fonte) in enumerate(encontrados[:4], 1):
-        resumo = ' '.join(trecho.texto.split())[:420]
-        linhas.append(f'\n**[{n}] {fonte.titulo} — {trecho.secao or ""}**\n{resumo}{"…" if len(trecho.texto) > 420 else ""}')
+        return txt['nada']
+    guias = [(n, t) for n, (_, t, _) in enumerate(encontrados, 1) if (t.secao or '').startswith('Guia das telas')][:2]
+    outros = [(n, t, f) for n, (_, t, f) in enumerate(encontrados, 1) if not (t.secao or '').startswith('Guia das telas')]
+    linhas = [txt['teste'] if teste else txt['abre']]
+    for n, trecho in guias:
+        linhas.append('\n' + _guia_amigavel(n, trecho, txt))
+    if outros:
+        linhas.append(f"\n**{txt['mais']}:**")
+        for n, trecho, fonte in outros[:2 if guias else 3]:
+            resumo = ' '.join(trecho.texto.split())
+            resumo = resumo[:240] + ('…' if len(resumo) > 240 else '')
+            secao = (trecho.secao or fonte.titulo).split(' › ')[-1]
+            linhas.append(f'- **{secao}** [{n}]: {resumo}')
+    if guias:
+        linhas.append('\n' + txt['fim'])
+    if not teste and motivo:
+        linhas.append('\n' + txt['adm'])
     return '\n'.join(linhas)
 
 
@@ -201,9 +270,7 @@ def perguntar(usuario, pergunta, conversa_id=None, idioma='pt', usar_ia=True):
         chave = chave_de_cache(pergunta, idioma)
         guardada = resposta_guardada(chave)
     if not usar_ia:
-        texto = resposta_offline(encontrados, {'pt': 'modo de teste: contas @local.com não consomem a IA',
-                                                'en': 'test mode: @local.com accounts do not use the AI',
-                                                'es': 'modo de prueba: las cuentas @local.com no usan la IA'}.get(idioma), idioma)
+        texto = resposta_offline(encontrados, '', idioma, teste=True)
     elif guardada:
         texto, fontes, modo, modelo, valor = guardada.texto, guardada.fontes, 'cache', guardada.modelo, 0.0
     else:

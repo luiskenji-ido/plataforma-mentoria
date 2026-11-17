@@ -185,15 +185,20 @@ mentoria/
 		Responde com base na Base de conhecimento e cita as fontes como [1], [2]:
 		- Agentes gerentes (atualizada sozinha): aprendizados aplicados dos gerentes Técnico, de Segurança, de Banco de
 		  Dados e de Funcionalidades, os parâmetros de regras e os módulos de cada perfil.
+		- Guia das telas (atualizado sozinho, guia_telas.py): onde cada tela fica no menu, quem acessa e o passo a passo
+		  do Tour guiado. É o que permite ao Assistente responder perguntas de "como faço" em passos numerados.
 		- Documentos do projeto: na aba Base de conhecimento, envie o PRD, o PTD e o DTD (.md, .txt, .html, .docx ou .pdf).
 		  Reenviar com o mesmo tipo e título cria a versão seguinte e desativa a anterior.
 		O chat abre pelo ícone ao lado de Administração. Para ler PDF, instale o pacote pypdf (pip install pypdf).
-		Contas de teste (@local.com) e servidores sem chave respondem sem IA, mostrando os trechos encontrados.
+		Tom de colega de suporte: resposta acolhedora, passos numerados com o caminho no menu e os botões em negrito.
+		Contas de teste (@local.com) e servidores sem IA respondem com o passo a passo do Guia das telas, sem mostrar
+		o erro técnico (que fica em Provedores de IA e custos).
 		Código: base_conhecimento.py (fontes, trechos e busca), chat_assistente.py (conversa e IA).
 
 	💲 Provedores de IA e custos (Administração › Sistema › Provedores de IA e custos)
 		Para cada uso (Assistente, Assistente do Acompanhamento e Agente Orquestrador): liga/desliga, modelo principal e
-		até duas reservas (Claude ou Gemini). Padrão do Assistente: Claude Haiku 5.5, com o Gemini de reserva.
+		até duas reservas (Claude ou Gemini). Padrão do Assistente: Claude Haiku 5.5, com o Gemini Flash e o Gemini Flash
+		Lite (mais estável quando o Google está sobrecarregado) de reserva.
 		Teto de gasto mensal e aviso em Parâmetros de regras (grupo Inteligência artificial); ao atingir o teto as IAs
 		param até o mês seguinte. A mesma primeira pergunta reaproveita a resposta (sem custo).
 		Chaves em Agentes IA › Credenciais: ANTHROPIC_API_KEY e GEMINI_API_KEY. Código: provedores_ia.py.

@@ -379,8 +379,11 @@ def _secoes_dos_gerentes():
         if doc:
             secoes.append((f'{nome} › Como trabalha', doc))
 
-    # Aprendizados aplicados (pendentes, revogados e rejeitados ficam fora)
-    for item in AprendizadoAgente.query.filter_by(status='Aplicado').order_by(AprendizadoAgente.id).all():
+    # Aprendizados aplicados (pendentes, revogados e rejeitados ficam fora). O mapa e os erros do tour são dados de
+    # teste dos agentes OmniTest (listas de seletores e páginas): o Guia das telas, abaixo, já explica cada tela.
+    internos = ('tour_mapa', 'tour_falha')
+    for item in AprendizadoAgente.query.filter_by(status='Aplicado').filter(AprendizadoAgente.tipo.notin_(internos)) \
+            .order_by(AprendizadoAgente.id).all():
         try:
             conteudo = json.loads(item.conteudo or '{}')
         except ValueError:
@@ -417,6 +420,13 @@ def _secoes_dos_gerentes():
     nomes = {chave: dados[0] for chave, dados in perfis_acesso.MODULOS.items()}
     linhas = [f"- {perfil}: {', '.join(nomes.get(m, m) for m in modulos)}" for perfil, modulos in perfis_acesso.MODULOS_POR_BASE.items()]
     secoes.append(('Gerente de Funcionalidades › Módulos de cada perfil', '\n'.join(linhas)))
+
+    # Guia das telas: onde fica cada tela no menu e o passo a passo do Tour (o "como fazer" para quem usa a plataforma)
+    try:
+        import guia_telas
+        secoes += guia_telas.secoes()
+    except Exception:
+        pass
     return secoes
 
 
@@ -454,6 +464,7 @@ def sincronizar_gerentes(usuario_id=None, forcar=False):
 # ------------------------------------------------------------------------------
 _PARADAS = set("""
 a o e é de da do das dos em no na nos nas um uma uns umas para por com sem que se ao aos à às ou como mais menos
+eu voce você me faco faço fazer faz posso pode consigo preciso quero gostaria ajuda ajude favor oi ola olá bom dia tarde noite
 qual quais quando onde quem sobre entre isso isto esse essa este esta ser são foi está estão tem têm há meu minha
 the of and or to in on for is are be by with what which how when who an it this that
 el la los las y del al un una con por para que es son como cual cuales donde quien
@@ -475,6 +486,21 @@ def termos(texto):
     return saida
 
 
+# Sinônimos (já no radical de termos()): quem pergunta "criar" ou "apagar" usa outras palavras que a tela
+_GRUPOS_SINONIMOS = [
+    ('criar', 'cadast', 'novo', 'nova', 'adicio', 'inclui', 'regist'),
+    ('excluir', 'exclui', 'apagar', 'remove', 'deleta'),
+    ('editar', 'altera', 'mudar', 'trocar', 'corrig'),
+    ('ver', 'consul', 'visual', 'abrir', 'acessa'),
+    ('enviar', 'mandar', 'convid', 'convite'),
+    ('aluno', 'alunos', 'jovem', 'jovens', 'discen'),
+    ('projet', 'tcc'),
+]
+_SINONIMOS = {}
+for _grupo in _GRUPOS_SINONIMOS:
+    for _termo in _grupo:
+        _SINONIMOS.setdefault(_termo, set()).update(t for t in _grupo if t != _termo)
+
 _INDICE = {}
 
 
@@ -492,7 +518,8 @@ def _indice():
     documentos, df = [], Counter()
     for trecho, fonte in linhas:
         contagem = Counter(termos(f'{trecho.secao or ""} {fonte.titulo} {trecho.texto}'))
-        documentos.append((trecho.id, contagem, sum(contagem.values())))
+        nome = set(termos((trecho.secao or '').split(' › ')[-1]))  # nome da tela/seção: vale mais na busca
+        documentos.append((trecho.id, contagem, sum(contagem.values()), nome))
         df.update(contagem.keys())
     _INDICE.clear()
     _INDICE.update(chave=chave, documentos=documentos, df=df, n=len(documentos),
@@ -507,15 +534,21 @@ def buscar(pergunta, limite=8, tipos=None):
     if not consulta or not indice['n']:
         return []
     k1, b = 1.4, 0.75
+    pesos = {termo: 1.0 for termo in consulta}
+    for termo in consulta:                       # sinônimos com meio peso: "criar" também acha "cadastre"
+        for sinonimo in _SINONIMOS.get(termo, ()):
+            pesos.setdefault(sinonimo, 0.5)
     pontos = []
-    for trecho_id, contagem, tamanho in indice['documentos']:
+    for trecho_id, contagem, tamanho, nome in indice['documentos']:
         nota = 0.0
-        for termo in set(consulta):
+        for termo, peso in pesos.items():
             tf = contagem.get(termo)
             if not tf:
                 continue
             idf = math.log(1 + (indice['n'] - indice['df'][termo] + 0.5) / (indice['df'][termo] + 0.5))
-            nota += idf * tf * (k1 + 1) / (tf + k1 * (1 - b + b * tamanho / indice['media']))
+            nota += peso * idf * tf * (k1 + 1) / (tf + k1 * (1 - b + b * tamanho / indice['media']))
+        if nota > 0 and nome & set(pesos):   # a pergunta cita o nome da tela ("projeto" → tela Projetos)
+            nota *= 1.6
         if nota > 0:
             pontos.append((nota, trecho_id))
     pontos.sort(reverse=True)
