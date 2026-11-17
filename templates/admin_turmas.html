@@ -848,32 +848,13 @@
 <script>
 // Tour do Hub Educacional (também é uma etapa do tour encadeado que começa no Painel Geral)
 function iniciarTourDaPagina() {
-    let passos = [{ intro: "{{ t('tour_cur_intro') | safe }}" }];
-    const abas = document.getElementById('hubTabs');
-    if (abas) passos.push({ element: abas, intro: "{{ t('tour_cur_form') | safe }}" });
-    const tabela = document.querySelector('#cursos table');
-    if (tabela) passos.push({ element: tabela, intro: "{{ t('tour_cur_tabela') | safe }}" });
-    const continuo = window.location.search.includes('tour_continuo=1');
-
-    introJs().setOptions({
-        steps: passos,
-        nextLabel: "{{ t('tour_btn_proximo') }}",
-        prevLabel: "{{ t('tour_btn_anterior') }}",
-        doneLabel: continuo ? "{{ t('tour_btn_sessoes') }}" : "{{ t('tour_btn_voltar') }}",
-        showProgress: true,
-        showBullets: false
-    }).oncomplete(function() {
-        if (continuo) {
-            window.location.href = "{{ url_for('sessoes') }}?tour_continuo=1";
-        }
-    }).start();
+    rodarTour([
+        { texto: {{ t('tour_cur_intro')|tojson }} },
+        { sel: '#hubTabs', texto: {{ t('tour_cur_form')|tojson }} },
+        { sel: '#cursos > .card', texto: {{ tt('Cadastre um novo curso ou material, com a plataforma, a carga horária e o link.')|tojson }} },
+        { sel: '#cursos table', texto: {{ t('tour_cur_tabela')|tojson }} },
+    ]);
 }
-
-document.addEventListener("DOMContentLoaded", function() {
-    if (window.location.search.includes('tour_continuo=1')) {
-        setTimeout(iniciarTourDaPagina, 500);
-    }
-});
 </script>
 
 {% endblock %}

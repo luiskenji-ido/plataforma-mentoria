@@ -652,26 +652,28 @@
             <i class="bi bi-mortarboard"></i> {{ tt('Aprendizagem') }}
           </a>
           <ul class="dropdown-menu shadow border-0" aria-labelledby="menuAprendizagem">
-            {% if pode_modulo('sessoes') %}<li><a class="dropdown-item fw-bold" href="{{ url_for('sessoes') }}"><i class="bi bi-calendar-check text-primary"></i> {{ t('sessoes') }}</a></li>{% endif %}
+            {# Ordem: Hub, Acompanhamento, Sessões, Atividades extras, Avaliações | Diário de Classe: Frequência, Ocorrências, Desistências, Notas.
+               O tour encadeado segue esta mesma ordem. #}
+            {% set nao_aluno = current_user.is_authenticated and current_user.tipo_usuario != 'Aluno' %}
+            {% if current_user.is_authenticated and current_user.tipo_usuario in perfis_gestao and pode_modulo('hub') %}
+            <li><a class="dropdown-item fw-bold" href="{{ url_for('gerenciar_turmas') }}"><i class="bi bi-diagram-3-fill text-primary"></i> {{ t('menu_hub') }}</a></li>
+            {% endif %}
             {% if pode_modulo('acompanhamento') %}<li><a class="dropdown-item fw-bold" href="{{ url_for('acompanhamento') }}"><i class="bi bi-graph-up-arrow text-primary"></i> {{ t('acompanhamento') }}</a></li>{% endif %}
+            {% if pode_modulo('sessoes') %}<li><a class="dropdown-item fw-bold" href="{{ url_for('sessoes') }}"><i class="bi bi-calendar-check text-primary"></i> {{ t('sessoes') }}</a></li>{% endif %}
             {% if pode_modulo('atividades_extras') %}<li><a class="dropdown-item fw-bold" href="{{ url_for('atividades_extras') }}"><i class="bi bi-people-fill text-primary"></i> {{ t('menu_extras') }}</a></li>{% endif %}
             {% if current_user.is_authenticated and pode_modulo('avaliacoes') %}
             <li><a class="dropdown-item fw-bold" href="{{ url_for('avaliacoes') }}"><i class="bi bi-star-half text-primary"></i> {{ tt('Avaliações') }}</a></li>
             {% endif %}
-            {% if current_user.is_authenticated and current_user.tipo_usuario != 'Aluno' and pode_modulo('ocorrencias') %}
-            <li><a class="dropdown-item fw-bold" href="{{ url_for('ocorrencias') }}"><i class="bi bi-exclamation-triangle text-warning"></i> {{ tt('Ocorrências') }}</a></li>
-            {% endif %}
-            {% if current_user.is_authenticated and current_user.tipo_usuario != 'Aluno' and pode_modulo('desistencias') %}
-            <li><a class="dropdown-item fw-bold" href="{{ url_for('desistencias') }}"><i class="bi bi-person-dash text-danger"></i> {{ tt('Desistências') }}</a></li>
-            {% endif %}
-            {% if current_user.is_authenticated and current_user.tipo_usuario in perfis_gestao and pode_modulo('hub') %}
-            <li><a class="dropdown-item fw-bold" href="{{ url_for('gerenciar_turmas') }}"><i class="bi bi-diagram-3-fill text-primary"></i> {{ t('menu_hub') }}</a></li>
-            {% endif %}
-            {% if current_user.is_authenticated and current_user.tipo_usuario != 'Aluno' and pode_modulo('diario') %}
+            {% set ver_diario = nao_aluno and pode_modulo('diario') %}
+            {% set ver_ocorrencias = nao_aluno and pode_modulo('ocorrencias') %}
+            {% set ver_desistencias = nao_aluno and pode_modulo('desistencias') %}
+            {% if ver_diario or ver_ocorrencias or ver_desistencias %}
             <li><hr class="dropdown-divider"></li>
             <li><h6 class="dropdown-header">{{ t('menu_diario') }}</h6></li>
-            <li><a class="dropdown-item fw-bold" href="{{ url_for('gerenciar_frequencia') }}"><i class="bi bi-clipboard-check text-success"></i> {{ t('menu_frequencia') }}</a></li>
-            <li><a class="dropdown-item fw-bold" href="{{ url_for('gerenciar_notas') }}"><i class="bi bi-journal-check text-success"></i> {{ t('menu_notas') }}</a></li>
+            {% if ver_diario %}<li><a class="dropdown-item fw-bold" href="{{ url_for('gerenciar_frequencia') }}"><i class="bi bi-clipboard-check text-success"></i> {{ t('menu_frequencia') }}</a></li>{% endif %}
+            {% if ver_ocorrencias %}<li><a class="dropdown-item fw-bold" href="{{ url_for('ocorrencias') }}"><i class="bi bi-exclamation-triangle text-warning"></i> {{ tt('Ocorrências') }}</a></li>{% endif %}
+            {% if ver_desistencias %}<li><a class="dropdown-item fw-bold" href="{{ url_for('desistencias') }}"><i class="bi bi-person-dash text-danger"></i> {{ tt('Desistências') }}</a></li>{% endif %}
+            {% if ver_diario %}<li><a class="dropdown-item fw-bold" href="{{ url_for('gerenciar_notas') }}"><i class="bi bi-journal-check text-success"></i> {{ t('menu_notas') }}</a></li>{% endif %}
             {% endif %}
           </ul>
         </li>
@@ -964,13 +966,14 @@
 <!-- Bootstrap JS -->
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js" integrity="sha384-geWF76RCwLtnZ8qwWowPQNguL3RmwHVBC9FhGdlKrxdiJJigb/j/68SIy3Te4Bkz" crossorigin="anonymous"></script>
 
-{% if current_user.is_authenticated %}{% include '_tours.html' %}{% endif %}
+{% if current_user.is_authenticated %}{% include '_tour_motor.html' %}{% include '_tours.html' %}{% endif %}
 <script>
     // Se a página atual ainda não tiver um tour configurado, mostra um aviso amigável
     if (typeof iniciarTourDaPagina !== 'function') {
         window.iniciarTourDaPagina = function() {
             alert({{ tt('O tour interativo para esta página está sendo construído!')|tojson }});
         }
+        window.iniciarTourDaPagina.semTour = true;
     }
 </script>
 

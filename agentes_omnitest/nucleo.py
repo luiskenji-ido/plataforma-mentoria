@@ -1365,26 +1365,118 @@ class AgenteOmniTest:
             return bool(user.exibir_tour)
         return consultar_banco(acao)
 
-    def percorrer_passos_do_tour(self, espera=4000):
-        """Clica 'Próximo' até o fim do tour da página. Devolve os textos dos passos (ou None se não abriu)."""
+    # Lê o passo aberto do tour: texto, se é balão solto (sem alvo) e onde estão o balão e o elemento destacado.
+    # Marca o alvo com data-tour-visto para depois medir quais seções da página o tour explicou.
+    JS_PASSO_TOUR = r"""() => {
+        const tip = document.querySelector('.introjs-tooltip');
+        if (!tip) return null;
+        const caixa = e => { const b = e.getBoundingClientRect(); return {x: b.left, y: b.top, r: b.right, b: b.bottom, w: b.width, h: b.height}; };
+        const texto = ((document.querySelector('.introjs-tooltiptext') || {}).innerText || '').trim();
+        const res = {texto, flutuante: tip.classList.contains('introjs-floating'), vw: innerWidth, vh: innerHeight, balao: caixa(tip)};
+        if (res.flutuante) return res;
+        const alvo = document.querySelector('.introjs-showElement');
+        if (!alvo) { res.semAlvo = true; return res; }
+        alvo.setAttribute('data-tour-visto', '1');
+        const est = getComputedStyle(alvo);
+        res.alvo = caixa(alvo);
+        res.alvoOculto = !!alvo.closest('.dropdown-menu, .modal:not(.show), .tab-pane:not(.active)')
+            || (alvo.offsetParent === null && est.position !== 'fixed') || est.visibility === 'hidden' || res.alvo.w === 0 || res.alvo.h === 0;
+        const rotulo = (alvo.innerText || alvo.getAttribute('aria-label') || '').trim().replace(/\s+/g, ' ').slice(0, 40);
+        res.descricao = (alvo.id ? '#' + alvo.id : alvo.tagName.toLowerCase() + (alvo.className ? '.' + String(alvo.className).trim().split(/\s+/)[0] : ''))
+            + (rotulo ? ` "${rotulo}"` : '');
+        return res;
+    }"""
+
+    # Seções visíveis da página (cartões, alertas com id e blocos #card...) que nenhum passo do tour explicou.
+    # Cartões repetidos (um por curso, por projeto...) contam como uma seção só: basta o tour explicar um deles.
+    JS_SECOES_SEM_TOUR = r"""() => {
+        const vistos = Array.from(document.querySelectorAll('[data-tour-visto]'));
+        const visivel = el => {
+            if (el.closest('.modal, .dropdown-menu, .tab-pane:not(.active), nav.navbar, .introjs-tooltip, .introjs-helperLayer, .toast')) return false;
+            const e = getComputedStyle(el);
+            if (e.display === 'none' || e.visibility === 'hidden' || (el.offsetParent === null && e.position !== 'fixed')) return false;
+            const b = el.getBoundingClientRect();
+            return b.width > 0 && b.height >= 40;
+        };
+        const raiz = document.querySelector('body > .container') || document.body;
+        // Barras fixas no rodapé/topo (sticky/fixed) ficam de fora: o balão do tour não acompanha a rolagem delas
+        const fixa = el => ['sticky', 'fixed'].includes(getComputedStyle(el).position);
+        const cand = Array.from(raiz.querySelectorAll('.card, .alert[id], [id^="card"]')).filter(c => visivel(c) && !fixa(c));
+        const topo = cand.filter(c => !cand.some(o => o !== c && o.contains(c)));
+        const coberto = c => vistos.some(v => v === c || c.contains(v) || v.contains(c));
+        const titulo = c => {
+            const h = c.querySelector('h1, h2, h3, h4, h5, h6, .card-header, .card-title, summary, strong, label');
+            return ((h ? h.innerText : c.innerText) || '').trim().replace(/\s+/g, ' ').slice(0, 60);
+        };
+        // Assinatura de um cartão repetido: classes sem as cores de status + estrutura do primeiro filho
+        const cores = /^((border|bg|text)-(primary|secondary|success|danger|warning|info|light|dark|white)(-subtle)?|introjs-.*)$/;
+        const assinatura = c => [String(c.className).split(/\s+/).filter(k => k && !cores.test(k)).sort().join('.'),
+            c.firstElementChild ? c.firstElementChild.tagName + '.' + String(c.firstElementChild.className).split(/\s+/).filter(k => !cores.test(k)).sort().join('.') : ''].join('|');
+        const grupos = [];
+        topo.forEach(c => {
+            // id com prefixo (grupo_notas, grupo_banca...) = cartões gerados em série; id único (cardNovaRegra) = seção própria
+            const prefixo = c.id ? (c.id.match(/^([A-Za-z]+)[_-]/) || [])[1] : '';
+            const fixo = c.id && !prefixo && !/\d/.test(c.id);
+            const chave = assinatura(c) + '#' + (prefixo || '');
+            const g = fixo ? null : grupos.find(x => !x.fixo && x.chave === chave);
+            if (g) g.itens.push(c); else grupos.push({chave, fixo, itens: [c]});
+        });
+        return grupos.filter(g => !g.itens.some(coberto)).map(g => titulo(g.itens[0]) || (g.itens[0].id ? '#' + g.itens[0].id : 'seção sem título'));
+    }"""
+
+    def percorrer_passos_do_tour(self, espera=4000, concluir=True):
+        """Percorre o tour da página aberta. Devolve None se o tour não abriu, ou um dict com:
+        passos (textos), ancora (passos com balão solto/escondido/longe do alvo) e secoes (seções que o tour não explicou).
+        concluir=False sai com Escape no último passo (não dispara a ida para a próxima página)."""
         if not self.visivel(".introjs-tooltip", timeout=espera) and not self._esperar_tooltip(espera):
             return None
-        passos = []
-        for _ in range(40):
-            self.page.wait_for_timeout(300)
-            texto = self.page.locator(".introjs-tooltiptext").first.inner_text().strip()
+        passos, ancora, secoes = [], [], []
+        for _ in range(60):
+            self.page.wait_for_timeout(1200)  # o intro.js posiciona o balão ~350 ms após a troca e o motor confere a rolagem aos 600 e 1000 ms
+            info = self.page.evaluate(self.JS_PASSO_TOUR) or {}
+            texto = info.get("texto", "")
             passos.append(texto)
-            self.anunciar(f"Tour › {self.caminho_atual()} › passo {len(passos)}")
+            n = len(passos)
+            self.anunciar(f"Tour › {self.caminho_atual()} › passo {n}")
+            ancora += [f"passo {n} ('{texto[:45]}…'): {p}" for p in self.problemas_de_ancora(info)]
             botao = self.page.locator(".introjs-nextbutton").first
             ultimo = "introjs-donebutton" in (botao.get_attribute("class") or "")
-            botao.click()
             if ultimo:
+                secoes = self.page.evaluate(self.JS_SECOES_SEM_TOUR) or []
+                if concluir:
+                    botao.click()
+                else:
+                    self.page.keyboard.press("Escape")
+                    self.page.wait_for_timeout(300)
                 break
+            botao.click()
             try:
                 self.page.locator(".introjs-tooltiptext", has_not_text=texto).first.wait_for(state="visible", timeout=1500)
             except Exception:
                 break
-        return passos
+        return {"passos": passos, "ancora": ancora, "secoes": secoes}
+
+    @staticmethod
+    def problemas_de_ancora(info):
+        """O balão precisa apontar para um elemento visível na tela e ficar junto dele."""
+        if not info or info.get("flutuante"):
+            return []
+        if info.get("semAlvo"):
+            return ["balão sem elemento destacado"]
+        alvo, balao = info["alvo"], info["balao"]
+        if info.get("alvoOculto"):
+            return [f"aponta para um elemento escondido {info.get('descricao', '')} (o balão aparece solto, longe do que explica)"]
+        problemas = []
+        if alvo["b"] < 0 or alvo["y"] > info["vh"]:
+            problemas.append(f"o elemento {info.get('descricao', '')} ficou fora da tela")
+        dx = max(0, alvo["x"] - balao["r"], balao["x"] - alvo["r"])
+        dy = max(0, alvo["y"] - balao["b"], balao["y"] - alvo["b"])
+        distancia = int((dx * dx + dy * dy) ** 0.5)
+        if distancia > 60:
+            problemas.append(f"balão a {distancia}px do elemento {info.get('descricao', '')} que ele explica")
+        if balao["y"] < -4 or balao["b"] > info["vh"] + 4 or balao["x"] < -4 or balao["r"] > info["vw"] + 4:
+            problemas.append(f"balão cortado ou fora da área visível (topo {int(balao['y'])}px, base {int(balao['b'])}px, tela {info['vh']}px)")
+        return problemas
 
     def _esperar_tooltip(self, espera):
         try:
@@ -1400,6 +1492,13 @@ class AgenteOmniTest:
                 problemas.append(f"passo {i} vazio")
             elif re.search(r"\btour_\w+", texto) or "{{" in texto:
                 problemas.append(f"passo {i} com chave crua: '{texto[:40]}'")
+        return problemas
+
+    def problemas_do_tour_na_pagina(self, resultado):
+        """Junta textos, âncoras e seções sem explicação de uma página."""
+        problemas = self.problemas_nos_passos(resultado["passos"]) + resultado["ancora"]
+        if resultado["secoes"]:
+            problemas.append("seções sem explicação no tour: " + "; ".join(f"'{s}'" for s in resultado["secoes"][:6]))
         return problemas
 
     def teste_tour(self):
@@ -1471,23 +1570,29 @@ class AgenteOmniTest:
         if not self.abrir_convite_do_tour():
             self.registrar("Tour", "Fazer o Tour Agora", PULADO, "O convite não abriu.", evidencia=False)
             return
+        # Páginas que o tour deve percorrer: as do menu deste perfil, na ordem do menu
+        esperadas = [p["caminho"] for p in (self.page.evaluate(
+            "() => (typeof paginasDoTour === 'function' ? paginasDoTour() : [])") or [])]
         self.page.locator('#modalTourInicial button:has-text("Fazer o Tour Agora")').click()
 
-        percurso, resumo, problemas = ["/dashboard"], [], []
-        for _ in range(10):
+        percurso, resumo, problemas, paginas_com_erro = ["/dashboard"], [], [], []
+        for _ in range(max(12, len(esperadas) + 3)):
             pagina = self.caminho_atual()
             # Guardada ANTES dos cliques: o último passo já pode disparar a navegação
             url_antes = self.page.url
             self._navegacoes.clear()
-            passos = self.percorrer_passos_do_tour()
-            if passos is None:
+            resultado = self.percorrer_passos_do_tour()
+            if resultado is None:
                 if "tour_continuo=1" in self.page.url:
-                    problemas.append(f"o tour parou em {pagina}: a página foi aberta com tour_continuo=1 mas não continua o tour")
+                    problemas.append(f"o tour parou em {pagina}: a página foi aberta com tour_continuo=1 mas o tour não abriu")
                 elif len(percurso) == 1:
                     problemas.append("o tour não começou após 'Fazer o Tour Agora'")
                 break
-            resumo.append(f"{pagina} ({len(passos)} passos)")
-            problemas += [f"{pagina}: {p}" for p in self.problemas_nos_passos(passos)]
+            resumo.append(f"{pagina} ({len(resultado['passos'])} passos)")
+            da_pagina = self.problemas_do_tour_na_pagina(resultado)
+            if da_pagina:
+                paginas_com_erro.append(pagina)
+                problemas += [f"{pagina}: {p}" for p in da_pagina]
 
             # Espera o último passo navegar (a URL final pode ser igual à de partida, se houver redirecionamento)
             for _ in range(20):
@@ -1513,6 +1618,15 @@ class AgenteOmniTest:
             if "tour_continuo=1" not in self.page.url:
                 break
 
+        # Cobertura: o tour tem de passar por TODAS as páginas do menu do perfil, na ordem do menu
+        if esperadas:
+            faltaram = [p for p in esperadas if p not in percurso]
+            if faltaram:
+                problemas.append(f"o tour não passou por {len(faltaram)} página(s) do menu: " + ", ".join(faltaram))
+            visitadas = [p for p in percurso if p in esperadas]
+            ordem = [p for p in esperadas if p in visitadas]
+            if visitadas[:len(ordem)] != ordem:
+                problemas.append("o tour não seguiu a ordem do menu")
         if self.TOUR_ESPERADO and percurso != self.TOUR_ESPERADO:
             problemas.append(f"percurso {' → '.join(percurso)} (esperado {' → '.join(self.TOUR_ESPERADO)})")
         self.page.wait_for_timeout(800)
@@ -1521,10 +1635,15 @@ class AgenteOmniTest:
 
         if problemas:
             self.registrar("Tour", "Fazer o Tour Agora (encadeado)", FALHA, "; ".join(problemas),
-                           esperado="Tour percorre as páginas do perfil sem parar, sem chaves cruas e desliga o convite no fim",
-                           dica="Cada página do percurso precisa de iniciarTourDaPagina() que arranque com ?tour_continuo=1 e aponte para a próxima página que o perfil pode abrir.")
+                           esperado="O tour percorre todas as páginas do menu do perfil, na ordem do menu; cada balão aponta para um "
+                                    "elemento visível e fica junto dele; toda seção visível da página tem explicação",
+                           dica="O roteiro de cada página usa rodarTour() (templates/_tour_motor.html): passos com 'sel' para elementos "
+                                "visíveis (nunca itens do menu, de modais ou de abas fechadas) e um passo para cada seção listada.",
+                           arquivos="templates/_tour_motor.html, templates/_tours.html e o iniciarTourDaPagina() de: "
+                                    + ", ".join(sorted(set(paginas_com_erro))) if paginas_com_erro else "")
         else:
-            self.registrar("Tour", "Fazer o Tour Agora (encadeado)", APROVADO, " → ".join(resumo) + f" → fim em {percurso[-1]}.", evidencia=False)
+            self.registrar("Tour", "Fazer o Tour Agora (encadeado)", APROVADO,
+                           " → ".join(resumo) + f" → fim em {percurso[-1]} ({len(esperadas)} páginas do menu).", evidencia=False)
 
     def tour_nao_mostrar(self):
         if not self.abrir_convite_do_tour():
@@ -1544,7 +1663,7 @@ class AgenteOmniTest:
                            esperado="Fechar o convite e nunca mais exibi-lo")
 
     def tour_botao_manual(self):
-        com_tour, sem_tour, falhas = [], [], []
+        com_tour, sem_tour, falhas, erros_tour = [], [], [], []
         for nome, caminho in self.paginas_navegaveis():
             self.visitar(caminho)
             botao = self.page.locator('button[onclick="iniciarTourDaPagina()"]').first
@@ -1552,18 +1671,12 @@ class AgenteOmniTest:
                 falhas.append(f"{nome}: botão de tour não visível")
                 continue
             self._dialogos.clear()
+            self.page.evaluate("() => document.querySelectorAll('[data-tour-visto]').forEach(e => e.removeAttribute('data-tour-visto'))")
             botao.click()
-            if self._esperar_tooltip(2500):
-                passos = 0
-                while passos < 40 and self.page.locator(".introjs-nextbutton").count():
-                    passos += 1
-                    if "introjs-donebutton" in (self.page.locator(".introjs-nextbutton").first.get_attribute("class") or ""):
-                        break
-                    self.page.locator(".introjs-nextbutton").first.click()
-                    self.page.wait_for_timeout(250)
-                self.page.keyboard.press("Escape")  # sai sem disparar o redirecionamento do último passo
-                self.page.wait_for_timeout(300)
-                com_tour.append(f"{nome} ({passos})")
+            resultado = self.percorrer_passos_do_tour(espera=2500, concluir=False)
+            if resultado is not None:
+                com_tour.append(f"{nome} ({len(resultado['passos'])})")
+                erros_tour += [f"{nome}: {p}" for p in self.problemas_do_tour_na_pagina(resultado)]
             elif any("construído" in d for d in self._dialogos):
                 sem_tour.append(nome)
             else:
@@ -1571,11 +1684,16 @@ class AgenteOmniTest:
 
         if falhas:
             self.registrar("Tour", "Botão de tour em cada página", FALHA, "; ".join(falhas))
+        if erros_tour:
+            self.registrar("Tour", "Balões e cobertura do tour em cada página", FALHA, "; ".join(erros_tour),
+                           esperado="Cada balão aponta para um elemento visível e fica junto dele; toda seção visível tem explicação",
+                           dica="Ajustar os passos (sel) do roteiro da página em rodarTour(): apontar para elementos visíveis e criar "
+                                "um passo para cada seção listada.")
         if sem_tour:
-            self.registrar("Tour", "Páginas sem tour", ALERTA, "Mostram o aviso 'tour sendo construído': " + ", ".join(sem_tour),
+            self.registrar("Tour", "Páginas sem tour", FALHA, "Mostram o aviso 'tour sendo construído': " + ", ".join(sem_tour),
                            esperado="Tour disponível em todas as páginas que o perfil acessa",
-                           dica="Criar window.iniciarTourDaPagina() no template de cada página listada, no mesmo padrão de sessoes.html.")
-        if com_tour:
+                           dica="Criar o roteiro da página em templates/_tours.html (por endpoint) ou um iniciarTourDaPagina() que chame rodarTour().")
+        if com_tour and not falhas and not erros_tour:
             self.registrar("Tour", "Botão de tour em cada página", APROVADO, "Tour aberto em: " + ", ".join(com_tour), evidencia=False)
 
     def tour_traducoes(self):

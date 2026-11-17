@@ -1,0 +1,159 @@
+{# Motor único do Tour (incluído no fim de base.html, antes de _tours.html).
+   - rodarTour(passos, opcoes): cada passo é {texto}, {sel: 'seletor CSS', texto}, {titulo: 'título do cartão', texto} ou {el: elemento|função, texto}.
+     Num seletor com alternativas ('#a, .b'), vale a primeira alternativa que tiver elemento visível.
+     O passo aponta para o primeiro elemento VISÍVEL que casar (nunca um item escondido do menu, de uma aba fechada ou de um modal);
+     se nenhum aparecer, o passo é pulado.
+   - Tour encadeado (?tour_continuo=1): ao concluir, segue para a próxima página do MENU deste perfil, na ordem do menu
+     (Painel Geral → Aprendizagem → Projetos e TCC → Demandas → Administração). Na última página, volta ao Painel Geral.
+   - Com ?tour_continuo=1 o tour da página começa sozinho. #}
+<script>
+(function () {
+    const CONTINUO = new URLSearchParams(window.location.search).get('tour_continuo') === '1';
+    const TXT = {
+        proximo: {{ t('tour_btn_proximo')|tojson }},
+        anterior: {{ t('tour_btn_anterior')|tojson }},
+        concluir: {{ t('tour_btn_voltar')|tojson }},
+        proximaPagina: {{ tt('Próxima página')|tojson }},
+        fimDoTour: {{ tt('Concluir o tour')|tojson }},
+        pagina: {{ tt('Página')|tojson }},
+        de: {{ tt('de')|tojson }},
+    };
+
+    function visivel(el) {
+        if (!el || !el.isConnected) return false;
+        if (el.closest('.dropdown-menu, .modal, .introjs-tooltip, .tab-pane:not(.active), .collapse:not(.show):not(.navbar-collapse)')) return false;
+        const estilo = window.getComputedStyle(el);
+        if (estilo.visibility === 'hidden' || estilo.display === 'none') return false;
+        if (el.offsetParent === null && estilo.position !== 'fixed') return false;
+        const r = el.getBoundingClientRect();
+        return r.width > 0 && r.height > 0;
+    }
+
+    // Cartão visível cujo título (cabeçalho, h1–h6 ou summary) começa com o texto dado
+    function porTitulo(titulo) {
+        const alvo = titulo.trim().toLowerCase();
+        return Array.from(document.querySelectorAll('.card, details, section')).find(c => {
+            if (!visivel(c)) return false;
+            const h = c.querySelector('.card-header, summary, h1, h2, h3, h4, h5, h6');
+            return h && h.textContent.replace(/\s+/g, ' ').trim().toLowerCase().startsWith(alvo);
+        }) || null;
+    }
+
+    // Alternativas do seletor na ordem em que foram escritas (a primeira que tiver um elemento visível vence)
+    function porSeletor(sel) {
+        for (const parte of sel.split(',')) {
+            const el = Array.from(document.querySelectorAll(parte.trim())).find(visivel);
+            if (el) return el;
+        }
+        return null;
+    }
+
+    function resolver(passo) {
+        if (passo.el) {
+            const el = typeof passo.el === 'function' ? passo.el() : passo.el;
+            return visivel(el) ? el : null;
+        }
+        if (passo.titulo) return porTitulo(passo.titulo);
+        if (passo.sel) return porSeletor(passo.sel);
+        return null;
+    }
+
+    // Elemento mais alto que meia tela: o balão aponta para o cabeçalho dele (senão sairia cortado, fora da tela)
+    function ancoraCompacta(el) {
+        const limite = window.innerHeight * 0.5;
+        if (el.getBoundingClientRect().height <= limite) return el;
+        const cabecalho = Array.from(el.querySelectorAll(':scope > .card-header, :scope > summary, :scope > thead, :scope > .card-body > h5, :scope > .card-body > h6, h1, h2, h3, h4, h5, h6, thead'))
+            .find(c => visivel(c) && c.getBoundingClientRect().height <= limite);
+        return cabecalho || el;
+    }
+
+    // Páginas do menu principal deste perfil, na ordem em que aparecem (sem repetir; idioma, tema e notificações ficam de fora)
+    function paginasDoMenu() {
+        const lista = [], vistos = new Set();
+        document.querySelectorAll('#menuPrincipal > ul.navbar-nav a.nav-link[href], #menuPrincipal > ul.navbar-nav a.dropdown-item[href]').forEach(a => {
+            const href = a.getAttribute('href');
+            if (!href || href === '#' || href.startsWith('javascript')) return;
+            const u = new URL(href, window.location.href);
+            if (u.origin !== window.location.origin || vistos.has(u.pathname)) return;
+            vistos.add(u.pathname);
+            lista.push({ caminho: u.pathname, nome: a.textContent.replace(/\s+/g, ' ').trim() });
+        });
+        return lista;
+    }
+    window.paginasDoTour = paginasDoMenu;
+
+    window.rodarTour = function (passos, opcoes) {
+        opcoes = opcoes || {};
+        const continuo = CONTINUO || !!opcoes.continuo;
+        const paginas = paginasDoMenu();
+        const indice = paginas.findIndex(p => p.caminho === window.location.pathname);
+        const proxima = continuo && indice >= 0 ? paginas[indice + 1] : null;
+        const titulo = continuo && indice >= 0 ? `${TXT.pagina} ${indice + 1} ${TXT.de} ${paginas.length} · ${paginas[indice].nome}` : '';
+
+        const etapas = [];
+        passos.forEach(p => {
+            if (!p || !p.texto) return;
+            if (!p.sel && !p.el && !p.titulo) { etapas.push({ intro: p.texto, title: titulo }); return; }
+            const alvo = resolver(p);
+            if (alvo) etapas.push({ element: ancoraCompacta(alvo), intro: p.texto, title: titulo, position: p.posicao || 'auto' });
+        });
+        if (!etapas.length) etapas.push({ intro: document.title, title: titulo });
+
+        let doneLabel = TXT.concluir;
+        if (continuo) doneLabel = proxima ? `${TXT.proximaPagina}: ${proxima.nome} ➜` : `${TXT.fimDoTour} ✅`;
+
+        const tour = introJs().setOptions({
+            steps: etapas,
+            nextLabel: TXT.proximo,
+            prevLabel: TXT.anterior,
+            doneLabel: doneLabel,
+            showProgress: true,
+            showBullets: false,
+            // A rolagem é feita aqui (onbeforechange), ANTES de o intro.js escolher se o balão vai acima ou abaixo:
+            // com a rolagem dele, o balão era posicionado para a tela antiga e ficava cortado no topo
+            scrollToElement: false,
+            exitOnOverlayClick: false,
+        });
+        tour.onbeforechange(function (alvo) {
+            if (!alvo || !alvo.getBoundingClientRect || alvo.classList.contains('introjsFloatingElement')) return true;
+            const r = alvo.getBoundingClientRect(), topo = 90;
+            // Elemento perto do topo da tela, com espaço para o balão logo abaixo dele
+            window.scrollTo({ top: Math.max(0, r.top + window.scrollY - topo), behavior: 'instant' });
+            return true;
+        });
+        tour.oncomplete(function () {
+            if (opcoes.aoConcluir) opcoes.aoConcluir();
+            if (!continuo || indice < 0) return;
+            window.location.href = proxima ? proxima.caminho + '?tour_continuo=1' : (paginas[0] ? paginas[0].caminho : '/dashboard');
+        });
+        // Segurança extra: se mesmo assim o balão ficar cortado (fim da página), rola até ele aparecer inteiro.
+        // O intro.js só posiciona o balão uns 350 ms depois da troca de passo.
+        tour.onafterchange(function () {
+            [600, 1000].forEach(atraso => setTimeout(function () {
+                const balao = document.querySelector('.introjs-tooltip');
+                if (!balao || balao.classList.contains('introjs-floating') || balao.getBoundingClientRect().height === 0) return;
+                const r = balao.getBoundingClientRect(), folga = 12;
+                if (r.top < folga) window.scrollBy(0, r.top - folga);
+                else if (r.bottom > window.innerHeight - folga) window.scrollBy(0, Math.min(r.bottom - window.innerHeight + folga, r.top - folga));
+            }, atraso));
+        });
+        if (opcoes.aoSair) tour.onexit(opcoes.aoSair);
+        tour.start();
+        return tour;
+    };
+
+    // Tour encadeado: a página abre com ?tour_continuo=1 e o tour começa sozinho
+    if (CONTINUO) {
+        document.addEventListener('DOMContentLoaded', function () {
+            setTimeout(function () {
+                if (typeof window.iniciarTourDaPagina === 'function' && !window.iniciarTourDaPagina.semTour) window.iniciarTourDaPagina();
+                else {
+                    // Página sem tour: segue direto para a próxima do menu
+                    const paginas = paginasDoMenu(), i = paginas.findIndex(p => p.caminho === window.location.pathname);
+                    if (i >= 0 && paginas[i + 1]) window.location.href = paginas[i + 1].caminho + '?tour_continuo=1';
+                }
+            }, 600);
+        });
+    }
+})();
+</script>

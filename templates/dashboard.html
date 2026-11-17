@@ -113,7 +113,7 @@
     </div>
 {% endmacro %}
 
-<div class="card shadow-sm border-0 mb-4 bg-white border-start border-4 border-success">
+<div class="card shadow-sm border-0 mb-4 bg-white border-start border-4 border-success" id="cardRelogioVoluntariado">
     <div class="card-body d-flex flex-column flex-md-row justify-content-between align-items-center">
         <div class="mb-3 mb-md-0">
             <h5 class="card-title text-success fw-bold mb-1">
@@ -814,53 +814,25 @@ if (selectOrdenacao) selectOrdenacao.addEventListener('change', atualizarTabela)
 <!-- O SCRIPT AGORA FICA DE FORA, SEMPRE DISPONÍVEL PARA O BOTÃO MANUAL -->
 <script>
 window.iniciarTourDaPagina = function() {
-    let passos = [
-        { intro: "{{ t('tour_dash_intro') | safe }}" }
-    ];
-
-    let topo = document.getElementById('painelCabecalho');
-    if (topo) passos.push({ element: topo, intro: "{{ t('tour_dash_topo') }}" });
-
-    let cartoes = document.getElementById('painelKpis');
-    if (cartoes) passos.push({ element: cartoes, intro: "{{ t('tour_dash_cartoes') }}" });
-
-    let grafEvolucao = document.getElementById('graficoEvolucao');
-    if (grafEvolucao) passos.push({ element: grafEvolucao, intro: "{{ t('tour_dash_evolucao') | safe }}" });
-
-    let grafSkills = document.getElementById('graficoSkills');
-    if (grafSkills) passos.push({ element: grafSkills, intro: "{{ t('tour_dash_skills') | safe }}" });
-
-    let personalizar = document.getElementById('btnPersonalizarGraficos');
-    if (personalizar) passos.push({ element: personalizar, intro: {{ tt('Personalize os gráficos: escolha os dados, o tipo (barras, linhas, pizza, rosca, radar...) e as cores. A escolha fica salva no seu perfil.')|tojson }} });
-
-    let areaFiltros = document.getElementById('filtroBusca');
-    if (areaFiltros) passos.push({ element: areaFiltros.parentElement.parentElement, intro: "{{ t('tour_dash_filtros') | safe }}" });
-
-    let tabela = document.getElementById('tabelaMatriz') || document.querySelector('.table');
-    if (tabela) passos.push({ element: tabela, intro: "{{ t('tour_dash_tabela') | safe }}" });
-
-    let tipoPerfil = {{ current_user.tipo_usuario|tojson }};
-    
-    // CORREÇÃO: Administrador, Mentor Administrador e Mentor acessam Cursos. Só o 'Aluno' pula para Sessões.
-    let acessaCursos = ['Administrador', 'Mentor Administrador', 'Admin B2B'].includes(tipoPerfil);
-
-    introJs().setOptions({
-        steps: passos,
-        nextLabel: "{{ t('tour_btn_proximo') }}",
-        prevLabel: "{{ t('tour_btn_anterior') }}",
-        doneLabel: acessaCursos ? "{{ t('tour_btn_cursos') }}" : "{{ t('tour_btn_concluir_sessoes') }}",
-        showProgress: true,
-        showBullets: false
-    }).oncomplete(function() {
-        desativarTourBackend(true);
-        if (acessaCursos) {
-            window.location.href = "{{ url_for('gerenciar_turmas') }}?tour_continuo=1";
-        } else {
-            window.location.href = "{{ url_for('sessoes') }}?tour_continuo=1";
-        }
-    }).onexit(function() {
-        desativarTourBackend(true);
-    }).start();
+    // O Painel Geral abre o tour encadeado: ao concluir, segue pelas páginas do menu deste perfil
+    rodarTour([
+        { texto: {{ t('tour_dash_intro')|tojson }} },
+        { sel: '#alertaAcompanhamento', texto: {{ tt('Alertas de acompanhamento: quem está sem atividade, com engajamento baixo ou com ruído de comunicação. Clique em Ver todos os alertas para os detalhes.')|tojson }} },
+        { sel: '#alertaAvaliacoes', texto: {{ tt('Avaliações pendentes: as do ciclo aberto e as das reuniões em que você esteve.')|tojson }} },
+        { sel: '#alertaOcorrencias', texto: {{ tt('Ocorrências com o retorno pendente: vermelho está atrasado, amarelo vence em breve.')|tojson }} },
+        { sel: '#cardRelogioVoluntariado', texto: {{ tt('Relógio de Voluntariado Corporativo: inicie a contagem ao começar um encontro extra, uma leitura de TCC ou uma banca, ou insira as horas à mão. As horas vão para o relatório ESG.')|tojson }} },
+        { sel: '#cardRelogioVoluntariado [data-bs-target="#modalIniciarRelogio"], #cardRelogioVoluntariado form', texto: {{ tt('Iniciar Contagem liga o relógio agora; ao terminar, clique em Encerrar Voluntariado para gravar o tempo exato.')|tojson }} },
+        { sel: '#cardRelogioVoluntariado [data-bs-target="#modalVoluntariadoManual"]', texto: {{ tt('Inserir Manual lança as horas de uma atividade que já aconteceu.')|tojson }} },
+        { sel: '#cardRelogioVoluntariado .dropdown', texto: {{ tt('Em Relatórios você baixa o relatório ESG de voluntariado em Excel ou PDF.')|tojson }} },
+        { sel: '#cardRelogioVoluntariado details summary', texto: {{ tt('Minhas horas: abra para ver o seu histórico de voluntariado, com as horas regulares e extras.')|tojson }} },
+        { sel: '#painelCabecalho', texto: {{ t('tour_dash_topo')|tojson }} },
+        { sel: '#painelKpis', texto: {{ t('tour_dash_cartoes')|tojson }} },
+        { sel: '#graficoEvolucao', texto: {{ t('tour_dash_evolucao')|tojson }} },
+        { sel: '#graficoSkills', texto: {{ t('tour_dash_skills')|tojson }} },
+        { sel: '#btnPersonalizarGraficos', texto: {{ tt('Personalize os gráficos: escolha os dados, o tipo (barras, linhas, pizza, rosca, radar...) e as cores. A escolha fica salva no seu perfil.')|tojson }} },
+        { el: () => { const f = document.getElementById('filtroBusca'); return f ? f.closest('.card') || f.parentElement.parentElement : null; }, texto: {{ t('tour_dash_filtros')|tojson }} },
+        { sel: '#tabelaMatriz, .table', texto: {{ t('tour_dash_tabela')|tojson }} },
+    ], { continuo: true, aoConcluir: () => desativarTourBackend(true), aoSair: () => desativarTourBackend(true) });
 };
 
 document.addEventListener("DOMContentLoaded", function() {

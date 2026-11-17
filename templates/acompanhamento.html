@@ -1060,45 +1060,16 @@ document.getElementById('btn-expand-gemini').addEventListener('click', function(
 </script>
 
 <script>
-// सुनो Roteiro específico do Tour para a tela de Acompanhamento
+// Roteiro do Tour da tela de Acompanhamento (o motor fica em _tour_motor.html)
 function iniciarTourDaPagina() {
-    let passos = [ { intro: "{{ t('tour_aco_intro') | safe }}" } ];
-
-    let botoes = Array.from(document.querySelectorAll('a, button'));
-    
-    // Busca pelas palavras nos 3 idiomas (Agenda, Calendar, Calendario)
-    let btnAgenda = botoes.find(el => el.textContent.includes('Agenda') || el.textContent.includes('Calendar') || el.textContent.includes('Calendario'));
-    if (btnAgenda) passos.push({ element: btnAgenda, intro: "{{ t('tour_aco_agenda') | safe }}" });
-
-    let btnIA = botoes.find(el => el.textContent.includes('Gemini') || el.textContent.includes('Notebook'));
-    if (btnIA) passos.push({ element: btnIA, intro: "{{ t('tour_aco_ia') | safe }}" });
-
-    // Busca pelas palavras nos 3 idiomas (Vincular, Link)
-    let btnVincular = botoes.find(el => el.textContent.includes('Vincular') || el.textContent.includes('Link'));
-    if (btnVincular) passos.push({ element: btnVincular, intro: "{{ t('tour_aco_vincular') | safe }}" });
-
-    let cardCurso = document.querySelector('.table, .card');
-    if (cardCurso) passos.push({ element: cardCurso, intro: "{{ t('tour_aco_card') | safe }}" });
-
-    let tipoPerfil = {{ current_user.tipo_usuario|tojson }};
-    let ehAdmin = (tipoPerfil === 'Administrador' || tipoPerfil === 'Mentor Administrador');
-    
-    introJs().setOptions({
-        steps: passos, 
-        nextLabel: "{{ t('tour_btn_proximo') }}", 
-        prevLabel: "{{ t('tour_btn_anterior') }}", 
-        doneLabel: ehAdmin ? "{{ t('tour_btn_cadastros') }}" : "{{ t('tour_btn_voltar') }}", 
-        showProgress: true, 
-        showBullets: false
-    }).oncomplete(function() {
-        if(window.location.search.includes('tour_continuo=1')) {
-            window.location.href = ehAdmin ? "{{ url_for('gerenciar_usuarios') }}?tour_continuo=1" : "{{ url_for('dashboard') }}";
-        }
-    }).start();
+    rodarTour([
+        { texto: {{ t('tour_aco_intro')|tojson }} },
+        { sel: '#menuAgenda', texto: {{ t('tour_aco_agenda')|tojson }} },
+        { sel: '[data-bs-target="#modalNotebookLM"]', texto: {{ t('tour_aco_ia')|tojson }} },
+        { sel: '[data-bs-target="#modalMatricula"]', texto: {{ t('tour_aco_vincular')|tojson }} },
+        { sel: '.row.mb-5 > div > .card', texto: {{ t('tour_aco_card')|tojson }} },
+    ]);
 }
-document.addEventListener("DOMContentLoaded", function() {
-    if(window.location.search.includes('tour_continuo=1')) setTimeout(iniciarTourDaPagina, 500);
-});
 </script>
 
 {% endblock %}

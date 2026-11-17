@@ -265,33 +265,12 @@
 
 <script>
 function iniciarTourDaPagina() {
-    let passos = [
-        { intro: "{{ t('tour_ses_intro') | safe }}" }
-    ];
-
-    // Busca pelas palavras nos 3 idiomas (Agendar, Schedule, Programar)
-    let btnAgendar = Array.from(document.querySelectorAll('a, button')).find(el => el.textContent.includes('Agendar') || el.textContent.includes('Schedule') || el.textContent.includes('Programar'));
-    if (btnAgendar) passos.push({ element: btnAgendar, intro: "{{ t('tour_ses_agendar') | safe }}" });
-
-    let tabelaSes = document.querySelector('.table');
-    if (tabelaSes) passos.push({ element: tabelaSes, intro: "{{ t('tour_ses_tabela') | safe }}" });
-
-    introJs().setOptions({
-        steps: passos, 
-        nextLabel: "{{ t('tour_btn_proximo') }}", 
-        prevLabel: "{{ t('tour_btn_anterior') }}", 
-        doneLabel: "{{ t('tour_btn_acompanhamento') }}", 
-        showProgress: true, 
-        showBullets: false
-    }).oncomplete(function() {
-        if(window.location.search.includes('tour_continuo=1')) {
-            window.location.href = "{{ url_for('acompanhamento') }}?tour_continuo=1";
-        }
-    }).start();
+    rodarTour([
+        { texto: {{ t('tour_ses_intro')|tojson }} },
+        { sel: '[data-bs-target="#modalAgendar"]', texto: {{ t('tour_ses_agendar')|tojson }} },
+        { sel: '.table', texto: {{ t('tour_ses_tabela')|tojson }} },
+    ]);
 }
-document.addEventListener("DOMContentLoaded", function() {
-    if(window.location.search.includes('tour_continuo=1')) setTimeout(iniciarTourDaPagina, 500);
-});
 </script>
 
 

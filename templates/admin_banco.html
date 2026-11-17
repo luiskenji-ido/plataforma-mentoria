@@ -281,32 +281,15 @@ document.querySelectorAll('.tabela-ordenavel thead th').forEach(function (th, co
 });
 
 function iniciarTourDaPagina() {
-    const passos = [{ intro: "{{ t('tour_man_intro') | safe }}" }];
-    [['#cardSaude', {{ tt('Saúde dos backups: agendamentos ativos, último e próximo backup, falhas e a situação geral.')|tojson }}],
-     ['#cardAgendamentos', {{ tt('Agendamentos: crie vários backups automáticos; clique numa linha para editar, executar, pausar ou excluir. Toda alteração fica registrada.')|tojson }}],
-     ['#cardBackupImediato', {{ tt('Backup imediato: gera uma cópia agora e confere a integridade do arquivo.')|tojson }}],
-     ['#cardRestaurar', {{ tt('Restaurar: volta o banco a um backup, guardando antes uma cópia do banco atual.')|tojson }}],
-     ['#cardHistorico', {{ tt('Histórico: tudo o que foi executado, com filtro por data e relatório em CSV para auditoria.')|tojson }}],
-     ['#cardPerigo', {{ tt('Zona de perigo: apagar os dados exige digitar APAGAR e sempre faz um backup de segurança antes.')|tojson }}]
-    ].forEach(([sel, texto]) => { const el = document.querySelector(sel); if (el) passos.push({ element: el, intro: texto }); });
-    introJs().setOptions({
-        steps: passos,
-        nextLabel: "{{ t('tour_btn_proximo') }}",
-        prevLabel: "{{ t('tour_btn_anterior') }}",
-        doneLabel: "{{ t('tour_btn_voltar') }}",
-        showProgress: true,
-        showBullets: false
-    }).oncomplete(function () {
-        if (window.location.search.includes('tour_continuo=1')) {
-            window.location.href = "{{ url_for('dashboard') }}";
-        }
-    }).start();
+    rodarTour([
+        { texto: {{ t('tour_man_intro')|tojson }} },
+        { sel: '#cardSaude', texto: {{ tt('Saúde dos backups: agendamentos ativos, último e próximo backup, falhas e a situação geral.')|tojson }} },
+        { sel: '#cardAgendamentos', texto: {{ tt('Agendamentos: crie vários backups automáticos; clique numa linha para editar, executar, pausar ou excluir. Toda alteração fica registrada.')|tojson }} },
+        { sel: '#cardBackupImediato', texto: {{ tt('Backup imediato: gera uma cópia agora e confere a integridade do arquivo.')|tojson }} },
+        { sel: '#cardRestaurar', texto: {{ tt('Restaurar: volta o banco a um backup, guardando antes uma cópia do banco atual.')|tojson }} },
+        { sel: '#cardHistorico', texto: {{ tt('Histórico: tudo o que foi executado, com filtro por data e relatório em CSV para auditoria.')|tojson }} },
+        { sel: '#cardPerigo', texto: {{ tt('Zona de perigo: apagar os dados exige digitar APAGAR e sempre faz um backup de segurança antes.')|tojson }} },
+    ]);
 }
-
-document.addEventListener("DOMContentLoaded", function () {
-    if (window.location.search.includes('tour_continuo=1')) {
-        setTimeout(iniciarTourDaPagina, 500);
-    }
-});
 </script>
 {% endblock %}

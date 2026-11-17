@@ -398,40 +398,14 @@
 
     <script>
     function iniciarTourDaPagina() {
-        let passos = [ { intro: "{{ t('tour_cad_intro') | safe }}" } ];
-
-        let formCad = document.querySelector('form[action*="gerenciar_usuarios"]') || document.querySelector('form');
-        if (formCad) passos.push({ element: formCad, intro: "{{ t('tour_cad_form') | safe }}" });
-
-        let tabela = document.querySelector('.table') || document.querySelector('table');
-        if (tabela) passos.push({ element: tabela, intro: "{{ t('tour_cad_tabela') | safe }}" });
-
-        let tipoPerfil = {{ current_user.tipo_usuario|tojson }};
-        let ehMentorAdmin = (tipoPerfil === 'Mentor Administrador');
-
-        introJs().setOptions({
-            steps: passos,
-            nextLabel: "{{ t('tour_btn_proximo') }}",
-            prevLabel: "{{ t('tour_btn_anterior') }}",
-            doneLabel: ehMentorAdmin ? "{{ t('tour_btn_solicitacoes') }}" : "{{ t('tour_btn_manutencao') }}",
-            showProgress: true,
-            showBullets: false
-        }).oncomplete(function() {
-            if(window.location.search.includes('tour_continuo=1')) {
-                if (ehMentorAdmin) {
-                    window.location.href = "{{ url_for('gerenciar_solicitacoes') }}?tour_continuo=1";
-                } else {
-                    window.location.href = "{{ url_for('manutencao_banco') }}?tour_continuo=1";
-                }
-            }
-        }).start();
+        rodarTour([
+            { texto: {{ t('tour_cad_intro')|tojson }} },
+            { sel: 'form[action*="gerenciar_usuarios"], form', texto: {{ t('tour_cad_form')|tojson }} },
+            { sel: '#filtroUsuarios, input[type="search"], input[placeholder*="Buscar"]', texto: {{ tt('Busque qualquer usuário pelo nome, e-mail ou mentor.')|tojson }} },
+            { sel: '.nav-tabs, .nav-pills', texto: {{ tt('As abas separam a equipe interna, os parceiros B2B e o corpo discente.')|tojson }} },
+            { sel: '.tab-pane.active table, .table', texto: {{ t('tour_cad_tabela')|tojson }} },
+        ]);
     }
-
-    document.addEventListener("DOMContentLoaded", function() {
-        if(window.location.search.includes('tour_continuo=1')) {
-            setTimeout(iniciarTourDaPagina, 500);
-        }
-    });
     </script>
 {% endblock %}
 

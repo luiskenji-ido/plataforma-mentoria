@@ -9,7 +9,7 @@ O que este agente cobre:
   4. Acompanhamento: cursos do aluno, Conectar Agenda (OAuth Google) e Gemini Notebook
   5. Projetos: o projeto do grupo do aluno aparece e nenhum outro
   6. Regra 1 (sem relógio, demandas e banca) e privacidade entre alunos
-  7. Tour: convite, Lembrar Depois, tour encadeado Painel → Sessões → Acompanhamento,
+  7. Tour: convite, Lembrar Depois, tour encadeado por todas as páginas do menu,
      Não mostrar novamente e botão de tour em cada página (no núcleo)
   8. Tema e idioma em todas as páginas (no núcleo)
 
@@ -28,8 +28,8 @@ class AgenteAluno(AgenteOmniTest):
     chave_perfil = "aluno"
     exige_frequencia = True
     exige_onboarding = False
-    # O tour do Aluno: Painel → Sessões → Acompanhamento → volta ao Painel
-    TOUR_ESPERADO = ["/dashboard", "/sessoes", "/acompanhamento", "/dashboard"]
+    # O tour do Aluno segue as páginas do menu dele, na ordem do menu (conferido pelo núcleo a partir do próprio menu)
+    TOUR_ESPERADO = None
 
     ROTEIRO = [
         "Regra 1: Relógio de Voluntariado oculto e Sala da Banca bloqueada; Portal de Demandas liberado (só os próprios tickets)",
