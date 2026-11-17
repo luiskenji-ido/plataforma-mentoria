@@ -190,6 +190,16 @@
             { sel: '#cardLimpeza', texto: {{ tt('Limpeza para compliance: apaga aprendizados antigos, com confirmação.')|tojson }} },
             { sel: '#cardEventos', texto: {{ tt('A trilha de eventos registra cada aprendizado criado, aprovado ou apagado.')|tojson }} },
         ],
+        'assistente': [
+            { texto: {{ tt('Assistente da Plataforma: tire dúvidas sobre a plataforma; as respostas vêm da base de conhecimento e citam as fontes.')|tojson }} },
+            { sel: '#resumoAssistente', texto: {{ tt('O modelo de IA em uso e o tamanho da base: fontes ativas e trechos.')|tojson }} },
+            { sel: '#abasAssistente', texto: {{ tt('Em Conversar você faz as perguntas; em Base de conhecimento você cadastra os documentos PRD, PTD e DTD e escolhe quais fontes o Assistente usa.')|tojson }} },
+            { sel: '#cardConversas', texto: {{ tt('Suas conversas ficam guardadas: abra uma para continuar ou comece uma nova.')|tojson }} },
+            { sel: '#cardChat', texto: {{ tt('Escreva a pergunta e envie; cada resposta cita as fontes como [1], [2]. Clique no número para ver o trecho de origem.')|tojson }} },
+            { sel: '#cardFontesBase', texto: {{ tt('As fontes da base: veja os trechos, baixe o arquivo, ative, desative ou exclua cada uma.')|tojson }} },
+            { sel: '#cardEnviarDocumento', texto: {{ tt('Adicione o PRD, o PTD ou o DTD em .md, .txt, .html, .docx ou .pdf; enviar de novo com o mesmo título cria uma nova versão.')|tojson }} },
+            { sel: '#cardTiposDocumento', texto: {{ tt('O que cada tipo de fonte traz para o Assistente.')|tojson }} },
+        ],
     };
 
     const passos = TOURS[{{ (request.endpoint or '')|tojson }}];

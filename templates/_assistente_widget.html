@@ -1,0 +1,240 @@
+{# Assistente da Plataforma: funções de chat (usadas pela página /admin/assistente e pelo botão flutuante) e o painel lateral.
+   Incluído em base.html só para o Administrador. Na própria página do Assistente o botão flutuante não aparece. #}
+<style>
+    #btnAssistente { position: fixed; right: 20px; bottom: 20px; z-index: 1040; width: 56px; height: 56px; border-radius: 50%;
+                     box-shadow: 0 6px 18px rgba(0,0,0,.25); font-size: 1.5rem; display: flex; align-items: center; justify-content: center; }
+    #painelAssistente { width: min(440px, 100vw); }
+    .assistente-mensagens { display: flex; flex-direction: column; gap: .75rem; }
+    .assistente-msg { max-width: 92%; padding: .6rem .8rem; border-radius: 12px; line-height: 1.45; font-size: .93rem; overflow-wrap: anywhere; }
+    .assistente-msg.usuario { align-self: flex-end; background: var(--bs-primary); color: #fff; border-bottom-right-radius: 4px; white-space: pre-wrap; }
+    .assistente-msg.assistente { align-self: flex-start; background: var(--bs-tertiary-bg, #f1f3f5); color: var(--bs-body-color);
+                                 border: 1px solid var(--bs-border-color); border-bottom-left-radius: 4px; }
+    .assistente-msg.assistente p { margin-bottom: .45rem; }
+    .assistente-msg.assistente p:last-child, .assistente-msg.assistente ul:last-child, .assistente-msg.assistente ol:last-child { margin-bottom: 0; }
+    .assistente-msg.assistente ul, .assistente-msg.assistente ol { padding-left: 1.2rem; margin-bottom: .45rem; }
+    .assistente-msg .cita { font-size: .72rem; vertical-align: super; text-decoration: none; font-weight: 700; }
+    .assistente-fontes { margin-top: .5rem; padding-top: .4rem; border-top: 1px dashed var(--bs-border-color); font-size: .78rem; color: var(--bs-secondary-color); }
+    .assistente-fontes li.destaque { background: rgba(255, 193, 7, .25); border-radius: 4px; }
+    .assistente-digitando span { display: inline-block; width: 7px; height: 7px; margin-right: 3px; border-radius: 50%; background: var(--bs-secondary-color);
+                                 animation: assistentePulso 1s infinite ease-in-out; }
+    .assistente-digitando span:nth-child(2) { animation-delay: .15s; } .assistente-digitando span:nth-child(3) { animation-delay: .3s; }
+    @keyframes assistentePulso { 0%, 80%, 100% { opacity: .25; } 40% { opacity: 1; } }
+    @media print { #btnAssistente { display: none !important; } }
+</style>
+
+<script>
+window.Assistente = (function () {
+    const URL_PERGUNTAR = {{ url_for('assistente_perguntar')|tojson }};
+    const URL_ULTIMA = {{ url_for('assistente_ultima_conversa')|tojson }};
+    const TXT = {
+        fontes: {{ tt('Fontes')|tojson }}, semIa: {{ tt('sem IA')|tojson }}, versao: {{ tt('versão')|tojson }},
+        erro: {{ tt('Não foi possível falar com o Assistente agora. Tente de novo.')|tojson }},
+        vazio: {{ tt('Pergunte sobre as regras de negócio, os perfis, as rotas, a segurança ou o banco de dados da plataforma. Quando os documentos PRD, PTD e DTD forem cadastrados, eles também entram nas respostas.')|tojson }},
+    };
+    const TIPOS = {{ {'GERENTES': tt('Agentes gerentes'), 'PRD': 'PRD', 'PTD': 'PTD', 'DTD': 'DTD', 'OUTRO': tt('Outro documento')}|tojson }};
+
+    function escapar(s) {
+        return String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    }
+
+    // Markdown simples e seguro: o texto é escapado antes de qualquer formatação
+    function formatar(texto, fontes, idMsg) {
+        const validas = new Set((fontes || []).map(f => String(f.n)));
+        const linha = s => escapar(s)
+            .replace(/`([^`]+)`/g, '<code>$1</code>')
+            .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+            .replace(/\[(\d{1,2})\]/g, (m, n) => validas.has(n)
+                ? `<a href="#" class="cita" data-msg="${idMsg}" data-fonte="${n}" title="${escapar(TXT.fontes)} ${n}">[${n}]</a>` : m);
+        const saida = [];
+        let lista = null;
+        const fecharLista = () => { if (lista) { saida.push(`</${lista}>`); lista = null; } };
+        let paragrafo = [];
+        const fecharParagrafo = () => { if (paragrafo.length) { saida.push('<p>' + paragrafo.join('<br>') + '</p>'); paragrafo = []; } };
+        String(texto || '').split('\n').forEach(bruta => {
+            const l = bruta.trimEnd();
+            const item = l.match(/^\s*[-*•]\s+(.*)$/), numerado = l.match(/^\s*\d+[.)]\s+(.*)$/), titulo = l.match(/^\s*#{1,6}\s+(.*)$/);
+            if (item || numerado) {
+                fecharParagrafo();
+                const tipo = item ? 'ul' : 'ol';
+                if (lista !== tipo) { fecharLista(); saida.push(`<${tipo}>`); lista = tipo; }
+                saida.push('<li>' + linha((item || numerado)[1]) + '</li>');
+            } else if (titulo) {
+                fecharParagrafo(); fecharLista();
+                saida.push('<p class="fw-bold mb-1">' + linha(titulo[1]) + '</p>');
+            } else if (!l.trim()) {
+                fecharParagrafo(); fecharLista();
+            } else {
+                fecharLista();
+                paragrafo.push(linha(l));
+            }
+        });
+        fecharParagrafo(); fecharLista();
+        return saida.join('');
+    }
+
+    function htmlFontes(fontes, idMsg) {
+        if (!fontes || !fontes.length) return '';
+        const itens = fontes.map(f => `<li data-msg="${idMsg}" data-n="${f.n}"><strong>[${f.n}]</strong> ${escapar(TIPOS[f.tipo] || f.tipo)} · ${escapar(f.fonte)}`
+            + ` (${escapar(TXT.versao)} ${f.versao})${f.secao ? ' — ' + escapar(f.secao) : ''}</li>`).join('');
+        return `<details class="assistente-fontes"><summary>${escapar(TXT.fontes)} (${fontes.length})</summary><ul class="list-unstyled mb-0 mt-1">${itens}</ul></details>`;
+    }
+
+    let contador = 0;
+    function mensagem(m) {
+        const div = document.createElement('div');
+        div.className = 'assistente-msg ' + (m.papel === 'usuario' ? 'usuario' : 'assistente');
+        if (m.papel === 'usuario') {
+            div.textContent = m.texto;
+        } else {
+            const id = 'm' + (m.id || ++contador);
+            div.innerHTML = formatar(m.texto, m.fontes, id)
+                + (m.modo === 'offline' ? `<div class="mt-1"><span class="badge text-bg-secondary">${escapar(TXT.semIa)}</span></div>` : '')
+                + htmlFontes(m.fontes, id);
+        }
+        return div;
+    }
+
+    function digitando() {
+        const div = document.createElement('div');
+        div.className = 'assistente-msg assistente assistente-digitando';
+        div.innerHTML = '<span></span><span></span><span></span>';
+        return div;
+    }
+
+    // Clique numa citação [n]: abre a lista de fontes e destaca o trecho citado
+    document.addEventListener('click', function (ev) {
+        const cita = ev.target.closest('.cita');
+        if (!cita) return;
+        ev.preventDefault();
+        const msg = cita.closest('.assistente-msg');
+        const det = msg && msg.querySelector('.assistente-fontes');
+        if (!det) return;
+        det.open = true;
+        det.querySelectorAll('li').forEach(li => li.classList.toggle('destaque', li.dataset.n === cita.dataset.fonte));
+        const alvo = det.querySelector(`li[data-n="${cita.dataset.fonte}"]`);
+        if (alvo) alvo.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    });
+
+    async function perguntar(pergunta, conversaId) {
+        const token = (document.querySelector('meta[name="csrf-token"]') || {}).content || '';
+        const r = await fetch(URL_PERGUNTAR, {
+            method: 'POST', credentials: 'same-origin',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': token, 'Accept': 'application/json' },
+            body: JSON.stringify({ pergunta: pergunta, conversa_id: conversaId || null }),
+        });
+        let dados = {};
+        try { dados = await r.json(); } catch (e) { /* resposta sem JSON */ }
+        if (!r.ok) throw new Error(dados.erro || TXT.erro);
+        return dados;
+    }
+
+    async function ultima() {
+        const r = await fetch(URL_ULTIMA, { credentials: 'same-origin', headers: { 'Accept': 'application/json' } });
+        return r.ok ? r.json() : { conversa_id: null, mensagens: [] };
+    }
+
+    /* Liga uma área de chat: lista de mensagens, formulário e campo de texto.
+       opcoes.aoResponder(dados) é chamado depois de cada resposta (a página atualiza a lista de conversas). */
+    function ligar(opcoes) {
+        const lista = opcoes.lista, form = opcoes.form, campo = opcoes.campo, botao = form.querySelector('[type="submit"]');
+        const estado = { conversaId: opcoes.conversaId || null };
+        const rolar = () => { const area = opcoes.rolagem || lista; area.scrollTop = area.scrollHeight; };
+        const mostrarVazio = () => {
+            if (!lista.children.length) lista.innerHTML = `<div class="text-muted small text-center p-3 assistente-vazio">${escapar(TXT.vazio)}</div>`;
+        };
+        const limparVazio = () => { const v = lista.querySelector('.assistente-vazio'); if (v) v.remove(); };
+
+        function carregar(mensagens, conversaId) {
+            lista.innerHTML = '';
+            estado.conversaId = conversaId || null;
+            (mensagens || []).forEach(m => lista.appendChild(mensagem(m)));
+            mostrarVazio();
+            rolar();
+        }
+
+        campo.addEventListener('keydown', function (ev) {
+            if (ev.key === 'Enter' && !ev.shiftKey) { ev.preventDefault(); form.requestSubmit(); }
+        });
+        form.addEventListener('submit', async function (ev) {
+            ev.preventDefault();
+            const pergunta = campo.value.trim();
+            if (!pergunta || botao.disabled) return;
+            limparVazio();
+            lista.appendChild(mensagem({ papel: 'usuario', texto: pergunta }));
+            const espera = digitando();
+            lista.appendChild(espera);
+            campo.value = '';
+            botao.disabled = true;
+            rolar();
+            try {
+                const dados = await perguntar(pergunta, estado.conversaId);
+                estado.conversaId = dados.conversa_id;
+                espera.replaceWith(mensagem(dados.resposta));
+                if (opcoes.aoResponder) opcoes.aoResponder(dados);
+            } catch (e) {
+                espera.replaceWith(mensagem({ papel: 'assistente', texto: e.message || TXT.erro, fontes: [] }));
+                campo.value = pergunta;
+            } finally {
+                botao.disabled = false;
+                campo.focus();
+                rolar();
+            }
+        });
+        mostrarVazio();
+        return { carregar, estado, nova: () => carregar([], null) };
+    }
+
+    return { ligar, ultima, formatar, mensagem, escapar };
+})();
+</script>
+
+{% if request.endpoint != 'assistente' %}
+<button type="button" class="btn btn-primary d-print-none" id="btnAssistente" data-bs-toggle="offcanvas" data-bs-target="#painelAssistente"
+        aria-controls="painelAssistente" title="{{ tt('Assistente da Plataforma') }}" aria-label="{{ tt('Assistente da Plataforma') }}">
+    <i class="bi bi-chat-dots-fill"></i>
+</button>
+
+<div class="offcanvas offcanvas-end" tabindex="-1" id="painelAssistente" aria-labelledby="tituloPainelAssistente">
+    <div class="offcanvas-header border-bottom py-2">
+        <h5 class="offcanvas-title fw-bold text-primary" id="tituloPainelAssistente"><i class="bi bi-chat-dots"></i> {{ tt('Assistente da Plataforma') }}</h5>
+        <div class="d-flex align-items-center gap-1">
+            <button type="button" class="btn btn-sm btn-outline-secondary" id="btnNovaConversaPainel" title="{{ tt('Nova conversa') }}"><i class="bi bi-plus-lg"></i></button>
+            <a href="{{ url_for('assistente') }}" class="btn btn-sm btn-outline-secondary" title="{{ tt('Abrir em tela cheia') }}"><i class="bi bi-arrows-fullscreen"></i></a>
+            <button type="button" class="btn-close ms-1" data-bs-dismiss="offcanvas" aria-label="{{ tt('Fechar') }}"></button>
+        </div>
+    </div>
+    <div class="offcanvas-body d-flex flex-column p-0">
+        <div class="flex-grow-1 overflow-auto p-3" id="rolagemPainelAssistente">
+            <div class="assistente-mensagens" id="mensagensPainelAssistente"></div>
+        </div>
+        <form class="border-top p-2 d-flex gap-2 align-items-end" id="formPainelAssistente" autocomplete="off">
+            <textarea class="form-control form-control-sm" id="campoPainelAssistente" rows="2" maxlength="2000"
+                      placeholder="{{ tt('Escreva sua pergunta (Enter envia, Shift+Enter quebra a linha)') }}" aria-label="{{ tt('Pergunta') }}"></textarea>
+            <button type="submit" class="btn btn-primary btn-sm" title="{{ tt('Enviar') }}" aria-label="{{ tt('Enviar') }}"><i class="bi bi-send-fill"></i></button>
+        </form>
+    </div>
+</div>
+<script>
+(function () {
+    const painel = document.getElementById('painelAssistente');
+    const chat = Assistente.ligar({
+        lista: document.getElementById('mensagensPainelAssistente'), rolagem: document.getElementById('rolagemPainelAssistente'),
+        form: document.getElementById('formPainelAssistente'), campo: document.getElementById('campoPainelAssistente'),
+    });
+    let carregado = false;
+    painel.addEventListener('shown.bs.offcanvas', async function () {
+        if (!carregado) {
+            carregado = true;
+            const dados = await Assistente.ultima();
+            chat.carregar(dados.mensagens, dados.conversa_id);
+        }
+        document.getElementById('campoPainelAssistente').focus();
+    });
+    document.getElementById('btnNovaConversaPainel').addEventListener('click', function () {
+        chat.nova();
+        carregado = true;
+        document.getElementById('campoPainelAssistente').focus();
+    });
+})();
+</script>
+{% endif %}

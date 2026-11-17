@@ -62,6 +62,10 @@ MODULOS = {
                     'agentes_orquestrador', 'iniciar_orquestrador', 'ignorar_correcao', 'estado_orquestrador_json',
                     'diff_orquestrador', 'confirmar_orquestrador', 'rollback_orquestrador', 'desfazer_orquestrador',
                     'parar_orquestrador'], False),
+    'assistente': ('Assistente da plataforma (chat) e base de conhecimento', 'bi-chat-dots',
+                   ['assistente', 'assistente_perguntar', 'assistente_conversa', 'assistente_ultima_conversa', 'assistente_excluir_conversa',
+                    'assistente_documentos', 'assistente_situacao_documento', 'assistente_excluir_documento',
+                    'assistente_arquivo_documento', 'assistente_trechos_documento', 'assistente_sincronizar'], False),
     'manutencao': ('Manutenção do banco de dados', 'bi-database-fill-gear', ['manutencao_banco', 'baixar_backup', 'relatorio_auditoria_backup'], False),
 }
 
@@ -73,7 +77,7 @@ MODULOS_POR_BASE = {
     'Professor': _comum + _aprendizagem + ['diario', 'bancas', 'voluntariado', 'ocorrencias', 'desistencias'],
     'Mentor': _comum + _aprendizagem + ['diario', 'bancas', 'voluntariado', 'ocorrencias', 'desistencias'],
     'Mentor Administrador': _comum + _aprendizagem + _gestao + ['cadastros', 'solicitacoes', 'trilha_gestao'],
-    'Administrador': _comum + _aprendizagem + _gestao + ['cadastros', 'trilha_gestao', 'perfis_acesso', 'parametros', 'agentes_ia', 'manutencao'],
+    'Administrador': _comum + _aprendizagem + _gestao + ['cadastros', 'trilha_gestao', 'perfis_acesso', 'parametros', 'agentes_ia', 'assistente', 'manutencao'],
     'Admin B2B': _comum + _aprendizagem + _gestao,
     'Avaliador Banca': _comum + ['bancas', 'voluntariado'],
 }

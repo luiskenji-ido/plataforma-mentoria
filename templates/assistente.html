@@ -1,0 +1,242 @@
+{% extends "base.html" %}
+{% block title %}{{ tt('Assistente da Plataforma') }}{% endblock %}
+{% block content %}
+{% set rotulos_tipo = {'GERENTES': tt('Agentes gerentes'), 'PRD': 'PRD', 'PTD': 'PTD', 'DTD': 'DTD', 'OUTRO': tt('Outro documento')} %}
+{% set cores_tipo = {'GERENTES': 'text-bg-dark', 'PRD': 'text-bg-primary', 'PTD': 'text-bg-info', 'DTD': 'text-bg-success', 'OUTRO': 'text-bg-secondary'} %}
+
+<div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-3">
+    <div>
+        <h2 class="text-primary fw-bold mb-1"><i class="bi bi-chat-dots"></i> {{ tt('Assistente da Plataforma') }}</h2>
+        <p class="text-muted mb-0">{{ tt('Tire dúvidas sobre a plataforma. As respostas vêm da base de conhecimento e citam as fontes: hoje o conhecimento dos Agentes gerentes; no fim do projeto, também os documentos PRD, PTD e DTD.') }}</p>
+    </div>
+    <div class="d-flex gap-2 flex-wrap align-items-center small" id="resumoAssistente">
+        <span class="badge text-bg-light border"><i class="bi bi-cpu"></i> {{ modelo }}</span>
+        <span class="badge text-bg-light border"><i class="bi bi-collection"></i> {{ resumo.ativas }} {{ tt('fontes ativas') }}</span>
+        <span class="badge text-bg-light border"><i class="bi bi-text-paragraph"></i> {{ resumo.trechos }} {{ tt('trechos') }}</span>
+    </div>
+</div>
+
+<ul class="nav nav-tabs mb-3" id="abasAssistente" role="tablist">
+    <li class="nav-item" role="presentation">
+        <button class="nav-link fw-bold {{ 'active' if aba != 'base' }}" id="aba-conversar" data-bs-toggle="tab" data-bs-target="#conversar" type="button" role="tab">
+            <i class="bi bi-chat-text"></i> {{ tt('Conversar') }}</button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link fw-bold {{ 'active' if aba == 'base' }}" id="aba-base" data-bs-toggle="tab" data-bs-target="#base" type="button" role="tab">
+            <i class="bi bi-journal-richtext"></i> {{ tt('Base de conhecimento') }}</button>
+    </li>
+</ul>
+
+<div class="tab-content">
+    <!-- CONVERSAR -->
+    <div class="tab-pane fade {{ 'show active' if aba != 'base' }}" id="conversar" role="tabpanel">
+        <div class="row g-3">
+            <div class="col-lg-3">
+                <div class="card shadow-sm border-0 h-100" id="cardConversas">
+                    <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                        <span class="fw-bold text-primary">{{ tt('Conversas') }}</span>
+                        <button type="button" class="btn btn-sm btn-primary fw-bold" id="btnNovaConversa"><i class="bi bi-plus-lg"></i> {{ tt('Nova') }}</button>
+                    </div>
+                    <div class="list-group list-group-flush small" id="listaConversas" style="max-height: 60vh; overflow-y: auto;">
+                        {% for c in conversas %}
+                        <div class="list-group-item d-flex justify-content-between align-items-center gap-2 {{ 'active' if conversa and c.id == conversa.id }}" data-conversa="{{ c.id }}">
+                            <a href="{{ url_for('assistente', conversa=c.id) }}" class="text-reset text-decoration-none flex-grow-1 text-truncate" title="{{ c.titulo }}">
+                                {{ c.titulo }}<div class="opacity-75" style="font-size: .72rem;">{{ c.atualizada_em.strftime('%d/%m/%Y %H:%M') if c.atualizada_em }}</div></a>
+                            <form method="POST" action="{{ url_for('assistente_excluir_conversa', id=c.id) }}" class="m-0"
+                                  onsubmit="return confirm({{ tt('Excluir esta conversa?')|tojson|forceescape }});">
+                                <button type="submit" class="btn btn-sm btn-link p-0 text-reset opacity-75" title="{{ tt('Excluir conversa') }}" aria-label="{{ tt('Excluir conversa') }}"><i class="bi bi-trash"></i></button>
+                            </form>
+                        </div>
+                        {% else %}
+                        <div class="list-group-item text-muted" id="semConversas">{{ tt('Nenhuma conversa ainda.') }}</div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-9">
+                <div class="card shadow-sm border-0" id="cardChat">
+                    <div class="card-header bg-white fw-bold text-primary d-flex justify-content-between align-items-center">
+                        <span id="tituloConversa">{{ conversa.titulo if conversa else tt('Nova conversa') }}</span>
+                    </div>
+                    <div class="card-body overflow-auto" id="rolagemChat" style="height: 55vh;">
+                        <div class="assistente-mensagens" id="mensagensChat"></div>
+                    </div>
+                    <div class="card-footer bg-white">
+                        <div class="d-flex flex-wrap gap-1 mb-2" id="sugestoesAssistente">
+                            {% for s in [tt('Quais módulos cada perfil pode acessar?'), tt('O que o Gerente de Segurança verifica?'), tt('Quais são os parâmetros das avaliações e alertas?'), tt('Como funciona a desistência de um jovem?')] %}
+                            <button type="button" class="btn btn-sm btn-outline-secondary rounded-pill sugestao">{{ s }}</button>
+                            {% endfor %}
+                        </div>
+                        <form class="d-flex gap-2 align-items-end" id="formPergunta" autocomplete="off">
+                            <textarea class="form-control" id="campoPergunta" rows="2" maxlength="2000"
+                                      placeholder="{{ tt('Escreva sua pergunta (Enter envia, Shift+Enter quebra a linha)') }}" aria-label="{{ tt('Pergunta') }}"></textarea>
+                            <button type="submit" class="btn btn-primary fw-bold px-3"><i class="bi bi-send-fill"></i> {{ tt('Enviar') }}</button>
+                        </form>
+                        <div class="form-text">{{ tt('As respostas citam as fontes entre colchetes, como [1]; clique no número para ver de onde veio a informação.') }}</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- BASE DE CONHECIMENTO -->
+    <div class="tab-pane fade {{ 'show active' if aba == 'base' }}" id="base" role="tabpanel">
+        <div class="card shadow-sm border-0 mb-3" id="cardFontesBase">
+            <div class="card-header bg-white d-flex justify-content-between align-items-center flex-wrap gap-2">
+                <span class="fw-bold text-primary"><i class="bi bi-collection"></i> {{ tt('Fontes da base') }} ({{ resumo.fontes|length }})</span>
+                <form method="POST" action="{{ url_for('assistente_sincronizar') }}" class="m-0">
+                    <button type="submit" class="btn btn-sm btn-outline-dark fw-bold" id="btnSincronizarGerentes"><i class="bi bi-arrow-repeat"></i> {{ tt('Atualizar conhecimento dos gerentes') }}</button>
+                </form>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-sm align-middle mb-0 small" id="tabelaFontes">
+                    <thead><tr><th>{{ tt('Tipo') }}</th><th>{{ tt('Título') }}</th><th class="text-center">{{ tt('Versão') }}</th><th class="text-center">{{ tt('Trechos') }}</th>
+                        <th>{{ tt('Situação') }}</th><th>{{ tt('Atualizado em') }}</th><th class="text-end">{{ tt('Ações') }}</th></tr></thead>
+                    <tbody>
+                        {% for f in resumo.fontes %}
+                        <tr class="{{ '' if f.ativo else 'text-muted' }}">
+                            <td><span class="badge {{ cores_tipo.get(f.tipo, 'text-bg-secondary') }}">{{ rotulos_tipo.get(f.tipo, f.tipo) }}</span></td>
+                            <td><span class="fw-bold">{{ f.titulo }}</span>{% if f.arquivo_nome %}<div class="text-muted">{{ f.arquivo_nome }}</div>{% endif %}
+                                {% if f.descricao %}<div class="text-muted">{{ f.descricao }}</div>{% endif %}</td>
+                            <td class="text-center">v{{ f.versao }}</td>
+                            <td class="text-center">{{ f.total_trechos }}</td>
+                            <td>{% if f.ativo %}<span class="badge text-bg-success">{{ tt('Ativa') }}</span>{% else %}<span class="badge text-bg-secondary">{{ tt('Inativa') }}</span>{% endif %}</td>
+                            <td class="text-nowrap">{{ f.atualizado_em.strftime('%d/%m/%Y %H:%M') if f.atualizado_em }}{% if f.criado_por %}<div class="text-muted">{{ f.criado_por.nome }}</div>{% endif %}</td>
+                            <td class="text-end text-nowrap">
+                                <button type="button" class="btn btn-sm btn-outline-secondary ver-trechos" data-url="{{ url_for('assistente_trechos_documento', id=f.id) }}"
+                                        title="{{ tt('Ver trechos') }}" aria-label="{{ tt('Ver trechos') }}"><i class="bi bi-eye"></i></button>
+                                {% if f.arquivo_caminho %}
+                                <a href="{{ url_for('assistente_arquivo_documento', id=f.id) }}" class="btn btn-sm btn-outline-secondary" title="{{ tt('Baixar arquivo') }}" aria-label="{{ tt('Baixar arquivo') }}"><i class="bi bi-download"></i></a>
+                                {% endif %}
+                                <form method="POST" action="{{ url_for('assistente_situacao_documento', id=f.id) }}" class="d-inline m-0">
+                                    <input type="hidden" name="ativo" value="{{ '0' if f.ativo else '1' }}">
+                                    <button type="submit" class="btn btn-sm {{ 'btn-outline-warning' if f.ativo else 'btn-outline-success' }}"
+                                            title="{{ tt('Desativar') if f.ativo else tt('Ativar') }}" aria-label="{{ tt('Desativar') if f.ativo else tt('Ativar') }}">
+                                        <i class="bi {{ 'bi-pause-circle' if f.ativo else 'bi-play-circle' }}"></i></button>
+                                </form>
+                                {% if f.tipo != 'GERENTES' %}
+                                <form method="POST" action="{{ url_for('assistente_excluir_documento', id=f.id) }}" class="d-inline m-0"
+                                      onsubmit="return confirm({{ tt('Excluir este documento da base? O arquivo e os trechos serão apagados e não dá para desfazer.')|tojson|forceescape }});">
+                                    <button type="submit" class="btn btn-sm btn-outline-danger" title="{{ tt('Excluir') }}" aria-label="{{ tt('Excluir') }}"><i class="bi bi-trash"></i></button>
+                                </form>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr><td colspan="7" class="text-muted text-center py-3">{{ tt('Nenhuma fonte cadastrada ainda.') }}</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="row g-3">
+            <div class="col-lg-7">
+                <div class="card shadow-sm border-0 h-100" id="cardEnviarDocumento">
+                    <div class="card-header bg-white fw-bold text-primary"><i class="bi bi-cloud-upload"></i> {{ tt('Adicionar documento do projeto') }}</div>
+                    <form method="POST" action="{{ url_for('assistente_documentos') }}" enctype="multipart/form-data" class="card-body row g-2">
+                        <div class="col-md-4">
+                            <label class="form-label small fw-bold" for="docTipo">{{ tt('Tipo') }}</label>
+                            <select class="form-select form-select-sm" name="tipo" id="docTipo" required>
+                                {% for t in tipos_upload %}<option value="{{ t }}">{{ tt(tipos[t]) }}</option>{% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-8">
+                            <label class="form-label small fw-bold" for="docTitulo">{{ tt('Título') }}</label>
+                            <input type="text" class="form-control form-control-sm" name="titulo" id="docTitulo" maxlength="200"
+                                   placeholder="{{ tt('Ex.: PRD Jovem Seguro 2026 (vazio = nome do arquivo)') }}">
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label small fw-bold" for="docDescricao">{{ tt('Descrição (opcional)') }}</label>
+                            <input type="text" class="form-control form-control-sm" name="descricao" id="docDescricao" maxlength="1000">
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label small fw-bold" for="docArquivo">{{ tt('Arquivo') }}</label>
+                            <input type="file" class="form-control form-control-sm" name="arquivo" id="docArquivo" required accept="{{ extensoes|join(',') }}">
+                            <div class="form-text">{{ extensoes|join(', ') }} · {{ tt('até') }} {{ limite_mb }} MB. {{ tt('Enviar de novo um documento com o mesmo tipo e título cria a versão seguinte e desativa a anterior.') }}</div>
+                        </div>
+                        <div class="col-12"><button type="submit" class="btn btn-primary btn-sm fw-bold" id="btnEnviarDocumento"><i class="bi bi-upload"></i> {{ tt('Adicionar à base') }}</button></div>
+                    </form>
+                </div>
+            </div>
+            <div class="col-lg-5">
+                <div class="card shadow-sm border-0 h-100" id="cardTiposDocumento">
+                    <div class="card-header bg-white fw-bold text-primary"><i class="bi bi-info-circle"></i> {{ tt('O que entra na base') }}</div>
+                    <div class="card-body small">
+                        <p class="mb-2"><span class="badge text-bg-dark">{{ tt('Agentes gerentes') }}</span> {{ tt('Atualizado sozinho: aprendizados aplicados dos gerentes Técnico, de Segurança, de Banco de Dados e de Funcionalidades, os parâmetros de regras e os módulos de cada perfil. Aprendizados pendentes ou revogados ficam de fora.') }}</p>
+                        <p class="mb-2"><span class="badge text-bg-primary">PRD</span> {{ tt('Product Requirements Document: o que o produto precisa fazer, para quem e por quê.') }}</p>
+                        <p class="mb-2"><span class="badge text-bg-info">PTD</span> {{ tt('Product Technical Document: arquitetura, integrações e decisões técnicas do produto.') }}</p>
+                        <p class="mb-0"><span class="badge text-bg-success">DTD</span> {{ tt('Detail Technical Document: o detalhe de cada módulo, tela, regra e tabela.') }}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Trechos de uma fonte (conferir o que foi extraído do arquivo) -->
+<div class="modal fade" id="modalTrechos" tabindex="-1" aria-labelledby="tituloModalTrechos">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header"><h5 class="modal-title fw-bold" id="tituloModalTrechos">{{ tt('Trechos') }}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ tt('Fechar') }}"></button></div>
+            <div class="modal-body small" id="corpoModalTrechos"></div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const chat = Assistente.ligar({
+        lista: document.getElementById('mensagensChat'), rolagem: document.getElementById('rolagemChat'),
+        form: document.getElementById('formPergunta'), campo: document.getElementById('campoPergunta'),
+        aoResponder: function (dados) {
+            document.getElementById('tituloConversa').textContent = dados.titulo;
+            const lista = document.getElementById('listaConversas');
+            const vazio = document.getElementById('semConversas');
+            if (vazio) vazio.remove();
+            let item = lista.querySelector(`[data-conversa="${dados.conversa_id}"]`);
+            if (!item) {
+                item = document.createElement('div');
+                item.className = 'list-group-item';
+                item.dataset.conversa = dados.conversa_id;
+                item.innerHTML = `<a href="?conversa=${dados.conversa_id}" class="text-reset text-decoration-none d-block text-truncate">${Assistente.escapar(dados.titulo)}</a>`;
+            }
+            const link = item.querySelector('a');
+            if (link && link.firstChild) link.firstChild.textContent = dados.titulo;
+            lista.querySelectorAll('.active').forEach(el => el.classList.remove('active'));
+            item.classList.add('active');
+            lista.prepend(item);
+            history.replaceState(null, '', `?conversa=${dados.conversa_id}`);
+        },
+    });
+    chat.carregar({{ mensagens|tojson }}, {{ (conversa.id if conversa else none)|tojson }});
+
+    document.getElementById('btnNovaConversa').addEventListener('click', function () {
+        chat.nova();
+        document.getElementById('tituloConversa').textContent = {{ tt('Nova conversa')|tojson }};
+        document.querySelectorAll('#listaConversas .active').forEach(el => el.classList.remove('active'));
+        history.replaceState(null, '', location.pathname);
+        document.getElementById('campoPergunta').focus();
+    });
+    document.querySelectorAll('.sugestao').forEach(b => b.addEventListener('click', function () {
+        const campo = document.getElementById('campoPergunta');
+        campo.value = b.textContent.trim();
+        document.getElementById('formPergunta').requestSubmit();
+    }));
+
+    // Ver os trechos extraídos de uma fonte
+    const modal = new bootstrap.Modal(document.getElementById('modalTrechos'));
+    document.querySelectorAll('.ver-trechos').forEach(b => b.addEventListener('click', async function () {
+        const corpo = document.getElementById('corpoModalTrechos');
+        corpo.innerHTML = '<div class="text-muted">…</div>';
+        modal.show();
+        const r = await fetch(b.dataset.url, { credentials: 'same-origin', headers: { 'Accept': 'application/json' } });
+        const d = await r.json();
+        document.getElementById('tituloModalTrechos').textContent = `${d.titulo} (v${d.versao}) · ${d.total} ${ {{ tt('trechos')|tojson }} }`;
+        corpo.innerHTML = d.trechos.map((t, i) => `<div class="border rounded p-2 mb-2"><div class="fw-bold text-primary mb-1">${i + 1}. ${Assistente.escapar(t.secao)}</div>`
+            + `<div style="white-space: pre-wrap;">${Assistente.escapar(t.texto)}</div></div>`).join('') || `<div class="text-muted">${ {{ tt('Nenhum trecho.')|tojson }} }</div>`;
+    }));
+});
+</script>
+{% endblock %}

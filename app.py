@@ -7293,6 +7293,207 @@ def credenciais_agentes_ia():
     return voltar
 
 
+# ==============================================================================
+# ASSISTENTE DA PLATAFORMA (chat) — só o Administrador
+# Base: conhecimento dos Agentes gerentes + documentos PRD, PTD e DTD enviados na tela (base_conhecimento.py)
+# ==============================================================================
+def _bloqueio_assistente(como_json=False):
+    if current_user.tipo_usuario == 'Administrador':
+        return None
+    if como_json:
+        return jsonify({'erro': tt('Acesso restrito ao Administrador.', current_user.idioma)}), 403
+    return _somente_administrador()
+
+
+@app.route('/admin/assistente')
+@login_required
+def assistente():
+    bloqueio = _bloqueio_assistente()
+    if bloqueio:
+        return bloqueio
+    import base_conhecimento
+    import chat_assistente
+    try:
+        base_conhecimento.sincronizar_gerentes(current_user.id)
+    except Exception as e:
+        db.session.rollback()
+        app.logger.warning('Assistente: não foi possível sincronizar o conhecimento dos gerentes: %s', e)
+    conversa = chat_assistente.conversa_do_usuario(current_user, request.args.get('conversa', type=int))
+    return render_template('assistente.html', resumo=base_conhecimento.resumo(), tipos=base_conhecimento.TIPOS,
+                           tipos_upload=base_conhecimento.TIPOS_UPLOAD, extensoes=sorted(base_conhecimento.EXTENSOES),
+                           limite_mb=base_conhecimento.LIMITE_ARQUIVO_MB, conversa=conversa,
+                           mensagens=chat_assistente.mensagens_para_tela(conversa), conversas=chat_assistente.conversas(current_user),
+                           aba=request.args.get('aba', 'conversar'), modelo=chat_assistente.MODELO)
+
+
+@app.route('/admin/assistente/perguntar', methods=['POST'])
+@login_required
+def assistente_perguntar():
+    bloqueio = _bloqueio_assistente(como_json=True)
+    if bloqueio:
+        return bloqueio
+    import credenciais_agentes
+    import chat_assistente
+    dados = request.get_json(silent=True) or request.form
+    credenciais_agentes.carregar(app.config['SECRET_KEY'])
+    try:
+        conversa, resposta = chat_assistente.perguntar(current_user, dados.get('pergunta', ''), _inteiro(dados.get('conversa_id')),
+                                                       idioma=current_user.idioma or 'pt', usar_ia=not eh_conta_de_teste(current_user))
+    except ValueError:
+        return jsonify({'erro': tt('Escreva a sua pergunta.', current_user.idioma)}), 400
+    except chat_assistente.LimiteExcedido:
+        return jsonify({'erro': tt('Você atingiu o limite de perguntas desta hora. Tente de novo mais tarde.', current_user.idioma)}), 429
+    mensagens = chat_assistente.mensagens_para_tela(conversa)
+    return jsonify({'conversa_id': conversa.id, 'titulo': conversa.titulo, 'resposta': mensagens[-1],
+                    'pergunta': mensagens[-2] if len(mensagens) > 1 else None})
+
+
+def _inteiro(valor):
+    try:
+        return int(valor)
+    except (TypeError, ValueError):
+        return None
+
+
+@app.route('/admin/assistente/conversa/<int:id>')
+@login_required
+def assistente_conversa(id):
+    bloqueio = _bloqueio_assistente(como_json=True)
+    if bloqueio:
+        return bloqueio
+    import chat_assistente
+    conversa = chat_assistente.conversa_do_usuario(current_user, id)
+    if conversa is None:
+        return jsonify({'erro': tt('Conversa não encontrada.', current_user.idioma)}), 404
+    return jsonify({'conversa_id': conversa.id, 'titulo': conversa.titulo, 'mensagens': chat_assistente.mensagens_para_tela(conversa)})
+
+
+@app.route('/admin/assistente/conversa/ultima')
+@login_required
+def assistente_ultima_conversa():
+    bloqueio = _bloqueio_assistente(como_json=True)
+    if bloqueio:
+        return bloqueio
+    import chat_assistente
+    conversa = chat_assistente.conversa_do_usuario(current_user)
+    return jsonify({'conversa_id': conversa.id if conversa else None, 'titulo': conversa.titulo if conversa else '',
+                    'mensagens': chat_assistente.mensagens_para_tela(conversa)})
+
+
+@app.route('/admin/assistente/conversa/<int:id>/excluir', methods=['POST'])
+@login_required
+def assistente_excluir_conversa(id):
+    bloqueio = _bloqueio_assistente()
+    if bloqueio:
+        return bloqueio
+    import chat_assistente
+    conversa = chat_assistente.conversa_do_usuario(current_user, id)
+    if conversa:
+        chat_assistente.excluir_conversa(conversa)
+        flash(tt('Conversa excluída.', current_user.idioma), 'success')
+    return redirect(url_for('assistente'))
+
+
+@app.route('/admin/assistente/documentos', methods=['POST'])
+@login_required
+def assistente_documentos():
+    bloqueio = _bloqueio_assistente()
+    if bloqueio:
+        return bloqueio
+    import base_conhecimento
+    idioma = current_user.idioma
+    arquivo = request.files.get('arquivo')
+    if not arquivo or not arquivo.filename:
+        flash(tt('Escolha o arquivo do documento.', idioma), 'warning')
+        return redirect(url_for('assistente', aba='base'))
+    try:
+        fonte = base_conhecimento.adicionar_documento(request.form.get('tipo'), request.form.get('titulo'), arquivo.filename,
+                                                      arquivo.read(), app.config['UPLOAD_FOLDER'], current_user.id,
+                                                      request.form.get('descricao', ''))
+    except base_conhecimento.ErroDocumento as e:
+        db.session.rollback()
+        flash(tt(str(e), idioma), 'danger')
+        return redirect(url_for('assistente', aba='base'))
+    flash(f"{tt('Documento adicionado à base', idioma)}: {fonte.titulo} (v{fonte.versao}) · {fonte.total_trechos} {tt('trechos', idioma)}.", 'success')
+    return redirect(url_for('assistente', aba='base'))
+
+
+@app.route('/admin/assistente/documentos/<int:id>/situacao', methods=['POST'])
+@login_required
+def assistente_situacao_documento(id):
+    bloqueio = _bloqueio_assistente()
+    if bloqueio:
+        return bloqueio
+    import base_conhecimento
+    from models import FonteConhecimento
+    fonte = db.get_or_404(FonteConhecimento, id)
+    base_conhecimento.alternar(fonte, request.form.get('ativo') == '1')
+    flash(tt('Fonte ativada: o Assistente passa a usá-la.' if fonte.ativo else 'Fonte desativada: o Assistente deixa de usá-la.',
+             current_user.idioma), 'success')
+    return redirect(url_for('assistente', aba='base'))
+
+
+@app.route('/admin/assistente/documentos/<int:id>/excluir', methods=['POST'])
+@login_required
+def assistente_excluir_documento(id):
+    bloqueio = _bloqueio_assistente()
+    if bloqueio:
+        return bloqueio
+    import base_conhecimento
+    from models import FonteConhecimento
+    fonte = db.get_or_404(FonteConhecimento, id)
+    try:
+        base_conhecimento.excluir(fonte)
+        flash(tt('Documento excluído da base.', current_user.idioma), 'success')
+    except base_conhecimento.ErroDocumento as e:
+        flash(tt(str(e), current_user.idioma), 'warning')
+    return redirect(url_for('assistente', aba='base'))
+
+
+@app.route('/admin/assistente/documentos/<int:id>/arquivo')
+@login_required
+def assistente_arquivo_documento(id):
+    bloqueio = _bloqueio_assistente()
+    if bloqueio:
+        return bloqueio
+    import base_conhecimento
+    from models import FonteConhecimento
+    fonte = db.get_or_404(FonteConhecimento, id)
+    pasta = os.path.realpath(base_conhecimento.pasta_documentos(app.config['UPLOAD_FOLDER']))
+    caminho = os.path.realpath(fonte.arquivo_caminho or '')
+    if not fonte.arquivo_caminho or not caminho.startswith(pasta + os.sep) or not os.path.isfile(caminho):
+        flash(tt('Arquivo não encontrado.', current_user.idioma), 'warning')
+        return redirect(url_for('assistente', aba='base'))
+    return send_file(caminho, as_attachment=True, download_name=fonte.arquivo_nome or os.path.basename(caminho))
+
+
+@app.route('/admin/assistente/documentos/<int:id>/trechos')
+@login_required
+def assistente_trechos_documento(id):
+    bloqueio = _bloqueio_assistente(como_json=True)
+    if bloqueio:
+        return bloqueio
+    from models import FonteConhecimento, TrechoConhecimento
+    fonte = db.get_or_404(FonteConhecimento, id)
+    trechos = TrechoConhecimento.query.filter_by(fonte_id=fonte.id).order_by(TrechoConhecimento.ordem).limit(300).all()
+    return jsonify({'titulo': fonte.titulo, 'versao': fonte.versao, 'total': fonte.total_trechos,
+                    'trechos': [{'secao': t.secao or '', 'texto': t.texto} for t in trechos]})
+
+
+@app.route('/admin/assistente/sincronizar', methods=['POST'])
+@login_required
+def assistente_sincronizar():
+    bloqueio = _bloqueio_assistente()
+    if bloqueio:
+        return bloqueio
+    import base_conhecimento
+    fonte, mudou = base_conhecimento.sincronizar_gerentes(current_user.id, forcar=True)
+    flash((tt('Conhecimento dos Agentes gerentes atualizado', current_user.idioma) if mudou
+           else tt('O conhecimento dos Agentes gerentes já estava em dia', current_user.idioma))
+          + f": {fonte.total_trechos} {tt('trechos', current_user.idioma)}.", 'success')
+    return redirect(url_for('assistente', aba='base'))
+
+
 @app.route('/admin/agentes-ia')
 @login_required
 def agentes_ia():

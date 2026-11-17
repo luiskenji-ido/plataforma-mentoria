@@ -1310,3 +1310,66 @@ class ContaConectada(db.Model):
 
     usuario = db.relationship('Usuario')
     __table_args__ = (db.UniqueConstraint('usuario_id', 'provedor', name='uq_conta_conectada_usuario_provedor'),)
+
+
+# ==============================================================================
+# ASSISTENTE DA PLATAFORMA (chat): base de conhecimento e conversas
+# ==============================================================================
+class FonteConhecimento(db.Model):
+    """Uma fonte da base do Assistente: o conhecimento dos Agentes gerentes (sincronizado sozinho) ou um documento
+    enviado na tela (PRD, PTD, DTD ou outro). Cada nova versão de um documento desativa a anterior, que fica no histórico."""
+    __tablename__ = 'fonte_conhecimento'
+    id = db.Column(db.Integer, primary_key=True)
+    tipo = db.Column(db.String(20), nullable=False)               # GERENTES / PRD / PTD / DTD / OUTRO
+    titulo = db.Column(db.String(200), nullable=False)
+    versao = db.Column(db.Integer, nullable=False, default=1)
+    descricao = db.Column(db.Text, nullable=True)
+    arquivo_nome = db.Column(db.String(255), nullable=True)       # nome original do arquivo enviado
+    arquivo_caminho = db.Column(db.String(500), nullable=True)    # caminho dentro de uploads/base_conhecimento
+    hash_conteudo = db.Column(db.String(64), nullable=True)       # SHA-256 do texto extraído (detecta mudança)
+    ativo = db.Column(db.Boolean, nullable=False, default=True)
+    total_trechos = db.Column(db.Integer, nullable=False, default=0)
+    total_caracteres = db.Column(db.Integer, nullable=False, default=0)
+    criado_em = db.Column(db.DateTime, default=datetime.now)
+    atualizado_em = db.Column(db.DateTime, default=datetime.now, onupdate=datetime.now)
+    criado_por_id = db.Column(db.Integer, db.ForeignKey('usuario.id'), nullable=True)
+
+    criado_por = db.relationship('Usuario')
+    trechos = db.relationship('TrechoConhecimento', backref='fonte', lazy='dynamic', cascade='all, delete-orphan')
+
+
+class TrechoConhecimento(db.Model):
+    """Pedaço de uma fonte (seção ou parte de seção) usado na busca e citado nas respostas."""
+    __tablename__ = 'trecho_conhecimento'
+    id = db.Column(db.Integer, primary_key=True)
+    fonte_id = db.Column(db.Integer, db.ForeignKey('fonte_conhecimento.id'), nullable=False, index=True)
+    ordem = db.Column(db.Integer, nullable=False, default=0)
+    secao = db.Column(db.String(300), nullable=True)
+    texto = db.Column(db.Text, nullable=False)
+
+
+class ConversaChat(db.Model):
+    __tablename__ = 'conversa_chat'
+    id = db.Column(db.Integer, primary_key=True)
+    usuario_id = db.Column(db.Integer, db.ForeignKey('usuario.id'), nullable=False, index=True)
+    titulo = db.Column(db.String(200), nullable=False, default='Nova conversa')
+    criada_em = db.Column(db.DateTime, default=datetime.now)
+    atualizada_em = db.Column(db.DateTime, default=datetime.now)
+
+    usuario = db.relationship('Usuario')
+    mensagens = db.relationship('MensagemChat', backref='conversa', lazy='dynamic', cascade='all, delete-orphan',
+                                order_by='MensagemChat.id')
+
+
+class MensagemChat(db.Model):
+    __tablename__ = 'mensagem_chat'
+    id = db.Column(db.Integer, primary_key=True)
+    conversa_id = db.Column(db.Integer, db.ForeignKey('conversa_chat.id'), nullable=False, index=True)
+    papel = db.Column(db.String(12), nullable=False)              # usuario / assistente
+    texto = db.Column(db.Text, nullable=False)
+    fontes = db.Column(db.Text, nullable=True)                    # JSON: trechos citados [{n, fonte, tipo, versao, secao}]
+    modo = db.Column(db.String(12), nullable=True)                # ia / offline
+    modelo = db.Column(db.String(60), nullable=True)
+    tokens_entrada = db.Column(db.Integer, nullable=True)
+    tokens_saida = db.Column(db.Integer, nullable=True)
+    criada_em = db.Column(db.DateTime, default=datetime.now, index=True)

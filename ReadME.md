@@ -180,6 +180,18 @@ mentoria/
 		python atualizar.py
 		python atualizar_banco.py
 
+	🤖 Assistente da Plataforma (chat, só para o Administrador)
+		Menu Administração › Sistema › Assistente da Plataforma, ou o botão de chat no canto de qualquer página.
+		Responde com base na Base de conhecimento e cita as fontes como [1], [2]:
+		- Agentes gerentes (atualizada sozinha): aprendizados aplicados dos gerentes Técnico, de Segurança, de Banco de
+		  Dados e de Funcionalidades, os parâmetros de regras e os módulos de cada perfil.
+		- Documentos do projeto: na aba Base de conhecimento, envie o PRD, o PTD e o DTD (.md, .txt, .html, .docx ou .pdf).
+		  Reenviar com o mesmo tipo e título cria a versão seguinte e desativa a anterior.
+		A IA é o Claude: cadastre a ANTHROPIC_API_KEY em Agentes IA › Credenciais. Para trocar o modelo, defina
+		CHAT_MODELO_CLAUDE (padrão claude-opus-5-5). Para ler PDF, instale o pacote pypdf (pip install pypdf).
+		Contas de teste (@local.com) e servidores sem chave respondem sem IA, mostrando os trechos encontrados.
+		Código: base_conhecimento.py (fontes, trechos e busca), chat_assistente.py (conversa e IA).
+
 	5️⃣ Start da Aplicação
 		Inicie o servidor Flask principal:
 		python app.py

@@ -186,6 +186,7 @@ class AgenteAdministrador(AgenteDoFluxo):
     chave, nome, perfil = "administrador", "Agente Administrador (Funcional)", "Administrador"
     ROTEIRO = ["Login e onboarding do Administrador", "Matriz de acesso do perfil (regras aprendidas)",
                "Validações do cadastro de usuários: e-mail inválido, duplicado e senha fraca",
+               "Assistente da Plataforma: base dos gerentes, documento PRD com versões, perguntas com fontes (sem consumir a IA)",
                "Cria o Mentor Administrador e passa a vez para ele"]
 
     def rodar(self):
@@ -215,10 +216,94 @@ class AgenteAdministrador(AgenteDoFluxo):
 
         self.parametros_de_regras()
         self.credenciais_dos_agentes()
+        self.assistente_da_plataforma()
 
         self.etapa("Cria o Mentor Administrador")
         self.criar_usuario("mentoradmin", "Mentor Administrador", "Mentor Administrador")
         self.reportar_cobertura()
+
+    def assistente_da_plataforma(self):
+        """Assistente da Plataforma (chat): base dos Agentes gerentes, documento PRD com versões, fonte desativada, formato
+        recusado e perguntas com fontes. A conta de teste (@local.com) responde no modo offline: o agente NUNCA consome a IA.
+        No fim apaga o que criou (documentos, arquivos e conversas)."""
+        self.etapa("Assistente da Plataforma (chat e base de conhecimento)")
+        m = _modelos()
+        status, _, pagina = self.cliente.pedir("GET", "/admin/assistente")
+        gerentes = self.banco(lambda: [(f.total_trechos, f.ativo) for f in m.FonteConhecimento.query.filter_by(tipo="GERENTES").all()])
+        self.confere(status == 200 and 'id="cardChat"' in pagina and 'id="cardFontesBase"' in pagina and gerentes and gerentes[0][0] > 0,
+                     "Assistente abre com a base dos Agentes gerentes", "FLX",
+                     f"Página com chat e base; fonte dos gerentes com {gerentes[0][0] if gerentes else 0} trechos.",
+                     f"HTTP {status}; fonte dos gerentes: {gerentes}.", "Chat bot com o conhecimento dos Agentes gerentes", "Alta",
+                     print_de="/admin/assistente")
+
+        def perguntar(texto, conversa_id=None):
+            form = {"pergunta": texto}
+            if conversa_id:
+                form["conversa_id"] = str(conversa_id)
+            st, _, corpo = self.post("/admin/assistente/perguntar", form, seguir=False)
+            try:
+                return st, json.loads(corpo)
+            except ValueError:
+                return st, {}
+
+        self.post("/admin/assistente/sincronizar", {})
+        st, dados = perguntar("Quais módulos cada perfil pode acessar?")
+        resposta = dados.get("resposta") or {}
+        conversas = [dados.get("conversa_id")] if dados.get("conversa_id") else []
+        self.confere(st == 200 and resposta.get("modo") == "offline" and any(f.get("tipo") == "GERENTES" for f in resposta.get("fontes", [])),
+                     "Pergunta respondida com fontes dos gerentes, sem consumir a IA", "FLX",
+                     f"{len(resposta.get('fontes', []))} fonte(s) citada(s); modo {resposta.get('modo')} (conta de teste).",
+                     f"HTTP {st}; resposta {str(dados)[:200]}.", "Respostas citam as fontes; agentes não gastam a IA", "Alta",
+                     "Em chat_assistente.perguntar, contas @local.com usam resposta_offline e as fontes vêm de base_conhecimento.buscar.")
+
+        termo = "girassolzinho"
+        titulo = f"{MARCA} PRD do programa"
+        prd = f"# PRD\n## Requisito {termo}\nO requisito {termo} define a jornada do jovem no programa.\n".encode("utf-8")
+        self.post("/admin/assistente/documentos", {"tipo": "PRD", "titulo": titulo}, arquivos={"arquivo": ("prd.md", prd)})
+        self.post("/admin/assistente/documentos", {"tipo": "PRD", "titulo": titulo},
+                           arquivos={"arquivo": ("prd_v2.md", prd.replace(b"jornada", b"jornada completa"))})
+        versoes = self.banco(lambda: [(f.id, f.versao, f.ativo, f.total_trechos, f.arquivo_caminho)
+                                      for f in m.FonteConhecimento.query.filter_by(titulo=titulo).order_by(m.FonteConhecimento.versao).all()])
+        certo = len(versoes) == 2 and versoes[0][2] is False and versoes[1][2] is True and versoes[1][1] == 2 and versoes[1][3] > 0
+        self.confere(certo, "Documento PRD entra na base e o reenvio cria a versão 2", "FLX",
+                     "v1 desativada e v2 ativa, com trechos.", f"Versões gravadas: {[(v[1], v[2], v[3]) for v in versoes]}.",
+                     "Base pronta para receber PRD, PTD e DTD no fim do projeto", "Alta",
+                     "Em base_conhecimento.adicionar_documento, mesmo tipo e título geram a versão seguinte e desativam as anteriores.")
+
+        st, dados = perguntar(f"O que diz o requisito {termo}?", conversas[0] if conversas else None)
+        fontes = (dados.get("resposta") or {}).get("fontes", [])
+        ids_citados = {f.get("fonte_id") for f in fontes}
+        ativa = versoes[-1][0] if versoes else None
+        antiga = versoes[0][0] if versoes else None
+        self.confere(st == 200 and ativa in ids_citados and antiga not in ids_citados, "Resposta cita o PRD ativo (e não a versão antiga)", "FLX",
+                     "O trecho do PRD v2 aparece nas fontes.", f"Fontes citadas: {[(f.get('fonte'), f.get('versao')) for f in fontes]}.",
+                     "Chat responde com base nos documentos do projeto", "Alta")
+
+        if ativa:
+            self.post(f"/admin/assistente/documentos/{ativa}/situacao", {"ativo": "0"})
+        st, dados = perguntar(f"O que diz o requisito {termo}?", conversas[0] if conversas else None)
+        fontes = (dados.get("resposta") or {}).get("fontes", [])
+        self.confere(st == 200 and all(f.get("fonte_id") not in (ativa, antiga) for f in fontes), "Fonte desativada sai das respostas", "FLX",
+                     "Com o PRD desativado, ele não é mais citado.", f"Ainda citou: {[f.get('fonte') for f in fontes]}.",
+                     "Administrador escolhe quais fontes o Assistente usa", "Média")
+
+        antes = self.banco(lambda: m.FonteConhecimento.query.count())
+        self.post("/admin/assistente/documentos", {"tipo": "DTD", "titulo": f"{MARCA} executável"},
+                           arquivos={"arquivo": ("programa.exe", b"MZ" * 40)})
+        depois = self.banco(lambda: m.FonteConhecimento.query.count())
+        self.confere(depois == antes, "Formato não aceito é recusado", "VAL", "O .exe foi recusado sem gravar nada.",
+                     f"Fontes {antes} → {depois}.", "Só .md, .txt, .html, .docx e .pdf entram na base", "Alta")
+
+        # Limpeza pelo próprio site: documentos (com os arquivos) e conversas criadas pelo teste
+        for fonte_id, *_ in versoes:
+            self.post(f"/admin/assistente/documentos/{fonte_id}/excluir", {})
+        for conversa_id in conversas:
+            self.post(f"/admin/assistente/conversa/{conversa_id}/excluir", {})
+        sobras = self.banco(lambda: m.FonteConhecimento.query.filter_by(titulo=titulo).count())
+        arquivos = [v[4] for v in versoes if v[4] and os.path.exists(v[4])]
+        self.confere(sobras == 0 and not arquivos, "Excluir documento apaga os trechos e o arquivo", "FLX",
+                     "Documentos de teste e arquivos removidos.", f"Sobraram {sobras} fonte(s) e {len(arquivos)} arquivo(s).",
+                     "Exclusão de documento da base", "Média")
 
     def credenciais_dos_agentes(self):
         """Área Agentes IA: o quadro de credenciais existe e NUNCA mostra a senha das contas de teste (só a situação).
