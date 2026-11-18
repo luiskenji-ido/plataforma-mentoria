@@ -95,10 +95,15 @@ class Cliente:
             self.pedir("GET", "/")
         return self._token
 
-    def pedir(self, metodo, caminho, form=None, arquivos=None, seguir=False):
+    def pedir(self, metodo, caminho, form=None, arquivos=None, seguir=False, json_corpo=None):
+        """json_corpo: envia JSON (como o fetch das telas), com o token CSRF no cabeçalho X-CSRFToken."""
         url = caminho if caminho.startswith("http") else BASE_URL + caminho
         cab, dados = {"User-Agent": "MentoriaAgenteFuncional/1.0"}, None
-        if metodo != "GET":
+        if json_corpo is not None:
+            cab["Content-Type"] = "application/json"
+            cab["X-CSRFToken"] = self.token()
+            dados = json.dumps(json_corpo).encode()
+        elif metodo != "GET":
             form = dict(form or {})
             form.setdefault("csrf_token", self.token())
             if arquivos:
@@ -227,6 +232,9 @@ class AgenteFuncional:
             if sessao:
                 self._contexto_nav.clear_cookies()
                 self._contexto_nav.add_cookies([{"name": "session", "value": sessao, "url": BASE_URL}])
+            if self._pagina.url.split("#")[0] == (BASE_URL + caminho).split("#")[0]:
+                # Mesma página com outra âncora (#card...): o navegador só rolaria a tela; força o carregamento de novo
+                self._pagina.goto("about:blank")
             self._pagina.goto(BASE_URL + caminho, wait_until="domcontentloaded", timeout=30000)
             self._pagina.wait_for_timeout(400)
             nome = f"{len(os.listdir(self.pasta_evidencias)) + 1:02d}_{re.sub(r'[^A-Za-z0-9]+', '_', titulo)[:50]}.png"

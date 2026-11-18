@@ -67,7 +67,7 @@
             <div class="col-md-6">
                 <label class="form-label fw-bold" for="rExternos">{{ t('reuniao_participantes_externos') }}</label>
                 <textarea class="form-control" id="rExternos" name="participantes_externos" rows="7" placeholder="Maria Souza – {{ marca.nome }} – maria@exemplo.org.br">{{ reuniao.participantes_externos or '' if reuniao else '' }}</textarea>
-                <div class="form-text">{{ t('convite_dica_externos') }}</div>
+                <div class="form-text">{{ t('convite_dica_externos') }} {{ tt('Cada pessoa da lista recebe um link pessoal para fazer check-in, check-out e avaliar a reunião sem precisar de conta na plataforma.') }}</div>
             </div>
 
             <div class="col-12">

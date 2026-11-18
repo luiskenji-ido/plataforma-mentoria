@@ -223,7 +223,7 @@ def chromium_disponivel():
         try:
             if RAIZ not in sys.path:
                 sys.path.insert(0, RAIZ)
-            from agentes_orquestrador import ambiente as ambiente_orq
+            from agentes_orquestrador import ambiente_orquestrador as ambiente_orq
             return ambiente_orq._chromium()
         except Exception:
             return False
@@ -233,7 +233,7 @@ def chromium_disponivel():
 def capacidades_orquestrador():
     def ler():
         try:
-            from agentes_orquestrador import ambiente as ambiente_orq
+            from agentes_orquestrador import ambiente_orquestrador as ambiente_orq
             return ambiente_orq.capacidades()
         except Exception as e:
             return {'pode_corrigir': False, 'itens': {}, 'erro': str(e)}

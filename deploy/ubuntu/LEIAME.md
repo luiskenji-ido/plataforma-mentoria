@@ -10,6 +10,8 @@ O passo a passo completo está no ReadME, seção "Instalação em servidor Ubun
 4. Serviços: copie `mentoria.service` e `mentoria-tarefas.*` para `/etc/systemd/system/` e
    `sudo systemctl daemon-reload && sudo systemctl enable --now mentoria mentoria-tarefas.timer`.
 5. nginx e HTTPS: `nginx-mentoria.conf` em `/etc/nginx/sites-available/mentoria` e `sudo certbot --nginx -d <domínio>`.
+   As gravações das reuniões ficam em `/srv/mentoria/uploads/reunioes/` (até 100 MB cada, no padrão): a gestão ajusta
+   o limite em Parâmetros de regras conforme o disco; ao mudar, ajuste também o `client_max_body_size` da rota da gravação.
 6. Entre como Administrador: preencha **Identidade da instituição** e confira **Ambiente e compatibilidade**.
 
 Arquivos desta pasta: `mentoria.service` (gunicorn), `mentoria-tarefas.service` + `.timer` (de hora em hora),

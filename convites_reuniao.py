@@ -65,6 +65,27 @@ def externos_com_email(reuniao):
     return pessoas
 
 
+def ler_externos(texto):
+    """Lista "Participantes externos" (uma pessoa por linha: "Nome – Instituição – email", em qualquer ordem depois do nome)
+    → [{'nome', 'instituicao', 'email'}]. Linhas repetidas (mesmo e-mail ou mesmo nome sem e-mail) contam uma vez."""
+    pessoas, vistos = [], set()
+    for linha in (texto or '').splitlines():
+        linha = linha.strip()
+        if not linha:
+            continue
+        achado = PADRAO_EMAIL.search(linha)
+        email = achado.group(0).lower() if achado else None
+        resto = linha.replace(achado.group(0), '') if achado else linha
+        partes = [p.strip(' <>()') for p in re.split(r"\s+[–—-]\s+|\s*[;|]\s*", resto.strip(' –—-<>()')) if p.strip(' <>()–—-')]
+        nome = (partes[0] if partes else '') or email or linha
+        chave = email or nome.lower()
+        if chave in vistos:
+            continue
+        vistos.add(chave)
+        pessoas.append({'nome': nome[:150], 'instituicao': (partes[1] if len(partes) > 1 else '')[:150] or None, 'email': email})
+    return pessoas
+
+
 def destinatarios(reuniao, remetente=None):
     """Quem recebe o convite: participantes da plataforma + externos com e-mail, sem repetir e sem o próprio remetente.
     Devolve (validos, ignorados) — ignorados são contas de teste ou sem e-mail."""
@@ -158,8 +179,10 @@ def links_agenda(reuniao, link=None, url_ics=None):
 
 
 # ------------------------------------------------------------------------------ e-mail do convite
-def montar_email(reuniao, remetente, convidados, link=None, url_ics=None, atualizacao=False):
-    """remetente = (nome, email). Corpo em texto e HTML + text/calendar (METHOD:REQUEST) + anexo convite.ics."""
+def montar_email(reuniao, remetente, convidados, link=None, url_ics=None, atualizacao=False, para=None, link_pessoal=None):
+    """remetente = (nome, email). Corpo em texto e HTML + text/calendar (METHOD:REQUEST) + anexo convite.ics.
+    convidados = todos os convidados (lista de participantes do .ics); para = quem recebe esta mensagem (padrão: todos).
+    link_pessoal = página do convidado externo (sem login) para check-in, check-out e avaliação; substitui o link da ata."""
     inicio, fim = inicio_fim(reuniao)
     quando = f"{inicio.strftime('%d/%m/%Y %H:%M')}–{fim.strftime('%H:%M')} (horário de Brasília)"
     assunto = f"{'Atualização' if atualizacao else 'Convite'}: {reuniao.titulo} · {inicio.strftime('%d/%m/%Y %H:%M')}"
@@ -173,7 +196,10 @@ def montar_email(reuniao, remetente, convidados, link=None, url_ics=None, atuali
     if reuniao.pauta:
         texto += ['', 'Pauta:', reuniao.pauta]
     texto += ['', 'Salvar na sua agenda:'] + [f"- {rotulos[c]}: {u}" for c, u in links.items()]
-    if link:
+    if link_pessoal:
+        texto += ['', "Seu link pessoal para registrar a presença (check-in ao chegar e check-out ao sair) e avaliar a reunião:",
+                  link_pessoal, "Não precisa de login. Não repasse este link: ele é só seu."]
+    elif link:
         texto += ['', f"Ata e encaminhamentos: {link}"]
     texto += ['', f"Convite enviado por {remetente[0]} pela plataforma {_marca()['plataforma']}."]
 
@@ -188,18 +214,46 @@ def montar_email(reuniao, remetente, convidados, link=None, url_ics=None, atuali
             f'<p><b>Quando:</b> {escape(quando)}<br><b>Modalidade:</b> {escape(reuniao.modalidade or "Online")}</p>{local_html}'
             + (f'<p><b>Pauta:</b><br>{escape(reuniao.pauta).replace(chr(10), "<br>")}</p>' if reuniao.pauta else '')
             + f'<p style="margin-bottom:4px"><b>Salvar na sua agenda:</b></p><div>{botoes}</div>'
-            + (f'<p><a href="{escape(link)}">Abrir a ata e os encaminhamentos na plataforma</a></p>' if link else '')
+            + (f'<p style="margin:14px 0 4px"><b>Sua presença e sua avaliação</b></p>'
+               f'<p style="margin:0 0 6px">Use o seu link pessoal para fazer o check-in ao chegar, o check-out ao sair e avaliar a reunião '
+               f'(não precisa de login; não repasse, ele é só seu).</p>'
+               f'<a href="{escape(link_pessoal)}" style="display:inline-block;padding:8px 14px;border-radius:6px;background:#198754;'
+               f'color:#fff;text-decoration:none;font-weight:bold">Registrar presença e avaliar</a>' if link_pessoal else
+               (f'<p><a href="{escape(link)}">Abrir a ata e os encaminhamentos na plataforma</a></p>' if link else ''))
             + f'<p style="color:#6b7280;font-size:12px">Convite enviado por {escape(remetente[0])} pela plataforma {escape(_marca().get("plataforma", ""))}.</p></div>')
 
-    ics = gerar_ics(reuniao, link, 'REQUEST', remetente, convidados)
+    ics = gerar_ics(reuniao, None if link_pessoal else link, 'REQUEST', remetente, convidados)
     mensagem = EmailMessage()
     mensagem['Subject'] = assunto
     mensagem['From'] = formataddr(remetente)
-    mensagem['To'] = ', '.join(formataddr(c) for c in convidados)
+    mensagem['To'] = ', '.join(formataddr(c) for c in (para or convidados))
     mensagem.set_content('\n'.join(texto))
     mensagem.add_alternative(html, subtype='html')
     mensagem.add_alternative(ics, subtype='calendar', params={'method': 'REQUEST'})
     mensagem.add_attachment(ics.encode('utf-8'), maintype='application', subtype='ics', filename='convite.ics')
+    return mensagem
+
+
+def montar_email_link_pessoal(reuniao, remetente, convidado_nome, convidado_email, link_pessoal):
+    """Aviso curto só com o link pessoal (quando o convite saiu pelo Outlook, que manda o mesmo texto para todos)."""
+    inicio, _ = inicio_fim(reuniao)
+    mensagem = EmailMessage()
+    mensagem['Subject'] = f"Seu link de presença: {reuniao.titulo} · {inicio.strftime('%d/%m/%Y %H:%M')}"
+    mensagem['From'] = formataddr(remetente)
+    mensagem['To'] = formataddr((convidado_nome, convidado_email))
+    mensagem.set_content('\n'.join([
+        f"Olá, {convidado_nome}.", '',
+        f"Na reunião \"{reuniao.titulo}\" ({inicio.strftime('%d/%m/%Y %H:%M')}), registre a sua presença pelo link abaixo: "
+        "check-in ao chegar, check-out ao sair e, no fim, a sua avaliação da reunião.", '', link_pessoal, '',
+        "Não precisa de login. Não repasse este link: ele é só seu.", '',
+        f"Plataforma {_marca()['plataforma']}."]))
+    mensagem.add_alternative(
+        f'<div style="font-family:Arial,sans-serif;font-size:14px;color:#1f2937"><p>Olá, {escape(convidado_nome)}.</p>'
+        f'<p>Na reunião <b>{escape(reuniao.titulo)}</b> ({inicio.strftime("%d/%m/%Y %H:%M")}), registre a sua presença pelo link abaixo: '
+        f'check-in ao chegar, check-out ao sair e, no fim, a sua avaliação da reunião.</p>'
+        f'<a href="{escape(link_pessoal)}" style="display:inline-block;padding:8px 14px;border-radius:6px;background:#198754;color:#fff;'
+        f'text-decoration:none;font-weight:bold">Registrar presença e avaliar</a>'
+        f'<p style="color:#6b7280;font-size:12px">Não precisa de login. Não repasse este link: ele é só seu.</p></div>', subtype='html')
     return mensagem
 
 

@@ -20,7 +20,8 @@ GRUPOS = [
     ('seguranca', 'Senhas e acesso', 'bi-shield-lock'),
     ('acompanhamento', 'Ocorrências e acompanhamento', 'bi-exclamation-triangle'),
     ('avaliacoes', 'Avaliações e alertas', 'bi-star-half'),
-    ('ia', 'Inteligência artificial (custos)', 'bi-cpu'),
+    ('reunioes', 'Reuniões com os parceiros B2B', 'bi-journal-text'),
+    ('ia','Inteligência artificial (custos)', 'bi-cpu'),
     ('personalizadas', 'Regras criadas pela gestão', 'bi-plus-square'),
 ]
 
@@ -69,7 +70,12 @@ CATALOGO = {
     'ruido_comunicacao_limite': ('avaliacoes', 'Limite do alerta de ruído de comunicação',
                                  'Média de "Comunicação" (e de "Engajamento") recebida nas avaliações abaixo deste valor gera alerta.',
                                  'decimal', 3.5, 1, 5, 'de 1 a 5', 'Avaliações › Alertas de acompanhamento'),
-    'desengajamento_dias': ('avaliacoes', 'Dias sem atividade para o alerta de desengajamento',
+    'gravacao_reuniao_limite_mb': ('reunioes', 'Tamanho máximo do arquivo da gravação',
+                                   'Maior arquivo de gravação (vídeo ou áudio) que a gestão pode enviar para a reunião. '
+                                   'Ajuste conforme o espaço em disco do servidor. No servidor Ubuntu, o Nginx precisa aceitar '
+                                   'o mesmo tamanho na rota da gravação.',
+                                   'inteiro', 100, 10, 4096, 'MB', 'Reuniões › Gravação'),
+    'desengajamento_dias': ('avaliacoes','Dias sem atividade para o alerta de desengajamento',
                             'Jovem ou mentor sem nenhuma atividade na plataforma (login, frequência, sessão, entrega, presença) por estes dias.',
                             'inteiro', 14, 3, 90, 'dias', 'Avaliações › Alertas de acompanhamento'),
     'micro_avaliacao_dias': ('avaliacoes', 'Frequência da microavaliação',

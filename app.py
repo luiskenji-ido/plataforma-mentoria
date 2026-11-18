@@ -1460,11 +1460,15 @@ def acompanhamento():
 def fazer_checkin_aula():
     from datetime import datetime
     
-    curso_id = request.form.get('curso_id')
+    curso_id = request.form.get('curso_id', type=int)
     if not curso_id:
         flash('Erro: Curso não especificado.', 'danger')
         return redirect(url_for('acompanhamento'))
-        
+    # Check-in só nos cursos em que a pessoa está matriculada (tem acompanhamento do curso)
+    if not Acompanhamento.query.filter_by(aluno_id=current_user.id, curso_id=curso_id).first():
+        flash(tt('Check-in recusado: você não está matriculado neste curso.', current_user.idioma), 'danger')
+        return redirect(url_for('acompanhamento'))
+
     hoje = datetime.utcnow().date()
     
     # Verifica se já existe check-in para este curso hoje
@@ -1643,6 +1647,13 @@ def atualizar_tarefa():
         return redirect(url_for('projetos'))
 
     if tarefa:
+        try:
+            percentual = int(request.form.get('percentual_conclusao', 0) or 0)
+        except ValueError:
+            percentual = -1
+        if not 0 <= percentual <= 100:
+            flash(tt('O progresso da tarefa deve ficar entre 0 e 100%.', current_user.idioma), 'warning')
+            return redirect(url_for('projetos'))
         tarefa.descricao = request.form.get('descricao')
         tarefa.responsavel = request.form.get('responsavel')
         
@@ -1656,7 +1667,7 @@ def atualizar_tarefa():
 
         tarefa.status = request.form.get('status')
         if not tarefa.subtarefas:
-            tarefa.percentual_conclusao = int(request.form.get('percentual_conclusao', 0))
+            tarefa.percentual_conclusao = percentual
         
         # --- NOVA LÓGICA MÚLTIPLOS ANEXOS (EXCLUSÃO) ---
         materiais_para_excluir = request.form.getlist('materiais_excluir')
@@ -1817,10 +1828,21 @@ def avaliar_projeto(id):
 
     projeto = db.session.get(Projeto, id)
     if projeto:
+        # 0. Toda nota informada fica entre 0 e 10 (nada é gravado se alguma estiver fora)
+        for campo, valor in request.form.items():
+            if campo.startswith(('nota_conteudo', 'nota_apresentacao', 'nota_postura_', 'nota_dominio_')) and valor.strip():
+                try:
+                    nota = float(valor.replace(',', '.'))
+                except ValueError:
+                    nota = -1
+                if not 0 <= nota <= 10:
+                    flash(tt('As notas do projeto devem ficar entre 0 e 10.', current_user.idioma), 'warning')
+                    return redirect(url_for('projetos'))
+
         # 1. Capta as notas do Grupo (O Entregável)
-        nota_conteudo = request.form.get('nota_conteudo')
-        nota_apresentacao = request.form.get('nota_apresentacao')
-        
+        nota_conteudo = (request.form.get('nota_conteudo') or '').replace(',', '.')
+        nota_apresentacao = (request.form.get('nota_apresentacao') or '').replace(',', '.')
+
         # Depois que a banca começa a dar notas, a nota do grupo é a consolidada da banca
         from models import AvaliacaoBanca
         banca_avaliando = AvaliacaoBanca.query.filter_by(projeto_id=projeto.id).first() is not None
@@ -1839,8 +1861,8 @@ def avaliar_projeto(id):
                     db.session.add(av_indiv)
 
                 # Busca os inputs gerados dinamicamente com o ID do aluno no HTML
-                nota_postura = request.form.get(f'nota_postura_{membro.id}')
-                nota_dominio = request.form.get(f'nota_dominio_{membro.id}')
+                nota_postura = (request.form.get(f'nota_postura_{membro.id}') or '').replace(',', '.')
+                nota_dominio = (request.form.get(f'nota_dominio_{membro.id}') or '').replace(',', '.')
                 obs_mentor = request.form.get(f'obs_mentor_{membro.id}')
 
                 if nota_postura: 
@@ -2651,6 +2673,247 @@ def ids_do_parceiro(empresa):
     return ids
 
 
+# ------------------------------------------------------------------------------ convidados externos (sem conta)
+def sincronizar_convidados_reuniao(reuniao):
+    """Cada linha de "Participantes externos" vira um convidado com link pessoal (presença e avaliação sem login).
+    Quem sai da lista perde o link; se já tinha presença ou avaliação, fica no histórico da reunião."""
+    import convites_reuniao
+    from models import ConvidadoReuniao
+    chave = lambda c: (c.email or '').lower() or c.nome.strip().lower()
+    atuais = {chave(c): c for c in reuniao.convidados}
+    for pessoa in convites_reuniao.ler_externos(reuniao.participantes_externos):
+        convidado = atuais.pop(pessoa['email'] or pessoa['nome'].strip().lower(), None)
+        if convidado is None:
+            convidado = ConvidadoReuniao(codigo=secrets.token_urlsafe(24))
+            reuniao.convidados.append(convidado)
+        convidado.nome, convidado.instituicao, convidado.email, convidado.na_lista = \
+            pessoa['nome'], pessoa['instituicao'], pessoa['email'], True
+    for sobra in atuais.values():
+        if sobra.check_in or sobra.nota:
+            sobra.na_lista = False
+        else:
+            reuniao.convidados.remove(sobra)
+
+
+def garantir_convidados(reuniao):
+    """Reuniões gravadas antes dos links pessoais: cria os convidados na primeira vez que a reunião é aberta."""
+    if reuniao.participantes_externos and not reuniao.convidados:
+        sincronizar_convidados_reuniao(reuniao)
+        db.session.commit()
+
+
+def link_convidado(convidado):
+    return url_for('convidado_reuniao', codigo=convidado.codigo, _external=True)
+
+
+def instituicao_do_participante(usuario, reuniao, parceiro_ids, apelido):
+    """De que lado a pessoa está na reunião: o parceiro B2B da reunião, a empresa dela, ou a instituição."""
+    if reuniao.empresa and usuario.id in parceiro_ids:
+        return reuniao.empresa.nome
+    if usuario.tipo_usuario == 'Admin B2B' and usuario.empresas_gerenciadas:
+        return usuario.empresas_gerenciadas[0].nome
+    if usuario.tipo_usuario != 'Aluno' and usuario.empresas_vinculadas:
+        return usuario.empresas_vinculadas[0].nome
+    return apelido
+
+
+def tempo_investido_reuniao(reuniao):
+    """Tempo que cada lado dedicou à reunião (check-in → check-out), somando participantes internos e convidados externos.
+    Devolve ([{'instituicao', 'pessoas', 'minutos'}], total_minutos)."""
+    apelido = identidade.obter()['apelido']
+    parceiro_ids = ids_do_parceiro(reuniao.empresa) if reuniao.empresa else set()
+    lados = {}
+
+    def somar(instituicao, minutos):
+        lado = lados.setdefault(instituicao, {'instituicao': instituicao, 'pessoas': 0, 'minutos': 0})
+        lado['pessoas'] += 1
+        lado['minutos'] += minutos or 0
+
+    for p in reuniao.presencas:
+        if p.check_out and p.usuario:
+            somar(instituicao_do_participante(p.usuario, reuniao, parceiro_ids, apelido), p.total_minutos)
+    for c in reuniao.convidados:
+        if c.check_out:
+            somar(c.instituicao or tt('Convidados externos', current_user.idioma if current_user.is_authenticated else 'pt'),
+                  c.total_minutos)
+    lista = sorted(lados.values(), key=lambda l: -l['minutos'])
+    return lista, sum(l['minutos'] for l in lista)
+
+
+def janela_checkin_reuniao(reuniao, agora=None):
+    agora = agora or datetime.now()
+    return reuniao.data_hora - timedelta(minutes=CHECKIN_REUNIAO_ANTES_MIN) <= agora \
+        <= reuniao.fim_previsto + timedelta(minutes=CHECKIN_REUNIAO_DEPOIS_MIN)
+
+
+def _convidado_por_codigo(codigo):
+    from models import ConvidadoReuniao
+    if not codigo or len(codigo) > 64:
+        return None
+    convidado = ConvidadoReuniao.query.filter_by(codigo=codigo).first()
+    return convidado if convidado and convidado.na_lista and convidado.reuniao else None
+
+
+@app.route('/reuniao/convidado/<codigo>', methods=['GET', 'POST'])
+def convidado_reuniao(codigo):
+    """Página do convidado externo (sem conta), aberta pelo link pessoal do convite: check-in, check-out e avaliação."""
+    idioma = session.get('idioma', 'pt')
+    convidado = _convidado_por_codigo(codigo)
+    if convidado is None:
+        return render_template('reuniao_convidado.html', convidado=None, reuniao=None, idioma=idioma), 404
+    reuniao, agora = convidado.reuniao, datetime.now()
+    voltar_pagina = redirect(url_for('convidado_reuniao', codigo=codigo))
+    if request.method == 'POST':
+        acao = request.form.get('acao')
+        if acao == 'checkin':
+            if not janela_checkin_reuniao(reuniao, agora):
+                flash(tt('O check-in abre 30 minutos antes da reunião e fecha 1 hora depois do fim previsto.', idioma), 'warning')
+            elif convidado.check_in:
+                flash(tt('Sua presença nesta reunião já foi registrada.', idioma), 'info')
+            else:
+                modalidade = request.form.get('modalidade')
+                convidado.check_in = agora
+                convidado.modalidade = modalidade if modalidade in ('Online', 'Presencial') else \
+                    ('Online' if reuniao.modalidade == 'Online' else 'Presencial')
+                db.session.commit()
+                flash(tt('Check-in registrado. Não esqueça o check-out ao sair.', idioma), 'success')
+        elif acao == 'checkout':
+            if not convidado.check_in or convidado.check_out:
+                flash(tt('Faça o check-in antes do check-out.', idioma), 'warning')
+            else:
+                fechar_presenca_reuniao(convidado, agora)
+                db.session.commit()
+                flash(tt('Check-out registrado: {minutos} minutos na reunião.', idioma).format(minutos=convidado.total_minutos), 'success')
+        elif acao == 'avaliar':
+            nota = request.form.get('nota', type=int)
+            if agora < reuniao.data_hora:
+                flash(tt('A avaliação abre quando a reunião começa.', idioma), 'warning')
+            elif not nota or not 1 <= nota <= 5:
+                flash(tt('Dê uma nota de 1 a 5.', idioma), 'warning')
+            else:
+                convidado.nota = nota
+                convidado.comentario = (request.form.get('comentario') or '').strip()[:2000] or None
+                convidado.avaliado_em = agora
+                db.session.commit()
+                flash(tt('Obrigado! Sua avaliação da reunião foi registrada.', idioma), 'success')
+        return voltar_pagina
+    return render_template('reuniao_convidado.html', convidado=convidado, reuniao=reuniao, idioma=idioma,
+                           checkin_aberto=janela_checkin_reuniao(reuniao, agora), feedback_aberto=agora >= reuniao.data_hora)
+
+
+@app.route('/reuniao/convidado/<codigo>/agenda.ics')
+def agenda_convidado_reuniao(codigo):
+    from flask import Response
+    import convites_reuniao
+    convidado = _convidado_por_codigo(codigo)
+    if convidado is None:
+        return ('', 404)
+    conteudo = convites_reuniao.gerar_ics(convidado.reuniao, link_convidado(convidado))
+    return Response(conteudo.encode('utf-8'), mimetype='text/calendar',
+                    headers={'Content-Disposition': f'attachment; filename=reuniao_{convidado.reuniao_id}.ics'})
+
+
+@app.route('/reuniao/convidado/<codigo>/gravacao')
+def gravacao_convidado_reuniao(codigo):
+    convidado = _convidado_por_codigo(codigo)
+    if convidado is None or not convidado.reuniao.gravacao_arquivo:
+        return ('', 404)
+    return _enviar_gravacao(convidado.reuniao)
+
+
+# ------------------------------------------------------------------------------ arquivo da gravação
+EXTENSOES_GRAVACAO = {'mp4', 'm4v', 'mov', 'webm', 'mkv', 'mp3', 'm4a', 'wav', 'ogg'}
+PASTA_GRAVACOES = os.path.join(app.config['UPLOAD_FOLDER'], 'reunioes')
+
+
+def _caminho_gravacao(reuniao):
+    if not reuniao.gravacao_arquivo:
+        return None
+    caminho = os.path.realpath(os.path.join(PASTA_GRAVACOES, reuniao.gravacao_arquivo))
+    return caminho if caminho.startswith(os.path.realpath(PASTA_GRAVACOES) + os.sep) and os.path.isfile(caminho) else None
+
+
+def _enviar_gravacao(reuniao):
+    import mimetypes
+    caminho = _caminho_gravacao(reuniao)
+    if not caminho:
+        return ('', 404)
+    tipo = mimetypes.guess_type(caminho)[0] or 'application/octet-stream'
+    # conditional=True responde a pedidos parciais (Range): o vídeo toca no navegador sem baixar inteiro antes
+    return send_file(caminho, mimetype=tipo, conditional=True, download_name=reuniao.gravacao_nome or os.path.basename(caminho))
+
+
+def _apagar_arquivo_gravacao(reuniao):
+    caminho = _caminho_gravacao(reuniao)
+    if caminho:
+        try:
+            os.remove(caminho)
+        except OSError:
+            app.logger.warning("Não consegui apagar a gravação %s", caminho)
+    reuniao.gravacao_arquivo = reuniao.gravacao_nome = reuniao.gravacao_tamanho = reuniao.gravacao_enviada_em = None
+
+
+@app.route('/reunioes/<int:id>/gravacao', methods=['GET', 'POST'])
+@login_required
+def gravacao_reuniao(id):
+    """GET: participantes e gestão assistem/baixam a gravação. POST: a gestão envia (ou exclui) o arquivo da gravação."""
+    from models import ReuniaoInstitucional
+    from regras_negocio import regra
+    reuniao = db.session.get(ReuniaoInstitucional, id)
+    if not reuniao or not pode_ver_reuniao(current_user, reuniao):
+        flash("Acesso negado.", "danger")
+        return redirect(url_for('dashboard'))
+    if request.method == 'GET':
+        return _enviar_gravacao(reuniao)
+    idioma = current_user.idioma
+    voltar_reuniao = redirect(url_for('detalhe_reuniao', id=reuniao.id) + '#cardGravacao')
+    if current_user.tipo_usuario not in PERFIS_GESTAO_REUNIOES:
+        flash("Acesso negado.", "danger")
+        return voltar_reuniao
+    if request.form.get('acao') == 'excluir':
+        if reuniao.gravacao_arquivo:
+            _apagar_arquivo_gravacao(reuniao)
+            db.session.commit()
+            flash(tt('Arquivo da gravação excluído.', idioma), 'info')
+        return voltar_reuniao
+    arquivo = request.files.get('arquivo')
+    extensao = arquivo.filename.rsplit('.', 1)[-1].lower() if arquivo and '.' in (arquivo.filename or '') else ''
+    if not arquivo or not arquivo.filename:
+        flash(tt('Escolha o arquivo da gravação.', idioma), 'warning')
+        return voltar_reuniao
+    if extensao not in EXTENSOES_GRAVACAO:
+        flash(tt('Formato não aceito. Envie vídeo (MP4, MOV, WEBM, MKV) ou áudio (MP3, M4A, WAV, OGG).', idioma), 'warning')
+        return voltar_reuniao
+    os.makedirs(PASTA_GRAVACOES, exist_ok=True)
+    nome_salvo = f"reuniao_{reuniao.id}_{secrets.token_hex(8)}.{extensao}"
+    caminho = os.path.join(PASTA_GRAVACOES, nome_salvo)
+    arquivo.save(caminho)
+    tamanho = os.path.getsize(caminho)
+    limite = int(regra('gravacao_reuniao_limite_mb')) * 1024 * 1024
+    if tamanho == 0 or tamanho > limite:
+        os.remove(caminho)
+        flash(tt('O arquivo passa do limite de {mb} MB.', idioma).format(mb=limite // (1024 * 1024)) if tamanho else
+              tt('O arquivo está vazio.', idioma), 'warning')
+        return voltar_reuniao
+    _apagar_arquivo_gravacao(reuniao)
+    reuniao.gravacao_arquivo, reuniao.gravacao_tamanho, reuniao.gravacao_enviada_em = nome_salvo, tamanho, datetime.now()
+    reuniao.gravacao_nome = (secure_filename(arquivo.filename) or nome_salvo)[:255]
+    db.session.commit()
+    flash(tt('Gravação enviada: os participantes já podem assistir.', idioma), 'success')
+    return voltar_reuniao
+
+
+app.config['LIMITES_UPLOAD_ROTA'] = {'gravacao_reuniao': lambda: regra('gravacao_reuniao_limite_mb')}
+
+
+@app.errorhandler(413)
+def arquivo_grande_demais(_erro):
+    limite = request.max_content_length or app.config.get('MAX_CONTENT_LENGTH') or 0
+    idioma = current_user.idioma if current_user.is_authenticated else session.get('idioma', 'pt')
+    flash(tt('O arquivo passa do limite de {mb} MB.', idioma).format(mb=limite // (1024 * 1024)), 'warning')
+    return redirect(seguranca_web.destino_interno(request.referrer, url_for('dashboard')))
+
+
 @app.route('/reunioes')
 @login_required
 def reunioes():
@@ -2693,6 +2956,7 @@ def editar_reuniao(id=None):
         if erro:
             flash(t(erro, current_user.idioma), "warning")
             return redirect(url_for('editar_reuniao', id=id))
+        sincronizar_convidados_reuniao(reuniao)
         mudancas = descrever_mudancas_reuniao(antes, reuniao) if antes else []
         alteracao = None
         if mudancas:
@@ -2766,26 +3030,33 @@ def detalhe_reuniao(id):
             flash(t('reuniao_enc_atualizado', current_user.idioma), "success")
         return redirect(url_for('detalhe_reuniao', id=reuniao.id))
 
+    garantir_convidados(reuniao)
+    notas = [f.nota for f in reuniao.feedbacks] + [c.nota for c in reuniao.convidados if c.nota]
+    media_feedback = round(sum(notas) / len(notas), 1) if notas else None
+    tempo_lados, tempo_total = tempo_investido_reuniao(reuniao)
     imprimir = request.args.get('imprimir') == '1'
     if imprimir:
         return render_template('reuniao_ata.html', reuniao=reuniao, hoje=datetime.now().date(),
-                               pode_editar=current_user.tipo_usuario in PERFIS_GESTAO_REUNIOES)
+                               pode_editar=current_user.tipo_usuario in PERFIS_GESTAO_REUNIOES,
+                               media_feedback=media_feedback, total_avaliacoes=len(notas), tempo_lados=tempo_lados,
+                               tempo_total=tempo_total)
     import convites_reuniao
     validos, ignorados = convites_reuniao.destinatarios(reuniao, session.get('gmail_email'))
     link = url_for('detalhe_reuniao', id=reuniao.id, _external=True)
     agora = datetime.now()
     participante = current_user in reuniao.participantes
-    notas = [f.nota for f in reuniao.feedbacks]
     ultima_alteracao = reuniao.alteracoes[0].criado_em if reuniao.alteracoes else None
     return render_template('reuniao_detalhe.html', reuniao=reuniao, hoje=datetime.now().date(),
                            pode_editar=current_user.tipo_usuario in PERFIS_GESTAO_REUNIOES,
-                           participante=participante,
+                           participante=participante, tempo_lados=tempo_lados, tempo_total=tempo_total,
+                           total_avaliacoes=len(notas), link_convidado=link_convidado,
+                           gravacao_limite_mb=int(regra('gravacao_reuniao_limite_mb')),
+                           extensoes_gravacao=sorted(EXTENSOES_GRAVACAO),
                            minha_presenca=next((p for p in reuniao.presencas if p.usuario_id == current_user.id), None),
                            meu_feedback=next((f for f in reuniao.feedbacks if f.usuario_id == current_user.id), None),
-                           checkin_aberto=reuniao.data_hora - timedelta(minutes=CHECKIN_REUNIAO_ANTES_MIN) <= agora
-                           <= reuniao.fim_previsto + timedelta(minutes=CHECKIN_REUNIAO_DEPOIS_MIN),
+                           checkin_aberto=janela_checkin_reuniao(reuniao, agora),
                            feedback_aberto=agora >= reuniao.data_hora,
-                           media_feedback=round(sum(notas) / len(notas), 1) if notas else None,
+                           media_feedback=media_feedback,
                            reenviar_convite=bool(reuniao.convite_enviado_em and ultima_alteracao
                                                  and ultima_alteracao > reuniao.convite_enviado_em + (datetime.now() - datetime.utcnow())),
                            links_agenda=convites_reuniao.links_agenda(reuniao, link, url_for('agenda_reuniao_ics', id=reuniao.id)),
@@ -2849,7 +3120,36 @@ def presenca_reuniao(id):
     if current_user.tipo_usuario not in PERFIS_GESTAO_REUNIOES or acao not in ('manual', 'remover'):
         flash("Acesso negado.", "danger")
         return voltar
-    usuario = db.session.get(Usuario, request.form.get('usuario_id', type=int) or 0)
+    # A lista da tela mistura participantes internos ("u12") e convidados externos ("c5"); usuario_id/convidado_id também valem
+    pessoa = request.form.get('pessoa') or ''
+    usuario_id = int(pessoa[1:]) if pessoa[:1] == 'u' and pessoa[1:].isdigit() else request.form.get('usuario_id', type=int)
+    convidado_id = int(pessoa[1:]) if pessoa[:1] == 'c' and pessoa[1:].isdigit() else request.form.get('convidado_id', type=int)
+    convidado = next((c for c in reuniao.convidados if c.id == convidado_id), None) if convidado_id else None
+    try:
+        dia = reuniao.data_hora.date()
+        entrada = datetime.combine(dia, datetime.strptime(request.form.get('entrada') or '', '%H:%M').time())
+        saida = datetime.combine(dia, datetime.strptime(request.form.get('saida') or '', '%H:%M').time())
+    except ValueError:
+        entrada = saida = None
+    periodo_invalido = not entrada or saida <= entrada or saida - entrada > timedelta(hours=12) or saida > agora + timedelta(minutes=5)
+    if convidado_id:
+        if convidado is None:
+            flash(tt('Escolha um participante da reunião.', idioma), 'warning')
+        elif acao == 'remover':
+            convidado.check_in = convidado.check_out = None
+            convidado.total_minutos, convidado.registro_manual, convidado.checkout_automatico = 0, False, False
+            db.session.commit()
+            flash(tt('Presença removida.', idioma), 'info')
+        elif periodo_invalido:
+            flash(tt('Informe a entrada e a saída (a saída depois da entrada e nada no futuro).', idioma), 'warning')
+        else:
+            convidado.check_in, convidado.modalidade = entrada, modalidade
+            fechar_presenca_reuniao(convidado, saida)
+            convidado.registro_manual, convidado.registrado_por_id = True, current_user.id
+            db.session.commit()
+            flash(tt('Presença de {nome} registrada pela gestão.', idioma).format(nome=convidado.nome), 'success')
+        return voltar
+    usuario = db.session.get(Usuario, usuario_id or 0)
     if not usuario or usuario not in reuniao.participantes:
         flash(tt('Escolha um participante interno da reunião.', idioma), 'warning')
         return voltar
@@ -2861,13 +3161,7 @@ def presenca_reuniao(id):
             db.session.commit()
             flash(tt('Presença removida.', idioma), 'info')
         return voltar
-    try:
-        dia = reuniao.data_hora.date()
-        entrada = datetime.combine(dia, datetime.strptime(request.form.get('entrada') or '', '%H:%M').time())
-        saida = datetime.combine(dia, datetime.strptime(request.form.get('saida') or '', '%H:%M').time())
-    except ValueError:
-        entrada = saida = None
-    if not entrada or saida <= entrada or saida - entrada > timedelta(hours=12) or saida > agora + timedelta(minutes=5):
+    if periodo_invalido:
         flash(tt('Informe a entrada e a saída (a saída depois da entrada e nada no futuro).', idioma), 'warning')
         return voltar
     if presenca is None:
@@ -2990,9 +3284,37 @@ def enviar_convite_microsoft(reuniao, emails_escolhidos=None):
     texto = t('convite_enviado', idioma).format(qtd=len(validos), via='Microsoft 365 (Outlook)')
     if sala:
         texto += ' ' + tt('Sala do Teams criada e gravada na reunião.', idioma)
+    texto += ' ' + enviar_links_pessoais(reuniao, validos)
     if ignorados:
         texto += ' ' + t('convite_ignorados', idioma).format(qtd=len(ignorados))
     return 'success', texto
+
+
+def enviar_links_pessoais(reuniao, validos):
+    """O Outlook manda o mesmo texto a todos: o link pessoal dos convidados externos segue num e-mail curto à parte
+    (pelo e-mail da plataforma). Sem e-mail da plataforma, a gestão copia o link de cada um na página da reunião."""
+    import convites_reuniao
+    idioma = current_user.idioma
+    garantir_convidados(reuniao)
+    escolhidos = {email for _, email in validos}
+    externos = [c for c in reuniao.convidados if c.na_lista and c.email in escolhidos]
+    if not externos:
+        return ''
+    if not convites_reuniao.smtp_configurado():
+        return tt('Copie o link pessoal de cada convidado externo no quadro Presença e envie a ele.', idioma)
+    remetente = (f"{current_user.nome} · {convites_reuniao.remetente_smtp()[0]}", convites_reuniao.remetente_smtp()[1])
+    enviados = 0
+    for convidado in externos:
+        try:
+            mensagem = convites_reuniao.montar_email_link_pessoal(reuniao, remetente, convidado.nome, convidado.email,
+                                                                  link_convidado(convidado))
+            if current_user.email:
+                mensagem['Reply-To'] = current_user.email
+            convites_reuniao.enviar_smtp(mensagem)
+            enviados += 1
+        except Exception as erro:
+            app.logger.warning("Link pessoal da reunião %s não enviado a %s: %s", reuniao.id, convidado.email, erro)
+    return tt('{qtd} convidado(s) externo(s) receberam o link pessoal de presença.', idioma).format(qtd=enviados)
 
 
 def enviar_convite_reuniao(reuniao, via, emails_escolhidos=None):
@@ -3022,19 +3344,36 @@ def enviar_convite_reuniao(reuniao, via, emails_escolhidos=None):
     atualizacao = reuniao.convite_enviado_em is not None
     reuniao.convite_sequencia = (reuniao.convite_sequencia or 0) + (1 if atualizacao else 0)
     link = url_for('detalhe_reuniao', id=reuniao.id, _external=True)
-    mensagem = convites_reuniao.montar_email(reuniao, remetente, validos, link,
-                                             url_for('agenda_reuniao_ics', id=reuniao.id, _external=True), atualizacao)
-    if via == 'smtp' and current_user.email:
-        mensagem['Reply-To'] = current_user.email
+    # Participantes da plataforma recebem um e-mail juntos; cada convidado externo recebe o seu, com o link pessoal
+    # de presença e avaliação (o mesmo evento: as agendas não duplicam).
+    garantir_convidados(reuniao)
+    externos = {c.email: c for c in reuniao.convidados if c.email and c.na_lista}
+    internos = [c for c in validos if c[1] not in externos]
+    mensagens = []
+    if internos:
+        mensagens.append(convites_reuniao.montar_email(reuniao, remetente, validos, link,
+                                                       url_for('agenda_reuniao_ics', id=reuniao.id, _external=True), atualizacao,
+                                                       para=internos))
+    for nome, email in validos:
+        if email in externos:
+            convidado = externos[email]
+            mensagens.append(convites_reuniao.montar_email(
+                reuniao, remetente, validos, None, url_for('agenda_convidado_reuniao', codigo=convidado.codigo, _external=True),
+                atualizacao, para=[(nome, email)], link_pessoal=link_convidado(convidado)))
+    for mensagem in mensagens:
+        if via == 'smtp' and current_user.email:
+            mensagem['Reply-To'] = current_user.email
     try:
         if via == 'gmail':
             credenciais = convites_reuniao.credenciais_gmail(session['gmail_token'], session.get('gmail_refresh_token'),
                                                              os.path.join(app.root_path, 'client_secret.json'))
-            convites_reuniao.enviar_gmail(mensagem, credenciais)
+            for mensagem in mensagens:
+                convites_reuniao.enviar_gmail(mensagem, credenciais)
             if credenciais.token and credenciais.token != session['gmail_token']:
                 session['gmail_token'] = credenciais.token  # o Google renovou o acesso
         else:
-            convites_reuniao.enviar_smtp(mensagem)
+            for mensagem in mensagens:
+                convites_reuniao.enviar_smtp(mensagem)
     except Exception as erro:
         db.session.rollback()
         app.logger.warning("Convite da reunião %s não enviado (%s): %s", reuniao.id, via, erro)
@@ -3672,6 +4011,7 @@ CRITERIOS_AVALIACAO = {
     'Jovem': ['Comunicação', 'Engajamento', 'Entregas', 'Pontualidade'],
     'Gestor B2B': ['Comunicação', 'Organização', 'Apoio ao programa'],
     'Gestão {apelido}': ['Comunicação', 'Organização', 'Apoio ao programa'],  # chave gravada; a tela mostra a sigla cadastrada
+    'Gestor {apelido}': ['Comunicação', 'Organização', 'Apoio ao programa', 'Disponibilidade'],  # cada pessoa da gestão do projeto
     'Programa': ['Conteúdo', 'Organização', 'Comunicação'],
 }
 # Microavaliação (quinzenal): rápida, só entre jovem e mentor
@@ -3701,10 +4041,18 @@ def mentores_com_jovens():
     return Usuario.query.filter(Usuario.tipo_usuario.in_(PERFIS_MENTORIA), Usuario.status == 'Ativo', Usuario.alunos.any()).all()
 
 
+def jovens_avaliaveis(usuario):
+    """Jovens ativos e em turma que a gestão (instituição: todos; gestor B2B: os das suas empresas) avalia no 360°."""
+    return sorted((j for j in jovens_da_equipe(usuario) if j.status == 'Ativo' and j.turmas_como_aluno), key=lambda j: j.nome)
+
+
 def alvos_da_avaliacao(usuario, ciclo):
-    """Quem (ou o quê) a pessoa avalia no ciclo: [(alvo_tipo, pessoa ou None)].
-    Jovem → mentores (e no 360: gestor B2B, gestão da instituição, programa); mentor → jovens (e no 360: gestor B2B, gestão da instituição, programa);
-    gestor B2B → mentores da empresa, gestão da instituição e programa; gestão da instituição → mentores, gestores B2B e programa."""
+    """Quem (ou o quê) a pessoa avalia no ciclo: [(alvo_tipo, pessoa ou None)]. No 360° todos avaliam todos:
+    jovem → mentores, gestor B2B, cada gestor da instituição, a gestão da instituição e o programa;
+    mentor → jovens, gestor B2B, cada gestor da instituição, a gestão e o programa;
+    gestor B2B → mentores e jovens da empresa, cada gestor da instituição, a gestão e o programa;
+    gestão da instituição → mentores, jovens, gestores B2B, os outros gestores da instituição e o programa.
+    Na microavaliação (quinzenal), só jovem ↔ mentor."""
     tipo, micro, empresa_id = usuario.tipo_usuario, ciclo.tipo == 'Micro', ciclo.empresa_id
     if usuario.status != 'Ativo' or tipo == 'Avaliador Banca':
         return []
@@ -3722,17 +4070,23 @@ def alvos_da_avaliacao(usuario, ciclo):
     elif tipo == 'Admin B2B' and not micro:
         for empresa in Empresa.query.filter_by(gestor_id=usuario.id).all():
             alvos += [('Mentor', m) for m in _ativos(empresa.mentores)]
+        alvos += [('Jovem', j) for j in jovens_avaliaveis(usuario)]
     elif tipo in PERFIS_GESTAO_INSTITUICAO and not micro:
         alvos += [('Mentor', m) for m in mentores_com_jovens()]
+        alvos += [('Jovem', j) for j in jovens_avaliaveis(usuario)]
         alvos += [('Gestor B2B', e.gestor) for e in Empresa.query.filter(Empresa.gestor_id.isnot(None)).all()
                   if e.gestor and e.gestor.status == 'Ativo']
     if not micro:
+        # Cada pessoa da gestão do projeto na instituição (o filtro de empresa do ciclo não vale para ela)
+        # (contas dos agentes de teste só aparecem para outras contas de teste)
+        alvos += [('Gestor {apelido}', g) for g in sorted(gestao_itm_ativa(), key=lambda g: g.nome)
+                  if not eh_conta_de_teste(g) or eh_conta_de_teste(usuario)]
         if tipo not in PERFIS_GESTAO_INSTITUICAO:
             alvos.append(('Gestão {apelido}', None))
         alvos.append(('Programa', None))
     vistos, final = set(), []
     for alvo_tipo, pessoa in alvos:
-        if pessoa is not None and (pessoa.id == usuario.id or not _na_empresa(pessoa, empresa_id)):
+        if pessoa is not None and (pessoa.id == usuario.id or (alvo_tipo != 'Gestor {apelido}' and not _na_empresa(pessoa, empresa_id))):
             continue
         chave = (alvo_tipo, pessoa.id if pessoa else None)
         if chave not in vistos:
@@ -4049,10 +4403,13 @@ def portal_demandas():
 
         # --- AÇÃO 1: CRIAR NOVO TICKET ---
         if acao == 'nova_demanda':
-            titulo = request.form.get('titulo')
+            titulo = (request.form.get('titulo') or '').strip()
             tipo_demanda = request.form.get('tipo_demanda')
             prioridade = request.form.get('prioridade')
-            descricao = request.form.get('descricao')
+            descricao = (request.form.get('descricao') or '').strip()
+            if not titulo or not descricao:
+                flash(tt('Informe o título e a descrição do chamado.', current_user.idioma), "warning")
+                return redirect(url_for('portal_demandas'))
 
             nova_demanda = DemandaInstitucional(
                 autor_id=current_user.id,
@@ -5178,9 +5535,13 @@ def cadastrar_perguntas():
 # ==============================================================================
 @app.route('/solicitar-mentoria', methods=['POST'])
 def solicitar_mentoria():
-    nome = request.form.get('nome')
-    email = request.form.get('email')
-    motivo = request.form.get('motivo')
+    nome = (request.form.get('nome') or '').strip()
+    email = (request.form.get('email') or '').strip().lower()
+    motivo = (request.form.get('motivo') or '').strip()
+    idioma = session.get('idioma', 'pt')
+    if not nome or not re.match(r'^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$', email):
+        flash(tt('Informe seu nome e um e-mail válido para pedir a mentoria.', idioma), 'warning')
+        return redirect(url_for('login'))
 
     # Trava: Impede de pedir mentoria se o e-mail já for de um aluno matriculado
     ja_existe = Usuario.query.filter_by(email=email).first()
@@ -5605,6 +5966,10 @@ def situacao_no_diario(acompanhamento, frequencia):
     return ('Aprovado (em risco por faltas)' if frequencia and frequencia['situacao'] == 'Em risco' else 'Aprovado'), media
 
 
+# Situações que a gestão pode atribuir a um registro de frequência (as opções da tela de validação)
+SITUACOES_FREQUENCIA = ['Presencial', 'Online', 'Falta', 'Falta Justificada']
+
+
 @app.route('/admin/frequencia', methods=['GET', 'POST'])
 @login_required
 def gerenciar_frequencia():
@@ -5620,6 +5985,14 @@ def gerenciar_frequencia():
         alterar_status = request.form.get('alterar_status') # Novo campo de ação do modal
         
         registro = db.session.get(Frequencia, freq_id)
+        # Só as situações da tela e só os jovens que a pessoa acompanha
+        if alterar_status and alterar_status not in SITUACOES_FREQUENCIA:
+            flash(tt('Situação de frequência inválida.', current_user.idioma), 'warning')
+            return redirect(url_for('gerenciar_frequencia'))
+        visiveis = ids_jovens_visiveis(current_user)
+        if registro and visiveis is not None and registro.usuario_id not in visiveis:
+            flash(tt('Acesso negado: você só valida a frequência dos jovens que acompanha.', current_user.idioma), 'danger')
+            return redirect(url_for('gerenciar_frequencia'))
         if registro:
             registro.validado_admin = True
             registro.admin_id = current_user.id
@@ -8227,7 +8600,7 @@ def _orquestrador():
         _sys.path.insert(0, pasta)
     import executor as orquestrador_executor
     import coletor as orquestrador_coletor
-    import ambiente as orquestrador_ambiente
+    import ambiente_orquestrador as orquestrador_ambiente  # não confundir com o ambiente.py da raiz
     import ia_correcao as orquestrador_ia
     return orquestrador_executor, orquestrador_coletor, orquestrador_ambiente, orquestrador_ia
 
@@ -9123,7 +9496,12 @@ def atualizar_estrutura_banco():
         "ALTER TABLE sessao_mentoria ADD COLUMN ata_registrada_por_id INTEGER REFERENCES usuario(id)",
         "ALTER TABLE sessao_mentoria ADD COLUMN proximos_passos_enviados_em DATETIME",
         "ALTER TABLE reuniao_institucional ADD COLUMN outlook_evento_id VARCHAR(300)",
-        "ALTER TABLE reuniao_institucional ADD COLUMN outlook_organizador_id INTEGER REFERENCES usuario(id)"
+        "ALTER TABLE reuniao_institucional ADD COLUMN outlook_organizador_id INTEGER REFERENCES usuario(id)",
+        # Reunião: arquivo da gravação enviado à plataforma
+        "ALTER TABLE reuniao_institucional ADD COLUMN gravacao_arquivo VARCHAR(255)",
+        "ALTER TABLE reuniao_institucional ADD COLUMN gravacao_nome VARCHAR(255)",
+        "ALTER TABLE reuniao_institucional ADD COLUMN gravacao_tamanho BIGINT",
+        "ALTER TABLE reuniao_institucional ADD COLUMN gravacao_enviada_em DATETIME"
     ]
     
     for comando in colunas_novas:

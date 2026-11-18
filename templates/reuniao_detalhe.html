@@ -26,6 +26,7 @@
                     {% endif %}{% endfor %}
                 </ul>
             </div>
+            {% if reuniao.gravacao_arquivo %}<a href="{{ url_for('gravacao_reuniao', id=reuniao.id) }}" target="_blank" rel="noopener" class="btn btn-outline-danger fw-bold rounded-pill px-3" id="arquivoGravacao"><i class="bi bi-play-circle"></i> {{ tt('Assistir à gravação') }}</a>{% endif %}
             {% if reuniao.link_gravacao %}<a href="{{ reuniao.link_gravacao }}" target="_blank" rel="noopener noreferrer" class="btn btn-outline-danger fw-bold rounded-pill px-3" id="linkGravacao"><i class="bi bi-camera-video"></i> {{ tt('Gravação') }}</a>{% endif %}
             <a href="{{ url_for('detalhe_reuniao', id=reuniao.id, imprimir=1) }}" target="_blank" rel="noopener noreferrer" class="btn btn-outline-secondary fw-bold rounded-pill px-3"><i class="bi bi-printer"></i> {{ t('reuniao_imprimir') }}</a>
             {% if pode_editar %}<a href="{{ url_for('editar_reuniao', id=reuniao.id) }}" class="btn btn-primary fw-bold rounded-pill px-3"><i class="bi bi-pencil"></i> {{ t('trilha_editar') }}</a>{% endif %}
@@ -49,7 +50,21 @@
         <div class="col-md-6">
             <div class="card shadow-sm border-0 h-100"><div class="card-body">
                 <h6 class="fw-bold text-primary">{{ t('reuniao_participantes_externos') }}</h6>
-                <p class="mb-0 small" style="white-space: pre-line;">{{ reuniao.participantes_externos or '—' }}</p>
+                <ul class="mb-0 small" id="listaConvidados">
+                    {% for c in reuniao.convidados if c.na_lista %}
+                    <li>{{ c.nome }}{% if c.instituicao %} <span class="text-muted">· {{ c.instituicao }}</span>{% endif %}
+                        {% if c.check_out %}<span class="badge bg-success">{{ c.total_minutos or 0 }} min</span>{% elif c.check_in %}<span class="badge bg-info text-dark">{{ tt('em andamento') }}</span>{% endif %}
+                        {% if c.nota %}<span class="text-warning">{{ '★' * c.nota }}</span>{% endif %}
+                        {% if pode_editar %}
+                        <div class="input-group input-group-sm mt-1 mb-2">
+                            <input class="form-control form-control-sm" type="text" readonly value="{{ link_convidado(c) }}" id="linkConvidado{{ c.id }}" aria-label="{{ tt('Link pessoal de presença') }} · {{ c.nome }}">
+                            <button class="btn btn-outline-secondary" type="button" data-copiar="linkConvidado{{ c.id }}" title="{{ tt('Copiar o link pessoal') }}"><i class="bi bi-clipboard"></i></button>
+                        </div>
+                        {% endif %}
+                    </li>
+                    {% else %}<li class="text-muted">—</li>{% endfor %}
+                </ul>
+                {% if pode_editar and reuniao.convidados %}<div class="form-text">{{ tt('Cada convidado externo recebe no convite o seu link pessoal para fazer check-in, check-out e avaliar a reunião sem login. Sem e-mail, copie o link e envie a ele.') }}</div>{% endif %}
             </div></div>
         </div>
         <div class="col-12">
@@ -139,18 +154,50 @@
                                             <button class="btn btn-sm btn-link text-danger p-0" type="submit" aria-label="{{ tt('Remover presença') }}"><i class="bi bi-trash"></i></button>
                                         </form></td>{% endif %}
                                 </tr>
-                                {% else %}
-                                <tr><td colspan="5" class="text-muted">{{ tt('Ninguém fez check-in ainda.') }}</td></tr>
                                 {% endfor %}
+                                {% for c in reuniao.convidados if c.check_in %}
+                                <tr class="linha-convidado">
+                                    <td>{{ c.nome }} <span class="badge bg-light text-dark border">{{ tt('convidado externo') }}{% if c.instituicao %} · {{ c.instituicao }}{% endif %}</span>
+                                        {% if c.modalidade %}<span class="text-muted">· {{ tt(c.modalidade) }}</span>{% endif %}
+                                        {% if c.registro_manual %}<span class="badge bg-secondary">{{ tt('lançada pela gestão') }}</span>{% endif %}
+                                        {% if c.checkout_automatico %}<span class="badge bg-warning text-dark">{{ tt('check-out automático') }}</span>{% endif %}</td>
+                                    <td>{{ c.check_in.strftime('%H:%M') }}</td>
+                                    <td>{{ c.check_out.strftime('%H:%M') if c.check_out else tt('em andamento') }}</td>
+                                    <td class="text-end">{{ c.total_minutos or 0 }}</td>
+                                    {% if pode_editar %}<td class="text-end">
+                                        <form method="POST" action="{{ url_for('presenca_reuniao', id=reuniao.id) }}" class="m-0">
+                                            <input type="hidden" name="acao" value="remover"><input type="hidden" name="convidado_id" value="{{ c.id }}">
+                                            <button class="btn btn-sm btn-link text-danger p-0" type="submit" aria-label="{{ tt('Remover presença') }}"><i class="bi bi-trash"></i></button>
+                                        </form></td>{% endif %}
+                                </tr>
+                                {% endfor %}
+                                {% if not reuniao.presencas and not (reuniao.convidados | selectattr('check_in') | list) %}
+                                <tr><td colspan="5" class="text-muted">{{ tt('Ninguém fez check-in ainda.') }}</td></tr>
+                                {% endif %}
                             </tbody>
                         </table>
                     </div>
-                    {% if pode_editar and reuniao.participantes %}
+                    {% if tempo_lados %}
+                    <div class="mt-3" id="tempoInvestido">
+                        <div class="fw-bold text-primary mb-1"><i class="bi bi-hourglass-split"></i> {{ tt('Tempo investido por instituição') }}</div>
+                        <div class="d-flex flex-wrap gap-2">
+                            {% for lado in tempo_lados %}
+                            <span class="badge rounded-pill bg-light text-dark border px-3 py-2">{{ lado.instituicao }}: <b>{{ lado.minutos // 60 }} h {{ '%02d' | format(lado.minutos % 60) }} min</b> · {{ lado.pessoas }} {{ tt('pessoa(s)') }}</span>
+                            {% endfor %}
+                            <span class="badge rounded-pill bg-primary px-3 py-2">{{ tt('Total') }}: {{ tempo_total // 60 }} h {{ '%02d' | format(tempo_total % 60) }} min</span>
+                        </div>
+                    </div>
+                    {% endif %}
+                    {% set convidados_lista = reuniao.convidados | selectattr('na_lista') | list %}
+                    {% if pode_editar and (reuniao.participantes or convidados_lista) %}
                     <form method="POST" action="{{ url_for('presenca_reuniao', id=reuniao.id) }}" class="row g-2 align-items-end mt-2" id="formPresencaManual">
                         <input type="hidden" name="acao" value="manual">
                         <div class="col-md-4"><label class="form-label small fw-bold mb-0" for="pmUsuario">{{ tt('Lançar presença de quem esqueceu') }}</label>
-                            <select class="form-select form-select-sm" id="pmUsuario" name="usuario_id">
-                                {% for p in reuniao.participantes %}<option value="{{ p.id }}">{{ p.nome }}</option>{% endfor %}
+                            <select class="form-select form-select-sm" id="pmUsuario" name="pessoa">
+                                {% if reuniao.participantes %}<optgroup label="{{ t('reuniao_participantes_internos') }}">
+                                {% for p in reuniao.participantes %}<option value="u{{ p.id }}">{{ p.nome }}</option>{% endfor %}</optgroup>{% endif %}
+                                {% if convidados_lista %}<optgroup label="{{ t('reuniao_participantes_externos') }}">
+                                {% for c in convidados_lista %}<option value="c{{ c.id }}">{{ c.nome }}{% if c.instituicao %} · {{ c.instituicao }}{% endif %}</option>{% endfor %}</optgroup>{% endif %}
                             </select></div>
                         <div class="col-md-2"><label class="form-label small fw-bold mb-0" for="pmEntrada">{{ tt('Entrada') }}</label>
                             <input type="time" class="form-control form-control-sm" id="pmEntrada" name="entrada" value="{{ reuniao.data_hora.strftime('%H:%M') }}" required></div>
@@ -170,7 +217,7 @@
             <div class="card shadow-sm border-0" id="cardFeedback">
                 <div class="card-header bg-white d-flex justify-content-between align-items-center">
                     <span class="fw-bold text-primary"><i class="bi bi-star-half"></i> {{ tt('Avaliação da reunião') }}</span>
-                    {% if media_feedback is not none %}<span class="badge bg-primary" id="mediaFeedback">{{ tt('Média') }} {{ media_feedback }} / 5 · {{ reuniao.feedbacks | length }}</span>{% endif %}
+                    {% if media_feedback is not none %}<span class="badge bg-primary" id="mediaFeedback">{{ tt('Média') }} {{ media_feedback }} / 5 · {{ total_avaliacoes }}</span>{% endif %}
                 </div>
                 <div class="card-body small">
                     {% if participante %}
@@ -193,9 +240,15 @@
                         {% for f in reuniao.feedbacks %}
                         <li class="list-group-item px-0"><b>{{ f.usuario.nome }}</b> <span class="text-warning">{{ '★' * f.nota }}</span><span class="text-muted">{{ '☆' * (5 - f.nota) }}</span>
                             {% if f.comentario %}<div style="white-space: pre-line;">{{ f.comentario }}</div>{% endif %}</li>
-                        {% else %}
-                        <li class="list-group-item px-0 text-muted">{{ tt('Nenhuma avaliação ainda.') }}</li>
                         {% endfor %}
+                        {% for c in reuniao.convidados if c.nota %}
+                        <li class="list-group-item px-0"><b>{{ c.nome }}</b> <span class="badge bg-light text-dark border">{{ tt('convidado externo') }}{% if c.instituicao %} · {{ c.instituicao }}{% endif %}</span>
+                            <span class="text-warning">{{ '★' * c.nota }}</span><span class="text-muted">{{ '☆' * (5 - c.nota) }}</span>
+                            {% if c.comentario %}<div style="white-space: pre-line;">{{ c.comentario }}</div>{% endif %}</li>
+                        {% endfor %}
+                        {% if not total_avaliacoes %}
+                        <li class="list-group-item px-0 text-muted">{{ tt('Nenhuma avaliação ainda.') }}</li>
+                        {% endif %}
                     </ul>
                     {% elif meu_feedback %}
                     <p class="text-muted mb-0">{{ tt('Sua avaliação foi registrada. A gestão vê as avaliações de todos.') }}</p>
@@ -203,6 +256,40 @@
                 </div>
             </div>
         </div>
+
+        {% if pode_editar or reuniao.gravacao_arquivo %}
+        <!-- Gravação: arquivo enviado à plataforma (além do link do Teams/Drive) -->
+        <div class="col-12">
+            <div class="card shadow-sm border-0" id="cardGravacao">
+                <div class="card-header bg-white fw-bold text-primary"><i class="bi bi-camera-video"></i> {{ tt('Gravação da reunião') }}</div>
+                <div class="card-body small">
+                    {% if reuniao.gravacao_arquivo %}
+                    <video controls preload="metadata" class="w-100 rounded border mb-2" style="max-height: 360px;" src="{{ url_for('gravacao_reuniao', id=reuniao.id) }}"></video>
+                    <div class="d-flex flex-wrap gap-2 align-items-center">
+                        <a class="btn btn-sm btn-outline-danger rounded-pill" href="{{ url_for('gravacao_reuniao', id=reuniao.id) }}" target="_blank" rel="noopener" id="baixarGravacao"><i class="bi bi-download"></i> {{ reuniao.gravacao_nome }}</a>
+                        <span class="text-muted">{{ '%.1f' | format((reuniao.gravacao_tamanho or 0) / 1048576) }} MB · {{ reuniao.gravacao_enviada_em.strftime('%d/%m/%Y %H:%M') if reuniao.gravacao_enviada_em else '' }}</span>
+                        {% if pode_editar %}
+                        <form method="POST" action="{{ url_for('gravacao_reuniao', id=reuniao.id) }}" class="m-0" onsubmit="return confirm('{{ tt('Excluir o arquivo da gravação?') }}');">
+                            <input type="hidden" name="acao" value="excluir">
+                            <button class="btn btn-sm btn-link text-danger" type="submit"><i class="bi bi-trash"></i> {{ tt('Excluir arquivo') }}</button>
+                        </form>
+                        {% endif %}
+                    </div>
+                    {% elif not reuniao.link_gravacao %}
+                    <p class="text-muted mb-2">{{ tt('Nenhuma gravação enviada ainda.') }}</p>
+                    {% endif %}
+                    {% if pode_editar %}
+                    <form method="POST" action="{{ url_for('gravacao_reuniao', id=reuniao.id) }}" enctype="multipart/form-data" class="row g-2 align-items-end mt-1" id="formGravacao">
+                        <div class="col-md-8"><label class="form-label small fw-bold mb-0" for="arquivoGravacaoInput">{{ tt('Substituir o arquivo') if reuniao.gravacao_arquivo else tt('Enviar o arquivo da gravação') }}</label>
+                            <input class="form-control form-control-sm" type="file" id="arquivoGravacaoInput" name="arquivo" accept="{% for e in extensoes_gravacao %}.{{ e }}{% if not loop.last %},{% endif %}{% endfor %}" required></div>
+                        <div class="col-md-4"><button class="btn btn-primary btn-sm fw-bold w-100" type="submit"><i class="bi bi-upload"></i> {{ tt('Enviar') }}</button></div>
+                        <div class="col-12 form-text">{{ tt('Vídeo ou áudio de até {mb} MB. Os participantes e os convidados externos assistem pela plataforma.').replace('{mb}', gravacao_limite_mb|string) }}</div>
+                    </form>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        {% endif %}
 
         {% if reuniao.alteracoes %}
         <!-- Histórico de remarcações e mudanças de modalidade/local -->
@@ -296,4 +383,15 @@
         {% endif %}
     </div>
 </div>
+<script>
+document.querySelectorAll('[data-copiar]').forEach(function (botao) {
+    botao.addEventListener('click', function () {
+        var campo = document.getElementById(botao.dataset.copiar);
+        campo.select();
+        (navigator.clipboard ? navigator.clipboard.writeText(campo.value) : Promise.reject()).catch(function () { document.execCommand('copy'); });
+        botao.innerHTML = '<i class="bi bi-check2"></i>';
+        setTimeout(function () { botao.innerHTML = '<i class="bi bi-clipboard"></i>'; }, 1500);
+    });
+});
+</script>
 {% endblock %}

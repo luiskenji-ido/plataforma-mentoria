@@ -33,7 +33,7 @@ RAIZ = os.path.dirname(PASTA)
 sys.path.insert(0, PASTA)
 import coletor          # noqa: E402
 import ia_correcao      # noqa: E402
-import ambiente         # noqa: E402
+import ambiente_orquestrador as ambiente  # noqa: E402  (nome próprio: o ambiente.py da raiz é outro módulo)
 
 PASTA_AO_VIVO = os.path.join(RAIZ, 'Agent Reports', 'Agentes IA', '.ao_vivo_orquestrador')
 PASTA_DADOS = os.path.join(RAIZ, 'instance', 'orquestrador')

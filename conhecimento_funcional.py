@@ -45,7 +45,10 @@ DOC_POR_CATEGORIA = {
 
 
 # ------------------------------------------------------------------------------ retrato das regras de negócio
-FERRAMENTA = re.compile(r"^((iniciar|parar|aprender|estado|quadro|manutencao)_)?agentes_|^governanca_|^arquivo_agentes")
+# Ferramentas dos próprios agentes: telas dos agentes, governança, credenciais dos agentes e o Orquestrador (que altera o
+# código e só roda com aprovação do Administrador: nunca é exercitado pelos testes de fim a fim)
+FERRAMENTA = re.compile(r"^((iniciar|parar|aprender|estado|quadro|manutencao)_)?agentes_|^governanca_|^arquivo_agentes"
+                        r"|_orquestrador$|^credenciais_agentes|^ignorar_correcao$")
 
 
 def eh_ferramenta(endpoint):

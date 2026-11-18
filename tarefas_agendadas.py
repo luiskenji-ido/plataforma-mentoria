@@ -235,6 +235,13 @@ def fechar_presenca_reuniao_esquecida(agora):
             fechadas += 1
     for reuniao in reunioes:
         sincronizar_voluntariado_reuniao(reuniao)
+    # Convidados externos (link pessoal, sem conta): mesma regra, sem horas ESG
+    from models import ConvidadoReuniao
+    for convidado in ConvidadoReuniao.query.filter(ConvidadoReuniao.check_in.isnot(None), ConvidadoReuniao.check_out.is_(None)).all():
+        reuniao = convidado.reuniao
+        if reuniao and local >= reuniao.fim_previsto + timedelta(hours=CHECKOUT_REUNIAO_AUTOMATICO_H):
+            fechar_presenca_reuniao(convidado, reuniao.fim_previsto, automatico=True)
+            fechadas += 1
     db.session.commit()
     return fechadas
 

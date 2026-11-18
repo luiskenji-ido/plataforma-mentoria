@@ -44,7 +44,7 @@ MODULOS = {
     'trilha_gestao': ('Gestão da trilha do TCC', 'bi-mortarboard', ['gestao_trilha_tcc'], False),
     'reunioes': ('Reuniões {apelido} × B2B', 'bi-journal-text', ['reunioes', 'editar_reuniao', 'detalhe_reuniao', 'agenda_reuniao_ics',
                                                          'enviar_convite', 'conectar_gmail', 'desconectar_gmail',
-                                                         'presenca_reuniao', 'feedback_reuniao'], False),
+                                                         'presenca_reuniao', 'feedback_reuniao', 'gravacao_reuniao'], False),
     'agenda_bancas': ('Agenda de bancas e avaliadores', 'bi-calendar-event', ['agenda_bancas', 'avaliadores_banca', 'curriculo_avaliador'], False),
     'indicadores': ('Indicadores de voluntariado', 'bi-bar-chart-line', ['indicadores_voluntariado', 'indicadores_voluntariado_csv'], False),
     'perfis_acesso': ('Perfis de acesso', 'bi-person-gear', ['perfis_acesso_view'], False),

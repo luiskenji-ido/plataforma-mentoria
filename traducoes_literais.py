@@ -2079,6 +2079,76 @@ LITERAIS.update({
         "What works on each hosting type; the highlighted column is this installation's.", 'Lo que funciona en cada tipo de alojamiento; la columna destacada es la de esta instalación.'),
 })
 
+# Validações encontradas pelos agentes de fim a fim (check-in, tarefas, notas, demandas, mentoria e frequência)
+LITERAIS.update({
+    'Check-in recusado: você não está matriculado neste curso.': ('Check-in refused: you are not enrolled in this course.', 'Check-in rechazado: no está matriculado en este curso.'),
+    'O progresso da tarefa deve ficar entre 0 e 100%.': ('Task progress must be between 0 and 100%.', 'El progreso de la tarea debe estar entre 0 y 100%.'),
+    'As notas do projeto devem ficar entre 0 e 10.': ('Project grades must be between 0 and 10.', 'Las notas del proyecto deben estar entre 0 y 10.'),
+    'Informe o título e a descrição do chamado.': ('Enter the ticket title and description.', 'Indique el título y la descripción del ticket.'),
+    'Informe seu nome e um e-mail válido para pedir a mentoria.': ('Enter your name and a valid e-mail to request mentoring.', 'Indique su nombre y un correo válido para solicitar la mentoría.'),
+    'Situação de frequência inválida.': ('Invalid attendance status.', 'Situación de asistencia inválida.'),
+    'Acesso negado: você só valida a frequência dos jovens que acompanha.': ('Access denied: you can only validate the attendance of the students you follow.', 'Acceso denegado: solo valida la asistencia de los jóvenes que acompaña.'),
+})
+
+# Reuniões: convidados externos com link pessoal, tempo por instituição e arquivo da gravação; avaliação de todos
+LITERAIS.update({
+    'Convidados externos': ('External guests', 'Invitados externos'),
+    'convidado externo': ('external guest', 'invitado externo'),
+    'Arquivo da gravação excluído.': ('Recording file deleted.', 'Archivo de la grabación eliminado.'),
+    'Escolha o arquivo da gravação.': ('Choose the recording file.', 'Elija el archivo de la grabación.'),
+    'Formato não aceito. Envie vídeo (MP4, MOV, WEBM, MKV) ou áudio (MP3, M4A, WAV, OGG).': (
+        'Format not accepted. Upload video (MP4, MOV, WEBM, MKV) or audio (MP3, M4A, WAV, OGG).',
+        'Formato no aceptado. Envíe video (MP4, MOV, WEBM, MKV) o audio (MP3, M4A, WAV, OGG).'),
+    'O arquivo passa do limite de {mb} MB.': ('The file exceeds the {mb} MB limit.', 'El archivo supera el límite de {mb} MB.'),
+    'O arquivo está vazio.': ('The file is empty.', 'El archivo está vacío.'),
+    'Gravação enviada: os participantes já podem assistir.': ('Recording uploaded: participants can now watch it.', 'Grabación enviada: los participantes ya pueden verla.'),
+    'Copie o link pessoal de cada convidado externo no quadro Presença e envie a ele.': (
+        'Copy each external guest\'s personal link in the Attendance panel and send it to them.',
+        'Copie el enlace personal de cada invitado externo en el cuadro Asistencia y envíeselo.'),
+    '{qtd} convidado(s) externo(s) receberam o link pessoal de presença.': (
+        '{qtd} external guest(s) received the personal attendance link.', '{qtd} invitado(s) externo(s) recibieron el enlace personal de asistencia.'),
+    'Escolha um participante da reunião.': ('Choose a meeting participant.', 'Elija un participante de la reunión.'),
+    'Link de presença': ('Attendance link', 'Enlace de asistencia'),
+    'Link de presença inválido': ('Invalid attendance link', 'Enlace de asistencia inválido'),
+    'Este link não existe ou foi desativado pela organização da reunião. Peça um novo link a quem enviou o convite.': (
+        'This link does not exist or was disabled by the meeting organizers. Ask whoever sent the invitation for a new link.',
+        'Este enlace no existe o fue desactivado por la organización de la reunión. Pida un nuevo enlace a quien envió la invitación.'),
+    'Entrar na sala on-line': ('Join the online room', 'Entrar a la sala en línea'),
+    'Convidado(a)': ('Guest', 'Invitado(a)'),
+    'Salvar na minha agenda (.ics)': ('Save to my calendar (.ics)', 'Guardar en mi agenda (.ics)'),
+    'Pauta': ('Agenda', 'Pauta'),
+    'Sua presença': ('Your attendance', 'Su asistencia'),
+    'minutos': ('minutes', 'minutos'),
+    'Assistir à gravação': ('Watch the recording', 'Ver la grabación'),
+    'Abrir o link da gravação': ('Open the recording link', 'Abrir el enlace de la grabación'),
+    'Este link é pessoal: não repasse. Ele vale só para esta reunião.': (
+        'This link is personal: do not share it. It only works for this meeting.',
+        'Este enlace es personal: no lo comparta. Solo vale para esta reunión.'),
+    'Link pessoal de presença': ('Personal attendance link', 'Enlace personal de asistencia'),
+    'Copiar o link pessoal': ('Copy the personal link', 'Copiar el enlace personal'),
+    'Cada convidado externo recebe no convite o seu link pessoal para fazer check-in, check-out e avaliar a reunião sem login. Sem e-mail, copie o link e envie a ele.': (
+        'Each external guest receives a personal link in the invitation to check in, check out and rate the meeting without logging in. '
+        'If they have no e-mail, copy the link and send it to them.',
+        'Cada invitado externo recibe en la invitación su enlace personal para hacer check-in, check-out y evaluar la reunión sin iniciar sesión. '
+        'Si no tiene correo, copie el enlace y envíeselo.'),
+    'Cada pessoa da lista recebe um link pessoal para fazer check-in, check-out e avaliar a reunião sem precisar de conta na plataforma.': (
+        'Each person on the list receives a personal link to check in, check out and rate the meeting without an account on the platform.',
+        'Cada persona de la lista recibe un enlace personal para hacer check-in, check-out y evaluar la reunión sin cuenta en la plataforma.'),
+    'Tempo investido por instituição': ('Time invested per organization', 'Tiempo invertido por institución'),
+    'pessoa(s)': ('person(s)', 'persona(s)'),
+    'Total': ('Total', 'Total'),
+    'Gravação da reunião': ('Meeting recording', 'Grabación de la reunión'),
+    'Excluir o arquivo da gravação?': ('Delete the recording file?', '¿Eliminar el archivo de la grabación?'),
+    'Excluir arquivo': ('Delete file', 'Eliminar archivo'),
+    'Nenhuma gravação enviada ainda.': ('No recording uploaded yet.', 'Todavía no se envió ninguna grabación.'),
+    'Substituir o arquivo': ('Replace the file', 'Reemplazar el archivo'),
+    'Enviar o arquivo da gravação': ('Upload the recording file', 'Enviar el archivo de la grabación'),
+    'Vídeo ou áudio de até {mb} MB. Os participantes e os convidados externos assistem pela plataforma.': (
+        'Video or audio up to {mb} MB. Participants and external guests watch it on the platform.',
+        'Video o audio de hasta {mb} MB. Los participantes y los invitados externos la ven en la plataforma.'),
+    'Gestor {apelido}': ('{apelido} manager', 'Gestor {apelido}'),
+})
+
 _POR_IDIOMA = {'en': {pt: v[0] for pt, v in LITERAIS.items()}, 'es': {pt: v[1] for pt, v in LITERAIS.items()}}
 
 

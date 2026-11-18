@@ -11,6 +11,7 @@ import json
 from datetime import datetime, timedelta, date
 
 from base import (AgenteFuncional, FALHA, ALERTA, MARCA, DOMINIO, senha_forte, mensagens, RAIZ_PROJETO, regra_da_plataforma)
+from etapas_cobertura import EtapasCobertura
 
 # PNG de 1×1 pixel (logo do parceiro B2B)
 PNG_MINIMO = __import__("base64").b64decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==")
@@ -46,7 +47,7 @@ def senha_de_teste():
     return dotenv_values(os.path.join(RAIZ_PROJETO, ".env")).get("OMNITEST_SENHA") or ""
 
 
-class AgenteDoFluxo(AgenteFuncional):
+class AgenteDoFluxo(EtapasCobertura, AgenteFuncional):
     """Utilidades comuns aos agentes da cadeia."""
 
     def __init__(self):
@@ -127,6 +128,7 @@ class AgenteDoFluxo(AgenteFuncional):
         self.confere(enviado is None, f"{self.perfil} não envia convite de reunião", "PER", "Envio de convite recusado.",
                      f"O perfil {self.perfil} conseguiu disparar o convite.", "Só a gestão envia convites", "Alta")
         self.presenca_na_reuniao(reuniao_id, participante)
+        self.gravacao_para_o_perfil(reuniao_id, participante)
 
     def avaliar(self, alvo_tipo, avaliado_id, notas, comentario=""):
         """Responde uma avaliação do ciclo 360° aberto pela gestão no fluxo (notas de 1 a 5 por critério)."""
@@ -188,7 +190,11 @@ class AgenteAdministrador(AgenteDoFluxo):
                "Validações do cadastro de usuários: e-mail inválido, duplicado e senha fraca",
                "Assistente da Plataforma: base dos gerentes, documento PRD com versões, perguntas com fontes (sem consumir a IA)",
                "Provedores de IA: liga/desliga do Assistente, ordem de modelos validada e gasto do mês",
-               "Cria o Mentor Administrador e passa a vez para ele"]
+               "Identidade da instituição: nome, apelido, plataforma e logo",
+               "Perfis de acesso, manutenção do banco e backups padrão: cadastros e ações perigosas protegidos",
+               "Notificações, preferência de e-mail, gráficos do painel e tour (preferências devolvidas ao valor de antes)",
+               "Pedido público de mentoria pela tela de login",
+               "Cria o Mentor Administrador, edita o cadastro dele e passa a vez"]
 
     def rodar(self):
         # A cobertura da execução anterior vira referência; a desta execução recomeça vazia
@@ -220,9 +226,11 @@ class AgenteAdministrador(AgenteDoFluxo):
         self.assistente_da_plataforma()
         self.provedores_de_ia()
         self.identidade_da_instituicao()
+        self.cobertura_administrador()
 
         self.etapa("Cria o Mentor Administrador")
         self.criar_usuario("mentoradmin", "Mentor Administrador", "Mentor Administrador")
+        self.edicao_de_usuario("mentoradmin")
         self.reportar_cobertura()
 
     def assistente_da_plataforma(self):
@@ -431,7 +439,11 @@ class AgenteMentorAdministrador(AgenteDoFluxo):
                "Cria Gestor Parceiro, Mentor, Professor, 2 Alunos e o Avaliador da banca",
                "Cria a empresa parceira (gestor e mentor), o grupo e a turma (matrícula automática)",
                "Matricula outro aluno, cria o projeto, a tarefa e agenda a banca com o avaliador",
-               'Reunião instituição × B2B: ata, arquivo .ics, Salvar na agenda e convite que nunca vai para contas de teste']
+               'Reunião instituição × B2B: ata, encaminhamento, arquivo .ics, Salvar na agenda e convite que nunca vai para contas de teste',
+               "Edita curso e grupo, exclui grupo e projeto, cria módulo da trilha e importa TCC histórico",
+               "Regra: Mentor Administrador não altera contas de Administrador",
+               "Convidado externo (sem conta): check-in, check-out e avaliação pelo link pessoal; tempo por instituição",
+               "Envia o arquivo da gravação da reunião (só vídeo ou áudio)", "Avaliação 360°: a gestão avalia o jovem"]
 
     def rodar(self):
         m = _modelos()
@@ -599,6 +611,8 @@ class AgenteMentorAdministrador(AgenteDoFluxo):
                          f"{duplicadas} bancas para o mesmo projeto.", "Uma banca por projeto", "Média")
         self.reuniao_e_convite()
         self.abrir_ciclo_360()
+        self.avaliacao_da_gestao()
+        self.cobertura_mentor_administrador()
         self.reportar_cobertura()
 
     def abrir_ciclo_360(self):
@@ -696,7 +710,10 @@ class AgenteMentorAdministrador(AgenteDoFluxo):
                         "duracao_minutos": "45", "modalidade": "Online", "local_ou_link": "https://meet.google.com/funcional-teste",
                         "pauta": "Cronograma, bancas; certificados", "participantes": [x["id"] for x in (mentor, gestor, professor) if x],
                         "participantes_externos": "Parceiro Externo – Empresa Teste – parceiro@empresa-funcional.test",
-                        "enviar_convite": "1", "convite_via": "smtp"}
+                        "enviar_convite": "1", "convite_via": "smtp",
+                        # Encaminhamento com responsável e prazo: o Mentor conclui e a gestão reabre mais adiante
+                        "enc_descricao": [f"{MARCA} Enviar o cronograma ao parceiro"], "enc_responsavel": [mentor["id"] if mentor else ""],
+                        "enc_prazo": [(date.today() + timedelta(days=7)).isoformat()]}
         self.post("/reunioes/nova", base_reuniao)
         reuniao = self.banco(lambda: m.ReuniaoInstitucional.query.filter_by(titulo=titulo).first())
         participantes = self.banco(lambda: sorted(p.id for p in m.ReuniaoInstitucional.query.get(reuniao.id).participantes)) if reuniao else []
@@ -712,6 +729,8 @@ class AgenteMentorAdministrador(AgenteDoFluxo):
                      "Com parceiro escolhido, só entram o gestor B2B, os mentores e os avaliadores da empresa", "Alta",
                      "Em salvar_reuniao_do_formulario, filtrar os participantes por ids_do_parceiro(empresa).")
         self.contexto["ids"]["reuniao"] = reuniao.id
+        enc = self.banco(lambda: m.EncaminhamentoReuniao.query.filter_by(reuniao_id=reuniao.id).first())
+        self.contexto["ids"]["encaminhamento"] = enc.id if enc else None
         self.confere(reuniao.convite_enviado_em is None, "Convite não vai para contas de teste", "REG",
                      "Nenhum convite enviado: todos os convidados são contas de teste ou domínios .test.",
                      f"Convite registrado como enviado ({reuniao.convite_enviado_via}) para: {reuniao.convite_destinatarios}.",
@@ -757,6 +776,8 @@ class AgenteMentorAdministrador(AgenteDoFluxo):
                      "Sessão sem Gmail; o painel de convite continua disponível.", "Painel ainda mostra um Gmail conectado.",
                      "Coordenação desconecta o Gmail quando quiser", "Baixa")
         self.remarcar_reuniao(reuniao, base_reuniao)
+        externo = self.convidados_externos(reuniao.id)
+        self.gravacao_da_reuniao(reuniao.id, *(externo or (None, None)))
 
 
 # ==============================================================================
@@ -766,7 +787,8 @@ class AgenteGestorParceiro(AgenteDoFluxo):
     chave, nome, perfil = "gestor_parceiro", "Agente Gestor Parceiro (Funcional)", "Admin B2B"
     ROTEIRO = ["Primeiro acesso: perguntas e termo", "Matriz de acesso do perfil",
                "Regra: só vê a turma e a banca da sua empresa", "Regra: avaliador só da própria empresa", "Relatório ESG da empresa",
-               "Envia o logo da empresa para o certificado (só PNG/JPG/WEBP de verdade)"]
+               "Envia o logo da empresa para o certificado (só PNG/JPG/WEBP de verdade)",
+               "Avaliação 360°: avalia mentor, jovem, gestor da instituição, gestão e programa"]
 
     def rodar(self):
         m = _modelos()
@@ -811,6 +833,12 @@ class AgenteGestorParceiro(AgenteDoFluxo):
             self.avaliar("Gestão {apelido}", None, [4, 4, 5]) and self.avaliar("Programa", None, [5, 4, 4])
         self.confere(ok, "Gestor B2B avalia mentor, gestão da instituição e programa", "FLX", "Três avaliações gravadas.", "Alguma avaliação não foi gravada.",
                      "Gestores B2B avaliam mentores e o programa", "Alta", print_de="/avaliacoes")
+        aluno1 = self.usuario("aluno1")
+        jovem = bool(aluno1) and self.avaliar("Jovem", aluno1["id"], [4, 3, 4, 4], f"{MARCA} Chega atrasado às palestras")
+        gestor_inst = self.avaliacao_do_gestor_da_instituicao([4, 5, 4, 4], f"{MARCA} Retorno rápido")
+        self.confere(jovem and gestor_inst, "Gestor B2B avalia o jovem e o gestor do projeto na instituição", "FLX",
+                     "Avaliação do jovem da empresa e do gestor da instituição gravadas.", f"Jovem: {jovem}; gestor da instituição: {gestor_inst}.",
+                     "Avaliação de todos: jovem, mentor e gestores da instituição e do B2B", "Alta", print_de="/avaliacoes")
         professor = self.usuario("professor")
         if professor:
             indevida = self.avaliar("Mentor", professor["id"], [1, 1, 1, 1])
@@ -847,7 +875,8 @@ class AgenteProfessor(AgenteDoFluxo):
     chave, nome, perfil = "professor", "Agente Professor (Funcional)", "Professor"
     ROTEIRO = ["Primeiro acesso: perguntas, termo e trilha do TCC", "Matriz de acesso do perfil",
                "Lança as notas da turma no diário de classe", "Regra: notas de 0 a 10", "Regra: Professor não cria grupos",
-               'Regra: quem não participou não vê a reunião nem envia convite']
+               'Regra: quem não participou não vê a reunião nem envia convite',
+               "Regra: fora do grupo não altera nem exclui tarefas; fora da reunião não conclui encaminhamentos"]
 
     def rodar(self):
         m = _modelos()
@@ -898,6 +927,7 @@ class AgenteProfessor(AgenteDoFluxo):
         self.confere(indevido is None, "Professor não cria grupos", "PER", "Criação de grupo recusada.", "O Professor criou um grupo.",
                      "Só a gestão cria grupos", "Alta")
         self.regra_reuniao(participante=False)
+        self.cobertura_professor()
         self.reportar_cobertura()
 
 
@@ -910,7 +940,10 @@ class AgenteMentor(AgenteDoFluxo):
                "Agenda uma sessão de mentoria com o aluno (notificação)", "Registra o parecer no acompanhamento",
                "Lança horas de voluntariado do TCC (ESG)", "Regra: lançamento no futuro é recusado",
                'Regra: participante salva a reunião na agenda, mas não envia convite',
-               "Registra ocorrência com responsável e prazo do retorno", "Pede a desistência de um jovem (a gestão confirma)"]
+               "Registra ocorrência com responsável e prazo do retorno", "Pede a desistência de um jovem (a gestão confirma)",
+               "Atualiza e exclui tarefas, avalia o projeto (notas de 0 a 10)",
+               "Atividade extra (check-in, check-out, encerrar, cancelar) e relógio de voluntariado",
+               "Conclui o encaminhamento da reunião do qual é responsável"]
 
     def rodar(self):
         m = _modelos()
@@ -969,6 +1002,7 @@ class AgenteMentor(AgenteDoFluxo):
         self.ocorrencia_e_desistencia()
         self.avaliacao_do_mentor()
         self.ata_do_encontro()
+        self.cobertura_mentor()
         self.reportar_cobertura()
 
     def ata_do_encontro(self):
@@ -1066,7 +1100,10 @@ class AgenteAluno(AgenteDoFluxo):
     ROTEIRO = ["Primeiro acesso: perguntas de segurança (o aluno não assina o termo corporativo)", "Matriz de acesso do perfil",
                "Registra a frequência (uma por dia)", "Anotação no acompanhamento e retorno da sessão",
                "Entrega o TCC escrito e os slides (regras de formato)", "Regras: não cria projeto, não agenda sessão, não entra na sala da banca",
-               "Regra: não cria tarefa em projeto de outro grupo"]
+               "Regra: não cria tarefa em projeto de outro grupo",
+               "Check-in de aula, chat de estudos (sem IA), agenda não conectada e redirecionamento seguro",
+               "Abre e comenta uma demanda (não responde oficialmente); atividade encerrada não aceita check-in",
+               "Recupera a senha pelas perguntas de segurança (2 de 3)"]
 
     def rodar(self):
         m = _modelos()
@@ -1116,6 +1153,10 @@ class AgenteAluno(AgenteDoFluxo):
             ok = self.avaliar("Mentor", mentor["id"], [2, 3, 4, 4], f"{MARCA} Demora a responder no chat") and self.avaliar("Programa", None, [5, 5, 4])
             self.confere(ok, "Jovem avalia o mentor e o programa", "FLX", "Avaliações gravadas.", "Avaliação não gravada.",
                          "Jovem avalia o mentor", "Alta", print_de="/avaliacoes")
+            gestor_inst = self.avaliacao_do_gestor_da_instituicao([5, 4, 5, 4], f"{MARCA} Sempre disponível")
+            self.confere(gestor_inst, "Jovem avalia o gestor do projeto na instituição", "FLX", "Avaliação individual do gestor gravada.",
+                         "Avaliação do gestor da instituição não gravada.", "Avaliação de todos: o jovem avalia também cada gestor da instituição",
+                         "Alta")
             _, _, pagina = self.cliente.pedir("GET", "/avaliacoes")
             self.confere('id="resultados"' not in pagina and 'id="ciclos"' not in pagina and "Ruído de comunicação" not in pagina,
                          "Jovem não vê resultados, ciclos nem alertas", "PER", "Só as avaliações dele.",
@@ -1160,6 +1201,8 @@ class AgenteAluno(AgenteDoFluxo):
                          "Em nova_tarefa/atualizar_tarefa/deletar_tarefa, conferir se current_user é membro do grupo do projeto ou da gestão.")
         else:
             self.log("Não há projeto de outro grupo para testar")
+        self.cobertura_aluno()
+        self.recuperacao_de_senha("aluno1")
         self.reportar_cobertura()
 
 
@@ -1171,6 +1214,7 @@ class AgenteAvaliador(AgenteDoFluxo):
     PAGINA_SONDA = "/minhas-bancas"  # o avaliador é restrito às páginas da banca
     ROTEIRO = ["Primeiro acesso: troca de senha obrigatória, perguntas e termo", "Regra: o avaliador só vê as áreas da banca",
                "Vê a banca em 'Minhas bancas'", "Regra: nota abaixo de 7 exige justificativa",
+               "Relógio da banca, perguntas e cronômetro da apresentação",
                "Avalia as etapas escrita e oral; a banca fecha sozinha e calcula a nota (40/40/20)"]
 
     def rodar(self):
@@ -1186,6 +1230,8 @@ class AgenteAvaliador(AgenteDoFluxo):
         _, _, html = self.cliente.pedir("GET", "/minhas-bancas")
         self.confere(f"{MARCA} Projeto TCC" in html, "Vê a banca para a qual foi escalado", "FLX", "A banca aparece em 'Minhas bancas'.",
                      "A banca não aparece.", "Avaliador vê suas bancas", "Alta", print_de="/minhas-bancas")
+
+        self.cobertura_avaliador()
 
         self.etapa("Avaliação do TCC")
         if not projeto_id:
@@ -1218,7 +1264,9 @@ class AgenteEncerramento(AgenteDoFluxo):
                "Emite o certificado do aluno e confere a verificação pública", "Regra: certificado só para quem participou do projeto",
                "Confirma a desistência (jovem sai da turma e do mentor) e reativa", "Dá retorno e resolve a ocorrência",
                "Certificado com o logo do parceiro B2B; remove o logo", "Lança a presença de quem esqueceu o check-in da reunião",
-               "Mentor desistente: substituto assume os jovens; reativação"]
+               "Mentor desistente: substituto assume os jovens; reativação",
+               "Responde a demanda do aluno, abona a frequência e reabre o encaminhamento da reunião",
+               "Exclui o arquivo da gravação da reunião"]
 
     def rodar(self):
         m = _modelos()
@@ -1271,6 +1319,7 @@ class AgenteEncerramento(AgenteDoFluxo):
                      "Emitiu certificado para aluno fora do grupo.", "Certificado só para participantes do projeto", "Alta")
         self.logo_no_certificado(projeto_id, aluno1)
         self.mentor_desistente()
+        self.cobertura_encerramento()
         self.reportar_cobertura()
 
     def mentor_desistente(self):

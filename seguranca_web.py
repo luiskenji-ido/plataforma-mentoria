@@ -36,7 +36,7 @@ EM_PRODUCAO = bool(os.environ.get("PYTHONANYWHERE_DOMAIN") or os.environ.get("ME
 LIMITE_UPLOAD_MB = 50  # maior arquivo aceito (backups, entregas de TCC e currículos)
 
 # Limite de requisições POST por IP: endpoint -> (máximo, janela em segundos)
-LIMITES = {"login": (30, 60), "recuperar_senha": (15, 60), "chat_ia": (20, 60)}
+LIMITES = {"login": (30, 60), "recuperar_senha": (15, 60), "chat_ia": (20, 60), "convidado_reuniao": (30, 60)}
 
 # Origens externas que as páginas usam (bibliotecas de CDN, fontes e ícones)
 CDNS = "https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://unpkg.com"
@@ -257,6 +257,18 @@ def configurar_seguranca(app, traduzir=None):
         resposta.status_code = 429
         resposta.headers["Retry-After"] = str(espera)
         return resposta
+
+    @app.before_request
+    def _limite_de_upload_da_rota():
+        # Rotas com arquivo maior que o limite global (ex.: gravação da reunião): app.config["LIMITES_UPLOAD_ROTA"] =
+        # {endpoint: função que devolve o limite em MB}. Precisa vir antes do CSRF, que é quem lê o formulário primeiro.
+        limite = (app.config.get("LIMITES_UPLOAD_ROTA") or {}).get(request.endpoint)
+        if limite and request.method in METODOS_PROTEGIDOS:
+            try:
+                request.max_content_length = int(limite()) * 1024 * 1024
+            except Exception:
+                pass
+        return None
 
     @app.before_request
     def _verificar_csrf():
