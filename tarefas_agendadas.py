@@ -17,6 +17,7 @@ from notificacoes import notificar, eh_conta_de_teste
 
 # Relógio de voluntariado aberto há mais tempo que isto recebe o lembrete de check-out
 HORAS_RELOGIO_ESQUECIDO = 4
+AVISO_FIM_CICLO_DIAS = 2  # lembra as avaliações pendentes quando faltam estes dias para fechar o ciclo
 
 
 def lembrar_checkout_esquecido(agora):
@@ -192,7 +193,7 @@ def lembrar_avaliacao_pendente(agora):
     from app import ciclos_abertos, alvos_da_avaliacao, respostas_do_avaliador
     hoje, enviados = datetime.now().date(), 0
     for ciclo in ciclos_abertos():
-        if (ciclo.fim - hoje).days > 2:
+        if (ciclo.fim - hoje).days > AVISO_FIM_CICLO_DIAS:
             continue
         pendentes = []
         for pessoa in Usuario.query.filter(Usuario.status == 'Ativo').all():
@@ -235,6 +236,13 @@ def fechar_presenca_reuniao_esquecida(agora):
             fechadas += 1
     for reuniao in reunioes:
         sincronizar_voluntariado_reuniao(reuniao)
+    # Convidados externos (link pessoal, sem conta): mesma regra, sem horas ESG
+    from models import ConvidadoReuniao
+    for convidado in ConvidadoReuniao.query.filter(ConvidadoReuniao.check_in.isnot(None), ConvidadoReuniao.check_out.is_(None)).all():
+        reuniao = convidado.reuniao
+        if reuniao and local >= reuniao.fim_previsto + timedelta(hours=CHECKOUT_REUNIAO_AUTOMATICO_H):
+            fechar_presenca_reuniao(convidado, reuniao.fim_previsto, automatico=True)
+            fechadas += 1
     db.session.commit()
     return fechadas
 

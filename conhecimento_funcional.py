@@ -26,13 +26,18 @@ from models import db, AprendizadoAgente
 
 GERENTE_FUNCIONAL = 'Gerente de Funcionalidades'
 GRUPO = 'funcionalidades'
-ORDEM = ['administrador', 'mentor_administrador', 'gestor_parceiro', 'professor', 'mentor', 'aluno', 'avaliador', 'encerramento']
+ORDEM = ['dev', 'ux', 'administrador', 'mentor_administrador', 'gestor_parceiro', 'professor', 'mentor', 'aluno', 'avaliador', 'encerramento']
 AGENTES_FUNCIONAIS = [f"fn_{c}" for c in ORDEM]
 PERFIL_DO_AGENTE = {'administrador': 'Administrador', 'mentor_administrador': 'Mentor Administrador', 'gestor_parceiro': 'Admin B2B',
                     'professor': 'Professor', 'mentor': 'Mentor', 'aluno': 'Aluno', 'avaliador': 'Avaliador Banca',
                     'encerramento': 'Mentor Administrador'}
+# Módulos cujas regras nomeadas (constantes em MAIÚSCULAS) o Gerente aprende SOZINHO, sem lista fixa: regra nova
+# ou alterada vira aprendizado na próxima detecção. O Agente Dev aponta regra escrita direto no código.
+MODULOS_DE_REGRAS = ['app', 'conteudo_curso', 'tarefas_agendadas', 'seguranca_web', 'base_conhecimento', 'notificacoes']
+# Mínimo garantido (as regras históricas); as demais entram pela descoberta automática
 REGRAS_DO_APP = ['PERFIS_SEM_CADASTRO_PROJETO', 'PERFIS_CRIAM_ATIVIDADE_EXTRA', 'PERFIS_GESTAO_REUNIOES', 'PERFIS_GESTAO_BANCA',
-                 'PERFIS_ESCALAVEIS_BANCA', 'PERFIS_TRILHA_TCC', 'VERSAO_TERMO_ATUAL', 'TIPOS_ENTREGA_TCC', 'LIMITE_ENTREGA_MB']
+                 'PERFIS_ESCALAVEIS_BANCA', 'PERFIS_TRILHA_TCC', 'VERSAO_TERMO_ATUAL', 'TIPOS_ENTREGA_TCC', 'LIMITE_ENTREGA_MB',
+                 'PERFIS_DUVIDAS_ACOMPANHAMENTO', 'PERFIS_GESTAO_CURSOS']
 ACOES = re.compile(r"excluir|apagar|deletar|remover|logout|sair|executar|restaurar|limpar|desconectar|parar|iniciar|encerrar|aprovar|"
                    r"rejeitar|reabrir|cancelar|toggle|alternar|marcar|sincronizar|forcar|reset|exportar|baixar|arquivo|csv|json|pdf|quadro|"
                    r"google|oauth|autoriz|conectar|aprender|manutencao", re.I)
@@ -45,7 +50,10 @@ DOC_POR_CATEGORIA = {
 
 
 # ------------------------------------------------------------------------------ retrato das regras de negócio
-FERRAMENTA = re.compile(r"^((iniciar|parar|aprender|estado|quadro|manutencao)_)?agentes_|^governanca_|^arquivo_agentes")
+# Ferramentas dos próprios agentes: telas dos agentes, governança, credenciais dos agentes e o Orquestrador (que altera o
+# código e só roda com aprovação do Administrador: nunca é exercitado pelos testes de fim a fim)
+FERRAMENTA = re.compile(r"^((iniciar|parar|aprender|estado|quadro|manutencao)_)?agentes_|^governanca_|^arquivo_agentes"
+                        r"|_orquestrador$|^credenciais_agentes|^ignorar_correcao$")
 
 
 def eh_ferramenta(endpoint):
@@ -61,6 +69,67 @@ def _valor_json(valor):
     return valor
 
 
+def regras_nomeadas_da_plataforma():
+    """{nome: valor} de todas as regras nomeadas da plataforma (app.py sem prefixo; outros módulos como 'modulo.NOME')."""
+    import importlib
+    import sys
+    import os as _os
+    pasta = _os.path.join(_os.path.dirname(_os.path.abspath(__file__)), 'agentes_funcionalidades')
+    if pasta not in sys.path:
+        sys.path.insert(0, pasta)
+    from varredura_regras import regras_nomeadas
+    regras = {}
+    for nome_modulo in MODULOS_DE_REGRAS:
+        try:
+            modulo = importlib.import_module(nome_modulo)
+        except Exception:
+            continue
+        for nome, valor in regras_nomeadas(modulo).items():
+            regras[nome if nome_modulo == 'app' else f'{nome_modulo}.{nome}'] = valor
+    import app as modulo_app
+    for nome in REGRAS_DO_APP:  # garantia: as regras históricas continuam no retrato mesmo se mudarem de formato
+        if hasattr(modulo_app, nome) and nome not in regras:
+            regras[nome] = _valor_json(getattr(modulo_app, nome))
+    return dict(sorted(regras.items()))
+
+
+def parametros_de_regras():
+    """Valores atuais da tela Parâmetros de regras (a gestão muda sem mexer no código)."""
+    try:
+        import regras_negocio
+        return {i['chave']: i['valor'] for i in regras_negocio.listar()}
+    except Exception:
+        return {}
+
+
+def regras_sem_nome():
+    """Achados do Agente Dev: regras de negócio escritas direto no código (varredura de 100% do código)."""
+    import sys
+    import os as _os
+    pasta = _os.path.join(_os.path.dirname(_os.path.abspath(__file__)), 'agentes_funcionalidades')
+    if pasta not in sys.path:
+        sys.path.insert(0, pasta)
+    try:
+        from varredura_regras import varrer
+        return varrer()
+    except Exception:
+        return []
+
+
+def problemas_de_ux():
+    """Achados do Agente UX: telas com texto sem tradução, sem acessibilidade ou com o papel de nome trocado."""
+    import sys
+    import os as _os
+    pasta = _os.path.join(_os.path.dirname(_os.path.abspath(__file__)), 'agentes_funcionalidades')
+    if pasta not in sys.path:
+        sys.path.insert(0, pasta)
+    try:
+        from varredura_ux import varrer
+        return varrer()
+    except Exception:
+        return []
+
+
 def retrato_regras():
     import app as modulo_app
     import perfis_acesso
@@ -74,7 +143,8 @@ def retrato_regras():
         'modulos': {k: sorted(e for e in eps if e in rotas_get) for k, (_, _, eps, _) in perfis_acesso.MODULOS.items()},
         'rotas_get': rotas_get,
         'rotas_post': rotas_post,
-        'regras_app': {nome: _valor_json(getattr(modulo_app, nome)) for nome in REGRAS_DO_APP if hasattr(modulo_app, nome)},
+        'regras_app': regras_nomeadas_da_plataforma(),
+        'parametros': parametros_de_regras(),
     }
 
 
@@ -99,12 +169,13 @@ def detectar_mudancas(origem=GERENTE_FUNCIONAL):
                               f"{len(atual['modulos_por_base'])} perfis, {len(atual['modulos'])} módulos, {len(atual['rotas_post'])} funções que gravam dados.",
                               origem))
         anterior = atual
-    mudou = {k: atual[k] for k in ('modulos_por_base', 'modulos', 'regras_app') if anterior.get(k) != atual[k]}
+    mudou = {k: atual[k] for k in ('modulos_por_base', 'modulos', 'regras_app', 'parametros') if anterior.get(k) != atual.get(k)}
     if mudou:
         partes = []
         for chave in mudou:
-            if chave == 'regras_app':
-                partes += [n for n in atual['regras_app'] if anterior.get('regras_app', {}).get(n) != atual['regras_app'][n]]
+            if chave in ('regras_app', 'parametros'):
+                antes = anterior.get(chave, {})
+                partes += [n for n in atual[chave] if antes.get(n) != atual[chave][n]] + [f'{n} (removida)' for n in antes if n not in atual[chave]]
             else:
                 partes.append(chave)
         criados.append(_criar(f"Regras de negócio mudaram: {', '.join(partes)[:150]}", 'fn_regra', atual, [GRUPO],
@@ -114,6 +185,21 @@ def detectar_mudancas(origem=GERENTE_FUNCIONAL):
         destino = sorted({a for e in novas for a in _agentes_do_endpoint(e, atual)})
         criados.append(_criar(f"{len(novas)} função(ões) nova(s) sem teste funcional próprio", 'fn_rota_nova', {'endpoints': novas}, destino,
                               'Os agentes avisam que estas funções ainda não têm um passo no fluxo de teste: ' + ', '.join(novas[:8]), origem))
+    sem_nome = regras_sem_nome()
+    chaves = sorted(f"{a['arquivo']}:{a['trecho']}" for a in sem_nome)
+    if sem_nome and chaves != _estado('regras_sem_nome', []):
+        criados.append(_criar(f"{len(sem_nome)} regra(s) de negócio escrita(s) direto no código", 'fn_regra_sem_nome',
+                              {'achados': sem_nome[:100]}, ['fn_dev', GRUPO],
+                              'O Agente Dev aponta onde mover cada uma para uma regra nomeada (só assim o Gerente aprende): '
+                              + ', '.join(f"{a['arquivo']}:{a['linha']}" for a in sem_nome[:6]), origem))
+    _gravar_estado('regras_sem_nome', chaves)
+    ux = problemas_de_ux()
+    chaves_ux = sorted(f"{a['arquivo']}:{a['tipo']}:{a['trecho']}" for a in ux)
+    if ux and chaves_ux != _estado('problemas_ux', []):
+        criados.append(_criar(f"{len(ux)} problema(s) de UX/UI nas telas", 'fn_ux', {'achados': ux[:100]}, ['fn_ux', GRUPO],
+                              'O Agente UX aponta texto sem tradução, imagem/botão/campo sem nome acessível e papel com nome trocado: '
+                              + ', '.join(f"{a['arquivo']}:{a['linha']}" for a in ux[:6]), origem))
+    _gravar_estado('problemas_ux', chaves_ux)
     _gravar_estado('retrato_funcional', atual)
     _gravar_estado('ultima_deteccao_funcional', {'em': datetime.now().isoformat(timespec='seconds'), 'origem': origem, 'novos': len(criados)})
     db.session.commit()

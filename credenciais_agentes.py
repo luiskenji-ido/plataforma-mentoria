@@ -3,7 +3,7 @@
 CREDENCIAIS DOS AGENTES
 =======================
 A senha das contas de teste, a liberação dos agentes num servidor de produção e as chaves de IA do Orquestrador
-são cadastradas pelo Administrador na área Agentes IA (só ele vê essa área). Ficam cifradas no banco (Fernet,
+são cadastradas pelo Administrador na tela Provedores de IA e custos (só ele vê essa tela). Ficam cifradas no banco (Fernet,
 com chave derivada da SECRET_KEY do servidor) e nunca voltam para a tela: só aparece se estão configuradas.
 
 Os agentes continuam lendo variáveis de ambiente: antes de iniciar qualquer equipe, a plataforma coloca as
@@ -21,6 +21,7 @@ CAMPOS = {
     'OMNITEST_PERMITIR_EM_PRODUCAO': ('Permitir que os agentes entrem neste servidor de produção', 'sim_nao'),
     'ANTHROPIC_API_KEY': ('Chave da API do Claude (Agente Orquestrador)', 'chave'),
     'GEMINI_API_KEY': ('Chave da API do Gemini (Agente Orquestrador)', 'chave'),
+    'OPENAI_API_KEY': ('Chave da API da OpenAI (ChatGPT)', 'chave'),
     # Integração com o Microsoft 365 (Outlook/Agenda): aplicativo registrado no Microsoft Entra ID
     'MS365_CLIENT_ID': ('ID do aplicativo Microsoft 365 (Entra ID)', 'chave'),
     'MS365_CLIENT_SECRET': ('Segredo do aplicativo Microsoft 365', 'chave'),
@@ -53,10 +54,10 @@ def validar(chave, valor):
     """Devolve a mensagem de erro (texto em português, traduzido na rota) ou None."""
     tipo = CAMPOS[chave][1]
     if tipo == 'senha':
-        if len(valor) < 10 or len(valor) > 128 or any(c.isspace() for c in valor):
+        if len(valor) < 10 or len(valor) > 128 or any(c.isspace() for c in valor):  # regra-nomeada: ok (formato da senha das contas de teste)
             return 'A senha das contas de teste precisa de 10 a 128 caracteres, sem espaços.'
     elif tipo == 'chave':
-        if not 20 <= len(valor) <= 400 or any(c.isspace() for c in valor):
+        if not 20 <= len(valor) <= 400 or any(c.isspace() for c in valor):  # regra-nomeada: ok (formato da chave do provedor)
             return 'A chave da API parece incompleta: confira e cole de novo (sem espaços).'
     elif tipo == 'texto':
         import re

@@ -2,7 +2,7 @@
 """
 AGENTE ORQUESTRADOR EXECUTOR
 ============================
-Uso (a tela chama em segundo plano): python agentes_orquestrador/executor.py --ids <id> <id> --provedor gemini --usuario "Nome"
+Uso (a tela chama em segundo plano): python agentes_orquestrador/executor.py --ids <id> <id> --provedor gemini|claude|openai --usuario "Nome"
 
 1. Lê os prompts de correção das quatro equipes (coletor.py) e monta o plano com as correções escolhidas.
 2. Cria uma CÓPIA do código (git worktree num ramo novo) e uma cópia do banco: o site em uso nunca é alterado aqui.
@@ -33,7 +33,7 @@ RAIZ = os.path.dirname(PASTA)
 sys.path.insert(0, PASTA)
 import coletor          # noqa: E402
 import ia_correcao      # noqa: E402
-import ambiente         # noqa: E402
+import ambiente_orquestrador as ambiente  # noqa: E402  (nome próprio: o ambiente.py da raiz é outro módulo)
 
 PASTA_AO_VIVO = os.path.join(RAIZ, 'Agent Reports', 'Agentes IA', '.ao_vivo_orquestrador')
 PASTA_DADOS = os.path.join(RAIZ, 'instance', 'orquestrador')
@@ -721,7 +721,7 @@ def desfazer_commit(commit, usuario):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--ids', nargs='+', required=True)
-    parser.add_argument('--provedor', choices=['gemini', 'claude'], default='gemini')
+    parser.add_argument('--provedor', choices=['gemini', 'claude', 'openai'], default='gemini')
     parser.add_argument('--usuario', default='Administrador')
     parser.add_argument('--equipes', nargs='+', default=[c for c, *_ in EQUIPES_VALIDACAO])
     args = parser.parse_args()

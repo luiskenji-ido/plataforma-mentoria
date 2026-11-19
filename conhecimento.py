@@ -282,7 +282,7 @@ def _texto_da_pagina(html):
                              if len(p.split()) > 5)
     if len(so_paragrafos) >= 300:
         texto = so_paragrafos
-    if inicio and (len(texto) < 200 or inicio.group(0) == 'id="Description"'):
+    if inicio and (len(texto) < 200 or inicio.group(0) == 'id="Description"'):  # regra-nomeada: ok (heurística de leitura de página)
         texto = texto_corrido.removeprefix('id="Description"> ').strip()
     return (unescape(' '.join(titulo.group(1).split())) if titulo else ''), texto
 

@@ -2,7 +2,7 @@
 <html lang="pt">
 <head>
     <meta charset="UTF-8">
-    <title>Ficha da Banca - {{ banca.projeto.nome }}</title>
+    <title>{{ tt('Ficha da Banca') }} - {{ banca.projeto.nome }}</title>
     <style>
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color: #333; padding: 24px; max-width: 900px; margin: 0 auto; }
         .header { border-bottom: 2px solid #198754; padding-bottom: 10px; margin-bottom: 20px; }
@@ -17,21 +17,21 @@
 </head>
 <body onload="window.print()">
     <div class="no-print" style="text-align: right; margin-bottom: 16px;">
-        <button onclick="window.print()" style="background:#198754;color:#fff;border:0;border-radius:5px;padding:8px 14px;font-weight:bold;cursor:pointer;">Salvar como PDF</button>
+        <button onclick="window.print()" style="background:#198754;color:#fff;border:0;border-radius:5px;padding:8px 14px;font-weight:bold;cursor:pointer;">{{ tt('Salvar como PDF') }}</button>
     </div>
     <div class="header">
-        <h1>Banca de Avaliação — {{ banca.projeto.nome }}</h1>
-        <p>Grupo {{ banca.projeto.grupo.nome if banca.projeto.grupo else '—' }} · {{ banca.data_hora.strftime('%d/%m/%Y às %H:%M') }}{% if banca.local %} · {{ banca.local }}{% endif %}</p>
+        <h1>{{ tt('Banca de Avaliação') }} — {{ banca.projeto.nome }}</h1>
+        <p>{{ tt('Grupo') }} {{ banca.projeto.grupo.nome if banca.projeto.grupo else '—' }} · {{ banca.data_hora.strftime('%d/%m/%Y às %H:%M') }}{% if banca.local %} · {{ banca.local }}{% endif %}</p>
     </div>
     {% for a in banca.avaliadores %}
     {% set p = a.perfil_avaliador %}
     <div class="avaliador">
         <h2>{{ p.nome_completo if p and p.nome_completo else a.nome }}</h2>
         <div class="meta">{{ (p.area_atuacao if p else None) or a.tipo_usuario }}{% if p and p.empresa_origem %} · {{ p.empresa_origem }}{% endif %}</div>
-        <p>{{ p.curriculo_minibio if p and p.curriculo_minibio else 'Minicurrículo não informado.' }}</p>
+        <p>{{ p.curriculo_minibio if p and p.curriculo_minibio else tt('Minicurrículo não informado.') }}</p>
     </div>
     {% else %}
-    <p>Nenhum avaliador escalado para esta banca.</p>
+    <p>{{ tt('Nenhum avaliador escalado para esta banca.') }}</p>
     {% endfor %}
 </body>
 </html>

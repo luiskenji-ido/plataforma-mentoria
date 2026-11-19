@@ -10,9 +10,9 @@ Custo: cada chamada fica registrada (UsoIA) com tokens e custo em US$, pelos pre
 ao teto (Parâmetros de regras › ia_teto_mensal_usd): ao atingir o teto as IAs param até o mês seguinte e os
 Administradores são avisados (também quando passa do aviso, ia_aviso_teto_pct). Teto zero desliga as IAs.
 
-Provedores: Claude (ANTHROPIC_API_KEY) e Gemini (GEMINI_API_KEY ou GOOGLE_API_KEY), ambas cadastradas em
-Agentes IA › Credenciais. O Orquestrador roda em outro processo: ele grava o consumo em instance/uso_ia_externo.jsonl,
-que é importado aqui (importar_uso_externo).
+Provedores: Claude (ANTHROPIC_API_KEY), Gemini (GEMINI_API_KEY ou GOOGLE_API_KEY) e ChatGPT/OpenAI (OPENAI_API_KEY),
+todas cadastradas em Provedores de IA e custos › Credenciais. O Orquestrador roda em outro processo: ele grava o consumo em
+instance/uso_ia_externo.jsonl, que é importado aqui (importar_uso_externo).
 
 Todas as funções rodam dentro de um app_context.
 """
@@ -24,28 +24,50 @@ from datetime import datetime, timedelta
 PROVEDORES = {
     'claude': ('Claude (Anthropic)', ('ANTHROPIC_API_KEY', 'ANTHROPIC_AUTH_TOKEN')),
     'gemini': ('Gemini (Google)', ('GEMINI_API_KEY', 'GOOGLE_API_KEY')),
+    'openai': ('ChatGPT (OpenAI)', ('OPENAI_API_KEY',)),
 }
 
-# Modelos conhecidos: id → (provedor, nome, preço de entrada, preço de saída) em US$ por milhão de tokens.
-# Preços do Gemini variam por região/camada: ficam em branco até o Administrador conferir e preencher na tela.
+# Modelos conhecidos: id → (provedor, nome, preço de entrada, preço de saída) em US$ por milhão de tokens, preço padrão
+# (Standard / camada paga) de texto. Conferidos nas páginas oficiais em PRECOS_CONFERIDOS_EM:
+#   platform.claude.com/docs/en/about-claude/pricing · aistudio.google.com/docs/pricing · developers.openai.com/api/docs/pricing
+# O Administrador pode corrigir qualquer preço na tela (o da tela vale mais que o daqui).
+PRECOS_CONFERIDOS_EM = '19/11/2026'
 MODELOS_PADRAO = {
     'claude-haiku-5-5': ('claude', 'Claude Haiku 5.5 (mais barato)', 0.10, 0.50),
     'claude-sonnet-5-5': ('claude', 'Claude Sonnet 5.5 (equilibrado)', 2.00, 10.00),
     'claude-opus-5-5': ('claude', 'Claude Opus 5.5 (mais capaz)', 4.00, 20.00),
-    'gemini-3.6-flash': ('gemini', 'Gemini 3.6 Flash', None, None),
-    # Versão leve e mais estável do Flash: reserva quando o Flash está sobrecarregado (erro 503 do Google)
-    'gemini-flash-lite-latest': ('gemini', 'Gemini Flash Lite (reserva leve)', None, None),
+    'gemini-3.5-flash-lite': ('gemini', 'Gemini 3.5 Flash-Lite (mais barato)', 0.30, 2.50),
+    'gemini-3.6-flash': ('gemini', 'Gemini 3.6 Flash', 0.75, 3.75),
+    'gemini-3.8-flash': ('gemini', 'Gemini 3.8 Flash (Flash mais novo)', 0.75, 3.75),
+    'gemini-4-hydrogen': ('gemini', 'Gemini 4 Hydrogen (equilibrado)', 1.50, 7.50),
+    'gpt-6-luna': ('openai', 'GPT-6 Luna (mais barato)', 0.10, 0.50),
+    'gpt-6.1-terra': ('openai', 'GPT-6.1 Terra', 1.00, 5.00),
+    'gpt-6.2-sol': ('openai', 'GPT-6.2 Sol (equilibrado)', 2.00, 10.00),
+    'gpt-6.2-astra': ('openai', 'GPT-6.2 Astra (mais capaz)', 8.00, 40.00),
+}
+# Reajustes já anunciados pelo provedor: a partir da data, o preço padrão passa a ser este (o da tela continua valendo
+# se o Administrador tiver preenchido outro). A tela mostra o aviso antes da data.
+REAJUSTES = {
+    'gemini-3.6-flash': ('2027-01-01', 1.50, 7.50),
+    'gemini-3.8-flash': ('2027-01-01', 1.50, 7.50),
+}
+# Modelos que saíram do catálogo: quem tinha o antigo na ordem passa a usar o substituto (sem a ordem ficar vazia)
+SUBSTITUIDOS = {
+    'gemini-flash-lite-latest': 'gemini-3.5-flash-lite',  # o Google pede id estável em produção; o "latest" muda sozinho
+    'gemini-2.5-flash': 'gemini-3.5-flash-lite',           # descontinuado: o Google redireciona em 01/12/2026
+    'gemini-2.5-pro': 'gemini-3.8-flash',                  # descontinuado: o Google redireciona em 01/12/2026
 }
 
 USOS = {
     'assistente': ('Assistente da Plataforma', 'Responde o Administrador com base na base de conhecimento.',
-                   ['claude-haiku-5-5', 'gemini-3.6-flash', 'gemini-flash-lite-latest']),
+                   ['claude-haiku-5-5', 'gemini-3.6-flash', 'gemini-3.5-flash-lite']),
     'acompanhamento': ('Assistente do Acompanhamento', 'Tira dúvidas de jovens e mentores sobre os estudos.',
-                       ['gemini-3.6-flash', 'gemini-flash-lite-latest', 'claude-haiku-5-5']),
+                       ['gemini-3.6-flash', 'gemini-3.5-flash-lite', 'claude-haiku-5-5']),
     'orquestrador': ('Agente Orquestrador', 'Corrige o código a partir dos achados dos agentes (precisa de modelo forte).',
-                     ['claude-sonnet-5-5', 'gemini-3.6-flash']),
+                     ['claude-sonnet-5-5', 'gemini-3.6-flash', 'gpt-6.2-sol']),
 }
 MAXIMO_NA_ORDEM = 3
+PRECO_MAXIMO_POR_MILHAO = 1000  # US$ por milhão de tokens: acima disso o preço digitado na tela é recusado (erro de digitação)
 ID_MODELO = re.compile(r'^[a-z0-9][a-z0-9.\-]{2,79}$')
 
 
@@ -94,26 +116,44 @@ def _gravar(chave, valor, usuario_id=None):
     db.session.commit()
 
 
-def modelos():
-    """Todos os modelos (padrão + cadastrados), com os preços da tela: {id: {provedor, nome, entrada, saida, extra}}."""
-    precos = _ler('precos', {})
+def modelos(hoje=None, precos_da_tela=True):
+    """Todos os modelos (padrão + cadastrados), com os preços da tela: {id: {provedor, nome, entrada, saida, extra,
+    reajuste}}. Preço em branco na tela não apaga o preço padrão (só um número preenchido o substitui); reajuste
+    anunciado passa a valer sozinho na data."""
+    hoje = (hoje or datetime.now()).strftime('%Y-%m-%d')
+    precos = _ler('precos', {}) if precos_da_tela else {}
     lista = {}
     for mid, (prov, nome, ent, sai) in MODELOS_PADRAO.items():
-        lista[mid] = {'provedor': prov, 'nome': nome, 'entrada': ent, 'saida': sai, 'extra': False}
+        reajuste = None
+        if mid in REAJUSTES:
+            data, novo_ent, novo_sai = REAJUSTES[mid]
+            if hoje >= data:
+                ent, sai = novo_ent, novo_sai
+            else:
+                reajuste = {'data': datetime.strptime(data, '%Y-%m-%d').strftime('%d/%m/%Y'), 'entrada': novo_ent, 'saida': novo_sai}
+        lista[mid] = {'provedor': prov, 'nome': nome, 'entrada': ent, 'saida': sai, 'extra': False, 'reajuste': reajuste}
     for mid, dados in _ler('modelos_extras', {}).items():
-        if dados.get('provedor') in PROVEDORES:
-            lista[mid] = {'provedor': dados['provedor'], 'nome': dados.get('nome') or mid, 'entrada': None, 'saida': None, 'extra': True}
+        if dados.get('provedor') in PROVEDORES and mid not in lista:
+            lista[mid] = {'provedor': dados['provedor'], 'nome': dados.get('nome') or mid, 'entrada': None, 'saida': None,
+                          'extra': True, 'reajuste': None}
     for mid, valores in precos.items():
         if mid in lista and isinstance(valores, list) and len(valores) == 2:
-            lista[mid]['entrada'], lista[mid]['saida'] = valores
+            if valores[0] is not None:
+                lista[mid]['entrada'] = valores[0]
+            if valores[1] is not None:
+                lista[mid]['saida'] = valores[1]
     return lista
 
 
 def ordem(uso):
-    """Modelos do uso, na ordem de tentativa (só os que existem no catálogo)."""
+    """Modelos do uso, na ordem de tentativa (só os que existem no catálogo; os que saíram viram o substituto)."""
     catalogo = modelos()
-    escolhidos = _ler(f'uso:{uso}', None) or USOS[uso][2]
-    return [m for m in escolhidos if m in catalogo][:MAXIMO_NA_ORDEM] or [m for m in USOS[uso][2] if m in catalogo]
+    escolhidos = []
+    for m in _ler(f'uso:{uso}', None) or USOS[uso][2]:
+        m = SUBSTITUIDOS.get(m, m)
+        if m in catalogo and m not in escolhidos:
+            escolhidos.append(m)
+    return escolhidos[:MAXIMO_NA_ORDEM] or [m for m in USOS[uso][2] if m in catalogo]
 
 
 def salvar_ordem(uso, lista, usuario_id=None):
@@ -141,22 +181,27 @@ def _preco(texto):
     if not texto:
         return None
     valor = float(texto)
-    if not 0 <= valor <= 1000:
+    if not 0 <= valor <= PRECO_MAXIMO_POR_MILHAO:
         raise ValueError
     return round(valor, 4)
 
 
 def salvar_precos(valores, usuario_id=None):
-    """valores = {modelo: (entrada, saida)} em texto; vazio = sem preço."""
-    catalogo = modelos()
+    """valores = {modelo: (entrada, saida)} em texto. Só fica gravado o que o Administrador mudou em relação ao preço
+    padrão (vazio ou igual ao padrão = segue o padrão), para os preços conferidos e os reajustes do código continuarem
+    valendo depois de salvar a tela."""
+    padrao = modelos(precos_da_tela=False)
     precos = {}
     for mid, (ent, sai) in valores.items():
-        if mid not in catalogo:
+        if mid not in padrao:
             continue
         try:
-            precos[mid] = [_preco(ent), _preco(sai)]
+            novo = [_preco(ent), _preco(sai)]
         except ValueError:
             raise ValueError(f'Preço inválido para {mid}: use números de 0 a 1000 (US$ por milhão de tokens).')
+        novo = [None if v == padrao[mid][campo] else v for v, campo in zip(novo, ('entrada', 'saida'))]
+        if novo != [None, None]:
+            precos[mid] = novo
     _gravar('precos', precos, usuario_id)
 
 
@@ -204,7 +249,8 @@ def chave_configurada(provedor):
 def modelo_de_provedor(uso, provedor):
     """Primeiro modelo do provedor na ordem do uso (o Orquestrador escolhe o provedor na tela dele)."""
     catalogo = modelos()
-    for m in ordem(uso) + list(catalogo):
+    # ordem salva na tela → ordem padrão do uso (ex.: gpt-6.2-sol para o Orquestrador) → qualquer modelo do provedor
+    for m in ordem(uso) + USOS[uso][2] + list(catalogo):
         if catalogo.get(m, {}).get('provedor') == provedor:
             return m
     return None
@@ -402,7 +448,41 @@ def _gemini(modelo, sistema, mensagens, max_tokens, esforco):
     return texto, entrada, saida
 
 
-CHAMADAS = {'claude': _claude, 'gemini': _gemini}
+def _openai(modelo, sistema, mensagens, max_tokens, esforco):
+    try:
+        import openai
+    except ImportError:
+        raise FalhaProvedor('biblioteca openai não instalada')
+    cliente = openai.OpenAI(timeout=120.0, max_retries=1)
+    try:
+        # API Responses; store=False: a conversa não fica guardada na OpenAI (dados de jovens e mentores)
+        r = cliente.responses.create(model=modelo, instructions=sistema, max_output_tokens=max_tokens, store=False,
+                                     input=[{'role': m['role'], 'content': m['content']} for m in mensagens],
+                                     reasoning={'effort': esforco if esforco in ('low', 'medium', 'high') else 'low'})
+    except openai.AuthenticationError:
+        raise FalhaProvedor('chave recusada pela OpenAI')
+    except openai.RateLimitError as e:
+        # 429 com insufficient_quota = conta sem créditos (não adianta esperar); o resto é limite por minuto
+        if (e.body or {}).get('type') == 'insufficient_quota' if isinstance(e.body, dict) else False:
+            raise FalhaProvedor('a conta da OpenAI está sem créditos (adicione em platform.openai.com › Billing)')
+        raise FalhaProvedor('limite de uso da OpenAI atingido')
+    except openai.NotFoundError:
+        raise FalhaProvedor(f'modelo {modelo} não encontrado na OpenAI')
+    except (openai.APIConnectionError, openai.APITimeoutError):
+        raise FalhaProvedor('sem conexão com a OpenAI')
+    except openai.APIStatusError as e:
+        raise FalhaProvedor(f'erro da OpenAI ({e.status_code})')
+    texto = (r.output_text or '').strip()
+    if r.status == 'incomplete' and getattr(r.incomplete_details, 'reason', '') == 'content_filter':
+        raise FalhaProvedor('a IA recusou o pedido')
+    if r.status == 'incomplete' and texto:
+        texto += '\n\n(…resposta cortada por ser longa demais.)'
+    u = r.usage
+    # output_tokens já inclui o raciocínio (cobrado como saída)
+    return texto, (u.input_tokens or 0) if u else 0, (u.output_tokens or 0) if u else 0
+
+
+CHAMADAS = {'claude': _claude, 'gemini': _gemini, 'openai': _openai}
 
 
 def gerar(uso, sistema, mensagens, max_tokens=4000, esforco='low', usuario_id=None):
@@ -531,5 +611,5 @@ def resumo_para_tela():
             'por_modelo': [{'modelo': m, 'nome': catalogo.get(m, {}).get('nome', m), 'chamadas': n, 'entrada': e or 0, 'saida': s or 0,
                             'custo': round(c or 0, 4)} for m, n, e, s, c in por_modelo],
             'falhas': falhas, 'recentes': recentes,
-            'chaves': {p: chave_configurada(p) for p in PROVEDORES},
+            'chaves': {p: chave_configurada(p) for p in PROVEDORES}, 'precos_conferidos_em': PRECOS_CONFERIDOS_EM,
             'sem_preco': [m for m, d in catalogo.items() if d['entrada'] is None or d['saida'] is None]}

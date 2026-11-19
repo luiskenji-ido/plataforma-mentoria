@@ -19,12 +19,12 @@
                     
                     <!-- Bloco Superior: Nome e Seleção de Grupo -->
                     <div class="col-md-6 mb-3">
-                        <label class="form-label fw-bold mb-1 text-muted small">{{ tt('Nome do Projeto') }}</label>
-                        <input type="text" name="nome" class="form-control" required placeholder="{{ tt('Ex: Laboratório Azure Cloud') }}">
+                        <label for="f_nome" class="form-label fw-bold mb-1 text-muted small">{{ tt('Nome do Projeto') }}</label>
+                        <input id="f_nome" type="text" name="nome" class="form-control" required placeholder="{{ tt('Ex: Laboratório Azure Cloud') }}">
                     </div>
                     <div class="col-md-6 mb-3">
-                        <label class="form-label fw-bold text-primary mb-1 small">{{ tt('Grupo Responsável (Alunos e Mentores)') }}</label>
-                        <select name="grupo_id" class="form-select border-primary" required>
+                        <label for="f_grupo_id" class="form-label fw-bold text-primary mb-1 small">{{ tt('Grupo Responsável (Alunos e Mentores)') }}</label>
+                        <select id="f_grupo_id" name="grupo_id" class="form-select border-primary" required>
                             <option value="">{{ tt('Selecione um grupo para este projeto...') }}</option>
                             {% for g in grupos %}
                                 <option value="{{ g.id }}">{{ g.nome }}</option>
@@ -34,8 +34,8 @@
 
                     <!-- Bloco Inferior: Descrição e Botão de Submissão -->
                     <div class="col-md-10 mb-3">
-                        <label class="form-label fw-bold mb-1 text-muted small">{{ tt('Descrição / Objetivo') }}</label>
-                        <input type="text" name="descricao" class="form-control" placeholder="{{ tt('Descreva brevemente o objetivo deste projeto...') }}">
+                        <label for="f_descricao" class="form-label fw-bold mb-1 text-muted small">{{ tt('Descrição / Objetivo') }}</label>
+                        <input id="f_descricao" type="text" name="descricao" class="form-control" placeholder="{{ tt('Descreva brevemente o objetivo deste projeto...') }}">
                     </div>
                     <div class="col-md-2 mb-3">
                         <button type="submit" class="btn btn-success w-100 fw-bold">{{ tt('+ Criar') }}</button>
@@ -54,9 +54,9 @@
         <h4 class="text-secondary mb-0">{{ tt('Projetos em Andamento') }}</h4>
         
         <!-- Formulário de Filtro Automático por Grupo -->
-        <form action="{{ url_for('projetos') }}" method="GET" class="d-flex gap-2 align-items-center m-0">
-            <label class="form-label mb-0 fw-bold text-muted small text-nowrap">{{ tt('Filtrar por Grupo:') }}</label>
-            <select name="grupo_filtro" class="form-select form-select-sm border-secondary shadow-sm" style="min-width: 220px;" onchange="this.form.submit()">
+        <form action="{{ url_for('projetos') }}" method="GET" class="d-flex flex-wrap gap-2 align-items-center m-0">
+            <label for="f_grupo_filtro" class="form-label mb-0 fw-bold text-muted small text-nowrap">{{ tt('Filtrar por Grupo:') }}</label>
+            <select id="f_grupo_filtro" name="grupo_filtro" class="form-select form-select-sm border-secondary shadow-sm" style="min-width: 220px;" onchange="this.form.submit()">
                 <option value="">{{ tt('Mostrar Todos os Projetos') }}</option>
                 {% for g in grupos %}
                     <option value="{{ g.id }}" {% if grupo_filtro == g.id|string %}selected{% endif %}>{{ g.nome }}</option>
@@ -69,13 +69,13 @@
     <div class="card shadow-sm mb-4 border-primary" id="projeto-{{ p.id }}">
         
         <!-- ================= CABEÇALHO DO PROJETO E EXCLUSÃO ================= -->
-        <div class="card-header bg-light d-flex justify-content-between align-items-center">
+        <div class="card-header bg-light d-flex justify-content-between align-items-center flex-wrap gap-2">
             <div>
                 <h5 class="mb-0 text-primary fw-bold">{{ tt('Projeto:') }} {{ p.nome }}</h5>
                 <small class="text-muted">{{ tt('Grupo:') }} {{ p.grupo.nome }} {{ tt('| Criado em:') }} {{ p.data_criacao.strftime('%d/%m/%Y') if p.data_criacao else 'Data não registrada' }}</small>
             </div>
             
-            <div class="d-flex align-items-center gap-3">
+            <div class="d-flex align-items-center flex-wrap gap-2">
                 <!-- Porcentagem Total do Projeto -->
                 <span class="badge bg-success fs-6">{{ tt('Concluído:') }} {{ p.percentual_conclusao }}%</span>
                 
@@ -102,7 +102,7 @@
                 {% endif %}
 
                 <!-- Botão de Excluir Projeto (Visível apenas p/ Mentores e Admins) -->
-                {% if current_user.tipo_usuario in ['Mentor', 'Mentor Administrador', 'Administrador'] %}
+                {% if current_user.tipo_usuario in PERFIS_EXCLUEM_PROJETO %}
                 
                 <form action="{{ url_for('deletar_projeto', id=p.id) }}" method="POST" class="m-0" onsubmit="return confirm('ATENÇÃO EXTREMA: Tem certeza que deseja excluir o projeto inteiro? Todas as tarefas, subtarefas e anexos serão apagados para sempre. Essa ação não pode ser desfeita.');">
                     <button type="submit" class="btn btn-sm btn-danger fw-bold" title="{{ tt('Excluir Projeto Inteiro') }}">
@@ -287,7 +287,7 @@
                 <form action="{{ url_for('nova_tarefa') }}" method="POST">
                     <div class="modal-header bg-primary text-white">
                         <h5 class="modal-title">{{ tt('Nova Tarefa -') }} {{ p.nome }}</h5>
-                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                        <button aria-label="{{ tt('Fechar') }}" type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                     </div>
                     <div class="modal-body">
                         <!-- Identificador oculto do projeto para o backend -->
@@ -295,13 +295,13 @@
                         
                         <div class="row">
                             <div class="col-md-7 mb-3">
-                                <label class="form-label fw-bold">{{ tt('Descrição da Atividade') }}</label>
-                                <input type="text" name="descricao" class="form-control" required placeholder="{{ tt('Ex: Pesquisar materiais e requisitos') }}">
+                                <label for="f_descricao_299_{{ loop.index }}" class="form-label fw-bold">{{ tt('Descrição da Atividade') }}</label>
+                                <input id="f_descricao_299_{{ loop.index }}" type="text" name="descricao" class="form-control" required placeholder="{{ tt('Ex: Pesquisar materiais e requisitos') }}">
                             </div>
                             <!-- Dropdown: Define se é uma Tarefa Principal ou Subtarefa de outra -->
                             <div class="col-md-5 mb-3">
-                                <label class="form-label fw-bold text-secondary">{{ tt('É uma subtarefa de?') }}</label>
-                                <select name="tarefa_pai_id" class="form-select border-secondary">
+                                <label for="f_tarefa_pai_id_{{ loop.index }}" class="form-label fw-bold text-secondary">{{ tt('É uma subtarefa de?') }}</label>
+                                <select id="f_tarefa_pai_id_{{ loop.index }}" name="tarefa_pai_id" class="form-select border-secondary">
                                     <option value="">{{ tt('Não (É Tarefa Principal)') }}</option>
                                     {% for tp in p.tarefas %}
                                         <!-- Lista apenas tarefas principais no dropdown -->
@@ -315,8 +315,8 @@
                         
                         <div class="row">
                             <div class="col-md-4 mb-3">
-                                <label class="form-label fw-bold text-success">{{ tt('Líder (Responsável)') }}</label>
-                                <select name="responsavel" class="form-select border-success" required>
+                                <label for="f_responsavel_{{ loop.index }}" class="form-label fw-bold text-success">{{ tt('Líder (Responsável)') }}</label>
+                                <select id="f_responsavel_{{ loop.index }}" name="responsavel" class="form-select border-success" required>
                                     <option value="">{{ tt('Selecione...') }}</option>
                                     {% for membro in p.grupo.membros %}
                                         <option value="{{ membro.nome }}">{{ membro.nome }}</option>
@@ -342,16 +342,16 @@
 
                         <div class="row">
                             <div class="col-md-4 mb-3">
-                                <label class="form-label fw-bold">{{ tt('Data Início') }}</label>
-                                <input type="date" name="data_inicio" class="form-control">
+                                <label for="f_data_inicio_{{ loop.index }}" class="form-label fw-bold">{{ tt('Data Início') }}</label>
+                                <input id="f_data_inicio_{{ loop.index }}" type="date" name="data_inicio" class="form-control">
                             </div>
                             <div class="col-md-4 mb-3">
-                                <label class="form-label fw-bold">{{ tt('Data Conclusão') }}</label>
-                                <input type="date" name="data_fim" class="form-control">
+                                <label for="f_data_fim_{{ loop.index }}" class="form-label fw-bold">{{ tt('Data Conclusão') }}</label>
+                                <input id="f_data_fim_{{ loop.index }}" type="date" name="data_fim" class="form-control">
                             </div>
                             <div class="col-md-4 mb-3">
-                                <label class="form-label fw-bold">{{ tt('Status Inicial') }}</label>
-                                <select name="status" class="form-select">
+                                <label for="f_status_{{ loop.index }}" class="form-label fw-bold">{{ tt('Status Inicial') }}</label>
+                                <select id="f_status_{{ loop.index }}" name="status" class="form-select">
                                     <option value="Pendente">{{ tt('Pendente') }}</option>
                                     <option value="Em Andamento">{{ tt('Em Andamento') }}</option>
                                     <option value="Concluído">{{ tt('Concluído') }}</option>
@@ -378,28 +378,28 @@
                 <form action="{{ url_for('atualizar_tarefa') }}" method="POST" enctype="multipart/form-data">
                     <div class="modal-header bg-info">
                         <h5 class="modal-title fw-bold text-dark">{{ tt('Atualizar:') }} {{ t.descricao }}</h5>
-                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                        <button aria-label="{{ tt('Fechar') }}" type="button" class="btn-close" data-bs-dismiss="modal"></button>
                     </div>
                     <div class="modal-body">
                         <input type="hidden" name="tarefa_id" value="{{ t.id }}">
 
                         <div class="mb-3">
-                            <label class="form-label fw-bold">{{ tt('Descrição da Atividade') }}</label>
-                            <input type="text" name="descricao" class="form-control" value="{{ t.descricao }}" required>
+                            <label class="form-label fw-bold" for="desc_tar_{{ t.id }}">{{ tt('Descrição da Atividade') }}</label>
+                            <input id="desc_tar_{{ t.id }}" type="text" name="descricao" class="form-control" value="{{ t.descricao }}" required>
                         </div>
 
                         <div class="row mb-3">
                             <div class="col-md-4 mb-3 mb-md-0">
-                                <label class="form-label fw-bold text-success">{{ tt('Líder (Responsável)') }}</label>
-                                <select name="responsavel" class="form-select border-success" required>
+                                <label class="form-label fw-bold text-success" for="resp_tar_{{ t.id }}">{{ tt('Líder (Responsável)') }}</label>
+                                <select id="resp_tar_{{ t.id }}" name="responsavel" class="form-select border-success" required>
                                     {% for membro in p.grupo.membros %}
                                         <option value="{{ membro.nome }}" {% if t.responsavel == membro.nome %}selected{% endif %}>{{ membro.nome }}</option>
                                     {% endfor %}
                                 </select>
                             </div>
                             <div class="col-md-8">
-                                <label class="form-label fw-bold text-info">{{ tt('Equipe de Apoio (Opcional)') }}</label>
-                                <select name="equipe_apoio" class="form-select border-info" multiple size="3">
+                                <label class="form-label fw-bold text-info" for="apoio_tar_{{ t.id }}">{{ tt('Equipe de Apoio (Opcional)') }}</label>
+                                <select id="apoio_tar_{{ t.id }}" name="equipe_apoio" class="form-select border-info" multiple size="3">
                                     {% for membro in p.grupo.membros %}
                                         <option value="{{ membro.nome }}" {% if membro.nome in (t.equipe_apoio or '') %}selected{% endif %}>{{ membro.nome }}</option>
                                     {% endfor %}
@@ -410,16 +410,16 @@
                         
                         <div class="row mb-3">
                             <div class="col-md-3 mb-2">
-                                <label class="form-label fw-bold">{{ tt('Data de Início') }}</label>
+                                <label for="dt_ini_tar_{{ t.id }}" class="form-label fw-bold">{{ tt('Data de Início') }}</label>
                                 <input type="date" name="data_inicio" id="dt_ini_tar_{{ t.id }}" class="form-control" value="{{ t.data_inicio.strftime('%Y-%m-%d') if t.data_inicio else '' }}" onchange="gerarGradeTar_{{ t.id }}()">
                             </div>
                             <div class="col-md-3 mb-2">
-                                <label class="form-label fw-bold">{{ tt('Data Conclusão') }}</label>
+                                <label for="dt_fim_tar_{{ t.id }}" class="form-label fw-bold">{{ tt('Data Conclusão') }}</label>
                                 <input type="date" name="data_fim" id="dt_fim_tar_{{ t.id }}" class="form-control" value="{{ t.data_fim.strftime('%Y-%m-%d') if t.data_fim else '' }}" onchange="gerarGradeTar_{{ t.id }}()">
                             </div>
                             <div class="col-md-3 mb-2">
-                                <label class="form-label fw-bold">{{ tt('Status da Tarefa') }}</label>
-                                <select name="status" class="form-select">
+                                <label class="form-label fw-bold" for="status_tar_{{ t.id }}">{{ tt('Status da Tarefa') }}</label>
+                                <select id="status_tar_{{ t.id }}" name="status" class="form-select">
                                     <option value="Pendente" {% if t.status == 'Pendente' %}selected{% endif %}>{{ tt('Pendente') }}</option>
                                     <option value="Em Andamento" {% if t.status == 'Em Andamento' %}selected{% endif %}>{{ tt('Em Andamento') }}</option>
                                     <option value="Concluído" {% if t.status == 'Concluído' %}selected{% endif %}>{{ tt('Concluído') }}</option>
@@ -520,7 +520,7 @@
                                             </div>
                                             
                                             {% set pode_excluir_anexo = false %}
-                                            {% if current_user.tipo_usuario in ['Administrador', 'Mentor Administrador', 'Mentor'] %}
+                                            {% if current_user.tipo_usuario in PERFIS_EXCLUEM_ANEXO_TAREFA %}
                                                 {% set pode_excluir_anexo = true %}
                                             {% elif current_user.tipo_usuario == 'Aluno' and autor == 'Aluno' %}
                                                 {% set pode_excluir_anexo = true %}
@@ -554,7 +554,7 @@
                                     {{ tt('+ Escolher Arquivos') }}
                                 </label>
                                 <input type="file" class="d-none" id="uploadAnexosMulti{{ t.id }}" name="arquivos_anexos" multiple onchange="document.getElementById('textAnexosMulti{{ t.id }}').value = this.files.length > 0 ? this.files.length + ' arquivo(s) selecionado(s)' : 'Nenhum arquivo selecionado'">
-                                <input type="text" class="form-control bg-white text-muted" id="textAnexosMulti{{ t.id }}" placeholder="{{ tt('Nenhum arquivo selecionado') }}" readonly>
+                                <input type="text" class="form-control bg-white text-muted" id="textAnexosMulti{{ t.id }}" aria-label="{{ tt('Arquivo escolhido') }}" placeholder="{{ tt('Nenhum arquivo selecionado') }}" readonly>
                                 
                                 <button type="submit" name="acao_modal" value="manter_aberto" class="btn btn-primary fw-bold px-4 shadow-sm">
                                     {{ tt('📤 Anexar') }}
@@ -582,7 +582,7 @@
             <div class="modal-content shadow-lg">
                 <div class="modal-header bg-warning text-dark">
                     <h5 class="modal-title fw-bold"><i class="bi bi-award-fill"></i> {{ tt('Avaliação do Projeto:') }} {{ p.nome }}</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    <button aria-label="{{ tt('Fechar') }}" type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <form action="{{ url_for('avaliar_projeto', id=p.id) }}" method="POST">
                     <div class="modal-body bg-light">
@@ -609,12 +609,12 @@
                                     <div class="card-body">
                                         <div class="row">
                                             <div class="col-md-6 mb-3">
-                                                <label class="form-label fw-bold small text-dark">{{ tt('Nota de Conteúdo (0 a 10)') }}</label>
-                                                <input type="number" step="0.1" min="0" max="10" name="nota_conteudo" class="form-control" value="{{ p.nota_conteudo or '' }}" placeholder="{{ tt('Qualidade técnica e pesquisa') }}">
+                                                <label for="f_nota_conteudo_{{ loop.index }}" class="form-label fw-bold small text-dark">{{ tt('Nota de Conteúdo (0 a 10)') }}</label>
+                                                <input id="f_nota_conteudo_{{ loop.index }}" type="number" step="0.1" min="0" max="10" name="nota_conteudo" class="form-control" value="{{ p.nota_conteudo or '' }}" placeholder="{{ tt('Qualidade técnica e pesquisa') }}">
                                             </div>
                                             <div class="col-md-6 mb-3">
-                                                <label class="form-label fw-bold small text-dark">{{ tt('Nota de Apresentação (0 a 10)') }}</label>
-                                                <input type="number" step="0.1" min="0" max="10" name="nota_apresentacao" class="form-control" value="{{ p.nota_apresentacao or '' }}" placeholder="{{ tt('Organização, clareza e design') }}">
+                                                <label for="f_nota_apresentacao_{{ loop.index }}" class="form-label fw-bold small text-dark">{{ tt('Nota de Apresentação (0 a 10)') }}</label>
+                                                <input id="f_nota_apresentacao_{{ loop.index }}" type="number" step="0.1" min="0" max="10" name="nota_apresentacao" class="form-control" value="{{ p.nota_apresentacao or '' }}" placeholder="{{ tt('Organização, clareza e design') }}">
                                             </div>
                                         </div>
                                     </div>
@@ -647,13 +647,13 @@
                                                             <tr>
                                                                 <td class="ps-3 fw-bold text-dark">{{ membro.nome }}</td>
                                                                 <td>
-                                                                    <input type="number" step="0.1" min="0" max="10" name="nota_postura_{{ membro.id }}" class="form-control form-control-sm border-primary" value="{{ av.nota_postura if av else '' }}" placeholder="{{ tt('0 a 10') }}">
+                                                                    <input type="number" step="0.1" min="0" max="10" name="nota_postura_{{ membro.id }}" aria-label="{{ tt('Postura') }} - {{ membro.nome }}" class="form-control form-control-sm border-primary" value="{{ av.nota_postura if av else '' }}" placeholder="{{ tt('0 a 10') }}">
                                                                 </td>
                                                                 <td>
-                                                                    <input type="number" step="0.1" min="0" max="10" name="nota_dominio_{{ membro.id }}" class="form-control form-control-sm border-primary" value="{{ av.nota_dominio if av else '' }}" placeholder="{{ tt('0 a 10') }}">
+                                                                    <input type="number" step="0.1" min="0" max="10" name="nota_dominio_{{ membro.id }}" aria-label="{{ tt('Domínio') }} - {{ membro.nome }}" class="form-control form-control-sm border-primary" value="{{ av.nota_dominio if av else '' }}" placeholder="{{ tt('0 a 10') }}">
                                                                 </td>
                                                                 <td class="pe-3">
-                                                                    <input type="text" name="obs_mentor_{{ membro.id }}" class="form-control form-control-sm border-primary" value="{{ av.observacoes_mentor if av else '' }}" placeholder="{{ tt('Feedback individual...') }}">
+                                                                    <input type="text" name="obs_mentor_{{ membro.id }}" aria-label="{{ tt('Observações (Feedback)') }} - {{ membro.nome }}" class="form-control form-control-sm border-primary" value="{{ av.observacoes_mentor if av else '' }}" placeholder="{{ tt('Feedback individual...') }}">
                                                                 </td>
                                                             </tr>
                                                         {% endfor %}

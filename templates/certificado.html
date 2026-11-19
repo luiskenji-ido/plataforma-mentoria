@@ -2,7 +2,7 @@
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
-    <title>Certificado - {{ usuario.nome }}</title>
+    <title>{{ tt('Certificado') }} - {{ usuario.nome }}</title>
     <!-- Carrega o Bootstrap e fontes elegantes -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-9ndCyUaIbzAi2FUVXJi0CjmCapSmO7SnpJef0486qhLnuZ2cdeRhO02iuK6FUUVM" crossorigin="anonymous">
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,600;1,400&family=Montserrat:wght@400;700&display=swap" rel="stylesheet">
@@ -143,35 +143,35 @@
 
     <!-- PAINEL LATERAL COM BOTÕES PARA CARREGAR AS IMAGENS -->
     <div class="painel-controles d-flex flex-column gap-3">
-        <h5 class="text-primary fw-bold mb-3 border-bottom pb-2">Configurar Diploma</h5>
+        <h5 class="text-primary fw-bold mb-3 border-bottom pb-2">{{ tt('Configurar Diploma') }}</h5>
         
         <!-- Botão para a Logo -->
         <div>
-            <label class="form-label small fw-bold text-muted mb-1">1. Logo da Instituição</label>
-            <input type="file" class="form-control form-control-sm" accept="image/*" onchange="carregarImagem(event, 'logo-img')">
+            <label for="f_logo" class="form-label small fw-bold text-muted mb-1">1. {{ tt('Logo da Instituição') }}</label>
+            <input id="f_logo" type="file" class="form-control form-control-sm" accept="image/*" onchange="carregarImagem(event, 'logo-img')">
         </div>
 
         <!-- Botão para a Assinatura 1 -->
         <div>
-            <label class="form-label small fw-bold text-muted mb-1">2. Assinatura: {{ marca.cargo_assinatura }} ({{ marca.apelido }})</label>
-            <input type="file" class="form-control form-control-sm" accept="image/*" onchange="carregarImagem(event, 'ass1-img')">
+            <label for="f_assinatura1" class="form-label small fw-bold text-muted mb-1">2. {{ tt('Assinatura:') }} {{ marca.cargo_assinatura }} ({{ marca.apelido }})</label>
+            <input id="f_assinatura1" type="file" class="form-control form-control-sm" accept="image/*" onchange="carregarImagem(event, 'ass1-img')">
         </div>
 
         <!-- Botão para a Assinatura 2 -->
         <div>
-            <label class="form-label small fw-bold text-muted mb-1">3. Assinatura: Gestor (B2B)</label>
-            <input type="file" class="form-control form-control-sm" accept="image/*" onchange="carregarImagem(event, 'ass2-img')">
+            <label for="f_assinatura2" class="form-label small fw-bold text-muted mb-1">3. {{ tt('Assinatura:') }} {{ tt('Gestor (B2B)') }}</label>
+            <input id="f_assinatura2" type="file" class="form-control form-control-sm" accept="image/*" onchange="carregarImagem(event, 'ass2-img')">
         </div>
 
         <hr>
 
         <button onclick="window.print()" class="btn btn-success fw-bold shadow-sm">
-            ⬇️ Guardar em PDF
+            ⬇️ {{ tt('Guardar em PDF') }}
         </button>
         <a href="{{ url_for('meus_certificados') }}" class="btn btn-outline-secondary">
-            Voltar aos certificados
+            {{ tt('Voltar aos certificados') }}
         </a>
-        <small class="text-muted text-center" style="font-size: 0.75rem;">Este painel irá desaparecer automaticamente no PDF gerado.</small>
+        <small class="text-muted text-center" style="font-size: 0.75rem;">{{ tt('Este painel irá desaparecer automaticamente no PDF gerado.') }}</small>
     </div>
 
     <!-- O DIPLOMA FÍSICO -->
@@ -182,35 +182,35 @@
             <div>
                 <!-- A imagem padrão é substituída quando você escolhe um arquivo -->
                 <div class="d-flex justify-content-center align-items-center gap-4 flex-wrap" style="margin-bottom: 15px;">
-                    <img id="logo-img" src="https://cdn-icons-png.flaticon.com/512/2231/2231649.png" alt="Selo Oficial" style="height: 70px; object-fit: contain;">
+                    <img id="logo-img" src="https://cdn-icons-png.flaticon.com/512/2231/2231649.png" alt="{{ tt('Selo Oficial') }}" style="height: 70px; object-fit: contain;">
                     {% for empresa in logos_parceiros %}
                     <img src="{{ url_for('logo_empresa', id=empresa.id) }}" alt="{{ empresa.nome }}" title="{{ empresa.nome }}" class="logo-parceiro" style="height: 70px; max-width: 200px; object-fit: contain;">
                     {% endfor %}
                 </div>
-                <h1 class="titulo">Certificado de Excelência</h1>
+                <h1 class="titulo">{{ tt('Certificado de Excelência') }}</h1>
             </div>
             
             <!-- ÁREA CENTRAL: DADOS DO ALUNO E TEXTO -->
             <div>
-                <p class="texto-certificado">Certificamos com a devida honra que</p>
+                <p class="texto-certificado">{{ tt('Certificamos com a devida honra que') }}</p>
                 <h2 class="nome-destaque">{{ usuario.nome }}</h2>
                 
                 <p class="texto-certificado mt-3">
                     {% if certificado.tipo == 'Jovem participante' %}
-                    concluiu com êxito o programa de mentoria corporativa e obteve aprovação oficial<br>
-                    na Banca de Avaliação do Projeto de Conclusão (TCC): <strong>"{{ projeto.nome }}"</strong>.
+                    {{ tt('concluiu com êxito o programa de mentoria corporativa e obteve aprovação oficial') }}<br>
+                    {{ tt('na Banca de Avaliação do Projeto de Conclusão (TCC):') }} <strong>"{{ projeto.nome }}"</strong>.
                     {% elif certificado.tipo == 'Avaliador da Banca' %}
-                    participou como avaliador(a) voluntário(a) da Banca Examinadora do Projeto de Conclusão (TCC)<br>
-                    <strong>"{{ projeto.nome }}"</strong>, com leitura do trabalho escrito, análise, notas e participação na apresentação.
+                    {{ tt('participou como avaliador(a) voluntário(a) da Banca Examinadora do Projeto de Conclusão (TCC)') }}<br>
+                    <strong>"{{ projeto.nome }}"</strong>, {{ tt('com leitura do trabalho escrito, análise, notas e participação na apresentação.') }}
                     {% else %}
-                    atuou com excelência no programa corporativo ESG como mentor(a) voluntário(a)<br>
-                    no desenvolvimento e aprovação do projeto: <strong>"{{ projeto.nome }}"</strong>.
+                    {{ tt('atuou com excelência no programa corporativo ESG como mentor(a) voluntário(a)') }}<br>
+                    {{ tt('no desenvolvimento e aprovação do projeto:') }} <strong>"{{ projeto.nome }}"</strong>.
                     {% endif %}
                 </p>
 
                 {% if certificado.minutos_total %}
                 <p class="texto-certificado mt-2 mb-1">
-                    Tempo dedicado: <strong>{{ certificado.minutos_total // 60 }} h{% if certificado.minutos_total % 60 %} {{ certificado.minutos_total % 60 }} min{% endif %}</strong>
+                    {{ tt('Tempo dedicado:') }} <strong>{{ certificado.minutos_total // 60 }} h{% if certificado.minutos_total % 60 %} {{ certificado.minutos_total % 60 }} min{% endif %}</strong>
                 </p>
                 <p class="text-muted small mb-0">
                     {% for atividade, minutos in detalhe.items() %}{{ atividade }}: {{ minutos // 60 }}h{{ '%02d'|format(minutos % 60) }}{% if not loop.last %} · {% endif %}{% endfor %}
@@ -218,8 +218,8 @@
                 {% endif %}
 
                 <p class="text-muted mt-3 small">
-                    Emitido em {{ data_emissao }} · Código de verificação <strong>{{ certificado.codigo }}</strong><br>
-                    Confira a autenticidade em {{ url_verificacao }}
+                    {{ tt('Emitido em') }} {{ data_emissao }} · {{ tt('Código de verificação') }} <strong>{{ certificado.codigo }}</strong><br>
+                    {{ tt('Confira a autenticidade em') }} {{ url_verificacao }}
                 </p>
             </div>
 
@@ -234,7 +234,7 @@
                 <!-- CAIXA 2: PARCEIRO B2B -->
                 <div class="caixa-assinatura">
                     <img id="ass2-img" src="" class="img-assinatura" alt="" style="min-height: 40px;">
-                    <div class="linha-assinatura">Gestor do Parceiro B2B</div>
+                    <div class="linha-assinatura">{{ tt('Gestor do Parceiro B2B') }}</div>
                 </div>
             </div>
 

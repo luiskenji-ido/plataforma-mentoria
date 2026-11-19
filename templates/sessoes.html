@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}{{ t('sessoes_historico') }} - Mentoria{% endblock %}
+{% block title %}{{ t('sessoes_historico') }} - {{ marca.plataforma if marca.configurada else t('nome_app') }}{% endblock %}
 
 {% block content %}
 
@@ -17,7 +17,7 @@
     <!-- Tabela de Sessões -->
     <div class="card shadow-sm border-0 mb-5">
         <div class="card-body p-0">
-            <table class="table table-hover mb-0 text-center align-middle">
+            <div class="table-responsive"><table class="table table-hover mb-0 text-center align-middle">
                 <thead class="table-light">
                     <tr>
                         <th>{{ t('col_data_hora') }}</th>
@@ -39,7 +39,7 @@
                 
                                 <!-- Botão Original de Feedbacks -->
                                 <button class="btn btn-sm btn-outline-success" data-bs-toggle="modal" data-bs-target="#modalFeedback{{ item.sessao.id }}">
-                                    💬 Feedbacks <span class="badge bg-success rounded-pill ms-1">{{ item.feedbacks|length }}</span>
+                                    💬 {{ tt('Feedbacks') }} <span class="badge bg-success rounded-pill ms-1">{{ item.feedbacks|length }}</span>
                                 </button>
                                 
                                 <!-- Ata digital estruturada do encontro -->
@@ -53,8 +53,8 @@
                                 <!-- Botão Novo: Salvar na Agenda (Apenas para Alunos) -->
                                 {% if current_user.tipo_usuario == 'Aluno' %}
                                 <form action="{{ url_for('sincronizar_sessao_aluno', id=item.sessao.id) }}" method="POST" class="m-0">
-                                    <button type="submit" class="btn btn-sm btn-outline-primary fw-bold" title="Salvar no meu Google Agenda">
-                                        📅 Salvar na Agenda
+                                    <button type="submit" class="btn btn-sm btn-outline-primary fw-bold" title="{{ tt('Salvar no meu Google Agenda') }}">
+                                        📅 {{ tt('Salvar na Agenda') }}
                                     </button>
                                 </form>
                                 {% endif %}
@@ -73,7 +73,7 @@
                                 
                                 <div class="modal-header bg-success text-white">
                                     <h5 class="modal-title">{{ t('historico_feedback_titulo') }} - {{ item.sessao.data_sessao.strftime('%d/%m/%Y') }}</h5>
-                                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                                    <button aria-label="{{ tt('Fechar') }}" type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                                 </div>
                                 
                                 <!-- FORMULÁRIO ENGOLINDO CORPO E RODAPÉ (com display contents) -->
@@ -124,8 +124,8 @@
                                         <!-- ÁREA DE DIGITAÇÃO DE NOVO FEEDBACK -->
                                         {% if current_user.tipo_usuario != 'Aluno' %}
                                         <div class="mb-3">
-                                            <label class="form-label fw-bold text-muted">{{ t('visibilidade_feedback') }}</label>
-                                            <select name="visibilidade" class="form-select">
+                                            <label for="f_visibilidade_{{ loop.index }}" class="form-label fw-bold text-muted">{{ t('visibilidade_feedback') }}</label>
+                                            <select id="f_visibilidade_{{ loop.index }}" name="visibilidade" class="form-select">
                                                 <option value="publico">{{ t('opcao_publico') }}</option>
                                                 <option value="privado">{{ t('opcao_privado') }}</option>
                                             </select>
@@ -133,8 +133,8 @@
                                         {% endif %}
 
                                         <div class="mb-3">
-                                            <label class="form-label fw-bold text-success">{{ t('escrever_comentario_avaliacao') }}</label>
-                                            <textarea name="comentario" class="form-control" rows="3" placeholder="{{ t('placeholder_feedback') }}" required></textarea>
+                                            <label for="f_comentario_{{ loop.index }}" class="form-label fw-bold text-success">{{ t('escrever_comentario_avaliacao') }}</label>
+                                            <textarea id="f_comentario_{{ loop.index }}" name="comentario" class="form-control" rows="3" placeholder="{{ t('placeholder_feedback') }}" required></textarea>
                                         </div>
                                     </div>
 
@@ -157,7 +157,7 @@
                             </div>
                             {% if pode_ata(item.sessao) %}
                             <form method="POST" action="{{ url_for('ata_sessao', id=item.sessao.id) }}" style="display: contents;">
-                                <div class="modal-body row g-2">
+                                <div class="modal-body"><div class="row g-2">
                                     <div class="col-12"><label class="form-label small fw-bold mb-0" for="ataResumo{{ item.sessao.id }}">{{ tt('Resumo das deliberações') }}</label>
                                         <textarea class="form-control form-control-sm" id="ataResumo{{ item.sessao.id }}" name="ata_resumo" rows="4" minlength="10" required>{{ item.sessao.ata_resumo or '' }}</textarea></div>
                                     <div class="col-12"><label class="form-label small fw-bold mb-0" for="ataFontes{{ item.sessao.id }}">{{ tt('Fontes recomendadas') }}</label>
@@ -170,7 +170,7 @@
                                         <input class="form-check-input" type="checkbox" id="ataEnviar{{ item.sessao.id }}" name="enviar_proximos_passos" value="1" {% if not item.sessao.proximos_passos_enviados_em %}checked{% endif %}>
                                         <label class="form-check-label small" for="ataEnviar{{ item.sessao.id }}">{{ tt('Enviar os próximos passos ao jovem por e-mail') }}</label></div></div>
                                     {% if item.sessao.proximos_passos_enviados_em %}<div class="col-12 small text-success"><i class="bi bi-send-check"></i> {{ tt('Próximos passos enviados em') }} {{ item.sessao.proximos_passos_enviados_em.strftime('%d/%m/%Y %H:%M') }}</div>{% endif %}
-                                </div>
+                                </div></div>
                                 <div class="modal-footer bg-light"><button type="submit" class="btn btn-primary fw-bold">{{ tt('Salvar ata') }}</button></div>
                             </form>
                             {% else %}
@@ -190,7 +190,7 @@
                     </tr>
                     {% endfor %}
                 </tbody>
-            </table>
+            </table></div>
         </div>
     </div>
 
@@ -201,14 +201,14 @@
             <div class="modal-content">
                 <div class="modal-header bg-primary text-white">
                     <h5 class="modal-title">{{ t('nova_sessao_mentoria') }}</h5>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                    <button aria-label="{{ tt('Fechar') }}" type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                 </div>
                 <form method="POST">
                     <input type="hidden" name="acao" value="agendar">
                     <div class="modal-body">
                         <div class="mb-3">
-                            <label class="form-label">{{ t('selecionar_aluno') }}</label>
-                            <select name="aluno_id" class="form-select" required>
+                            <label for="f_aluno_id" class="form-label">{{ t('selecionar_aluno') }}</label>
+                            <select id="f_aluno_id" name="aluno_id" class="form-select" required>
                                 <option value="">{{ t('escolha_um_aluno') }}</option>
                                 {% for aluno in alunos %}
                                     <option value="{{ aluno.id }}">{{ aluno.nome }} ({{ aluno.email }})</option>
@@ -217,21 +217,21 @@
                         </div>
                         <div class="row">
                             <div class="col-md-6 mb-3">
-                                <label class="form-label fw-bold">Data da Sessão</label>
-                                <input type="date" name="data_sessao" class="form-control" required>
+                                <label for="f_data_sessao" class="form-label fw-bold">{{ tt('Data da Sessão') }}</label>
+                                <input id="f_data_sessao" type="date" name="data_sessao" class="form-control" required>
                             </div>
                             <div class="col-md-3 mb-3">
-                                <label class="form-label fw-bold text-primary">Início</label>
-                                <input type="time" name="hora_inicio" class="form-control border-primary" required>
+                                <label for="f_hora_inicio" class="form-label fw-bold text-primary">{{ tt('Início') }}</label>
+                                <input id="f_hora_inicio" type="time" name="hora_inicio" class="form-control border-primary" required>
                             </div>
                             <div class="col-md-3 mb-3">
-                                <label class="form-label fw-bold text-primary">Término</label>
-                                <input type="time" name="hora_fim" class="form-control border-primary" required>
+                                <label for="f_hora_fim" class="form-label fw-bold text-primary">{{ tt('Término') }}</label>
+                                <input id="f_hora_fim" type="time" name="hora_fim" class="form-control border-primary" required>
                             </div>
                         </div>
                         <div class="mb-3">
-                            <label class="form-label">{{ t('pauta_observacoes') }}</label>
-                            <textarea name="observacoes" class="form-control" rows="3" placeholder="{{ t('placeholder_pauta') }}"></textarea>
+                            <label for="f_observacoes" class="form-label">{{ t('pauta_observacoes') }}</label>
+                            <textarea id="f_observacoes" name="observacoes" class="form-control" rows="3" placeholder="{{ t('placeholder_pauta') }}"></textarea>
                         </div>
                     </div>
                     <div class="modal-footer">

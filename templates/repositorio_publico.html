@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Repositório de TCCs · {{ marca.plataforma }}</title>
+    <title>{{ tt('Repositório de TCCs') }} · {{ marca.plataforma }}</title>
     <style>
         :root { --fundo: #f4f6fa; --cartao: #ffffff; --texto: #1d2633; --suave: #5d6878; --acento: #0b5cad; --linha: #dde2ea; --etiqueta: #eef3fa; }
         @media (prefers-color-scheme: dark) { :root { --fundo: #11161e; --cartao: #18202b; --texto: #e6ebf2; --suave: #9aa6b6; --acento: #6aa8ec; --linha: #2a3442; --etiqueta: #1c2c40; } }
@@ -26,15 +26,16 @@
         a.baixar:focus-visible, button:focus-visible, input:focus-visible { outline: 2px solid var(--acento); outline-offset: 2px; }
         .vazio { color: var(--suave); text-align: center; padding: 40px 0; }
     </style>
+{% include '_tema_plataforma.html' %}
 </head>
 <body>
     <main class="pagina">
-        <h1>Repositório de TCCs — {{ marca.plataforma }}</h1>
-        <p class="sub">Trabalhos de conclusão aprovados nas bancas do programa {{ marca.nome }} com as empresas parceiras (B2B), publicados com autorização dos jovens e responsáveis. Material aberto para pesquisa de jovens, mentores, institutos e mercado.</p>
+        <h1>{{ tt('Repositório de TCCs') }} — {{ marca.plataforma }}</h1>
+        <p class="sub">{{ tt('Trabalhos de conclusão aprovados nas bancas do programa {instituicao} com as empresas parceiras (B2B), publicados com autorização dos jovens e responsáveis. Material aberto para pesquisa de jovens, mentores, institutos e mercado.') }}</p>
         <form method="GET" role="search">
-            <label for="q" style="position:absolute;left:-9999px;">Buscar</label>
-            <input type="search" id="q" name="q" value="{{ busca }}" placeholder="Buscar por título, tema ou palavra-chave">
-            <button type="submit">Buscar</button>
+            <label for="q" style="position:absolute;left:-9999px;">{{ tt('Buscar') }}</label>
+            <input type="search" id="q" name="q" value="{{ busca }}" placeholder="{{ tt('Buscar por título, tema ou palavra-chave') }}">
+            <button type="submit">{{ tt('Buscar') }}</button>
         </form>
         <div class="grade">
             {% for i in itens %}
@@ -43,10 +44,10 @@
                 <div class="meta">{{ i.tema or '' }}{% if i.ano_edicao %} · {{ i.ano_edicao }}{% endif %}{% if i.autores_exibicao %} · {{ i.autores_exibicao }}{% endif %}</div>
                 {% if i.resumo %}<p>{{ i.resumo[:320] }}{% if i.resumo|length > 320 %}…{% endif %}</p>{% endif %}
                 {% if i.palavras_chave %}<div class="tags">{% for p in i.palavras_chave.split(',') if p.strip() %}<span class="tag">{{ p.strip() }}</span>{% endfor %}</div>{% endif %}
-                {% if i.arquivo_pdf %}<a class="baixar" href="{{ url_for('baixar_repositorio_publico', id=i.id) }}">Baixar o TCC (PDF)</a>{% endif %}
+                {% if i.arquivo_pdf %}<a class="baixar" href="{{ url_for('baixar_repositorio_publico', id=i.id) }}">{{ tt('Baixar o TCC (PDF)') }}</a>{% endif %}
             </article>
             {% else %}
-            <p class="vazio">Nenhum TCC público encontrado{% if busca %} para "{{ busca }}"{% endif %}.</p>
+            <p class="vazio">{{ tt('Nenhum TCC público encontrado') }}{% if busca %} {{ tt('para') }} "{{ busca }}"{% endif %}.</p>
             {% endfor %}
         </div>
     </main>

@@ -109,22 +109,22 @@
 <div class="modal fade" id="modalNovoAgendamento" tabindex="-1"><div class="modal-dialog modal-lg"><div class="modal-content">
     <form method="POST">
         <input type="hidden" name="acao" value="novo_agendamento">
-        <div class="modal-header bg-success text-white"><h5 class="modal-title fw-bold">{{ tt('Novo agendamento') }}</h5><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="{{ t('fechar') }}"></button></div>
-        <div class="modal-body row g-3">{{ campos_agendamento(None, 'Novo') }}
+        <div class="modal-header bg-success text-white"><h5 class="modal-title fw-bold">{{ tt('Novo agendamento') }}</h5><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="{{ tt('Fechar') }}"></button></div>
+        <div class="modal-body"><div class="row g-3">{{ campos_agendamento(None, 'Novo') }}
             <div class="col-12"><small class="text-muted">{{ tt('No PythonAnywhere os agendamentos rodam pela tarefa de hora em hora (tarefas_agendadas.py); com o app aberto no computador, rodam no horário.') }}</small></div>
-        </div>
+        </div></div>
         <div class="modal-footer"><button class="btn btn-success fw-bold px-4" type="submit">{{ tt('Criar agendamento') }}</button></div>
     </form>
 </div></div></div>
 
 {% for a in agendamentos %}
 <div class="modal fade" id="modalAgendamento{{ a.id }}" tabindex="-1"><div class="modal-dialog modal-lg"><div class="modal-content">
-    <div class="modal-header bg-primary text-white"><h5 class="modal-title fw-bold">{{ tt('Agendamento') }} #{{ a.id }} · {{ selo_status(a.status) }}</h5><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="{{ t('fechar') }}"></button></div>
+    <div class="modal-header bg-primary text-white"><h5 class="modal-title fw-bold">{{ tt('Agendamento') }} #{{ a.id }} · {{ selo_status(a.status) }}</h5><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="{{ tt('Fechar') }}"></button></div>
     <form method="POST">
         <input type="hidden" name="acao" value="editar_agendamento"><input type="hidden" name="agendamento_id" value="{{ a.id }}">
-        <div class="modal-body row g-3">{{ campos_agendamento(a, a.id) }}
+        <div class="modal-body"><div class="row g-3">{{ campos_agendamento(a, a.id) }}
             <div class="col-12 small text-muted">{{ tt('Criado por') }} {{ a.criado_por.nome if a.criado_por else tt('sistema') }} · {{ data_hora(a.data_criacao) }}</div>
-        </div>
+        </div></div>
         <div class="modal-footer justify-content-between">
             <div class="d-flex gap-2 flex-wrap">
                 <button class="btn btn-outline-primary fw-bold" type="submit" form="acao{{ a.id }}executar"><i class="bi bi-play-fill"></i> {{ tt('Executar agora') }}</button>
@@ -248,7 +248,7 @@
         <form method="POST" class="row g-2 align-items-end">
             <input type="hidden" name="acao" value="limpar">
             <div class="col-md-4"><label class="form-label small" for="confirmacaoApagar">{{ tt('Para liberar, digite APAGAR') }}</label>
-                <input class="form-control" id="confirmacaoApagar" name="confirmacao" autocomplete="off" placeholder="APAGAR"></div>
+                <input class="form-control" id="confirmacaoApagar" name="confirmacao" autocomplete="off" placeholder="APAGAR"></div> {# ux: ok - palavra de confirmação conferida pelo servidor em qualquer idioma (não se traduz) #}
             <div class="col-md-4 d-grid"><button class="btn btn-danger fw-bold" type="submit" id="btnApagarDados" disabled><i class="bi bi-trash"></i> {{ tt('Apagar todos os dados') }}</button></div>
             <div class="col-md-4 small text-muted">{{ tt('Autenticado como:') }} {{ current_user.nome }}</div>
         </form>

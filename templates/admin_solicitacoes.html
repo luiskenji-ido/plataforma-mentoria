@@ -10,12 +10,12 @@
     <div class="card-body bg-light rounded p-3">
         <form method="GET" action="{{ url_for('gerenciar_solicitacoes') }}" class="row align-items-end">
             <div class="col-md-3 mb-2 mb-md-0">
-                <label class="form-label text-muted small fw-bold mb-1">{{ t('data_inicial') }}</label>
-                <input type="date" name="data_inicio" class="form-control form-control-sm" value="{{ data_inicio or '' }}">
+                <label for="f_data_inicio" class="form-label text-muted small fw-bold mb-1">{{ t('data_inicial') }}</label>
+                <input id="f_data_inicio" type="date" name="data_inicio" class="form-control form-control-sm" value="{{ data_inicio or '' }}">
             </div>
             <div class="col-md-3 mb-2 mb-md-0">
-                <label class="form-label text-muted small fw-bold mb-1">{{ t('data_final') }}</label>
-                <input type="date" name="data_fim" class="form-control form-control-sm" value="{{ data_fim or '' }}">
+                <label for="f_data_fim" class="form-label text-muted small fw-bold mb-1">{{ t('data_final') }}</label>
+                <input id="f_data_fim" type="date" name="data_fim" class="form-control form-control-sm" value="{{ data_fim or '' }}">
             </div>
             <div class="col-md-4">
                 <button type="submit" class="btn btn-sm btn-primary fw-bold me-2">{{ t('filtrar') }}</button>

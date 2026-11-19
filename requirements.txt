@@ -45,6 +45,7 @@ jiter==0.19.0; python_version >= "3.11"
 Mako==1.4.3
 MarkupSafe==3.0.3
 oauthlib==4.0.1
+openai==3.55.1
 opentelemetry-api==1.45.2
 proto-plus==1.28.2
 protobuf==5.29.6
@@ -53,6 +54,7 @@ pyasn1_modules==0.4.2
 pycparser==3.0
 pydantic==2.13.5
 pydantic_core==2.46.5
+pypdf==7.1.1
 PyMySQL==1.2.4
 pyparsing==3.3.2
 PySocks==1.7.1

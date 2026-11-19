@@ -43,7 +43,7 @@
                 <div class="text-muted">{{ tt('Espaço livre') }}: {{ tamanho_legivel(a.livre) }}</div>
                 <div class="mt-1"><span class="text-muted">{{ tt('Fora do servidor') }}:</span>
                     {% if a.pasta_externa %}<code class="text-break">{{ a.pasta_externa }}</code>{% else %}<span class="text-warning-emphasis">{{ tt('não configurada') }}</span>{% endif %}</div>
-                <div class="text-muted mt-1">{{ tt('Subpastas') }}: diario · semanal · mensal · manuais</div>
+                <div class="text-muted mt-1">{{ tt('Subpastas') }}: diario · semanal · mensal · manuais</div> {# ux: ok - nomes das pastas no disco #}
             </div>
         </div>
     </div>

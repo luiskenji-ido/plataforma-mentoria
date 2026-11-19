@@ -50,9 +50,9 @@
             <form method="POST" enctype="multipart/form-data">
                 <div class="modal-header bg-primary text-white">
                     <h5 class="modal-title fw-bold">{{ (p.nome_completo or p.usuario.nome) if p else t('aval_novo') }}</h5>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="{{ t('fechar') }}"></button>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="{{ tt('Fechar') }}"></button>
                 </div>
-                <div class="modal-body row g-3">
+                <div class="modal-body"><div class="row g-3">
                     <input type="hidden" name="acao" value="{{ 'editar' if p else 'criar' }}">
                     <input type="hidden" name="perfil_id" value="{{ pid }}">
                     <div class="col-md-6">
@@ -61,7 +61,7 @@
                     </div>
                     {% if not p %}
                     <div class="col-md-6">
-                        <label class="form-label fw-bold" for="aEmail0">E-mail</label>
+                        <label class="form-label fw-bold" for="aEmail0">{{ tt('E-mail') }}</label>
                         <input type="email" class="form-control" id="aEmail0" name="email" required>
                     </div>
                     <div class="col-md-6">
@@ -100,7 +100,7 @@
                         <label class="form-label fw-bold" for="aCv{{ pid }}">{{ t('aval_curriculo_pdf') }}</label>
                         <input type="file" class="form-control" id="aCv{{ pid }}" name="curriculo_arquivo" accept="application/pdf">
                     </div>
-                </div>
+                </div></div>
                 <div class="modal-footer"><button class="btn btn-success fw-bold px-4" type="submit">{{ t('trilha_salvar') }}</button></div>
             </form>
         </div>

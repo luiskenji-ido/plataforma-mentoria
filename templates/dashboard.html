@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}{{ t('titulo_dashboard') }} Mentoria{% endblock %}
+{% block title %}{{ t('titulo_dashboard') }} - {{ marca.plataforma if marca.configurada else t('nome_app') }}{% endblock %}
 {% block content %}
 
 <!-- BANCA DO GRUPO AGENDADA (jovens e mentores do grupo) -->
@@ -84,7 +84,7 @@
 {% if dias_restantes_senha <= 15 %}
 <div class="alert alert-warning alert-dismissible fade show border-start border-warning border-4 shadow-sm mb-4" role="alert">
 <strong> {{ tt('Alerta de Segurança:') }}</strong> {{ tt('Sua senha expira em') }} <strong>{{ dias_restantes_senha }} {{ tt('dias') }}</strong>!
-<button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+<button aria-label="{{ tt('Fechar') }}" type="button" class="btn-close" data-bs-dismiss="alert"></button>
 </div>
 {% endif %}
 
@@ -145,7 +145,7 @@
             </button>
 
             <!-- MENU DE EXPORTAÇÃO ESG (EXCEL E PDF) -->
-            {% if current_user.tipo_usuario in ['Administrador', 'Mentor Administrador', 'Admin B2B'] %}
+            {% if current_user.tipo_usuario in PERFIS_EXPORTAM_ESG %}
             <div class="dropdown">
                 <button class="btn btn-outline-success fw-bold rounded-pill px-3 shadow-sm dropdown-toggle" type="button" data-bs-toggle="dropdown">
                     <i class="bi bi-file-earmark-bar-graph"></i> {{ tt('Relatórios') }}
@@ -204,7 +204,7 @@
         <div class="modal-content shadow-lg border-0">
             <div class="modal-header bg-success text-white">
                 <h5 class="modal-title fw-bold"><i class="bi bi-play-circle"></i> {{ t('vol_iniciar_titulo') }}</h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="{{ t('fechar') }}"></button>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="{{ tt('Fechar') }}"></button>
             </div>
             <form action="{{ url_for('bater_ponto_voluntariado') }}" method="POST" class="form-voluntariado">
                 <div class="modal-body bg-light">
@@ -231,7 +231,7 @@
         <div class="modal-content shadow-lg border-0">
             <div class="modal-header bg-secondary text-white">
                 <h5 class="modal-title fw-bold"><i class="bi bi-pencil-square"></i> {{ tt('Lançamento Manual de Horas') }}</h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="{{ t('fechar') }}"></button>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="{{ tt('Fechar') }}"></button>
             </div>
             <form action="{{ url_for('lancamento_manual_voluntariado') }}" method="POST" class="form-voluntariado">
                 <div class="modal-body bg-light">
@@ -339,14 +339,14 @@
                 <i class="bi bi-person-badge"></i> {{ t('nivel_acesso') }}: <strong>{% if current_user.perfil_personalizado_id %}{{ nome_perfil_usuario }}{% elif current_user.tipo_usuario == 'Aluno' %}{{ t('aluno') }}{% else %}{{ tt(current_user.tipo_usuario) }}{% endif %}</strong>
                 {% if current_user.tipo_usuario == 'Aluno' %}
                 <span class="ms-3"><i class="bi bi-person-check"></i>
-                    {% if t('sem_certificado') == 'Uncertified' %}Responsible Mentor:{% elif t('sem_certificado') == 'Sin Certificado' %}Mentor Responsable:{% else %}Mentor Responsável:{% endif %}
-                    <strong class="text-primary">{% if nome_mentor == 'Não atribuído' %}{% if t('sem_certificado') == 'Uncertified' %}Not assigned{% elif t('sem_certificado') == 'Sin Certificado' %}No asignado{% else %}Não atribuído{% endif %}{% else %}{{ nome_mentor }}{% endif %}</strong>
+                    {{ tt('Mentor Responsável:') }}
+                    <strong class="text-primary">{% if nome_mentor == 'Não atribuído' %}{{ tt('Não atribuído') }}{% else %}{{ nome_mentor }}{% endif %}</strong>
                 </span>
                 {% endif %}
             </p>
         </div>
         <div class="d-flex flex-wrap gap-2">
-            {% if current_user.tipo_usuario not in ['Administrador', 'Mentor Administrador'] %}
+            {% if current_user.tipo_usuario not in PERFIS_GESTAO_INSTITUICAO %}
                 {# Só o Gestor B2B chega aqui com acesso ao Hub (Mentor e Professor são barrados pela rota) #}
                 {% if current_user.tipo_usuario == 'Admin B2B' %}
                 <a href="{{ url_for('gerenciar_turmas') }}" class="btn btn-outline-success fw-bold shadow-sm"><i class="bi bi-diagram-3"></i> {{ t('btn_cursos') }}</a>
@@ -420,7 +420,7 @@
         <div class="modal-content">
             <div class="modal-header bg-primary text-white">
                 <h5 class="modal-title fw-bold" id="tituloPersonalizarGraficos"><i class="bi bi-sliders"></i> {{ tt('Personalizar gráficos') }}</h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="{{ t('fechar') }}"></button>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="{{ tt('Fechar') }}"></button>
             </div>
             <div class="modal-body">
                 <p class="small text-muted">{{ tt('Escolha até 4 gráficos: o dado, o tipo de gráfico e a cor. A escolha fica salva no seu perfil.') }}</p>
@@ -452,10 +452,10 @@ CONTROLES DE FILTRO E ORDENAÇÃO
 =========================================== -->
 <div class="bg-light p-3 border-top border-bottom d-flex gap-3 align-items-center flex-wrap">
 <div class="flex-grow-1">
-<input type="text" id="filtroBusca" class="form-control shadow-sm" placeholder="{{ t('placeholder_filtro') }}">
+<input type="text" id="filtroBusca" class="form-control shadow-sm" aria-label="{{ t('placeholder_filtro') }}" placeholder="{{ t('placeholder_filtro') }}">
 </div>
 <div>
-<select id="ordenacaoTabela" class="form-select shadow-sm">
+<select id="ordenacaoTabela" class="form-select shadow-sm" aria-label="{{ tt('Ordenar') }}">
 <option value="padrao">{{ t('ordenar_padrao') }}</option>
 <option value="curso_az">{{ t('ordem_curso_az') }}</option>
 <option value="curso_za">{{ t('ordem_curso_za') }}</option>
@@ -467,7 +467,7 @@ CONTROLES DE FILTRO E ORDENAÇÃO
 </div>
 </div>
 <div class="card-body p-0">
-<table class="table table-hover align-middle mb-0 text-center" id="tabelaMatriz">
+<div class="table-responsive"><table class="table table-hover align-middle mb-0 text-center" id="tabelaMatriz">
 <thead>
 <tr>
 <th class="text-start">{{ t('aluno') }}</th>
@@ -532,7 +532,7 @@ data-progresso="{{ item.percentual }}">
 </tr>
 {% endfor %}
 </tbody>
-</table>
+</table></div>
 </div>
 </div>
 <!-- ==========================================================

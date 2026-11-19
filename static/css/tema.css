@@ -1,0 +1,262 @@
+/* =====================================================================================================================
+   TEMA DA PLATAFORMA (v2, aprovado a partir do protótipo de UX/UI em 19/11/2026)
+   Carregado pelo base.html DEPOIS das regras antigas de cada tema e de static/css/tokens.css (gerado por tema_plataforma.py).
+   Regras da skill de UX/UI seguidas aqui:
+   1. Respeita o tema que a pessoa escolheu (claro, escuro, futurista, vintage): as cores vêm de tokens por tema
+      (tokens.css, gerado por tema_plataforma.py, que confere o contraste WCAG de cada par antes de gravar).
+   2. Nenhuma cor fixa: toda peça usa um papel (--p-fg, --p-muted, --p-surface…), nunca #fff ou #000 soltos.
+   3. As classes de cor fixa do Bootstrap que as telas usam (text-dark, bg-white, bg-light, bg-dark, text-white…) passam a
+      seguir o tema: sem isso, texto escuro some no tema escuro e texto claro some no tema claro.
+   4. Fundos fortes viram fundos suaves com o texto do mesmo estado (o contraste fica garantido pela paleta).
+   5. Uma cor de ação; verde, âmbar e vermelho só para estado. Bordas de campo com 3:1.
+   O prefixo html:not(#_):not([data-sem-tema]) vence as regras antigas dos temas no base.html (que usam !important) e as
+   regras das próprias telas com #id (o mesmo peso que o protótipo tinha com html[data-proto]:not(#_)).
+   ===================================================================================================================== */
+html {
+  --p-body: "Inter", "Segoe UI", system-ui, sans-serif; --p-display: "Space Grotesk", "Inter", "Segoe UI", system-ui, sans-serif;
+  --p-r: 10px; --p-r-lg: 14px; --bs-body-font-family: var(--p-body); --bs-border-radius: 10px;
+}
+/* as variáveis dos temas atuais (base.html) passam a apontar para a paleta nova: o que já usa var(--card-bg) etc. acompanha */
+html:not(#_):not([data-sem-tema]) {
+  --bg-color: var(--p-bg) !important; --text-color: var(--p-fg) !important; --card-bg: var(--p-surface) !important;
+  --nav-bg: var(--p-surface) !important; --border-color: var(--p-line) !important; --table-bg: transparent !important;
+  --table-text: var(--p-fg) !important; --table-header-bg: var(--p-surface2) !important; --primary-btn-bg: var(--p-accent) !important;
+  --primary-btn-hover: color-mix(in srgb, var(--p-accent) 85%, var(--p-fg)) !important; --input-bg: var(--p-surface) !important;
+  --bs-secondary-bg: var(--p-surface2); --bs-tertiary-bg: var(--p-surface2); --bs-heading-color: var(--p-fg);
+  background: var(--p-bg) !important;
+}
+
+/* ---------- base ---------- */
+html:not(#_):not([data-sem-tema]) body { background: var(--p-bg) !important; color: var(--p-fg) !important; font-family: var(--p-body) !important; font-size: 15px; }
+html:not(#_):not([data-sem-tema]) :is(h1, h2, h3, h4, h5, h6, .h1, .h2, .h3, .h4, .h5, .h6) { color: var(--p-fg) !important; }
+html:not(#_):not([data-sem-tema]) :is(h1, h2, h3) { font-family: var(--p-display) !important; letter-spacing: -.01em; }
+html:not(#_):not([data-sem-tema]) :is(h1, h2, h3, h4, h5) > i:first-child { color: var(--p-accent-text) !important; }
+html:not(#_):not([data-sem-tema]) a:not(.btn):not(.nav-link):not(.dropdown-item):not(.list-group-item):not(.navbar-brand):not(.badge) { color: var(--p-accent-text) !important; }
+html:not(#_):not([data-sem-tema]) hr { border-color: var(--p-line) !important; opacity: 1; }
+html:not(#_):not([data-sem-tema]) ::placeholder { color: var(--p-muted) !important; opacity: 1; }
+html:not(#_):not([data-sem-tema]) code { color: var(--p-bad-text) !important; }
+html:not(#_):not([data-sem-tema]) .lead { color: var(--p-muted) !important; }
+/* R14 nenhum texto abaixo de 12 px: o .small/.badge em "em" sobre texto já pequeno chegava a 9,84 px */
+html:not(#_):not([data-sem-tema]) :is(small, .small, .badge, .form-text, .dropdown-header) { font-size: max(12px, .8em) !important; }
+html:not(#_):not([data-sem-tema]) .badge :is(small, .small) { font-size: inherit !important; }
+
+/* ---------- classes de cor fixa → papéis do tema ---------- */
+html:not(#_):not([data-sem-tema]) :is(.text-dark, .text-black, .text-body, .text-body-emphasis, .text-reset) { color: var(--p-fg) !important; }
+html:not(#_):not([data-sem-tema]) :is(.text-muted, .text-secondary, .text-body-secondary, .text-black-50, .text-white-50) { color: var(--p-muted) !important; }
+html:not(#_):not([data-sem-tema]) .text-primary { color: var(--p-accent-text) !important; }
+html:not(#_):not([data-sem-tema]) .text-success { color: var(--p-ok-text) !important; }
+html:not(#_):not([data-sem-tema]) .text-danger { color: var(--p-bad-text) !important; }
+html:not(#_):not([data-sem-tema]) .text-warning { color: var(--p-warn-text) !important; }
+html:not(#_):not([data-sem-tema]) .text-info { color: var(--p-info-text) !important; }
+/* branco "solto" só faz sentido sobre fundo forte; fora dele vira a cor do texto */
+html:not(#_):not([data-sem-tema]) :is(.text-white, .text-light) { color: var(--p-fg) !important; }
+html:not(#_):not([data-sem-tema]) :is(.bg-white, .bg-body) { background-color: var(--p-surface) !important; color: var(--p-fg) !important; }
+html:not(#_):not([data-sem-tema]) :is(.bg-light, .bg-body-tertiary, .bg-body-secondary, .bg-dark, .bg-black, .bg-secondary-subtle):not(.badge):not(.btn):not(.progress-bar) {
+  background-color: var(--p-surface2) !important; color: var(--p-fg) !important; }
+html:not(#_):not([data-sem-tema]) :is(.bg-dark, .bg-black, .bg-secondary):not(.badge):not(.btn):not(.progress-bar) :is(.text-white, .text-light, .text-white-50) { color: var(--p-fg) !important; }
+/* fundos fortes fora de etiqueta, botão e barra (cabeçalhos, faixas, blocos) → fundo suave com o texto do estado */
+html:not(#_):not([data-sem-tema]) .bg-primary:not(.badge):not(.btn):not(.progress-bar) { background-color: var(--p-accent-soft) !important; color: var(--p-accent-text) !important; }
+html:not(#_):not([data-sem-tema]) .bg-success:not(.badge):not(.btn):not(.progress-bar) { background-color: var(--p-ok-soft) !important; color: var(--p-ok-text) !important; }
+html:not(#_):not([data-sem-tema]) .bg-danger:not(.badge):not(.btn):not(.progress-bar) { background-color: var(--p-bad-soft) !important; color: var(--p-bad-text) !important; }
+html:not(#_):not([data-sem-tema]) .bg-warning:not(.badge):not(.btn):not(.progress-bar) { background-color: var(--p-warn-soft) !important; color: var(--p-warn-text) !important; }
+html:not(#_):not([data-sem-tema]) .bg-info:not(.badge):not(.btn):not(.progress-bar) { background-color: var(--p-info-soft) !important; color: var(--p-info-text) !important; }
+html:not(#_):not([data-sem-tema]) .bg-secondary:not(.badge):not(.btn):not(.progress-bar) { background-color: var(--p-surface2) !important; color: var(--p-fg) !important; }
+html:not(#_):not([data-sem-tema]) :is(.bg-primary, .bg-success, .bg-danger, .bg-warning, .bg-info):not(.badge):not(.btn):not(.progress-bar) :is(.text-white, .text-light, .text-dark, .text-white-50, .text-muted, h1, h2, h3, h4, h5, h6, small) { color: inherit !important; }
+html:not(#_):not([data-sem-tema]) :is(.border, .border-top, .border-bottom, .border-start, .border-end, .border-dark, .border-light, .border-secondary) { border-color: var(--p-line) !important; }
+html:not(#_):not([data-sem-tema]) .border-primary { border-color: var(--p-accent) !important; }
+
+/* ---------- menu superior ---------- */
+html:not(#_):not([data-sem-tema]) .navbar.menu-topo { background: var(--p-surface) !important; border-bottom: 1px solid var(--p-line) !important; box-shadow: none !important; padding-block: 6px; }
+html:not(#_):not([data-sem-tema]) .menu-topo .navbar-brand { color: var(--p-fg) !important; font-family: var(--p-display); }
+html:not(#_):not([data-sem-tema]) .menu-topo .nav-link { color: var(--p-muted) !important; font-weight: 500 !important; border-radius: 8px; padding: 6px 12px !important; }
+html:not(#_):not([data-sem-tema]) .menu-topo :is(.nav-link:hover, .nav-link.active, .nav-link.show, .nav-link.ativo) { color: var(--p-accent-text) !important; background: var(--p-accent-soft) !important; }
+html:not(#_):not([data-sem-tema]) .menu-topo .nav-link i { color: inherit !important; }
+html:not(#_):not([data-sem-tema]) .menu-topo .btn { background: var(--p-surface) !important; color: var(--p-fg) !important; border: 1px solid var(--p-line) !important; }
+html:not(#_):not([data-sem-tema]) .menu-topo :is(.btn-outline-danger, a.btn-outline-danger) { color: var(--p-bad-text) !important; }
+html:not(#_):not([data-sem-tema]) .navbar-toggler { border-color: var(--p-line) !important; }
+html[data-theme="escuro"]:not(#_) .navbar-toggler-icon, html[data-theme="futurista"]:not(#_) .navbar-toggler-icon { filter: invert(1); }
+html:not(#_):not([data-sem-tema]) .dropdown-menu { background: var(--p-surface) !important; color: var(--p-fg) !important; border: 1px solid var(--p-line) !important; border-radius: 12px !important; box-shadow: 0 12px 32px rgb(var(--p-sombra) / .18) !important; padding: 6px !important; }
+html:not(#_):not([data-sem-tema]) .dropdown-item { color: var(--p-fg) !important; border-radius: 8px; padding: 7px 10px; }
+html:not(#_):not([data-sem-tema]) :is(.dropdown-item:hover, .dropdown-item:focus, .dropdown-item.active) { background: var(--p-accent-soft) !important; color: var(--p-accent-text) !important; }
+html:not(#_):not([data-sem-tema]) .dropdown-header { text-transform: uppercase; font-size: 12px; letter-spacing: .08em; color: var(--p-muted) !important; }
+html:not(#_):not([data-sem-tema]) .dropdown-divider { border-color: var(--p-line) !important; }
+
+/* ---------- cartões, listas e sanfonas ---------- */
+html:not(#_):not([data-sem-tema]) .card { background: var(--p-surface) !important; color: var(--p-fg) !important; border: 1px solid var(--p-line) !important; border-radius: var(--p-r-lg) !important; box-shadow: 0 1px 2px rgb(var(--p-sombra) / .06) !important; }
+html:not(#_):not([data-sem-tema]) :is(.card-header, .card-footer) { background: var(--p-surface) !important; color: var(--p-fg) !important; border-color: var(--p-line) !important; font-weight: 600; }
+html:not(#_):not([data-sem-tema]) .card-header { border-radius: var(--p-r-lg) var(--p-r-lg) 0 0 !important; }
+html:not(#_):not([data-sem-tema]) .card-header:is(.bg-primary, .bg-success, .bg-danger, .bg-warning, .bg-info, .bg-dark, .bg-secondary) { border-left: 4px solid currentColor !important; }
+html:not(#_):not([data-sem-tema]) .list-group-item { background: var(--p-surface) !important; color: var(--p-fg) !important; border-color: var(--p-line) !important; }
+html:not(#_):not([data-sem-tema]) .list-group-item.active { background: var(--p-accent-soft) !important; color: var(--p-accent-text) !important; }
+html:not(#_):not([data-sem-tema]) .list-group-item-action:hover { background: var(--p-surface2) !important; }
+html:not(#_):not([data-sem-tema]) .accordion { --bs-accordion-bg: var(--p-surface); --bs-accordion-color: var(--p-fg); --bs-accordion-border-color: var(--p-line);
+  --bs-accordion-btn-color: var(--p-fg); --bs-accordion-active-bg: var(--p-accent-soft); --bs-accordion-active-color: var(--p-accent-text); }
+html:not(#_):not([data-sem-tema]) .accordion-button { background: var(--p-surface) !important; color: var(--p-fg) !important; }
+html:not(#_):not([data-sem-tema]) .accordion-button:not(.collapsed) { background: var(--p-accent-soft) !important; color: var(--p-accent-text) !important; }
+
+/* ---------- janelas (modais) ---------- */
+html:not(#_):not([data-sem-tema]) .modal-content { border: 1px solid var(--p-line) !important; border-radius: var(--p-r-lg) !important; box-shadow: 0 24px 64px rgb(var(--p-sombra) / .3) !important; overflow: hidden; background: var(--p-surface) !important; color: var(--p-fg) !important; }
+html:not(#_):not([data-sem-tema]) :is(.modal-header, .modal-header[class*="bg-"]) { background: var(--p-surface) !important; color: var(--p-fg) !important; border-bottom: 1px solid var(--p-line) !important; padding: 16px 20px; }
+html:not(#_):not([data-sem-tema]) .modal-header .modal-title { font-family: var(--p-display); font-weight: 700 !important; font-size: 1.15rem; color: var(--p-fg) !important; }
+html:not(#_):not([data-sem-tema]) .modal-body { background: var(--p-surface) !important; color: var(--p-fg) !important; padding: 18px 20px; }
+html:not(#_):not([data-sem-tema]) .modal-footer { background: var(--p-surface2) !important; border-top: 1px solid var(--p-line) !important; padding: 12px 20px; }
+html:not(#_):not([data-sem-tema]) .modal-body.row, html:not(#_):not([data-sem-tema]) .card-body.row { margin-left: 0 !important; margin-right: 0 !important; }
+html:not(#_):not([data-sem-tema]) .btn-close { filter: none !important; opacity: .7; }
+html[data-theme="escuro"]:not(#_) .btn-close, html[data-theme="futurista"]:not(#_) .btn-close { filter: invert(1) grayscale(1) brightness(2) !important; }
+
+/* ---------- botões: uma cor de ação, texto da paleta por cima ---------- */
+html:not(#_):not([data-sem-tema]) .btn { border-radius: 8px !important; font-weight: 600 !important; box-shadow: none !important; }
+html:not(#_):not([data-sem-tema]) :is(.btn-primary, .btn-success) { background: var(--p-accent) !important; border-color: var(--p-accent) !important; color: var(--p-on-accent) !important; }
+html:not(#_):not([data-sem-tema]) :is(.btn-primary, .btn-success) * { color: inherit !important; }
+html:not(#_):not([data-sem-tema]) :is(.btn-primary, .btn-success):hover { background: color-mix(in srgb, var(--p-accent) 86%, var(--p-fg)) !important; }
+html:not(#_):not([data-sem-tema]) :is(.btn-outline-primary, .btn-outline-success, .btn-outline-secondary, .btn-outline-info, .btn-outline-dark, .btn-outline-light,
+  .btn-outline-warning, .btn-light, .btn-secondary, .btn-dark, .btn-warning, .btn-info, .btn-white) {
+  background: var(--p-surface) !important; border: 1px solid var(--p-line) !important; color: var(--p-fg) !important; }
+html:not(#_):not([data-sem-tema]) :is(.btn-outline-primary, .btn-outline-success, .btn-outline-secondary, .btn-outline-info, .btn-outline-dark, .btn-outline-light,
+  .btn-outline-warning, .btn-light, .btn-secondary, .btn-dark, .btn-warning, .btn-info, .btn-white) * { color: inherit !important; }
+html:not(#_):not([data-sem-tema]) :is(.btn-outline-primary, .btn-outline-success, .btn-outline-secondary, .btn-outline-info, .btn-outline-dark, .btn-outline-light,
+  .btn-outline-warning, .btn-light, .btn-secondary, .btn-dark, .btn-warning, .btn-info, .btn-white):is(:hover, .active) {
+  background: var(--p-accent-soft) !important; border-color: var(--p-accent) !important; color: var(--p-accent-text) !important; }
+html:not(#_):not([data-sem-tema]) :is(.btn-outline-danger, a.btn-outline-danger) { background: var(--p-surface) !important; border: 1px solid var(--p-line) !important; color: var(--p-bad-text) !important; }
+html:not(#_):not([data-sem-tema]) .btn-outline-danger:hover { background: var(--p-bad-soft) !important; border-color: var(--p-bad) !important; }
+html:not(#_):not([data-sem-tema]) .btn-danger { background: var(--p-bad) !important; border-color: var(--p-bad) !important; color: var(--p-on-bad) !important; }
+html:not(#_):not([data-sem-tema]) .btn-danger * { color: inherit !important; }
+html:not(#_):not([data-sem-tema]) .btn-link { color: var(--p-accent-text) !important; }
+/* R8/R13 foco visível em TUDO o que recebe Tab (menu, Fechar, caixas, links, abas), não só nos botões: o anel suave do
+   Bootstrap ficava em 1,3–1,4:1; a linha sólida na cor de ação passa de 3:1 nos 4 temas */
+html:not(#_):not([data-sem-tema]) :is(.btn, .nav-link, .dropdown-item, .btn-close, .form-check-input, .page-link, .list-group-item-action, a, summary,
+  .ux-seg button, .ux-chip, [tabindex]):focus-visible { outline: 3px solid var(--p-accent) !important; outline-offset: 2px !important; box-shadow: none !important; }
+html:not(#_):not([data-sem-tema]) .btn-close:focus { box-shadow: none !important; }
+/* R9 alvo de toque: 40 px nos botões comuns e campos; 32 px nos pequenos (acima dos 24 px da WCAG); Fechar com 40 px */
+html:not(#_):not([data-sem-tema]) .btn:not(.btn-sm):not(.btn-link) { min-height: 40px; }
+html:not(#_):not([data-sem-tema]) .btn-sm { min-height: 32px; display: inline-flex; align-items: center; justify-content: center; gap: .3em; }
+html:not(#_):not([data-sem-tema]) .btn-close { width: 1em; height: 1em; padding: .75em !important; box-sizing: content-box; }
+html .ux-seg button { min-height: 40px; min-width: 44px; }
+html:not(#_):not([data-sem-tema]) :is(.btn:disabled, .btn.disabled) { opacity: .55 !important; }
+html:not(#_):not([data-sem-tema]) .rounded-pill.btn { border-radius: 999px !important; }
+
+/* ---------- formulários ---------- */
+html:not(#_):not([data-sem-tema]) :is(.form-control, .form-select, input.form-control, textarea.form-control, select.form-select, .input-group-text) {
+  border: 1px solid var(--p-field) !important; border-radius: 8px !important; background-color: var(--p-surface) !important; color: var(--p-fg) !important; min-height: 40px; }
+html:not(#_):not([data-sem-tema]) .input-group-text { background-color: var(--p-surface2) !important; }
+html:not(#_):not([data-sem-tema]) :is(.form-control-sm, .form-select-sm) { min-height: 40px; font-size: 1rem !important; }
+html:not(#_):not([data-sem-tema]) :is(.form-control, .form-select):focus { border-color: var(--p-accent) !important; box-shadow: 0 0 0 3px color-mix(in srgb, var(--p-accent) 35%, transparent) !important; }
+html:not(#_):not([data-sem-tema]) :is(.form-control:disabled, .form-select:disabled, .form-control[readonly]) { background-color: var(--p-surface2) !important; }
+html:not(#_):not([data-sem-tema]) .form-label { font-weight: 600 !important; font-size: .88rem !important; color: var(--p-fg) !important; }
+html:not(#_):not([data-sem-tema]) :is(.form-text, .form-check-label small) { color: var(--p-muted) !important; }
+html:not(#_):not([data-sem-tema]) .form-check-label { color: var(--p-fg) !important; }
+html:not(#_):not([data-sem-tema]) .form-check-input { background-color: var(--p-surface) !important; border-color: var(--p-field) !important; }
+html:not(#_):not([data-sem-tema]) .form-check-input:checked { background-color: var(--p-accent) !important; border-color: var(--p-accent) !important; }
+
+/* ---------- etiquetas de estado: fundo suave + texto do estado (contraste garantido pela paleta) ---------- */
+html:not(#_):not([data-sem-tema]) .badge { border-radius: 999px !important; font-weight: 600 !important; padding: .38em .75em; border: 0 !important; }
+html:not(#_):not([data-sem-tema]) .badge * { color: inherit !important; }
+html:not(#_):not([data-sem-tema]) .badge:is(.bg-success, .text-bg-success) { background: var(--p-ok-soft) !important; color: var(--p-ok-text) !important; }
+html:not(#_):not([data-sem-tema]) .badge:is(.bg-primary, .text-bg-primary) { background: var(--p-accent-soft) !important; color: var(--p-accent-text) !important; }
+html:not(#_):not([data-sem-tema]) .badge:is(.bg-danger, .text-bg-danger) { background: var(--p-bad-soft) !important; color: var(--p-bad-text) !important; }
+html:not(#_):not([data-sem-tema]) .badge:is(.bg-warning, .text-bg-warning) { background: var(--p-warn-soft) !important; color: var(--p-warn-text) !important; }
+html:not(#_):not([data-sem-tema]) .badge:is(.bg-info, .text-bg-info) { background: var(--p-info-soft) !important; color: var(--p-info-text) !important; }
+html:not(#_):not([data-sem-tema]) .badge:is(.bg-secondary, .bg-dark, .bg-light, .bg-white, .text-bg-secondary, .text-bg-light, .text-bg-dark) { background: var(--p-surface2) !important; color: var(--p-muted) !important; }
+html:not(#_):not([data-sem-tema]) .badge:not([class*="bg-"]) { background: var(--p-surface2) !important; color: var(--p-fg) !important; }
+
+/* ---------- tabelas: sem faixas pretas; cabeçalho discreto ---------- */
+html:not(#_):not([data-sem-tema]) :is(table, .table) { --bs-table-bg: transparent; --bs-table-color: var(--p-fg); --bs-table-striped-bg: var(--p-surface2);
+  --bs-table-striped-color: var(--p-fg); --bs-table-hover-bg: var(--p-surface2); --bs-table-hover-color: var(--p-fg); background-color: transparent !important; color: var(--p-fg) !important; }
+html:not(#_):not([data-sem-tema]) .table > :not(caption) > * > * { background-color: transparent !important; border-color: var(--p-line) !important; box-shadow: none !important; }
+html:not(#_):not([data-sem-tema]) .table :is(thead th, thead td) { background: var(--p-surface2) !important; color: var(--p-muted) !important; text-transform: uppercase; font-size: 12px !important; letter-spacing: .06em; font-weight: 600 !important; }
+html:not(#_):not([data-sem-tema]) .table :is(tbody th, tfoot th) { color: var(--p-fg) !important; }
+html:not(#_):not([data-sem-tema]) .table td { color: var(--p-fg) !important; vertical-align: middle; }
+html:not(#_):not([data-sem-tema]) .table td:is(.text-muted, .text-secondary) { color: var(--p-muted) !important; }
+html:not(#_):not([data-sem-tema]) .table td.text-success { color: var(--p-ok-text) !important; }
+html:not(#_):not([data-sem-tema]) .table td.text-danger { color: var(--p-bad-text) !important; }
+html:not(#_):not([data-sem-tema]) .table td.text-primary { color: var(--p-accent-text) !important; }
+html:not(#_):not([data-sem-tema]) .table td.text-warning { color: var(--p-warn-text) !important; }
+html:not(#_):not([data-sem-tema]) :is(.table-light, .table-dark, .table-secondary, .table-primary, .table-info) > * > * { background-color: var(--p-surface2) !important; }
+html:not(#_):not([data-sem-tema]) :is(tr.table-success, .table-success) > td { background-color: var(--p-ok-soft) !important; }
+html:not(#_):not([data-sem-tema]) :is(tr.table-warning, .table-warning) > td { background-color: var(--p-warn-soft) !important; }
+html:not(#_):not([data-sem-tema]) :is(tr.table-danger, .table-danger) > td { background-color: var(--p-bad-soft) !important; }
+html:not(#_):not([data-sem-tema]) .table-hover > tbody > tr:hover > * { background-color: var(--p-surface2) !important; }
+
+/* ---------- abas, progresso, paginação e avisos ---------- */
+html:not(#_):not([data-sem-tema]) .nav-tabs { border-bottom: 1px solid var(--p-line) !important; gap: 4px; }
+html:not(#_):not([data-sem-tema]) .nav-tabs .nav-link { border: 0 !important; border-bottom: 2px solid transparent !important; color: var(--p-muted) !important; background: transparent !important; border-radius: 0 !important; }
+html:not(#_):not([data-sem-tema]) .nav-tabs .nav-link.active { color: var(--p-fg) !important; border-bottom-color: var(--p-accent) !important; }
+html:not(#_):not([data-sem-tema]) .nav-pills .nav-link { color: var(--p-muted) !important; }
+html:not(#_):not([data-sem-tema]) .nav-pills .nav-link.active { background: var(--p-accent-soft) !important; color: var(--p-accent-text) !important; }
+html:not(#_):not([data-sem-tema]) .progress { border-radius: 999px !important; background: var(--p-surface2) !important; }
+html:not(#_):not([data-sem-tema]) .progress:not([style*="height"]) { height: 8px; }
+html:not(#_):not([data-sem-tema]) .progress-bar { font-weight: 600; font-size: .75rem; background-color: var(--p-accent) !important; background-image: none !important; color: var(--p-on-accent) !important; }
+html:not(#_):not([data-sem-tema]) .progress-bar.bg-success { background-color: var(--p-ok) !important; color: var(--p-on-ok) !important; }
+html:not(#_):not([data-sem-tema]) .progress-bar.bg-warning { background-color: var(--p-warn) !important; color: var(--p-on-warn) !important; }
+html:not(#_):not([data-sem-tema]) .progress-bar.bg-danger { background-color: var(--p-bad) !important; color: var(--p-on-bad) !important; }
+html:not(#_):not([data-sem-tema]) .progress-bar.bg-info { background-color: var(--p-info) !important; color: var(--p-on-info) !important; }
+html:not(#_):not([data-sem-tema]) .page-link { background: var(--p-surface) !important; color: var(--p-accent-text) !important; border-color: var(--p-line) !important; }
+html:not(#_):not([data-sem-tema]) .page-item.active .page-link { background: var(--p-accent) !important; color: var(--p-on-accent) !important; }
+html:not(#_):not([data-sem-tema]) .alert { border-radius: 12px !important; border: 1px solid var(--p-line) !important; color: var(--p-fg) !important; }
+html:not(#_):not([data-sem-tema]) .alert :is(.text-muted, small) { color: var(--p-muted) !important; }
+html:not(#_):not([data-sem-tema]) .alert-info { background: var(--p-info-soft) !important; border-color: color-mix(in srgb, var(--p-info) 35%, transparent) !important; }
+html:not(#_):not([data-sem-tema]) .alert-success { background: var(--p-ok-soft) !important; border-color: color-mix(in srgb, var(--p-ok) 35%, transparent) !important; }
+html:not(#_):not([data-sem-tema]) .alert-warning { background: var(--p-warn-soft) !important; border-color: color-mix(in srgb, var(--p-warn) 35%, transparent) !important; }
+html:not(#_):not([data-sem-tema]) .alert-danger { background: var(--p-bad-soft) !important; border-color: color-mix(in srgb, var(--p-bad) 35%, transparent) !important; }
+html:not(#_):not([data-sem-tema]) :is(.alert-secondary, .alert-light, .alert-dark, .alert-primary) { background: var(--p-surface2) !important; }
+html:not(#_):not([data-sem-tema]) .toast { background: var(--p-surface) !important; color: var(--p-fg) !important; border-color: var(--p-line) !important; }
+
+/* ---------- peças das próprias telas que tinham cor fixa ---------- */
+/* caderno pautado do Acompanhamento: papel e pauta seguem o tema (antes era papel branco também no tema escuro) */
+html:not(#_):not([data-sem-tema]) .fundo-caderno { background-color: var(--p-surface) !important; color: var(--p-fg) !important; border-color: var(--p-field) !important;
+  background-image: repeating-linear-gradient(transparent, transparent 29px, var(--p-line) 29px, var(--p-line) 30px) !important; }
+/* etiquetas de contagem pintadas por style= (telas dos agentes): branco no verde e no âmbar fica em 3,2:1; texto escuro passa de 6:1 */
+html:not(#_):not([data-sem-tema]) :is([style*="#16a34a"], [style*="#d97706"], [style*="#f59e0b"], [style*="#22c55e"], [style*="#fbbf24"]) { color: #111418 !important; }
+/* o futurista atual pinta TODO span com style="background…" de azul: Crítica, Alta e Baixa ficavam iguais. Cada cor de estado volta */
+html:not(#_):not([data-sem-tema]) span[style*="#16a34a"] { background-color: #16a34a !important; border-color: transparent !important; }
+html:not(#_):not([data-sem-tema]) span[style*="#d97706"] { background-color: #d97706 !important; border-color: transparent !important; }
+html:not(#_):not([data-sem-tema]) span[style*="#dc2626"] { background-color: #dc2626 !important; border-color: transparent !important; color: #fff !important; }
+html:not(#_):not([data-sem-tema]) span[style*="#7f1d1d"] { background-color: #7f1d1d !important; border-color: transparent !important; color: #fff !important; }
+html:not(#_):not([data-sem-tema]) span[style*="#2563eb"] { background-color: #2563eb !important; border-color: transparent !important; color: #fff !important; }
+html:not(#_):not([data-sem-tema]) span[style*="#64748b"] { background-color: #64748b !important; border-color: transparent !important; color: #fff !important; }
+/* agentes fora da execução: apagados a 30–55% sumiam (2,5:1); a 85% continuam "em segundo plano" e legíveis */
+html:not(#_):not([data-sem-tema]) :is(.seg-agente, .fn-agente, .hub-agente, .db-agente):is(.aguardando, [style*="opacity"]),
+html:not(#_):not([data-sem-tema]) [id^="cardProgresso"] [style*="opacity"] { opacity: .85 !important; }
+html:not(#_):not([data-sem-tema]) :is(.seg-saida, .fn-saida, .db-saida, .hub-saida, #consoleSaida) .tempo { color: #8b98ab !important; }
+/* caixas com fundo branco fixo no style= (ex.: lista de mentores na janela de editar turma): seguem o tema */
+html:not(#_):not([data-sem-tema]) :is([style*="background-color: #ffffff"], [style*="background-color:#ffffff"], [style*="background-color: #fff;"],
+  [style*="background: #fff"], [style*="background:#fff"], [style*="background-color: white"], [style*="background: white"]) { background-color: var(--p-surface) !important; color: var(--p-fg) !important; }
+/* item atual da sala de estudo: fundo suave da ação com o texto da ação (antes: texto da ação sobre a própria cor de ação) */
+html:not(#_):not([data-sem-tema]) .sala-aulas .item-aula.ativo { background: var(--p-accent-soft) !important; color: var(--p-accent-text) !important; font-weight: 600; }
+html:not(#_):not([data-sem-tema]) .sala-aulas .item-aula.ativo * { color: inherit !important; }
+html:not(#_):not([data-sem-tema]) .ia-btn-send { background: var(--p-accent) !important; border-color: var(--p-accent) !important; color: var(--p-on-accent) !important; }
+/* botões de integração do Acompanhamento: azul fixo do Bootstrap → cor de ação do tema */
+html:not(#_):not([data-sem-tema]) :is(.btn-integra-agenda-off, .btn-integra-notebook) { background: var(--p-surface) !important; color: var(--p-accent-text) !important; border: 1px solid var(--p-line) !important; }
+html:not(#_):not([data-sem-tema]) .btn-integra-agenda { background: var(--p-ok-soft) !important; color: var(--p-ok-text) !important; border: 1px solid var(--p-line) !important; }
+
+/* ---------- peças novas da janela "Agendar banca" ---------- */
+html .ux-secao { display: grid; gap: 10px; }
+html .ux-secao + .ux-secao { margin-top: 18px; }
+html .ux-rotulo { font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--p-muted); font-weight: 700; }
+html .ux-sub { display: block; color: var(--p-muted); font-size: .85rem; font-weight: 400; font-family: var(--p-body); }
+html .ux-seg { display: inline-flex; border: 1px solid var(--p-field); border-radius: 8px; overflow: hidden; background: var(--p-surface); }
+html .ux-seg button { border: 0; background: transparent; padding: 8px 14px; font-weight: 500; color: var(--p-fg); }
+html .ux-seg button + button { border-left: 1px solid var(--p-line); }
+html .ux-seg button.ativo { background: var(--p-accent-soft); color: var(--p-accent-text); font-weight: 700; }
+html .ux-campo-seg { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+html .ux-campo-seg input { max-width: 92px; }
+html .ux-chips { display: flex; flex-wrap: wrap; gap: 6px; min-height: 30px; }
+html:not(#_):not([data-sem-tema]) .ux-chip { display: inline-flex; align-items: center; gap: 6px; background: var(--p-accent-soft) !important; color: var(--p-accent-text) !important; border: 0; border-radius: 999px;
+  padding: 4px 6px 4px 12px !important; font-weight: 600; font-size: .85rem; white-space: nowrap; height: auto !important; width: auto !important; max-width: 100%; line-height: 1.4; overflow: visible; }
+html .ux-chip span { display: inline-grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; }
+html .ux-chip:hover span { background: color-mix(in srgb, var(--p-accent) 20%, transparent); }
+html .ux-lista { max-height: 200px; overflow-y: auto; border: 1px solid var(--p-line); border-radius: 10px; }
+html .ux-lista label { display: flex; gap: 10px; align-items: center; padding: 8px 12px; cursor: pointer; margin: 0; color: var(--p-fg); }
+html .ux-lista label + label { border-top: 1px solid var(--p-line); }
+html .ux-lista label:hover { background: var(--p-surface2); }
+html .ux-lista small { color: var(--p-muted); }
+html .ux-rodape-dica { color: var(--p-muted); font-size: .85rem; margin-right: auto; }
+html .ux-lista-vazia { padding: 14px 12px; color: var(--p-muted); display: grid; gap: 4px; }
+html .ux-lista-vazia a { font-weight: 600; justify-self: start; }
+
+@media (max-width: 575px) {
+  html:not(#_):not([data-sem-tema]) .modal-footer { flex-wrap: wrap; gap: 8px; }
+  html:not(#_):not([data-sem-tema]) .modal-footer > * { margin: 0 !important; }
+  html:not(#_):not([data-sem-tema]) .modal-footer .btn { flex: 1 1 0; }
+  html .ux-rodape-dica { flex-basis: 100%; font-size: .8rem; }
+}

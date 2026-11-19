@@ -141,7 +141,7 @@
             <div class="col-lg-7">
                 <div class="card shadow-sm border-0 h-100" id="cardEnviarDocumento">
                     <div class="card-header bg-white fw-bold text-primary"><i class="bi bi-cloud-upload"></i> {{ tt('Adicionar documento do projeto') }}</div>
-                    <form method="POST" action="{{ url_for('assistente_documentos') }}" enctype="multipart/form-data" class="card-body row g-2">
+                    <form method="POST" action="{{ url_for('assistente_documentos') }}" enctype="multipart/form-data" class="card-body"><div class="row g-2">
                         <div class="col-md-4">
                             <label class="form-label small fw-bold" for="docTipo">{{ tt('Tipo') }}</label>
                             <select class="form-select form-select-sm" name="tipo" id="docTipo" required>
@@ -163,7 +163,7 @@
                             <div class="form-text">{{ extensoes|join(', ') }} · {{ tt('até') }} {{ limite_mb }} MB. {{ tt('Enviar de novo um documento com o mesmo tipo e título cria a versão seguinte e desativa a anterior.') }}</div>
                         </div>
                         <div class="col-12"><button type="submit" class="btn btn-primary btn-sm fw-bold" id="btnEnviarDocumento"><i class="bi bi-upload"></i> {{ tt('Adicionar à base') }}</button></div>
-                    </form>
+                    </div></form>
                 </div>
             </div>
             <div class="col-lg-5">

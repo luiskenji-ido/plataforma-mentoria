@@ -370,7 +370,7 @@
                         </div>
                         <div class="row g-2 align-items-end">
                             <div class="col-sm-5"><label class="form-label small mb-0" for="confirmacaoIndices">{{ tt('Digite CONFIRMAR') }}</label>
-                                <input class="form-control form-control-sm" id="confirmacaoIndices" name="confirmacao" autocomplete="off" placeholder="CONFIRMAR"></div>
+                                <input class="form-control form-control-sm" id="confirmacaoIndices" name="confirmacao" autocomplete="off" placeholder="CONFIRMAR"></div> {# ux: ok - palavra de confirmação conferida pelo servidor em qualquer idioma (não se traduz) #}
                             <div class="col-sm-7 d-flex gap-2 flex-wrap">
                                 <button class="btn btn-sm btn-info fw-bold" type="submit" {% if not indices %}disabled{% endif %}><i class="bi bi-lightning-charge"></i> {{ tt('Criar índices selecionados') }}</button>
                                 <button class="btn btn-sm btn-outline-warning fw-bold" type="submit" form="formVacuum"><i class="bi bi-arrows-collapse"></i> {{ tt('Compactar (VACUUM)') }}</button>

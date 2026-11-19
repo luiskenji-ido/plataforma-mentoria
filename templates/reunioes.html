@@ -13,7 +13,7 @@
 </div>
 
 <form method="GET" class="card shadow-sm border-0 mb-4">
-    <div class="card-body row g-2 align-items-end">
+    <div class="card-body"><div class="row g-2 align-items-end">
         <div class="col-sm-4">
             <label class="form-label small fw-bold" for="filtroInicio">{{ t('reuniao_de') }}</label>
             <input type="date" class="form-control form-control-sm" id="filtroInicio" name="data_inicio" value="{{ filtro_inicio or '' }}">
@@ -26,7 +26,7 @@
             <button class="btn btn-sm btn-primary fw-bold px-3" type="submit">{{ t('reuniao_filtrar') }}</button>
             <a class="btn btn-sm btn-outline-secondary fw-bold px-3" href="{{ url_for('reunioes') }}">{{ t('reuniao_limpar') }}</a>
         </div>
-    </div>
+    </div></div>
 </form>
 
 <div class="card shadow-sm border-0">

@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="robots" content="noindex, nofollow">
+    <title>{{ reuniao.titulo if reuniao else tt('Link de presença') }} · {{ marca.plataforma }}</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-9ndCyUaIbzAi2FUVXJi0CjmCapSmO7SnpJef0486qhLnuZ2cdeRhO02iuK6FUUVM" crossorigin="anonymous">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet" integrity="sha384-XGjxtQfXaH2tnPFa9x+ruJTuLE3Aa6LhHSWRr1XeTyhezb4abCG4ccI5AkVDxqC+" crossorigin="anonymous">
+    <style>
+        body { background: #f4f6fa; }
+        .cartao { max-width: 680px; }
+    </style>
+{% include '_tema_plataforma.html' %}
+</head>
+<body>
+<main class="container cartao py-4 px-3">
+    <div class="d-flex align-items-center gap-2 mb-3">
+        {% if marca.logo_url %}<img src="{{ marca.logo_url }}" alt="{{ marca.apelido }}" style="max-height: 36px; max-width: 130px;">{% endif %}
+        <span class="fw-bold text-primary">{{ marca.plataforma }}</span>
+    </div>
+
+    {% with mensagens = get_flashed_messages(with_categories=true) %}
+    {% for categoria, mensagem in mensagens %}
+    <div class="alert alert-{{ categoria if categoria in ('success', 'info', 'warning', 'danger') else 'info' }} py-2 small" role="alert">{{ mensagem }}</div>
+    {% endfor %}
+    {% endwith %}
+
+    {% if not convidado %}
+    <div class="card shadow-sm border-0"><div class="card-body" id="linkInvalido">
+        <h1 class="h5 fw-bold text-danger"><i class="bi bi-x-circle"></i> {{ tt('Link de presença inválido') }}</h1>
+        <p class="text-muted mb-0">{{ tt('Este link não existe ou foi desativado pela organização da reunião. Peça um novo link a quem enviou o convite.') }}</p>
+    </div></div>
+    {% else %}
+    <div class="card shadow-sm border-0 mb-3"><div class="card-body">
+        <span class="badge bg-light text-dark border mb-1">{{ tt(reuniao.tipo or 'Institucional') }}</span>
+        <h1 class="h4 fw-bold text-primary mb-1">{{ reuniao.titulo }}</h1>
+        <div class="text-muted small">
+            {{ reuniao.data_hora.strftime('%d/%m/%Y %H:%M') }} · {{ reuniao.duracao_minutos }} min · {{ tt(reuniao.modalidade or 'Online') }}
+            {% if reuniao.empresa %} · {{ reuniao.empresa.nome }}{% endif %}
+        </div>
+        {% if reuniao.local_ou_link %}
+        <div class="small mt-1"><i class="bi bi-geo-alt"></i>
+            {% if reuniao.local_ou_link.startswith('http') %}<a href="{{ reuniao.local_ou_link }}" target="_blank" rel="noopener noreferrer">{{ tt('Entrar na sala on-line') }}</a>{% else %}{{ reuniao.local_ou_link }}{% endif %}
+        </div>
+        {% endif %}
+        <p class="small mt-2 mb-0">{{ tt('Convidado(a)') }}: <b id="nomeConvidado">{{ convidado.nome }}</b>{% if convidado.instituicao %} · {{ convidado.instituicao }}{% endif %}</p>
+        <a class="btn btn-outline-primary btn-sm rounded-pill mt-2" href="{{ url_for('agenda_convidado_reuniao', codigo=convidado.codigo) }}"><i class="bi bi-calendar-plus"></i> {{ tt('Salvar na minha agenda (.ics)') }}</a>
+        {% if reuniao.pauta %}
+        <h2 class="h6 fw-bold text-primary mt-3">{{ tt('Pauta') }}</h2>
+        <p class="small mb-0" style="white-space: pre-line;">{{ reuniao.pauta }}</p>
+        {% endif %}
+    </div></div>
+
+    <div class="card shadow-sm border-0 mb-3" id="cardPresencaConvidado"><div class="card-body">
+        <h2 class="h6 fw-bold text-primary"><i class="bi bi-clock-history"></i> {{ tt('Sua presença') }}</h2>
+        {% if not convidado.check_in %}
+        <form method="POST" class="d-flex flex-wrap gap-2 align-items-center">
+            <input type="hidden" name="acao" value="checkin">
+            {% if reuniao.modalidade == 'Híbrido' %}
+            <select class="form-select form-select-sm w-auto" name="modalidade" aria-label="{{ tt('Modalidade') }}">
+                <option value="Presencial">{{ tt('Presencial') }}</option><option value="Online">{{ tt('Online') }}</option>
+            </select>
+            {% endif %}
+            <button class="btn btn-success fw-bold rounded-pill px-4" type="submit" {% if not checkin_aberto %}disabled{% endif %}><i class="bi bi-box-arrow-in-right"></i> {{ tt('Fazer check-in') }}</button>
+        </form>
+        {% if not checkin_aberto %}<p class="text-muted small mt-2 mb-0">{{ tt('O check-in abre 30 minutos antes da reunião e fecha 1 hora depois do fim previsto.') }}</p>{% endif %}
+        {% elif not convidado.check_out %}
+        <p class="small mb-2">{{ tt('Entrada') }}: <b>{{ convidado.check_in.strftime('%H:%M') }}</b></p>
+        <form method="POST">
+            <input type="hidden" name="acao" value="checkout">
+            <button class="btn btn-danger fw-bold rounded-pill px-4" type="submit"><i class="bi bi-box-arrow-right"></i> {{ tt('Fazer check-out') }}</button>
+        </form>
+        {% else %}
+        <p class="small mb-0 text-success" id="presencaRegistrada"><i class="bi bi-check-circle-fill"></i>
+            {{ tt('Entrada') }} {{ convidado.check_in.strftime('%H:%M') }} · {{ tt('Saída') }} {{ convidado.check_out.strftime('%H:%M') }} · {{ convidado.total_minutos or 0 }} {{ tt('minutos') }}
+            {% if convidado.registro_manual %}<span class="badge bg-secondary">{{ tt('lançada pela gestão') }}</span>{% endif %}
+            {% if convidado.checkout_automatico %}<span class="badge bg-warning text-dark">{{ tt('check-out automático') }}</span>{% endif %}
+        </p>
+        {% endif %}
+    </div></div>
+
+    <div class="card shadow-sm border-0 mb-3" id="cardAvaliacaoConvidado"><div class="card-body">
+        <h2 class="h6 fw-bold text-primary"><i class="bi bi-star-half"></i> {{ tt('Avaliação da reunião') }}</h2>
+        {% if feedback_aberto %}
+        <form method="POST" class="row g-2 align-items-end">
+            <input type="hidden" name="acao" value="avaliar">
+            <div class="col-sm-4"><label class="form-label small fw-bold mb-0" for="cvNota">{{ tt('Sua nota (1 a 5)') }}</label>
+                <select class="form-select form-select-sm" id="cvNota" name="nota" required>
+                    {% for n in range(5, 0, -1) %}<option value="{{ n }}" {% if convidado.nota == n %}selected{% endif %}>{{ n }} {{ '★' * n }}</option>{% endfor %}
+                </select></div>
+            <div class="col-sm-8"><label class="form-label small fw-bold mb-0" for="cvComentario">{{ tt('Comentário') }}</label>
+                <input class="form-control form-control-sm" id="cvComentario" name="comentario" maxlength="2000" value="{{ convidado.comentario or '' }}" placeholder="{{ tt('O que funcionou e o que melhorar na próxima.') }}"></div>
+            <div class="col-12"><button class="btn btn-primary btn-sm fw-bold rounded-pill px-4" type="submit">{{ tt('Atualizar') if convidado.nota else tt('Avaliar') }}</button></div>
+        </form>
+        {% else %}
+        <p class="text-muted small mb-0">{{ tt('A avaliação abre quando a reunião começa.') }}</p>
+        {% endif %}
+    </div></div>
+
+    {% if reuniao.link_gravacao or reuniao.gravacao_arquivo %}
+    <div class="card shadow-sm border-0 mb-3"><div class="card-body">
+        <h2 class="h6 fw-bold text-primary"><i class="bi bi-camera-video"></i> {{ tt('Gravação') }}</h2>
+        {% if reuniao.gravacao_arquivo %}<a class="btn btn-outline-danger btn-sm rounded-pill" href="{{ url_for('gravacao_convidado_reuniao', codigo=convidado.codigo) }}" target="_blank" rel="noopener"><i class="bi bi-play-circle"></i> {{ tt('Assistir à gravação') }}</a>{% endif %}
+        {% if reuniao.link_gravacao %}<a class="btn btn-outline-danger btn-sm rounded-pill" href="{{ reuniao.link_gravacao }}" target="_blank" rel="noopener noreferrer"><i class="bi bi-box-arrow-up-right"></i> {{ tt('Abrir o link da gravação') }}</a>{% endif %}
+    </div></div>
+    {% endif %}
+
+    <p class="text-muted small"><i class="bi bi-shield-lock"></i> {{ tt('Este link é pessoal: não repasse. Ele vale só para esta reunião.') }}</p>
+    {% endif %}
+</main>
+</body>
+</html>

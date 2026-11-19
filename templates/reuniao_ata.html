@@ -2,7 +2,7 @@
 <html lang="pt">
 <head>
     <meta charset="UTF-8">
-    <title>Ata - {{ reuniao.titulo }}</title>
+    <title>{{ tt('Ata') }} - {{ reuniao.titulo }}</title>
     <style>
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color: #333; padding: 24px; max-width: 900px; margin: 0 auto; }
         .header { border-bottom: 2px solid #0d6efd; padding-bottom: 10px; margin-bottom: 20px; }
@@ -19,68 +19,87 @@
 </head>
 <body onload="window.print()">
     <div class="no-print" style="text-align: right; margin-bottom: 16px;">
-        <button onclick="window.print()" style="background:#0d6efd;color:#fff;border:0;border-radius:5px;padding:8px 14px;font-weight:bold;cursor:pointer;">Salvar como PDF</button>
-        <a href="{{ url_for('detalhe_reuniao', id=reuniao.id) }}" style="margin-left: 12px; color: #666;">Voltar</a>
+        <button onclick="window.print()" style="background:#0d6efd;color:#fff;border:0;border-radius:5px;padding:8px 14px;font-weight:bold;cursor:pointer;">{{ tt('Salvar como PDF') }}</button>
+        <a href="{{ url_for('detalhe_reuniao', id=reuniao.id) }}" style="margin-left: 12px; color: #666;">{{ tt('Voltar') }}</a>
     </div>
     <div class="header">
-        <h1>Ata de reunião — {{ reuniao.titulo }}</h1>
-        <p>{{ reuniao.data_hora.strftime('%d/%m/%Y às %H:%M') }} · {{ reuniao.duracao_minutos }} min · {{ reuniao.modalidade }}{% if reuniao.local_ou_link %} · {{ reuniao.local_ou_link }}{% endif %}</p>
-        <p>Tipo: {{ reuniao.tipo or 'Institucional' }}{% if reuniao.empresa %} · Parceiro B2B: {{ reuniao.empresa.nome }}{% endif %}{% if reuniao.link_gravacao %} · Gravação: {{ reuniao.link_gravacao }}{% endif %}</p>
-        {% if reuniao.demanda %}<p>Ticket relacionado: #{{ reuniao.demanda.id }} · {{ reuniao.demanda.titulo }}</p>{% endif %}
+        <h1>{{ tt('Ata de reunião') }} — {{ reuniao.titulo }}</h1>
+        <p>{{ reuniao.data_hora.strftime('%d/%m/%Y às %H:%M') }} · {{ reuniao.duracao_minutos }} min · {{ tt(reuniao.modalidade) }}{% if reuniao.local_ou_link %} · {{ reuniao.local_ou_link }}{% endif %}</p>
+        <p>{{ tt('Tipo:') }} {{ tt(reuniao.tipo or 'Institucional') }}{% if reuniao.empresa %} · {{ tt('Parceiro B2B:') }} {{ reuniao.empresa.nome }}{% endif %}{% if reuniao.link_gravacao %} · {{ tt('Gravação:') }} {{ reuniao.link_gravacao }}{% endif %}{% if reuniao.gravacao_arquivo %} · {{ tt('Gravação na plataforma:') }} {{ reuniao.gravacao_nome }}{% endif %}</p>
+        {% if reuniao.demanda %}<p>{{ tt('Ticket relacionado:') }} #{{ reuniao.demanda.id }} · {{ reuniao.demanda.titulo }}</p>{% endif %}
     </div>
 
-    <h2>Participantes</h2>
+    <h2>{{ tt('Participantes') }}</h2>
     <ul>
-        {% for p in reuniao.participantes %}<li>{{ p.nome }} ({{ p.tipo_usuario }})</li>{% endfor %}
-        {% for linha in (reuniao.participantes_externos or '').split('\n') if linha.strip() %}<li>{{ linha.strip() }}</li>{% endfor %}
+        {% for p in reuniao.participantes %}<li>{{ p.nome }} ({{ tt(p.tipo_usuario) }})</li>{% endfor %}
+        {% for c in reuniao.convidados if c.na_lista %}<li>{{ c.nome }}{% if c.instituicao %} · {{ c.instituicao }}{% endif %} ({{ tt('convidado externo') }})</li>{% endfor %}
+        {% if not reuniao.convidados %}{% for linha in (reuniao.participantes_externos or '').split('\n') if linha.strip() %}<li>{{ linha.strip() }}</li>{% endfor %}{% endif %}
     </ul>
 
-    <h2>Pauta</h2>
+    <h2>{{ tt('Pauta') }}</h2>
     <p class="pre">{{ reuniao.pauta or '—' }}</p>
 
     {% if reuniao.pontos_parceiro %}
-    <h2>Pontos levantados pelo parceiro B2B</h2>
+    <h2>{{ tt('Pontos levantados pelo parceiro B2B') }}</h2>
     <p class="pre">{{ reuniao.pontos_parceiro }}</p>
     {% endif %}
 
-    <h2>Deliberações</h2>
+    <h2>{{ tt('Deliberações') }}</h2>
     <p class="pre">{{ reuniao.deliberacoes or '—' }}</p>
 
-    <h2>Encaminhamentos</h2>
+    <h2>{{ tt('Encaminhamentos') }}</h2>
     <table>
-        <thead><tr><th>Ação</th><th>Responsável</th><th>Prazo</th><th>Status</th></tr></thead>
+        <thead><tr><th>{{ tt('Ação') }}</th><th>{{ tt('Responsável') }}</th><th>{{ tt('Prazo') }}</th><th>{{ tt('Status') }}</th></tr></thead>
         <tbody>
             {% for e in reuniao.encaminhamentos %}
-            <tr><td>{{ e.descricao }}</td><td>{{ e.responsavel.nome if e.responsavel else '—' }}</td><td>{{ e.prazo.strftime('%d/%m/%Y') if e.prazo else '—' }}</td><td>{{ e.status }}</td></tr>
+            <tr><td>{{ e.descricao }}</td><td>{{ e.responsavel.nome if e.responsavel else '—' }}</td><td>{{ e.prazo.strftime('%d/%m/%Y') if e.prazo else '—' }}</td><td>{{ tt(e.status) }}</td></tr>
             {% else %}
-            <tr><td colspan="4">Sem encaminhamentos.</td></tr>
+            <tr><td colspan="4">{{ tt('Sem encaminhamentos.') }}</td></tr>
             {% endfor %}
         </tbody>
     </table>
-    {% if reuniao.presencas %}
-    <h2>Presença (check-in e check-out)</h2>
+    {% set convidados_presentes = reuniao.convidados | selectattr('check_in') | list %}
+    {% if reuniao.presencas or convidados_presentes %}
+    <h2>{{ tt('Presença (check-in e check-out)') }}</h2>
     <table>
-        <thead><tr><th>Participante</th><th>Entrada</th><th>Saída</th><th>Minutos</th></tr></thead>
+        <thead><tr><th>{{ tt('Participante') }}</th><th>{{ tt('Entrada') }}</th><th>{{ tt('Saída') }}</th><th>{{ tt('Minutos') }}</th></tr></thead>
         <tbody>
             {% for p in reuniao.presencas %}
-            <tr><td>{{ p.usuario.nome }}{% if p.registro_manual %} (lançada pela gestão){% endif %}{% if p.checkout_automatico %} (check-out automático){% endif %}</td>
+            <tr><td>{{ p.usuario.nome }}{% if p.registro_manual %} ({{ tt('lançada pela gestão') }}){% endif %}{% if p.checkout_automatico %} ({{ tt('check-out automático') }}){% endif %}</td>
                 <td>{{ p.check_in.strftime('%H:%M') }}</td><td>{{ p.check_out.strftime('%H:%M') if p.check_out else '—' }}</td><td>{{ p.total_minutos or 0 }}</td></tr>
             {% endfor %}
+            {% for c in convidados_presentes %}
+            <tr><td>{{ c.nome }}{% if c.instituicao %} · {{ c.instituicao }}{% endif %} ({{ tt('convidado externo') }}){% if c.registro_manual %} ({{ tt('lançada pela gestão') }}){% endif %}{% if c.checkout_automatico %} ({{ tt('check-out automático') }}){% endif %}</td>
+                <td>{{ c.check_in.strftime('%H:%M') }}</td><td>{{ c.check_out.strftime('%H:%M') if c.check_out else '—' }}</td><td>{{ c.total_minutos or 0 }}</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% endif %}
+    {% if tempo_lados %}
+    <h2>{{ tt('Tempo investido por instituição') }}</h2>
+    <table>
+        <thead><tr><th>{{ tt('Instituição') }}</th><th>{{ tt('Pessoas') }}</th><th>{{ tt('Tempo') }}</th></tr></thead>
+        <tbody>
+            {% for lado in tempo_lados %}
+            <tr><td>{{ lado.instituicao }}</td><td>{{ lado.pessoas }}</td><td>{{ lado.minutos // 60 }} h {{ '%02d' | format(lado.minutos % 60) }} min</td></tr>
+            {% endfor %}
+            <tr><th>Total</th><th>{{ tempo_lados | sum(attribute='pessoas') }}</th><th>{{ tempo_total // 60 }} h {{ '%02d' | format(tempo_total % 60) }} min</th></tr>
         </tbody>
     </table>
     {% endif %}
 
     {% if reuniao.alteracoes %}
-    <h2>Histórico de alterações</h2>
-    <ul>{% for a in reuniao.alteracoes %}<li>{{ a.criado_em.strftime('%d/%m/%Y %H:%M') }} · {{ a.autor.nome if a.autor else '—' }}: {{ a.mudancas | replace('\n', '; ') }}{% if a.motivo %} (motivo: {{ a.motivo }}){% endif %}</li>{% endfor %}</ul>
+    <h2>{{ tt('Histórico de alterações') }}</h2>
+    <ul>{% for a in reuniao.alteracoes %}<li>{{ a.criado_em.strftime('%d/%m/%Y %H:%M') }} · {{ a.autor.nome if a.autor else '—' }}: {{ a.mudancas | replace('\n', '; ') }}{% if a.motivo %} ({{ tt('motivo:') }} {{ a.motivo }}){% endif %}</li>{% endfor %}</ul>
     {% endif %}
 
-    {% if reuniao.feedbacks %}
-    <h2>Avaliação dos participantes</h2>
-    <p>Média {{ '%.1f' | format((reuniao.feedbacks | sum(attribute='nota')) / (reuniao.feedbacks | length)) }} / 5 ({{ reuniao.feedbacks | length }} avaliação(ões))</p>
-    <ul>{% for f in reuniao.feedbacks if f.comentario %}<li>{{ f.nota }}/5 · {{ f.comentario }}</li>{% endfor %}</ul>
+    {% if total_avaliacoes %}
+    <h2>{{ tt('Avaliação dos participantes') }}</h2>
+    <p>{{ tt('Média das notas') }} {{ '%.1f' | format(media_feedback) }} / 5 ({{ total_avaliacoes }} {{ tt('avaliação(ões), com os convidados externos') }})</p>
+    <ul>{% for f in reuniao.feedbacks if f.comentario %}<li>{{ f.nota }}/5 · {{ f.comentario }}</li>{% endfor %}
+        {% for c in reuniao.convidados if c.nota and c.comentario %}<li>{{ c.nota }}/5 · {{ c.comentario }} ({{ tt('convidado externo') }})</li>{% endfor %}</ul>
     {% endif %}
 
-    <p style="margin-top: 28px; color: #888; font-size: 0.8em;">Registrada na plataforma {{ marca.plataforma }} por {{ reuniao.criado_por.nome if reuniao.criado_por else '—' }}.</p>
+    <p style="margin-top: 28px; color: #888; font-size: 0.8em;">{{ tt('Registrada na plataforma') }} {{ marca.plataforma }} {{ tt('por') }} {{ reuniao.criado_por.nome if reuniao.criado_por else '—' }}.</p>
 </body>
 </html>

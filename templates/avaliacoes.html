@@ -9,7 +9,7 @@
         <li class="nav-item"><button class="nav-link active fw-bold" data-bs-toggle="tab" data-bs-target="#pendentes" type="button" role="tab">{{ tt('Para avaliar') }}
             {% set faltam = pendentes | selectattr(3, 'none') | list %}{% if faltam or reunioes_pendentes %}<span class="badge bg-danger">{{ faltam|length + reunioes_pendentes|length }}</span>{% endif %}</button></li>
         {% if recebidas %}<li class="nav-item"><button class="nav-link fw-bold" data-bs-toggle="tab" data-bs-target="#recebidas" type="button" role="tab">{{ tt('O que recebi') }}</button></li>{% endif %}
-        {% if alertas or current_user.tipo_usuario not in ['Aluno', 'Avaliador Banca'] %}<li class="nav-item"><button class="nav-link fw-bold" data-bs-toggle="tab" data-bs-target="#alertas" type="button" role="tab">{{ tt('Alertas') }}
+        {% if alertas or current_user.tipo_usuario not in PERFIS_SEM_AVISOS_DA_EQUIPE %}<li class="nav-item"><button class="nav-link fw-bold" data-bs-toggle="tab" data-bs-target="#alertas" type="button" role="tab">{{ tt('Alertas') }}
             {% if alertas %}<span class="badge bg-danger">{{ alertas|length }}</span>{% endif %}</button></li>{% endif %}
         {% if resultados or gestao %}<li class="nav-item"><button class="nav-link fw-bold" data-bs-toggle="tab" data-bs-target="#resultados" type="button" role="tab">{{ tt('Resultados') }}</button></li>{% endif %}
         {% if ciclos or gestao %}<li class="nav-item"><button class="nav-link fw-bold" data-bs-toggle="tab" data-bs-target="#ciclos" type="button" role="tab">{{ tt('Ciclos') }}</button></li>{% endif %}
@@ -70,7 +70,7 @@
         {% endif %}
 
         <!-- Alertas (equipe: gestão, gestor B2B e mentores) -->
-        {% if alertas or current_user.tipo_usuario not in ['Aluno', 'Avaliador Banca'] %}
+        {% if alertas or current_user.tipo_usuario not in PERFIS_SEM_AVISOS_DA_EQUIPE %}
         <div class="tab-pane fade" id="alertas" role="tabpanel">
             <p class="small text-muted">{{ tt('Ruído de comunicação e engajamento baixo: média recebida nas avaliações abaixo do limite. Sem atividade: nenhum login, frequência, sessão, entrega ou presença no período. Os limites ficam em Parâmetros de regras.') }}</p>
             <div class="table-responsive"><table class="table table-sm align-middle">
@@ -115,7 +115,7 @@
             {% if gestao %}
             <form method="POST" action="{{ url_for('ciclos_avaliacao') }}" class="card shadow-sm border-0 mb-3" id="formNovoCiclo">
                 <input type="hidden" name="acao" value="criar">
-                <div class="card-body row g-2 align-items-end">
+                <div class="card-body"><div class="row g-2 align-items-end">
                     <div class="col-md-4"><label class="form-label small fw-bold mb-0" for="cTitulo">{{ tt('Título do ciclo') }}</label>
                         <input class="form-control form-control-sm" id="cTitulo" name="titulo" maxlength="150" required placeholder="{{ tt('Ex.: Avaliação 360° do 1º semestre') }}"></div>
                     <div class="col-md-2"><label class="form-label small fw-bold mb-0" for="cTipo">{{ tt('Tipo') }}</label>
@@ -128,7 +128,7 @@
                         <select class="form-select form-select-sm" id="cEmpresa" name="empresa_id"><option value="">{{ tt('Todos') }}</option>
                             {% for e in empresas %}<option value="{{ e.id }}">{{ e.nome }}</option>{% endfor %}</select></div>
                     <div class="col-12 text-end"><button class="btn btn-success btn-sm fw-bold px-3" type="submit"><i class="bi bi-plus-lg"></i> {{ tt('Abrir ciclo e avisar') }}</button></div>
-                </div>
+                </div></div>
             </form>
             {% endif %}
             <ul class="list-group shadow-sm">

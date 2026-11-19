@@ -11,8 +11,8 @@
         <div class="card-body bg-light">
             <form action="{{ url_for('gerenciar_notas') }}" method="GET" class="d-flex align-items-end gap-3">
                 <div class="flex-grow-1">
-                    <label class="form-label fw-bold small text-muted">{{ tt('Selecione a Turma Ativa para Lançar Notas:') }}</label>
-                    <select name="turma_id" class="form-select border-secondary" required onchange="this.form.submit()">
+                    <label for="f_turma_id" class="form-label fw-bold small text-muted">{{ tt('Selecione a Turma Ativa para Lançar Notas:') }}</label>
+                    <select id="f_turma_id" name="turma_id" class="form-select border-secondary" required onchange="this.form.submit()">
                         <option value="">{{ tt('-- Escolha uma Turma --') }}</option>
                         {% for t in turmas %}
                         <option value="{{ t.id }}" {% if turma_selecionada and turma_selecionada.id == t.id %}selected{% endif %}>
@@ -39,7 +39,7 @@
                 <div class="alert alert-light border-0 border-bottom rounded-0 small mb-0" id="regraDiario">
                     <i class="bi bi-sliders"></i> {{ tt('Situação pelas regras atuais') }}: {{ tt('média mínima') }} <b>{{ regra('nota_minima_diario') }}</b> ·
                     {{ tt('frequência mínima') }} <b>{{ regra('freq_minima_pct') }}%</b>
-                    {% if current_user.tipo_usuario == 'Administrador' %} · <a href="{{ url_for('parametros_regras') }}">{{ tt('Alterar em Parâmetros de regras') }}</a>{% endif %}
+                    {% if current_user.tipo_usuario in PERFIS_ADMINISTRACAO_SISTEMA %} · <a href="{{ url_for('parametros_regras') }}">{{ tt('Alterar em Parâmetros de regras') }}</a>{% endif %}
                 </div>
                 <div class="table-responsive">
                     <table class="table table-hover table-bordered align-middle mb-0 text-center small">
@@ -74,13 +74,13 @@
                                     <td class="text-start text-primary fw-bold">{{ acomp.curso.nome_curso }}</td>
                                     
                                     <td>
-                                        <input type="number" step="0.1" min="0" max="10" 
+                                        <input type="number" step="0.1" min="0" max="10" aria-label="{{ tt('Nota técnica') }} - {{ linha.aluno.nome }} - {{ acomp.curso.nome_curso }}"
                                                name="nota_tecnica_{{ acomp.id }}" 
                                                class="form-control form-control-sm text-center border-secondary fw-bold" 
                                                value="{{ acomp.nota_tecnica if acomp.nota_tecnica != None else '' }}">
                                     </td>
                                     <td>
-                                        <input type="number" step="0.1" min="0" max="10" 
+                                        <input type="number" step="0.1" min="0" max="10" aria-label="{{ tt('Nota de postura') }} - {{ linha.aluno.nome }} - {{ acomp.curso.nome_curso }}"
                                                name="nota_postura_{{ acomp.id }}" 
                                                class="form-control form-control-sm text-center border-secondary fw-bold" 
                                                value="{{ acomp.nota_postura if acomp.nota_postura != None else '' }}">

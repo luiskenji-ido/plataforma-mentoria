@@ -7,7 +7,7 @@
     {% set ids_participantes = reuniao.participantes | map(attribute='id') | list if reuniao else [] %}
 
     <form method="POST" class="card shadow-sm border-0">
-        <div class="card-body row g-3">
+        <div class="card-body"><div class="row g-3">
             <div class="col-md-4">
                 <label class="form-label fw-bold" for="rTipo">{{ tt('Tipo de reunião') }}</label>
                 <select class="form-select" id="rTipo" name="tipo">
@@ -66,8 +66,8 @@
             </div>
             <div class="col-md-6">
                 <label class="form-label fw-bold" for="rExternos">{{ t('reuniao_participantes_externos') }}</label>
-                <textarea class="form-control" id="rExternos" name="participantes_externos" rows="7" placeholder="Maria Souza – {{ marca.nome }} – maria@exemplo.org.br">{{ reuniao.participantes_externos or '' if reuniao else '' }}</textarea>
-                <div class="form-text">{{ t('convite_dica_externos') }}</div>
+                <textarea class="form-control" id="rExternos" name="participantes_externos" rows="7" placeholder="{{ tt('Maria Souza') }} – {{ marca.nome }} – maria@exemplo.org.br">{{ reuniao.participantes_externos or '' if reuniao else '' }}</textarea>
+                <div class="form-text">{{ t('convite_dica_externos') }} {{ tt('Cada pessoa da lista recebe um link pessoal para fazer check-in, check-out e avaliar a reunião sem precisar de conta na plataforma.') }}</div>
             </div>
 
             <div class="col-12">
@@ -164,9 +164,9 @@
                     </div>
                 </div>
             </div>
-        </div>
+        </div></div>
         <div class="card-footer bg-white d-flex justify-content-end gap-2">
-            <a href="{{ url_for('detalhe_reuniao', id=reuniao.id) if reuniao else url_for('reunioes') }}" class="btn btn-outline-secondary fw-bold">Cancelar</a>
+            <a href="{{ url_for('detalhe_reuniao', id=reuniao.id) if reuniao else url_for('reunioes') }}" class="btn btn-outline-secondary fw-bold">{{ tt('Cancelar') }}</a>
             <button class="btn btn-success fw-bold px-4" type="submit">{{ t('reuniao_salvar') }}</button>
         </div>
     </form>

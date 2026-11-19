@@ -33,16 +33,17 @@ from flask import request, session, redirect, url_for, flash, jsonify, render_te
 from markupsafe import Markup
 
 EM_PRODUCAO = bool(os.environ.get("PYTHONANYWHERE_DOMAIN") or os.environ.get("MENTORIA_PRODUCAO") == "1")
+MINIMO_CARACTERES_SECRET_KEY = 32  # SECRET_KEY curta é trocada por uma nova (sessões assinadas)
 LIMITE_UPLOAD_MB = 50  # maior arquivo aceito (backups, entregas de TCC e currículos)
 
 # Limite de requisições POST por IP: endpoint -> (máximo, janela em segundos)
-LIMITES = {"login": (30, 60), "recuperar_senha": (15, 60), "chat_ia": (20, 60)}
+LIMITES = {"login": (30, 60), "recuperar_senha": (15, 60), "chat_ia": (20, 60), "convidado_reuniao": (30, 60)}
 
 # Origens externas que as páginas usam (bibliotecas de CDN, fontes e ícones)
 CDNS = "https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://unpkg.com"
 POLITICA_CSP = "; ".join([
     "default-src 'self'",
-    f"script-src 'self' 'unsafe-inline' {CDNS}",
+    f"script-src 'self' 'unsafe-inline' {CDNS} https://www.youtube.com",  # YouTube: API do player das aulas (progresso do vídeo)
     f"style-src 'self' 'unsafe-inline' {CDNS} https://fonts.googleapis.com",
     f"font-src 'self' data: {CDNS} https://fonts.gstatic.com",
     "img-src 'self' data: blob: https:",
@@ -85,7 +86,7 @@ def carregar_chave_secreta(pasta_instance):
             chave = f.read().strip()
     except OSError:
         chave = ""
-    if len(chave) < 32:
+    if len(chave) < MINIMO_CARACTERES_SECRET_KEY:
         os.makedirs(pasta_instance, exist_ok=True)
         chave = secrets.token_hex(32)
         with open(caminho, "w", encoding="utf-8") as f:
@@ -257,6 +258,18 @@ def configurar_seguranca(app, traduzir=None):
         resposta.status_code = 429
         resposta.headers["Retry-After"] = str(espera)
         return resposta
+
+    @app.before_request
+    def _limite_de_upload_da_rota():
+        # Rotas com arquivo maior que o limite global (ex.: gravação da reunião): app.config["LIMITES_UPLOAD_ROTA"] =
+        # {endpoint: função que devolve o limite em MB}. Precisa vir antes do CSRF, que é quem lê o formulário primeiro.
+        limite = (app.config.get("LIMITES_UPLOAD_ROTA") or {}).get(request.endpoint)
+        if limite and request.method in METODOS_PROTEGIDOS:
+            try:
+                request.max_content_length = int(limite()) * 1024 * 1024
+            except Exception:
+                pass
+        return None
 
     @app.before_request
     def _verificar_csrf():

@@ -14,7 +14,7 @@
         <p class="text-muted mb-0">{{ tt('Lê os prompts de correção das quatro equipes de agentes, corrige com IA numa cópia do código, faz os agentes aprenderem e testarem a correção e só libera o commit quando todas as equipes aprovam.') }}</p>
     </div>
     <div class="d-flex gap-2 flex-wrap">
-        <a href="{{ url_for('agentes_ia') }}" class="btn btn-outline-secondary fw-bold"><i class="bi bi-robot"></i> {{ tt('Agentes IA') }}</a>
+        <a href="{{ url_for('agentes_ia') }}" class="btn btn-outline-secondary fw-bold"><i class="bi bi-robot"></i> {{ tt('Agente de IA – Fim a Fim') }}</a>
         <a href="{{ url_for('governanca_aprendizados') }}" class="btn btn-outline-primary fw-bold"><i class="bi bi-mortarboard"></i> {{ tt('Governança de aprendizados') }}</a>
     </div>
 </div>
@@ -142,7 +142,7 @@
         </div>
         <div class="d-flex flex-wrap gap-3 mt-2 small align-items-center">
             <span class="fw-bold">{{ tt('IA') }}:</span>
-            {% for chave, nome in [('gemini', 'Gemini'), ('claude', 'Claude')] %}
+            {% for chave, nome in [('gemini', 'Gemini'), ('claude', 'Claude'), ('openai', 'ChatGPT')] %}
             <div class="form-check form-check-inline m-0">
                 <input class="form-check-input" type="radio" name="provedor" value="{{ chave }}" id="ia_{{ chave }}" form="formCorrigir"
                        {% if chave not in provedores %}disabled{% elif chave == provedores[0] %}checked{% endif %}>

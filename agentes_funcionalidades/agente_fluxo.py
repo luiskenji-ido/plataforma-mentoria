@@ -3,7 +3,7 @@
 AGENTES DE FUNCIONALIDADES — a corrida de revezamento pelo fluxo da plataforma
 Uso: python agentes_funcionalidades/agente_fluxo.py <agente>
 Ordem (o Gerente chama um de cada vez; cada um cria os usuários e os dados que o próximo precisa):
-  administrador → mentor_administrador → gestor_parceiro → professor → mentor → aluno → avaliador → encerramento
+  dev → ux → administrador → mentor_administrador → gestor_parceiro → professor → mentor → aluno → avaliador → encerramento
 """
 import os
 import sys
@@ -11,6 +11,7 @@ import json
 from datetime import datetime, timedelta, date
 
 from base import (AgenteFuncional, FALHA, ALERTA, MARCA, DOMINIO, senha_forte, mensagens, RAIZ_PROJETO, regra_da_plataforma)
+from etapas_cobertura import EtapasCobertura
 
 # PNG de 1×1 pixel (logo do parceiro B2B)
 PNG_MINIMO = __import__("base64").b64decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==")
@@ -46,7 +47,7 @@ def senha_de_teste():
     return dotenv_values(os.path.join(RAIZ_PROJETO, ".env")).get("OMNITEST_SENHA") or ""
 
 
-class AgenteDoFluxo(AgenteFuncional):
+class AgenteDoFluxo(EtapasCobertura, AgenteFuncional):
     """Utilidades comuns aos agentes da cadeia."""
 
     def __init__(self):
@@ -127,6 +128,7 @@ class AgenteDoFluxo(AgenteFuncional):
         self.confere(enviado is None, f"{self.perfil} não envia convite de reunião", "PER", "Envio de convite recusado.",
                      f"O perfil {self.perfil} conseguiu disparar o convite.", "Só a gestão envia convites", "Alta")
         self.presenca_na_reuniao(reuniao_id, participante)
+        self.gravacao_para_o_perfil(reuniao_id, participante)
 
     def avaliar(self, alvo_tipo, avaliado_id, notas, comentario=""):
         """Responde uma avaliação do ciclo 360° aberto pela gestão no fluxo (notas de 1 a 5 por critério)."""
@@ -180,6 +182,129 @@ class AgenteDoFluxo(AgenteFuncional):
 
 
 # ==============================================================================
+# 0. DEV — regras de negócio no código (estático, sem login: roda antes dos perfis)
+# ==============================================================================
+class AgenteDev(AgenteDoFluxo):
+    """Garante que a plataforma continue aprendendo sozinha: toda regra de negócio precisa estar numa regra nomeada,
+    porque é só isso que o Gerente de Funcionalidades enxerga e ensina aos agentes."""
+    chave, nome, perfil = "dev", "Agente Dev (regras nomeadas no código)", "Código"
+    LIMITE_ACHADOS = 40
+    ROTEIRO = ["Varre 100% do código Python e das telas atrás de regras escritas direto (listas de perfis, poder dado a um perfil, "
+               "tamanhos mínimos, faixas de nota e prazos soltos)",
+               "Confere se o Gerente de Funcionalidades aprendeu todas as regras nomeadas da plataforma (inclusive as novas)",
+               "Confere se cada regra de perfis (PERFIS_*) é usada no código ou nas telas (regra morta engana quem lê)"]
+
+    def rodar(self):
+        import re
+        import varredura_regras as vr
+        self.etapa("Varredura de 100% do código: regras escritas direto")
+        achados = vr.varrer()
+        if not achados:
+            self.confere(True, "Nenhuma regra de negócio escrita direto no código", "DEV",
+                         "Todas as listas de perfis, poderes e números de regra estão em regras nomeadas.", "", "Toda regra numa regra nomeada")
+        for a in achados[:self.LIMITE_ACHADOS]:
+            self.registrar(f"Regra escrita direto no código: {a['arquivo']}:{a['linha']}", ALERTA, "DEV",
+                           f"{a['tipo']}: {a['trecho']}", "Toda regra de negócio numa regra nomeada (o Gerente só aprende o que tem nome)",
+                           "Média", a['sugestao'])
+        if len(achados) > self.LIMITE_ACHADOS:
+            self.registrar(f"Mais {len(achados) - self.LIMITE_ACHADOS} regra(s) escrita(s) direto no código", ALERTA, "DEV",
+                           "Rode python agentes_funcionalidades/varredura_regras.py para a lista completa.",
+                           "Toda regra de negócio numa regra nomeada", "Média")
+
+        self.etapa("O Gerente aprendeu todas as regras nomeadas")
+        from app import app
+        import conhecimento_funcional as cf
+        with app.app_context():
+            atuais = cf.regras_nomeadas_da_plataforma()
+        aprendidas = set((self.regras or {}).get("regras_app", {}))
+        faltam = sorted(set(atuais) - aprendidas)
+        self.confere(not faltam and bool(atuais), "Gerente aprendeu todas as regras nomeadas", "DEV",
+                     f"{len(atuais)} regra(s) nomeada(s) no retrato do Gerente.",
+                     f"{len(faltam)} regra(s) nomeada(s) fora do aprendizado: {', '.join(faltam[:15])}.",
+                     "Regra nova ou alterada vira aprendizado na hora", "Alta",
+                     "Rodar a detecção do Gerente (Agentes de Funcionalidades › Aprender) ou conferir MODULOS_DE_REGRAS em conhecimento_funcional.py.")
+
+        self.etapa("Regras de perfis em uso")
+        textos = []
+        for extensao in (".py", ".html"):
+            for caminho in vr._arquivos(extensao):
+                textos.append(open(caminho, encoding="utf-8").read())
+        tudo = "\n".join(textos)
+        mortas = sorted(n for n in atuais if n.startswith("PERFIS_") and len(re.findall(r"\b" + re.escape(n) + r"\b", tudo)) < 2)
+        self.confere(not mortas, "Toda regra de perfis está em uso", "DEV", "Cada PERFIS_* é usada em pelo menos um lugar.",
+                     f"Regra(s) definida(s) e nunca usada(s): {', '.join(mortas)}.", "Sem regra morta", "Baixa",
+                     "Usar a regra onde a decisão é tomada ou apagá-la.", alerta=True)
+
+
+class AgenteUX(AgenteDoFluxo):
+    """Garante que um cliente novo use a plataforma sozinho: toda tela traduzida (pt/en/es), acessível (alt, nomes dos
+    botões, rótulos dos campos) e chamando cada papel sempre do mesmo jeito (regra nomeada NOME_DO_PAPEL_NAS_TELAS)."""
+    chave, nome, perfil = "ux", "Agente UX/UI (telas traduzidas e acessíveis)", "Telas"
+    LIMITE_ACHADOS = 40
+    # (tipo do achado na varredura, o que a regra garante, severidade)
+    VERIFICACOES = [("Texto visível fora do t()/tt()", "Todo texto da tela passa pelo t() ou tt() (vira inglês e espanhol)", "Média"),
+                    ("tt() sem tradução", "Todo texto do tt() tem inglês e espanhol em traducoes_literais.py", "Média"),
+                    ("t() com chave inexistente", "Toda chave do t() existe em traducoes.py", "Alta"),
+                    ("t() sem tradução", "Toda chave do t() tem inglês e espanhol", "Média"),
+                    ("Função de tradução escondida", "Nenhum laço ou set esconde o t()/tt() (a tela daria erro 500)", "Alta"),
+                    ("Imagem sem alt", "Toda imagem tem alt (o leitor de tela descreve)", "Média"),
+                    ("Botão ou link sem nome", "Todo botão só de ícone tem title ou aria-label", "Média"),
+                    ("Link sem nome", "Todo link só de ícone tem title ou aria-label", "Média"),
+                    ("Campo sem rótulo", "Todo campo tem <label for>, aria-label ou title", "Média"),
+                    ("Layout estourado", "A grade 'row' fica dentro do modal-body/card-body, nunca no próprio (as bordas não estouram)", "Média"),
+                    ("Papel com nome trocado", "O papel aparece com o nome da regra NOME_DO_PAPEL_NAS_TELAS", "Alta")]
+    ROTEIRO = ["Varre 100% das telas (templates/*.html): texto fora do t()/tt(), traduções que faltam em inglês e espanhol "
+               "e t()/tt() escondido por variável de laço (erro 500)",
+               "Acessibilidade: imagem sem alt, botão ou link só de ícone sem nome, campo sem rótulo",
+               "Mesmo papel com o mesmo nome nas telas da regra NOME_DO_PAPEL_NAS_TELAS (ex.: Professor(a) no Acompanhamento)",
+               "Confere se o Gerente de Funcionalidades aprendeu a regra dos nomes dos papéis",
+               "Lista as exceções conscientes marcadas com {# ux: ok #} (cada uma com o motivo)"]
+
+    def rodar(self):
+        import re
+        import varredura_ux as vu
+        self.etapa("Varredura de 100% das telas: tradução, acessibilidade e nomes dos papéis")
+        achados = vu.varrer()
+        por_tipo = {}
+        for a in achados:
+            por_tipo.setdefault(a['tipo'], []).append(a)
+        for tipo, regra, _ in self.VERIFICACOES:
+            if not por_tipo.get(tipo):
+                self.confere(True, f"Telas sem achados: {tipo.lower()}", "UX", regra + ".", "", regra)
+        for a in achados[:self.LIMITE_ACHADOS]:
+            regra, severidade = next(((r, s) for t, r, s in self.VERIFICACOES if t == a['tipo']), (a['tipo'], "Média"))
+            self.registrar(f"{a['tipo']}: {a['arquivo']}:{a['linha']}", ALERTA, "UX", a['trecho'], regra, severidade, a['sugestao'])
+        if len(achados) > self.LIMITE_ACHADOS:
+            self.registrar(f"Mais {len(achados) - self.LIMITE_ACHADOS} problema(s) de UX/UI nas telas", ALERTA, "UX",
+                           "Rode python agentes_funcionalidades/varredura_ux.py para a lista completa.",
+                           "Telas traduzidas, acessíveis e com os papéis bem nomeados", "Média")
+
+        self.etapa("O Gerente aprendeu a regra dos nomes dos papéis")
+        from app import app
+        import conhecimento_funcional as cf
+        with app.app_context():
+            atual = cf.regras_nomeadas_da_plataforma().get("NOME_DO_PAPEL_NAS_TELAS")
+        aprendida = (self.regras or {}).get("regras_app", {}).get("NOME_DO_PAPEL_NAS_TELAS")
+        self.confere(atual is not None and aprendida == atual, "Gerente aprendeu a regra NOME_DO_PAPEL_NAS_TELAS", "UX",
+                     f"Telas com nome de papel conferido: {', '.join(sorted(atual or {}))}.",
+                     f"Regra na plataforma: {atual}; aprendida pelo Gerente: {aprendida}.",
+                     "Mudar o nome de um papel na regra muda o que o Agente UX espera", "Média",
+                     "Rodar a detecção do Gerente (Agentes de Funcionalidades › Aprender) ou conferir NOME_DO_PAPEL_NAS_TELAS em app.py.", alerta=True)
+
+        self.etapa("Exceções conscientes")
+        excecoes = []
+        for caminho in vu._telas():
+            for n, linha in enumerate(open(caminho, encoding="utf-8").read().splitlines(), 1):
+                if vu.MARCA_EXCECAO in linha and vu.MARCA_EXCECAO + "-fim" not in linha:
+                    motivo = re.sub(r"^.*?" + re.escape(vu.MARCA_EXCECAO) + r"(-inicio)?\s*-?\s*", "", linha).split("#}")[0].strip()
+                    excecoes.append(f"{os.path.basename(caminho)}:{n} ({motivo or 'sem motivo'})")
+        sem_motivo = [e for e in excecoes if e.endswith("(sem motivo)")]
+        self.confere(not sem_motivo, f"{len(excecoes)} exceção(ões) consciente(s), todas com o motivo", "UX",
+                     "; ".join(excecoes) or "Nenhuma exceção marcada.", f"Exceção sem motivo: {', '.join(sem_motivo)}.",
+                     "Toda exceção diz por que a tela fica assim", "Baixa", "Escrever o motivo depois de 'ux: ok -'.", alerta=True)
+
+
+# ==============================================================================
 # 1. ADMINISTRADOR
 # ==============================================================================
 class AgenteAdministrador(AgenteDoFluxo):
@@ -188,7 +313,11 @@ class AgenteAdministrador(AgenteDoFluxo):
                "Validações do cadastro de usuários: e-mail inválido, duplicado e senha fraca",
                "Assistente da Plataforma: base dos gerentes, documento PRD com versões, perguntas com fontes (sem consumir a IA)",
                "Provedores de IA: liga/desliga do Assistente, ordem de modelos validada e gasto do mês",
-               "Cria o Mentor Administrador e passa a vez para ele"]
+               "Identidade da instituição: nome, apelido, plataforma e logo",
+               "Perfis de acesso, manutenção do banco e backups padrão: cadastros e ações perigosas protegidos",
+               "Notificações, preferência de e-mail, gráficos do painel e tour (preferências devolvidas ao valor de antes)",
+               "Pedido público de mentoria pela tela de login",
+               "Cria o Mentor Administrador, edita o cadastro dele e passa a vez"]
 
     def rodar(self):
         # A cobertura da execução anterior vira referência; a desta execução recomeça vazia
@@ -220,9 +349,11 @@ class AgenteAdministrador(AgenteDoFluxo):
         self.assistente_da_plataforma()
         self.provedores_de_ia()
         self.identidade_da_instituicao()
+        self.cobertura_administrador()
 
         self.etapa("Cria o Mentor Administrador")
         self.criar_usuario("mentoradmin", "Mentor Administrador", "Mentor Administrador")
+        self.edicao_de_usuario("mentoradmin")
         self.reportar_cobertura()
 
     def assistente_da_plataforma(self):
@@ -390,15 +521,15 @@ class AgenteAdministrador(AgenteDoFluxo):
                      f"Ficou diferente: {final}", "O teste não deixa marcas", "Média")
 
     def credenciais_dos_agentes(self):
-        """Área Agentes IA: o quadro de credenciais existe e NUNCA mostra a senha das contas de teste (só a situação).
+        """Tela Provedores de IA e custos: o quadro de credenciais existe e NUNCA mostra a senha das contas de teste (só a situação).
         O agente não grava nada aqui: as credenciais reais do servidor não são alteradas pelo teste."""
         self.etapa("Credenciais dos agentes (só leitura)")
-        status, _, pagina = self.cliente.pedir("GET", "/admin/agentes-ia")
+        status, _, pagina = self.cliente.pedir("GET", "/admin/provedores-ia")
         senha = senha_de_teste()
         self.confere(status == 200 and 'id="cardCredenciaisIa"' in pagina and (not senha or senha not in pagina),
                      "Credenciais dos agentes sem expor a senha", "SEG", "Quadro de credenciais presente; nenhum valor aparece na página.",
                      "Quadro ausente ou a senha das contas de teste aparece na página.",
-                     "Administrador cadastra as credenciais dos agentes na plataforma, cifradas", "Alta", print_de="/admin/agentes-ia")
+                     "Administrador cadastra as credenciais dos agentes na plataforma, cifradas", "Alta", print_de="/admin/provedores-ia")
 
     def parametros_de_regras(self):
         """Tela Parâmetros de regras: abre com todos os grupos e RECUSA valores inválidos sem gravar nada.
@@ -431,7 +562,12 @@ class AgenteMentorAdministrador(AgenteDoFluxo):
                "Cria Gestor Parceiro, Mentor, Professor, 2 Alunos e o Avaliador da banca",
                "Cria a empresa parceira (gestor e mentor), o grupo e a turma (matrícula automática)",
                "Matricula outro aluno, cria o projeto, a tarefa e agenda a banca com o avaliador",
-               'Reunião instituição × B2B: ata, arquivo .ics, Salvar na agenda e convite que nunca vai para contas de teste']
+               'Reunião instituição × B2B: ata, encaminhamento, arquivo .ics, Salvar na agenda e convite que nunca vai para contas de teste',
+               "Edita curso e grupo, exclui grupo e projeto, cria módulo da trilha e importa TCC histórico",
+               "Regra: Mentor Administrador não altera contas de Administrador",
+               "Convidado externo (sem conta): check-in, check-out e avaliação pelo link pessoal; tempo por instituição",
+               "Envia o arquivo da gravação da reunião (só vídeo ou áudio)", "Avaliação 360°: a gestão avalia o jovem",
+               "Conteúdo do curso: apostila dividida em aulas, testes gerados, aula em vídeo do YouTube e pergunta escrita à mão"]
 
     def rodar(self):
         m = _modelos()
@@ -461,6 +597,8 @@ class AgenteMentorAdministrador(AgenteDoFluxo):
             if curso:
                 cursos.append(curso.id)
         self.contexto["ids"]["cursos"] = cursos
+        if cursos:
+            self.conteudo_do_curso(cursos[0])
 
         self.etapa("Cadastro dos perfis do programa")
         self.criar_usuario("gestor", "Admin B2B", "Gestor Parceiro")
@@ -599,6 +737,8 @@ class AgenteMentorAdministrador(AgenteDoFluxo):
                          f"{duplicadas} bancas para o mesmo projeto.", "Uma banca por projeto", "Média")
         self.reuniao_e_convite()
         self.abrir_ciclo_360()
+        self.avaliacao_da_gestao()
+        self.cobertura_mentor_administrador()
         self.reportar_cobertura()
 
     def abrir_ciclo_360(self):
@@ -696,7 +836,10 @@ class AgenteMentorAdministrador(AgenteDoFluxo):
                         "duracao_minutos": "45", "modalidade": "Online", "local_ou_link": "https://meet.google.com/funcional-teste",
                         "pauta": "Cronograma, bancas; certificados", "participantes": [x["id"] for x in (mentor, gestor, professor) if x],
                         "participantes_externos": "Parceiro Externo – Empresa Teste – parceiro@empresa-funcional.test",
-                        "enviar_convite": "1", "convite_via": "smtp"}
+                        "enviar_convite": "1", "convite_via": "smtp",
+                        # Encaminhamento com responsável e prazo: o Mentor conclui e a gestão reabre mais adiante
+                        "enc_descricao": [f"{MARCA} Enviar o cronograma ao parceiro"], "enc_responsavel": [mentor["id"] if mentor else ""],
+                        "enc_prazo": [(date.today() + timedelta(days=7)).isoformat()]}
         self.post("/reunioes/nova", base_reuniao)
         reuniao = self.banco(lambda: m.ReuniaoInstitucional.query.filter_by(titulo=titulo).first())
         participantes = self.banco(lambda: sorted(p.id for p in m.ReuniaoInstitucional.query.get(reuniao.id).participantes)) if reuniao else []
@@ -712,6 +855,8 @@ class AgenteMentorAdministrador(AgenteDoFluxo):
                      "Com parceiro escolhido, só entram o gestor B2B, os mentores e os avaliadores da empresa", "Alta",
                      "Em salvar_reuniao_do_formulario, filtrar os participantes por ids_do_parceiro(empresa).")
         self.contexto["ids"]["reuniao"] = reuniao.id
+        enc = self.banco(lambda: m.EncaminhamentoReuniao.query.filter_by(reuniao_id=reuniao.id).first())
+        self.contexto["ids"]["encaminhamento"] = enc.id if enc else None
         self.confere(reuniao.convite_enviado_em is None, "Convite não vai para contas de teste", "REG",
                      "Nenhum convite enviado: todos os convidados são contas de teste ou domínios .test.",
                      f"Convite registrado como enviado ({reuniao.convite_enviado_via}) para: {reuniao.convite_destinatarios}.",
@@ -757,6 +902,8 @@ class AgenteMentorAdministrador(AgenteDoFluxo):
                      "Sessão sem Gmail; o painel de convite continua disponível.", "Painel ainda mostra um Gmail conectado.",
                      "Coordenação desconecta o Gmail quando quiser", "Baixa")
         self.remarcar_reuniao(reuniao, base_reuniao)
+        externo = self.convidados_externos(reuniao.id)
+        self.gravacao_da_reuniao(reuniao.id, *(externo or (None, None)))
 
 
 # ==============================================================================
@@ -766,7 +913,8 @@ class AgenteGestorParceiro(AgenteDoFluxo):
     chave, nome, perfil = "gestor_parceiro", "Agente Gestor Parceiro (Funcional)", "Admin B2B"
     ROTEIRO = ["Primeiro acesso: perguntas e termo", "Matriz de acesso do perfil",
                "Regra: só vê a turma e a banca da sua empresa", "Regra: avaliador só da própria empresa", "Relatório ESG da empresa",
-               "Envia o logo da empresa para o certificado (só PNG/JPG/WEBP de verdade)"]
+               "Envia o logo da empresa para o certificado (só PNG/JPG/WEBP de verdade)",
+               "Avaliação 360°: avalia mentor, jovem, gestor da instituição, gestão e programa"]
 
     def rodar(self):
         m = _modelos()
@@ -811,6 +959,12 @@ class AgenteGestorParceiro(AgenteDoFluxo):
             self.avaliar("Gestão {apelido}", None, [4, 4, 5]) and self.avaliar("Programa", None, [5, 4, 4])
         self.confere(ok, "Gestor B2B avalia mentor, gestão da instituição e programa", "FLX", "Três avaliações gravadas.", "Alguma avaliação não foi gravada.",
                      "Gestores B2B avaliam mentores e o programa", "Alta", print_de="/avaliacoes")
+        aluno1 = self.usuario("aluno1")
+        jovem = bool(aluno1) and self.avaliar("Jovem", aluno1["id"], [4, 3, 4, 4], f"{MARCA} Chega atrasado às palestras")
+        gestor_inst = self.avaliacao_do_gestor_da_instituicao([4, 5, 4, 4], f"{MARCA} Retorno rápido")
+        self.confere(jovem and gestor_inst, "Gestor B2B avalia o jovem e o gestor do projeto na instituição", "FLX",
+                     "Avaliação do jovem da empresa e do gestor da instituição gravadas.", f"Jovem: {jovem}; gestor da instituição: {gestor_inst}.",
+                     "Avaliação de todos: jovem, mentor e gestores da instituição e do B2B", "Alta", print_de="/avaliacoes")
         professor = self.usuario("professor")
         if professor:
             indevida = self.avaliar("Mentor", professor["id"], [1, 1, 1, 1])
@@ -847,7 +1001,8 @@ class AgenteProfessor(AgenteDoFluxo):
     chave, nome, perfil = "professor", "Agente Professor (Funcional)", "Professor"
     ROTEIRO = ["Primeiro acesso: perguntas, termo e trilha do TCC", "Matriz de acesso do perfil",
                "Lança as notas da turma no diário de classe", "Regra: notas de 0 a 10", "Regra: Professor não cria grupos",
-               'Regra: quem não participou não vê a reunião nem envia convite']
+               'Regra: quem não participou não vê a reunião nem envia convite',
+               "Regra: fora do grupo não altera nem exclui tarefas; fora da reunião não conclui encaminhamentos"]
 
     def rodar(self):
         m = _modelos()
@@ -898,6 +1053,7 @@ class AgenteProfessor(AgenteDoFluxo):
         self.confere(indevido is None, "Professor não cria grupos", "PER", "Criação de grupo recusada.", "O Professor criou um grupo.",
                      "Só a gestão cria grupos", "Alta")
         self.regra_reuniao(participante=False)
+        self.cobertura_professor()
         self.reportar_cobertura()
 
 
@@ -910,7 +1066,10 @@ class AgenteMentor(AgenteDoFluxo):
                "Agenda uma sessão de mentoria com o aluno (notificação)", "Registra o parecer no acompanhamento",
                "Lança horas de voluntariado do TCC (ESG)", "Regra: lançamento no futuro é recusado",
                'Regra: participante salva a reunião na agenda, mas não envia convite',
-               "Registra ocorrência com responsável e prazo do retorno", "Pede a desistência de um jovem (a gestão confirma)"]
+               "Registra ocorrência com responsável e prazo do retorno", "Pede a desistência de um jovem (a gestão confirma)",
+               "Atualiza e exclui tarefas, avalia o projeto (notas de 0 a 10)",
+               "Atividade extra (check-in, check-out, encerrar, cancelar) e relógio de voluntariado",
+               "Conclui o encaminhamento da reunião do qual é responsável"]
 
     def rodar(self):
         m = _modelos()
@@ -969,6 +1128,7 @@ class AgenteMentor(AgenteDoFluxo):
         self.ocorrencia_e_desistencia()
         self.avaliacao_do_mentor()
         self.ata_do_encontro()
+        self.cobertura_mentor()
         self.reportar_cobertura()
 
     def ata_do_encontro(self):
@@ -1066,7 +1226,11 @@ class AgenteAluno(AgenteDoFluxo):
     ROTEIRO = ["Primeiro acesso: perguntas de segurança (o aluno não assina o termo corporativo)", "Matriz de acesso do perfil",
                "Registra a frequência (uma por dia)", "Anotação no acompanhamento e retorno da sessão",
                "Entrega o TCC escrito e os slides (regras de formato)", "Regras: não cria projeto, não agenda sessão, não entra na sala da banca",
-               "Regra: não cria tarefa em projeto de outro grupo"]
+               "Regra: não cria tarefa em projeto de outro grupo",
+               "Check-in de aula, chat de estudos (sem IA), agenda não conectada e redirecionamento seguro",
+               "Abre e comenta uma demanda (não responde oficialmente); atividade encerrada não aceita check-in",
+               "Recupera a senha pelas perguntas de segurança (2 de 3)",
+               "Estuda dentro da plataforma: leitura e vídeo contam sozinhos, teste aprova a aula e o progresso é automático"]
 
     def rodar(self):
         m = _modelos()
@@ -1089,6 +1253,7 @@ class AgenteAluno(AgenteDoFluxo):
             gravado = self.banco(lambda: m.Acompanhamento.query.get(acomp.id).observacao_aluno)
             self.confere(gravado == f"{MARCA} Minhas anotações", "Anotação do aluno no acompanhamento", "FLX", "Anotação gravada.", f"Gravado: {gravado}.",
                          "Aluno registra suas anotações", "Média", print_de="/acompanhamento")
+        self.estudo_do_curso()
         sessao_id = self.contexto["ids"].get("sessao")
         if sessao_id:
             self.post("/sessoes", {"acao": "enviar_feedback", "sessao_id": sessao_id, "comentario": f"{MARCA} Obrigado pela mentoria"})
@@ -1116,6 +1281,10 @@ class AgenteAluno(AgenteDoFluxo):
             ok = self.avaliar("Mentor", mentor["id"], [2, 3, 4, 4], f"{MARCA} Demora a responder no chat") and self.avaliar("Programa", None, [5, 5, 4])
             self.confere(ok, "Jovem avalia o mentor e o programa", "FLX", "Avaliações gravadas.", "Avaliação não gravada.",
                          "Jovem avalia o mentor", "Alta", print_de="/avaliacoes")
+            gestor_inst = self.avaliacao_do_gestor_da_instituicao([5, 4, 5, 4], f"{MARCA} Sempre disponível")
+            self.confere(gestor_inst, "Jovem avalia o gestor do projeto na instituição", "FLX", "Avaliação individual do gestor gravada.",
+                         "Avaliação do gestor da instituição não gravada.", "Avaliação de todos: o jovem avalia também cada gestor da instituição",
+                         "Alta")
             _, _, pagina = self.cliente.pedir("GET", "/avaliacoes")
             self.confere('id="resultados"' not in pagina and 'id="ciclos"' not in pagina and "Ruído de comunicação" not in pagina,
                          "Jovem não vê resultados, ciclos nem alertas", "PER", "Só as avaliações dele.",
@@ -1160,6 +1329,8 @@ class AgenteAluno(AgenteDoFluxo):
                          "Em nova_tarefa/atualizar_tarefa/deletar_tarefa, conferir se current_user é membro do grupo do projeto ou da gestão.")
         else:
             self.log("Não há projeto de outro grupo para testar")
+        self.cobertura_aluno()
+        self.recuperacao_de_senha("aluno1")
         self.reportar_cobertura()
 
 
@@ -1171,6 +1342,7 @@ class AgenteAvaliador(AgenteDoFluxo):
     PAGINA_SONDA = "/minhas-bancas"  # o avaliador é restrito às páginas da banca
     ROTEIRO = ["Primeiro acesso: troca de senha obrigatória, perguntas e termo", "Regra: o avaliador só vê as áreas da banca",
                "Vê a banca em 'Minhas bancas'", "Regra: nota abaixo de 7 exige justificativa",
+               "Relógio da banca, perguntas e cronômetro da apresentação",
                "Avalia as etapas escrita e oral; a banca fecha sozinha e calcula a nota (40/40/20)"]
 
     def rodar(self):
@@ -1186,6 +1358,8 @@ class AgenteAvaliador(AgenteDoFluxo):
         _, _, html = self.cliente.pedir("GET", "/minhas-bancas")
         self.confere(f"{MARCA} Projeto TCC" in html, "Vê a banca para a qual foi escalado", "FLX", "A banca aparece em 'Minhas bancas'.",
                      "A banca não aparece.", "Avaliador vê suas bancas", "Alta", print_de="/minhas-bancas")
+
+        self.cobertura_avaliador()
 
         self.etapa("Avaliação do TCC")
         if not projeto_id:
@@ -1218,7 +1392,9 @@ class AgenteEncerramento(AgenteDoFluxo):
                "Emite o certificado do aluno e confere a verificação pública", "Regra: certificado só para quem participou do projeto",
                "Confirma a desistência (jovem sai da turma e do mentor) e reativa", "Dá retorno e resolve a ocorrência",
                "Certificado com o logo do parceiro B2B; remove o logo", "Lança a presença de quem esqueceu o check-in da reunião",
-               "Mentor desistente: substituto assume os jovens; reativação"]
+               "Mentor desistente: substituto assume os jovens; reativação",
+               "Responde a demanda do aluno, abona a frequência e reabre o encaminhamento da reunião",
+               "Exclui o arquivo da gravação da reunião"]
 
     def rodar(self):
         m = _modelos()
@@ -1271,6 +1447,7 @@ class AgenteEncerramento(AgenteDoFluxo):
                      "Emitiu certificado para aluno fora do grupo.", "Certificado só para participantes do projeto", "Alta")
         self.logo_no_certificado(projeto_id, aluno1)
         self.mentor_desistente()
+        self.cobertura_encerramento()
         self.reportar_cobertura()
 
     def mentor_desistente(self):
@@ -1406,7 +1583,7 @@ class AgenteEncerramento(AgenteDoFluxo):
                      "O arquivo do logo continuou no disco ou no cadastro.", "Gestão remove o logo do parceiro", "Baixa")
 
 
-AGENTES = {a.chave: a for a in (AgenteAdministrador, AgenteMentorAdministrador, AgenteGestorParceiro, AgenteProfessor, AgenteMentor,
+AGENTES = {a.chave: a for a in (AgenteDev, AgenteUX, AgenteAdministrador, AgenteMentorAdministrador, AgenteGestorParceiro, AgenteProfessor, AgenteMentor,
                                 AgenteAluno, AgenteAvaliador, AgenteEncerramento)}
 
 if __name__ == "__main__":

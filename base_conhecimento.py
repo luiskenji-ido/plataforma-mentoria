@@ -42,6 +42,7 @@ TIPOS = {
 TIPOS_UPLOAD = ['PRD', 'PTD', 'DTD', 'OUTRO']
 EXTENSOES = {'.md', '.markdown', '.txt', '.html', '.htm', '.docx', '.pdf'}
 LIMITE_ARQUIVO_MB = 20
+MINIMO_CARACTERES_DOCUMENTO = 20   # menos que isso: documento sem texto (PDF escaneado)
 PASTA = 'base_conhecimento'          # dentro de uploads/
 TAMANHO_TRECHO = 1400                # caracteres por trecho (alvo)
 MAXIMO_TRECHO = 2200
@@ -175,7 +176,7 @@ def extrair_texto(nome_arquivo, dados):
         texto = _decodificar(dados)
     texto = re.sub(r'[ \t\r\f\v]+\n', '\n', texto)
     texto = re.sub(r'\n{3,}', '\n\n', texto).strip()
-    if len(texto) < 20:
+    if len(texto) < MINIMO_CARACTERES_DOCUMENTO:
         raise ErroDocumento('Não encontrei texto no arquivo (se for PDF escaneado, envie uma versão com texto).')
     return texto
 

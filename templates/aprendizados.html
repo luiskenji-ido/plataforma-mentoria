@@ -49,7 +49,7 @@
             {{ tt('O Gerente de Segurança faz o mesmo com os agentes de segurança.') }} {{ tt('E o Gerente de Banco de Dados, com os agentes de banco.') }} {{ tt('E o Gerente de Funcionalidades, com os agentes do fluxo.') }}</p>
     </div>
     <div class="d-flex gap-2 flex-wrap">
-        <a href="{{ url_for('agentes_ia') }}" class="btn btn-outline-secondary fw-bold"><i class="bi bi-robot"></i> {{ tt('Agentes IA') }}</a>
+        <a href="{{ url_for('agentes_ia') }}" class="btn btn-outline-secondary fw-bold"><i class="bi bi-robot"></i> {{ tt('Agente de IA – Fim a Fim') }}</a>
         <a href="{{ url_for('agentes_seguranca') }}" class="btn btn-outline-danger fw-bold"><i class="bi bi-shield-lock-fill"></i> {{ tt('Agentes de Segurança') }}</a>
         <a href="{{ url_for('agentes_banco') }}" class="btn btn-outline-info fw-bold"><i class="bi bi-database-fill-check"></i> {{ tt('Agentes de Banco de Dados') }}</a>
         <a href="{{ url_for('agentes_funcionalidades') }}" class="btn btn-outline-primary fw-bold"><i class="bi bi-diagram-3-fill"></i> {{ tt('Agentes de Funcionalidades') }}</a>
@@ -207,7 +207,7 @@
                 </select></div>
             <div class="col-md-2"><label class="form-label small fw-bold mb-0" for="ateLimpeza">{{ tt('Até') }}</label><input type="date" class="form-control" id="ateLimpeza" name="ate"></div>
             <div class="col-md-3"><label class="form-label small fw-bold mb-0" for="confirmaLimpeza">{{ tt('Para liberar, digite LIMPAR') }}</label>
-                <input class="form-control" id="confirmaLimpeza" name="confirmacao" autocomplete="off" placeholder="LIMPAR"></div>
+                <input class="form-control" id="confirmaLimpeza" name="confirmacao" autocomplete="off" placeholder="LIMPAR"></div> {# ux: ok - palavra de confirmação conferida pelo servidor em qualquer idioma (não se traduz) #}
             <div class="col-md-3 d-grid"><button class="btn btn-danger fw-bold" type="submit" id="btnLimpar" disabled><i class="bi bi-trash"></i> {{ tt('Limpar aprendizados') }}</button></div>
         </form>
     </div>

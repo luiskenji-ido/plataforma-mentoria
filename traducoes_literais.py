@@ -2079,7 +2079,509 @@ LITERAIS.update({
         "What works on each hosting type; the highlighted column is this installation's.", 'Lo que funciona en cada tipo de alojamiento; la columna destacada es la de esta instalación.'),
 })
 
-_POR_IDIOMA = {'en': {pt: v[0] for pt, v in LITERAIS.items()}, 'es': {pt: v[1] for pt, v in LITERAIS.items()}}
+# Validações encontradas pelos agentes de fim a fim (check-in, tarefas, notas, demandas, mentoria e frequência)
+LITERAIS.update({
+    'Check-in recusado: você não está matriculado neste curso.': ('Check-in refused: you are not enrolled in this course.', 'Check-in rechazado: no está matriculado en este curso.'),
+    'O progresso da tarefa deve ficar entre 0 e 100%.': ('Task progress must be between 0 and 100%.', 'El progreso de la tarea debe estar entre 0 y 100%.'),
+    'As notas do projeto devem ficar entre 0 e 10.': ('Project grades must be between 0 and 10.', 'Las notas del proyecto deben estar entre 0 y 10.'),
+    'Informe o título e a descrição do chamado.': ('Enter the ticket title and description.', 'Indique el título y la descripción del ticket.'),
+    'Informe seu nome e um e-mail válido para pedir a mentoria.': ('Enter your name and a valid e-mail to request mentoring.', 'Indique su nombre y un correo válido para solicitar la mentoría.'),
+    'Situação de frequência inválida.': ('Invalid attendance status.', 'Situación de asistencia inválida.'),
+    'Acesso negado: você só valida a frequência dos jovens que acompanha.': ('Access denied: you can only validate the attendance of the students you follow.', 'Acceso denegado: solo valida la asistencia de los jóvenes que acompaña.'),
+})
+
+# Reuniões: convidados externos com link pessoal, tempo por instituição e arquivo da gravação; avaliação de todos
+LITERAIS.update({
+    'Convidados externos': ('External guests', 'Invitados externos'),
+    'convidado externo': ('external guest', 'invitado externo'),
+    'Arquivo da gravação excluído.': ('Recording file deleted.', 'Archivo de la grabación eliminado.'),
+    'Escolha o arquivo da gravação.': ('Choose the recording file.', 'Elija el archivo de la grabación.'),
+    'Formato não aceito. Envie vídeo (MP4, MOV, WEBM, MKV) ou áudio (MP3, M4A, WAV, OGG).': (
+        'Format not accepted. Upload video (MP4, MOV, WEBM, MKV) or audio (MP3, M4A, WAV, OGG).',
+        'Formato no aceptado. Envíe video (MP4, MOV, WEBM, MKV) o audio (MP3, M4A, WAV, OGG).'),
+    'O arquivo passa do limite de {mb} MB.': ('The file exceeds the {mb} MB limit.', 'El archivo supera el límite de {mb} MB.'),
+    'O arquivo está vazio.': ('The file is empty.', 'El archivo está vacío.'),
+    'Gravação enviada: os participantes já podem assistir.': ('Recording uploaded: participants can now watch it.', 'Grabación enviada: los participantes ya pueden verla.'),
+    'Copie o link pessoal de cada convidado externo no quadro Presença e envie a ele.': (
+        'Copy each external guest\'s personal link in the Attendance panel and send it to them.',
+        'Copie el enlace personal de cada invitado externo en el cuadro Asistencia y envíeselo.'),
+    '{qtd} convidado(s) externo(s) receberam o link pessoal de presença.': (
+        '{qtd} external guest(s) received the personal attendance link.', '{qtd} invitado(s) externo(s) recibieron el enlace personal de asistencia.'),
+    'Escolha um participante da reunião.': ('Choose a meeting participant.', 'Elija un participante de la reunión.'),
+    'Link de presença': ('Attendance link', 'Enlace de asistencia'),
+    'Link de presença inválido': ('Invalid attendance link', 'Enlace de asistencia inválido'),
+    'Este link não existe ou foi desativado pela organização da reunião. Peça um novo link a quem enviou o convite.': (
+        'This link does not exist or was disabled by the meeting organizers. Ask whoever sent the invitation for a new link.',
+        'Este enlace no existe o fue desactivado por la organización de la reunión. Pida un nuevo enlace a quien envió la invitación.'),
+    'Entrar na sala on-line': ('Join the online room', 'Entrar a la sala en línea'),
+    'Convidado(a)': ('Guest', 'Invitado(a)'),
+    'Salvar na minha agenda (.ics)': ('Save to my calendar (.ics)', 'Guardar en mi agenda (.ics)'),
+    'Pauta': ('Agenda', 'Pauta'),
+    'Sua presença': ('Your attendance', 'Su asistencia'),
+    'minutos': ('minutes', 'minutos'),
+    'Assistir à gravação': ('Watch the recording', 'Ver la grabación'),
+    'Abrir o link da gravação': ('Open the recording link', 'Abrir el enlace de la grabación'),
+    'Este link é pessoal: não repasse. Ele vale só para esta reunião.': (
+        'This link is personal: do not share it. It only works for this meeting.',
+        'Este enlace es personal: no lo comparta. Solo vale para esta reunión.'),
+    'Link pessoal de presença': ('Personal attendance link', 'Enlace personal de asistencia'),
+    'Copiar o link pessoal': ('Copy the personal link', 'Copiar el enlace personal'),
+    'Cada convidado externo recebe no convite o seu link pessoal para fazer check-in, check-out e avaliar a reunião sem login. Sem e-mail, copie o link e envie a ele.': (
+        'Each external guest receives a personal link in the invitation to check in, check out and rate the meeting without logging in. '
+        'If they have no e-mail, copy the link and send it to them.',
+        'Cada invitado externo recibe en la invitación su enlace personal para hacer check-in, check-out y evaluar la reunión sin iniciar sesión. '
+        'Si no tiene correo, copie el enlace y envíeselo.'),
+    'Cada pessoa da lista recebe um link pessoal para fazer check-in, check-out e avaliar a reunião sem precisar de conta na plataforma.': (
+        'Each person on the list receives a personal link to check in, check out and rate the meeting without an account on the platform.',
+        'Cada persona de la lista recibe un enlace personal para hacer check-in, check-out y evaluar la reunión sin cuenta en la plataforma.'),
+    'Tempo investido por instituição': ('Time invested per organization', 'Tiempo invertido por institución'),
+    'pessoa(s)': ('person(s)', 'persona(s)'),
+    'Total': ('Total', 'Total'),
+    'Gravação da reunião': ('Meeting recording', 'Grabación de la reunión'),
+    'Excluir o arquivo da gravação?': ('Delete the recording file?', '¿Eliminar el archivo de la grabación?'),
+    'Excluir arquivo': ('Delete file', 'Eliminar archivo'),
+    'Nenhuma gravação enviada ainda.': ('No recording uploaded yet.', 'Todavía no se envió ninguna grabación.'),
+    'Substituir o arquivo': ('Replace the file', 'Reemplazar el archivo'),
+    'Enviar o arquivo da gravação': ('Upload the recording file', 'Enviar el archivo de la grabación'),
+    'Vídeo ou áudio de até {mb} MB. Os participantes e os convidados externos assistem pela plataforma.': (
+        'Video or audio up to {mb} MB. Participants and external guests watch it on the platform.',
+        'Video o audio de hasta {mb} MB. Los participantes y los invitados externos la ven en la plataforma.'),
+    'Gestor {apelido}': ('{apelido} manager', 'Gestor {apelido}'),
+})
+
+# Conteúdo dos cursos dentro da plataforma: aulas, vídeo, testes de conhecimento e progresso automático
+for _pt, _tr in {
+    'Alternativas (marque a certa)': ('Options (mark the correct one)', 'Alternativas (marque la correcta)'),
+    'Alternativa certa': ('Correct option', 'Alternativa correcta'),
+    'Opcional': ('Optional', 'Opcional'),
+    'Explicação mostrada depois da correção (opcional)': ('Explanation shown after grading (optional)', 'Explicación mostrada después de la corrección (opcional)'),
+    'Salvar pergunta': ('Save question', 'Guardar pregunta'),
+    'Título da aula': ('Lesson title', 'Título de la clase'),
+    'Texto da aula (leitura). Para aula em vídeo, um resumo aqui ajuda a IA a escrever o teste.': (
+        'Lesson text (reading). For a video lesson, a summary here helps the AI write the quiz.',
+        'Texto de la clase (lectura). En una clase en video, un resumen aquí ayuda a la IA a escribir la prueba.'),
+    'Vídeo enviado (MP4, WEBM, MOV, M4V)': ('Uploaded video (MP4, WEBM, MOV, M4V)', 'Video subido (MP4, WEBM, MOV, M4V)'),
+    'até {mb} MB': ('up to {mb} MB', 'hasta {mb} MB'),
+    'ou link do YouTube': ('or YouTube link', 'o enlace de YouTube'),
+    'Material de apoio (PDF, Word, PowerPoint, Excel, imagem, ZIP)': ('Support material (PDF, Word, PowerPoint, Excel, image, ZIP)', 'Material de apoyo (PDF, Word, PowerPoint, Excel, imagen, ZIP)'),
+    'Remover o vídeo atual': ('Remove the current video', 'Quitar el video actual'),
+    'Remover o material atual': ('Remove the current material', 'Quitar el material actual'),
+    'Salvar aula': ('Save lesson', 'Guardar clase'),
+    'Voltar ao Hub Educacional': ('Back to the Education Hub', 'Volver al Hub Educativo'),
+    'Conteúdo do curso dentro da plataforma: aulas, vídeos, materiais e testes de conhecimento.': (
+        'Course content inside the platform: lessons, videos, materials and knowledge quizzes.',
+        'Contenido del curso dentro de la plataforma: clases, videos, materiales y pruebas de conocimiento.'),
+    'aula(s)': ('lesson(s)', 'clase(s)'),
+    'aluno(s) matriculado(s)': ('enrolled student(s)', 'alumno(s) matriculado(s)'),
+    'Com aulas cadastradas, o progresso do aluno no Acompanhamento passa a ser automático: cada aula conta quando o vídeo é assistido (sem pular), o texto é lido até o fim ou o material é aberto, e o teste é aprovado.': (
+        'With lessons registered, the student\'s progress in Follow-up becomes automatic: each lesson counts when the video is watched (without skipping), the text is read to the end or the material is opened, and the quiz is passed.',
+        'Con clases registradas, el progreso del alumno en el Seguimiento pasa a ser automático: cada clase cuenta cuando el video se ve (sin saltar), el texto se lee hasta el final o el material se abre, y la prueba se aprueba.'),
+    'As regras (quanto do vídeo, nota mínima e número de perguntas) ficam em Administração › Parâmetros de regras › Conteúdo dos cursos.': (
+        'The rules (how much of the video, minimum score and number of questions) are in Administration › Rule parameters › Course content.',
+        'Las reglas (cuánto del video, nota mínima y número de preguntas) están en Administración › Parámetros de reglas › Contenido de los cursos.'),
+    'Importar o material do curso': ('Import the course material', 'Importar el material del curso'),
+    'Envie a apostila em PDF, Word, Markdown, TXT ou HTML. A plataforma separa os capítulos sozinha (títulos do Word, “Capítulo 1”, “Aula 2”, “Módulo 3”, “1. Introdução”…) e cria uma aula para cada um.': (
+        'Upload the handbook as PDF, Word, Markdown, TXT or HTML. The platform splits the chapters by itself (Word headings, “Chapter 1”, “Lesson 2”, “Module 3”, “1. Introduction”…) and creates one lesson for each.',
+        'Envíe el manual en PDF, Word, Markdown, TXT o HTML. La plataforma separa los capítulos sola (títulos de Word, “Capítulo 1”, “Clase 2”, “Módulo 3”, “1. Introducción”…) y crea una clase para cada uno.'),
+    'Acrescentar às aulas existentes': ('Add to the existing lessons', 'Agregar a las clases existentes'),
+    'Substituir todas as aulas (apaga vídeos, testes e o andamento dos alunos)': (
+        'Replace all lessons (deletes videos, quizzes and the students\' progress)',
+        'Reemplazar todas las clases (borra videos, pruebas y el avance de los alumnos)'),
+    'Gerar o teste de conhecimento de cada aula': ('Generate the knowledge quiz for each lesson', 'Generar la prueba de conocimiento de cada clase'),
+    '{n} pergunta(s) por aula': ('{n} question(s) per lesson', '{n} pregunta(s) por clase'),
+    'pela IA': ('by the AI', 'por la IA'),
+    'pelo gerador automático, pois a IA está desligada ou é uma conta de teste': (
+        'by the automatic generator, since the AI is off or this is a test account',
+        'por el generador automático, ya que la IA está apagada o es una cuenta de prueba'),
+    'Importar e dividir em aulas': ('Import and split into lessons', 'Importar y dividir en clases'),
+    'Testes de conhecimento': ('Knowledge quizzes', 'Pruebas de conocimiento'),
+    'A IA lê o texto de cada aula e escreve perguntas de múltipla escolha com a explicação da resposta. Sem IA, o gerador automático monta perguntas de completar a frase com o próprio texto. Revise e edite as perguntas antes de liberar o curso.': (
+        'The AI reads each lesson\'s text and writes multiple-choice questions with the answer explanation. Without AI, the automatic generator builds fill-in-the-blank questions from the text itself. Review and edit the questions before releasing the course.',
+        'La IA lee el texto de cada clase y escribe preguntas de opción múltiple con la explicación de la respuesta. Sin IA, el generador automático arma preguntas de completar la frase con el propio texto. Revise y edite las preguntas antes de liberar el curso.'),
+    'Gerar testes das aulas que ainda não têm': ('Generate quizzes for lessons that have none yet', 'Generar pruebas de las clases que aún no tienen'),
+    'Aulas': ('Lessons', 'Clases'),
+    'Nova aula': ('New lesson', 'Nueva clase'),
+    'Aula': ('Lesson', 'Clase'),
+    'Vídeo do YouTube': ('YouTube video', 'Video de YouTube'),
+    'Vídeo enviado': ('Uploaded video', 'Video subido'),
+    'palavras': ('words', 'palabras'),
+    'pergunta(s)': ('question(s)', 'pregunta(s)'),
+    'Subir': ('Move up', 'Subir'),
+    'Descer': ('Move down', 'Bajar'),
+    'Escreva o texto ou um resumo da aula para gerar o teste.': ('Write the lesson text or a summary to generate the quiz.', 'Escriba el texto o un resumen de la clase para generar la prueba.'),
+    'Gerar teste': ('Generate quiz', 'Generar prueba'),
+    'Gerar de novo': ('Generate again', 'Generar de nuevo'),
+    'Excluir esta aula, o vídeo, o material, as perguntas e o andamento dos alunos nela?': (
+        'Delete this lesson, its video, material, questions and the students\' progress in it?',
+        '¿Eliminar esta clase, el video, el material, las preguntas y el avance de los alumnos en ella?'),
+    'Excluir aula': ('Delete lesson', 'Eliminar clase'),
+    'Ver o texto da aula': ('See the lesson text', 'Ver el texto de la clase'),
+    'Teste de conhecimento': ('Knowledge quiz', 'Prueba de conocimiento'),
+    'automática': ('automatic', 'automática'),
+    'manual': ('manual', 'manual'),
+    'Editar pergunta': ('Edit question', 'Editar pregunta'),
+    'Excluir esta pergunta?': ('Delete this question?', '¿Eliminar esta pregunta?'),
+    'Excluir pergunta': ('Delete question', 'Eliminar pregunta'),
+    'Sem perguntas ainda: a aula conta só pelo conteúdo.': ('No questions yet: the lesson counts by its content only.', 'Aún sin preguntas: la clase cuenta solo por el contenido.'),
+    'Escrever pergunta': ('Write a question', 'Escribir pregunta'),
+    'Nenhuma aula ainda. Importe a apostila do curso ou crie a primeira aula.': (
+        'No lessons yet. Import the course handbook or create the first lesson.',
+        'Aún no hay clases. Importe el manual del curso o cree la primera clase.'),
+    'Anterior': ('Previous', 'Anterior'),
+    'Próxima': ('Next', 'Siguiente'),
+    'Prévia: você vê as aulas e o andamento de {aluno}. Só o próprio aluno registra progresso.': (
+        'Preview: you see the lessons and the progress of {aluno}. Only the student records progress.',
+        'Vista previa: usted ve las clases y el avance de {aluno}. Solo el propio alumno registra avance.'),
+    'aula(s) no total': ('lesson(s) in total', 'clase(s) en total'),
+    'concluída(s)': ('completed', 'concluida(s)'),
+    'faltando': ('remaining', 'pendientes'),
+    'Progresso do curso': ('Course progress', 'Avance del curso'),
+    'Videoaula': ('Video lesson', 'Videoclase'),
+    'Leitura': ('Reading', 'Lectura'),
+    'Teste seus conhecimentos': ('Test your knowledge', 'Ponga a prueba sus conocimientos'),
+    'Material de apoio': ('Support material', 'Material de apoyo'),
+    'Aula concluída': ('Lesson completed', 'Clase concluida'),
+    'Em andamento': ('In progress', 'En curso'),
+    'de': ('of', 'de'),
+    'Vídeo concluído.': ('Video completed.', 'Video concluido.'),
+    'O vídeo conta quando você assiste {pct}% dele (trechos pulados não contam).': (
+        'The video counts when you watch {pct}% of it (skipped parts do not count).',
+        'El video cuenta cuando usted ve el {pct}% (las partes saltadas no cuentan).'),
+    'Resumo da aula': ('Lesson summary', 'Resumen de la clase'),
+    'Leitura concluída.': ('Reading completed.', 'Lectura concluida.'),
+    'Leia até o fim: a leitura conta sozinha.': ('Read to the end: the reading counts by itself.', 'Lea hasta el final: la lectura cuenta sola.'),
+    'Abrir o material da aula': ('Open the lesson material', 'Abrir el material de la clase'),
+    'Nota mínima: {n}%': ('Minimum score: {n}%', 'Nota mínima: {n}%'),
+    'Melhor nota: {n}%': ('Best score: {n}%', 'Mejor nota: {n}%'),
+    'Tentativas: {n}': ('Attempts: {n}', 'Intentos: {n}'),
+    'Teste aprovado': ('Quiz passed', 'Prueba aprobada'),
+    'Você acertou {n}%': ('You got {n}% right', 'Usted acertó el {n}%'),
+    'Aprovado! Esta parte da aula está concluída.': ('Passed! This part of the lesson is complete.', '¡Aprobado! Esta parte de la clase está concluida.'),
+    'Reveja o conteúdo da aula e tente de novo: vale a melhor nota.': ('Review the lesson and try again: the best score counts.', 'Revise el contenido de la clase e intente de nuevo: vale la mejor nota.'),
+    'Refazer o teste': ('Retake the quiz', 'Rehacer la prueba'),
+    'Próxima aula': ('Next lesson', 'Siguiente clase'),
+    'Enviar respostas': ('Submit answers', 'Enviar respuestas'),
+    'Assistido até agora: {pct}%': ('Watched so far: {pct}%', 'Visto hasta ahora: {pct}%'),
+    'Automático: aulas assistidas e testes': ('Automatic: lessons watched and quizzes', 'Automático: clases vistas y pruebas'),
+    'Estudar agora': ('Study now', 'Estudiar ahora'),
+    'Ver aulas e andamento': ('See lessons and progress', 'Ver clases y avance'),
+    'Calculado sozinho pelas aulas assistidas e testes aprovados.': ('Calculated automatically from lessons watched and quizzes passed.', 'Calculado solo por las clases vistas y las pruebas aprobadas.'),
+    'Aulas, vídeos e testes do curso': ('Course lessons, videos and quizzes', 'Clases, videos y pruebas del curso'),
+    'Conteúdo': ('Content', 'Contenido'),
+    'Testes das aulas prontos': ('Lesson quizzes ready', 'Pruebas de las clases listas'),
+    '{ia} pela IA, {auto} pelo gerador automático e {vazias} sem texto para gerar perguntas.': (
+        '{ia} by the AI, {auto} by the automatic generator and {vazias} without text to generate questions.',
+        '{ia} por la IA, {auto} por el generador automático y {vazias} sin texto para generar preguntas.'),
+    'Acesso negado. Apenas a equipa de gestão pode aceder ao Hub Educacional.': (
+        'Access denied. Only the management team can access the Education Hub.',
+        'Acceso denegado. Solo el equipo de gestión puede acceder al Hub Educativo.'),
+    'Curso não encontrado.': ('Course not found.', 'Curso no encontrado.'),
+    'Escolha o documento do curso.': ('Choose the course document.', 'Elija el documento del curso.'),
+    'Documento importado: {n} aula(s), divididas {como}.': ('Document imported: {n} lesson(s), split {como}.', 'Documento importado: {n} clase(s), divididas {como}.'),
+    'A IA está escrevendo os testes das aulas: você recebe um aviso no sino quando terminar.': (
+        'The AI is writing the lesson quizzes: you will get a bell notification when it finishes.',
+        'La IA está escribiendo las pruebas de las clases: recibirá un aviso en la campana cuando termine.'),
+    'Testes gerados automaticamente em {n} aula(s). Revise as perguntas de cada aula.': (
+        'Quizzes generated automatically in {n} lesson(s). Review each lesson\'s questions.',
+        'Pruebas generadas automáticamente en {n} clase(s). Revise las preguntas de cada clase.'),
+    'Informe o título da aula.': ('Enter the lesson title.', 'Indique el título de la clase.'),
+    'Formato de vídeo não aceito. Envie MP4, WEBM, MOV ou M4V.': ('Video format not accepted. Upload MP4, WEBM, MOV or M4V.', 'Formato de video no aceptado. Envíe MP4, WEBM, MOV o M4V.'),
+    'Não reconheci o link do YouTube. Cole o endereço do vídeo (youtube.com/watch?v=… ou youtu.be/…).': (
+        'I did not recognize the YouTube link. Paste the video address (youtube.com/watch?v=… or youtu.be/…).',
+        'No reconocí el enlace de YouTube. Pegue la dirección del video (youtube.com/watch?v=… o youtu.be/…).'),
+    'Material não aceito: envie PDF, Word, PowerPoint, Excel, imagem, TXT ou ZIP dentro do limite.': (
+        'Material not accepted: upload PDF, Word, PowerPoint, Excel, image, TXT or ZIP within the limit.',
+        'Material no aceptado: envíe PDF, Word, PowerPoint, Excel, imagen, TXT o ZIP dentro del límite.'),
+    'Aula salva.': ('Lesson saved.', 'Clase guardada.'),
+    'Aula excluída.': ('Lesson deleted.', 'Clase eliminada.'),
+    'Todas as aulas já têm teste.': ('All lessons already have a quiz.', 'Todas las clases ya tienen prueba.'),
+    'Teste gerado: {ia} aula(s) pela IA e {auto} pelo gerador automático. Revise as perguntas.': (
+        'Quiz generated: {ia} lesson(s) by the AI and {auto} by the automatic generator. Review the questions.',
+        'Prueba generada: {ia} clase(s) por la IA y {auto} por el generador automático. Revise las preguntas.'),
+    '{n} aula(s) sem texto suficiente para gerar perguntas: escreva um resumo do vídeo no texto da aula ou crie as perguntas à mão.': (
+        '{n} lesson(s) without enough text to generate questions: write a video summary in the lesson text or create the questions by hand.',
+        '{n} clase(s) sin texto suficiente para generar preguntas: escriba un resumen del video en el texto de la clase o cree las preguntas a mano.'),
+    'A pergunta precisa de enunciado, pelo menos duas alternativas e a alternativa certa marcada.': (
+        'The question needs a statement, at least two options and the correct option marked.',
+        'La pregunta necesita enunciado, al menos dos alternativas y la alternativa correcta marcada.'),
+    'Pergunta salva.': ('Question saved.', 'Pregunta guardada.'),
+    'Pergunta excluída.': ('Question deleted.', 'Pregunta eliminada.'),
+    'Acesso negado.': ('Access denied.', 'Acceso denegado.'),
+    'Este curso ainda não tem aulas na plataforma.': ('This course has no lessons on the platform yet.', 'Este curso aún no tiene clases en la plataforma.'),
+    'Curso concluído pelas aulas': ('Course completed through the lessons', 'Curso concluido por las clases'),
+    '{aluno} concluiu todas as aulas e testes do curso {curso}.': ('{aluno} completed all lessons and quizzes of the course {curso}.', '{aluno} concluyó todas las clases y pruebas del curso {curso}.'),
+    'Responda todas as perguntas antes de enviar.': ('Answer all questions before submitting.', 'Responda todas las preguntas antes de enviar.'),
+    'pelos títulos do documento': ('by the document headings', 'por los títulos del documento'),
+    'pelos capítulos e aulas do texto': ('by the chapters and lessons in the text', 'por los capítulos y clases del texto'),
+    'pela numeração dos títulos': ('by the heading numbers', 'por la numeración de los títulos'),
+    'em partes de tamanho parecido (o documento não tem títulos)': ('into parts of similar size (the document has no headings)', 'en partes de tamaño parecido (el documento no tiene títulos)'),
+    # Parâmetros de regras › Conteúdo dos cursos
+    'Conteúdo dos cursos (aulas e testes)': ('Course content (lessons and quizzes)', 'Contenido de los cursos (clases y pruebas)'),
+    'Quanto do vídeo o aluno precisa assistir': ('How much of the video the student must watch', 'Cuánto del video debe ver el alumno'),
+    'Nota mínima no teste da aula': ('Minimum score in the lesson quiz', 'Nota mínima en la prueba de la clase'),
+    'Perguntas por teste gerado': ('Questions per generated quiz', 'Preguntas por prueba generada'),
+    'Tamanho máximo do vídeo da aula': ('Maximum lesson video size', 'Tamaño máximo del video de la clase'),
+    'perguntas': ('questions', 'preguntas'),
+    'Conteúdo: monte o curso dentro da plataforma. Envie a apostila (dividida em aulas sozinha), os vídeos (arquivo ou YouTube), o material de apoio e revise o teste de conhecimento de cada aula.': (
+        'Content: build the course inside the platform. Upload the handbook (split into lessons automatically), the videos (file or YouTube), the support material and review each lesson\'s quiz.',
+        'Contenido: arme el curso dentro de la plataforma. Envíe el manual (dividido en clases solo), los videos (archivo o YouTube), el material de apoyo y revise la prueba de cada clase.'),
+    'Estudar agora: abre as aulas do curso dentro da plataforma (para o aluno, depois de marcar a presença). O progresso é automático: vídeo assistido, leitura até o fim e teste aprovado.': (
+        'Study now: opens the course lessons inside the platform (for the student, after checking in). Progress is automatic: video watched, reading to the end and quiz passed.',
+        'Estudiar ahora: abre las clases del curso dentro de la plataforma (para el alumno, después de marcar la asistencia). El avance es automático: video visto, lectura hasta el final y prueba aprobada.'),
+    'Professor(a): registra o parecer, a validação e o boletim final e responde às dúvidas do Q&A; cada dúvida nova do aluno avisa o professor(a) dele no sino.': (
+        'Teacher: records the opinion, the validation and the final report and answers the Q&A questions; each new student question notifies their teacher in the bell.',
+        'Profesor(a): registra el dictamen, la validación y el boletín final y responde las dudas del Q&A; cada duda nueva del alumno avisa a su profesor(a) en la campana.'),
+    'Conteúdo do curso: aulas, vídeos, materiais e testes de conhecimento que o aluno estuda dentro da plataforma.': (
+        'Course content: lessons, videos, materials and knowledge quizzes the student studies inside the platform.',
+        'Contenido del curso: clases, videos, materiales y pruebas de conocimiento que el alumno estudia dentro de la plataforma.'),
+    'Importe a apostila (PDF, Word, Markdown ou TXT): cada capítulo vira uma aula e o teste de cada aula pode ser gerado na hora.': (
+        'Import the handbook (PDF, Word, Markdown or TXT): each chapter becomes a lesson and each lesson\'s quiz can be generated right away.',
+        'Importe el manual (PDF, Word, Markdown o TXT): cada capítulo se vuelve una clase y la prueba de cada clase puede generarse al momento.'),
+    'A IA escreve as perguntas a partir do texto da aula; sem IA, o gerador automático monta perguntas de completar a frase. Revise antes de liberar.': (
+        'The AI writes the questions from the lesson text; without AI, the automatic generator builds fill-in-the-blank questions. Review before releasing.',
+        'La IA escribe las preguntas a partir del texto de la clase; sin IA, el generador automático arma preguntas de completar la frase. Revise antes de liberar.'),
+    'Nova aula: título, texto, vídeo enviado ou link do YouTube (o aluno não vê o endereço) e material de apoio.': (
+        'New lesson: title, text, uploaded video or YouTube link (the student does not see the address) and support material.',
+        'Nueva clase: título, texto, video subido o enlace de YouTube (el alumno no ve la dirección) y material de apoyo.'),
+    'Em cada aula: reordene, edite, gere o teste de novo, escreva perguntas à mão ou exclua. As regras do progresso ficam em Parâmetros de regras › Conteúdo dos cursos.': (
+        'In each lesson: reorder, edit, regenerate the quiz, write questions by hand or delete. The progress rules are in Rule parameters › Course content.',
+        'En cada clase: reordene, edite, genere la prueba de nuevo, escriba preguntas a mano o elimine. Las reglas del avance están en Parámetros de reglas › Contenido de los cursos.'),
+    'Sala de estudo: as aulas do curso, o andamento de cada uma e o teste de conhecimento.': (
+        'Study room: the course lessons, the progress of each one and the knowledge quiz.',
+        'Sala de estudio: las clases del curso, el avance de cada una y la prueba de conocimiento.'),
+    'Lista de aulas: o sinal verde marca o que já foi concluído; clique numa aula para abrir. Ao entrar no curso, a plataforma continua de onde você parou.': (
+        'Lesson list: the green mark shows what is complete; click a lesson to open it. When you enter the course, the platform resumes where you stopped.',
+        'Lista de clases: la marca verde indica lo concluido; haga clic en una clase para abrirla. Al entrar al curso, la plataforma continúa donde usted se quedó.'),
+    'Progresso automático: o vídeo conta quando é assistido sem pular, a leitura conta ao chegar ao fim e o teste conta com a nota mínima. O Acompanhamento é atualizado sozinho.': (
+        'Automatic progress: the video counts when watched without skipping, the reading counts when you reach the end and the quiz counts with the minimum score. Follow-up updates by itself.',
+        'Avance automático: el video cuenta cuando se ve sin saltar, la lectura cuenta al llegar al final y la prueba cuenta con la nota mínima. El Seguimiento se actualiza solo.'),
+    'Teste seus conhecimentos: responda às perguntas da aula; pode refazer quantas vezes quiser e vale a melhor nota.': (
+        'Test your knowledge: answer the lesson questions; you can retake it as many times as you like and the best score counts.',
+        'Ponga a prueba sus conocimientos: responda las preguntas de la clase; puede rehacerla cuantas veces quiera y vale la mejor nota.'),
+    'Validação do Professor(a) (': ('Teacher validation (', 'Validación del profesor(a) ('),
+    'Validação (Professor(a))': ('Validation (teacher)', 'Validación (profesor(a))'),
+    'Avaliação do Professor(a) (Boletim Final)': ('Teacher evaluation (final report)', 'Evaluación del profesor(a) (boletín final)'),
+    'Sem permissão para excluir material do Professor(a)': ("You can't delete the teacher's material", 'Sin permiso para eliminar material del profesor(a)'),
+    'Parecer oficial do professor(a) atualizado!': ("Teacher's official opinion updated!", '¡Dictamen oficial del profesor(a) actualizado!'),
+    'Este curso já tem presenças registradas e não pode ser excluído. Desative o curso em vez de excluir.': (
+        'This course already has attendance records and cannot be deleted. Deactivate the course instead.',
+        'Este curso ya tiene asistencias registradas y no puede eliminarse. Desactive el curso en lugar de eliminarlo.'),
+}.items():
+    LITERAIS.setdefault(_pt, _tr)  # não troca traduções que já existiam
+
+
+# ---------------- Agente UX: textos que estavam escritos direto nas telas (login, senha, certificados, relatórios, atas...)
+for _pt, _tr in {
+    # Login, solicitação de mentoria e recuperação de senha
+    'Transforme seu futuro.': ('Transform your future.', 'Transforma tu futuro.'),
+    'O acompanhamento certo é a ponte entre o seu potencial e as suas maiores conquistas. Entre e continue sua jornada.': (
+        'The right guidance is the bridge between your potential and your greatest achievements. Sign in and continue your journey.',
+        'El acompañamiento adecuado es el puente entre tu potencial y tus mayores logros. Entra y continúa tu camino.'),
+    'Acesso à Mentoria': ('Mentorship access', 'Acceso a la Mentoría'), 'Senha': ('Password', 'Contraseña'),
+    'Esqueci minha senha': ('I forgot my password', 'Olvidé mi contraseña'), 'Entrar': ('Sign in', 'Entrar'),
+    'Ainda não faz parte? Deseja acelerar sua carreira?': ('Not a member yet? Want to boost your career?', '¿Aún no formas parte? ¿Quieres acelerar tu carrera?'),
+    'Solicitar Mentoria': ('Request mentorship', 'Solicitar mentoría'), 'Interesse em Mentoria': ('Interest in mentorship', 'Interés en la mentoría'),
+    'Sua solicitação será enviada diretamente para o grupo de Mentor Administrador.': (
+        'Your request will be sent directly to the Mentor Administrator group.', 'Tu solicitud se enviará directamente al grupo de Mentor Administrador.'),
+    'Seu Nome Completo': ('Your full name', 'Tu nombre completo'), 'Seu E-mail': ('Your email', 'Tu correo electrónico'),
+    'Por que você deseja ser mentorado?': ('Why do you want to be mentored?', '¿Por qué quieres recibir mentoría?'),
+    'Enviar Solicitação': ('Send request', 'Enviar solicitud'), 'Recuperar Senha': ('Recover password', 'Recuperar contraseña'),
+    'Para proteger sua conta, digite o e-mail cadastrado. Você precisará responder às suas perguntas de segurança na próxima tela.': (
+        'To protect your account, enter your registered email. You will need to answer your security questions on the next screen.',
+        'Para proteger tu cuenta, escribe el correo registrado. Tendrás que responder tus preguntas de seguridad en la siguiente pantalla.'),
+    'Ex: seu@email.com': ('E.g. you@email.com', 'Ej.: tu@correo.com'), 'Continuar': ('Continue', 'Continuar'),
+    'Configurar Segurança': ('Security setup', 'Configurar seguridad'), 'Configure sua Segurança': ('Set up your security', 'Configura tu seguridad'),
+    'Para garantir que você consiga recuperar sua senha no futuro, escolha 3 perguntas diferentes abaixo e forneça as respostas.': (
+        'To make sure you can recover your password in the future, choose 3 different questions below and give the answers.',
+        'Para garantizar que puedas recuperar tu contraseña en el futuro, elige 3 preguntas diferentes abajo y escribe las respuestas.'),
+    'Você só precisará fazer isso uma vez.': ('You only need to do this once.', 'Solo tendrás que hacerlo una vez.'),
+    'Selecione uma pergunta...': ('Select a question...', 'Seleccione una pregunta...'), 'Sua resposta...': ('Your answer...', 'Tu respuesta...'),
+    'Resposta da pergunta': ('Answer to question', 'Respuesta de la pregunta'), 'Salvar e Continuar': ('Save and continue', 'Guardar y continuar'),
+    'Recuperação de Senha': ('Password recovery', 'Recuperación de contraseña'), 'Validação de Identidade': ('Identity check', 'Validación de identidad'),
+    'Responda corretamente a pelo menos': ('Correctly answer at least', 'Responde correctamente al menos'), '2 das 3': ('2 of the 3', '2 de las 3'),
+    'perguntas abaixo para criar uma nova senha.': ('questions below to create a new password.', 'preguntas de abajo para crear una nueva contraseña.'),
+    'Validar Respostas': ('Check answers', 'Validar respuestas'), 'Cancelar e voltar': ('Cancel and go back', 'Cancelar y volver'),
+    'Troca de Senha': ('Password change', 'Cambio de contraseña'), 'Ação de Segurança Necessária': ('Security action required', 'Acción de seguridad necesaria'),
+    'Este é o seu primeiro acesso ou sua senha foi resetada. Por favor, crie uma nova senha segura para continuar.': (
+        'This is your first sign-in or your password was reset. Please create a new secure password to continue.',
+        'Este es tu primer acceso o tu contraseña fue restablecida. Crea una nueva contraseña segura para continuar.'),
+    'Nova Senha Definitiva': ('New permanent password', 'Nueva contraseña definitiva'), 'Digite sua nova senha': ('Type your new password', 'Escribe tu nueva contraseña'),
+    'Mínimo de {n} caracteres, contendo letras maiúsculas, minúsculas, números e símbolos especiais.': (
+        'At least {n} characters, with uppercase and lowercase letters, numbers and special symbols.',
+        'Mínimo de {n} caracteres, con letras mayúsculas, minúsculas, números y símbolos especiales.'),
+    'Atualizar Senha e Acessar': ('Update password and sign in', 'Actualizar contraseña y acceder'),
+    # Perguntas de segurança (o valor gravado continua em português; a tela mostra no idioma do usuário)
+    'Qual era o nome do seu primeiro animal de estimação?': ("What was your first pet's name?", '¿Cómo se llamaba tu primera mascota?'),
+    'Qual é o nome de solteira da sua mãe?': ("What is your mother's maiden name?", '¿Cuál es el apellido de soltera de tu madre?'),
+    'Qual foi o modelo do seu primeiro carro?': ('What was the model of your first car?', '¿Cuál fue el modelo de tu primer coche?'),
+    'Em qual cidade seus pais se conheceram?': ('In which city did your parents meet?', '¿En qué ciudad se conocieron tus padres?'),
+    'Qual era o nome do seu melhor amigo de infância?': ("What was your best childhood friend's name?", '¿Cómo se llamaba tu mejor amigo de la infancia?'),
+    'Qual o nome da sua primeira escola?': ('What was the name of your first school?', '¿Cómo se llamaba tu primera escuela?'),
+    'Qual é o seu prato favorito?': ('What is your favorite dish?', '¿Cuál es tu plato favorito?'),
+    'Qual foi a primeira viagem internacional que você fez?': ('What was your first trip abroad?', '¿Cuál fue tu primer viaje internacional?'),
+    'Qual é o nome do seu professor favorito no ensino médio?': ('What is the name of your favorite high school teacher?', '¿Cómo se llama tu profesor favorito de la secundaria?'),
+    'Qual é a sua cor favorita?': ('What is your favorite color?', '¿Cuál es tu color favorito?'),
+    'Em qual cidade você nasceu?': ('In which city were you born?', '¿En qué ciudad naciste?'),
+    'Qual é a sua banda ou artista musical favorito?': ('What is your favorite band or music artist?', '¿Cuál es tu banda o artista musical favorito?'),
+    'Qual o título do seu livro favorito?': ('What is the title of your favorite book?', '¿Cuál es el título de tu libro favorito?'),
+    'Qual foi o seu primeiro emprego?': ('What was your first job?', '¿Cuál fue tu primer empleo?'),
+    'Qual é o nome do seu avô materno?': ("What is your maternal grandfather's name?", '¿Cómo se llama tu abuelo materno?'),
+    'Qual é a sua equipe esportiva favorita?': ('What is your favorite sports team?', '¿Cuál es tu equipo deportivo favorito?'),
+    'Em qual rua você morava quando era criança?': ('What street did you live on as a child?', '¿En qué calle vivías cuando eras niño?'),
+    'Qual foi o primeiro filme que você viu no cinema?': ('What was the first movie you saw in a theater?', '¿Cuál fue la primera película que viste en el cine?'),
+    'Qual é o seu apelido de infância?': ('What was your childhood nickname?', '¿Cuál era tu apodo de la infancia?'),
+    'Qual o nome do seu herói ou personagem favorito?': ('What is the name of your favorite hero or character?', '¿Cómo se llama tu héroe o personaje favorito?'),
+    # Menu do topo e presença diária
+    'Fazer um tour por esta tela': ('Take a tour of this screen', 'Hacer un recorrido por esta pantalla'), 'Tour': ('Tour', 'Recorrido'),
+    'Registro de Presença Diária': ('Daily attendance', 'Registro de asistencia diaria'), 'Atenção:': ('Attention:', 'Atención:'),
+    'O registro de presença é obrigatório. Se fechar esta janela novamente ou clicar fora, o sistema gravará uma': (
+        'Attendance is mandatory. If you close this window again or click outside it, the system will record an',
+        'El registro de asistencia es obligatorio. Si cierras esta ventana de nuevo o haces clic fuera, el sistema registrará una'),
+    'Falta Automática': ('Automatic absence', 'Falta automática'), 'Como você está participando hoje?': ('How are you taking part today?', '¿Cómo participas hoy?'),
+    'Modalidade Online / Remoto': ('Online / remote', 'Modalidad en línea / remota'), 'Modalidade Presencial': ('In person', 'Modalidad presencial'),
+    'Observações (opcional)': ('Notes (optional)', 'Observaciones (opcional)'),
+    'Atrasos, saída mais cedo, etc...': ('Late arrival, leaving early, etc...', 'Retrasos, salida anticipada, etc...'),
+    # Painel, Acompanhamento, Sessões, Demandas, Notas e Projetos
+    'Mentor Responsável:': ('Responsible mentor:', 'Mentor responsable:'), 'Não atribuído': ('Not assigned', 'No asignado'),
+    'Ordenar': ('Sort', 'Ordenar'), 'Google Agenda': ('Google Calendar', 'Google Calendar'),
+    'Arquivo escolhido': ('Chosen file', 'Archivo elegido'), 'Feedbacks': ('Feedback', 'Comentarios'),
+    'Salvar no meu Google Agenda': ('Save to my Google Calendar', 'Guardar en mi Google Calendar'), 'Salvar na Agenda': ('Save to calendar', 'Guardar en la agenda'),
+    'Data da Sessão': ('Session date', 'Fecha de la sesión'), 'Portal de Demandas Institucionais': ('Institutional Requests Portal', 'Portal de Solicitudes Institucionales'),
+    'Nota técnica': ('Technical grade', 'Nota técnica'), 'Nota de postura': ('Attitude grade', 'Nota de actitud'),
+    'Alternativa': ('Option', 'Alternativa'), 'Apostila do curso': ('Course handbook', 'Material del curso'),
+    'Logo da instituição': ('Institution logo', 'Logo de la institución'),
+    'Metodologia': ('Methodology', 'Metodología'), 'Apresentação': ('Presentation', 'Presentación'), 'Formatação': ('Formatting', 'Formato'),
+    'finanças pessoais, seguros, jovens': ('personal finance, insurance, youth', 'finanzas personales, seguros, jóvenes'),
+    'Onboarding Institucional': ('Institutional onboarding', 'Incorporación institucional'),
+    'O nosso impacto em números:': ('Our impact in numbers:', 'Nuestro impacto en cifras:'),
+    'jovens diretamente capacitados.': ('young people directly trained.', 'jóvenes capacitados directamente.'),
+    'horas de voluntariado corporativo registadas': ('hours of corporate volunteering recorded', 'horas de voluntariado corporativo registradas'),
+    'h fora do cronograma oficial': ('h outside the official schedule', 'h fuera del cronograma oficial'),
+    'voluntários envolvidos.': ('volunteers involved.', 'voluntarios involucrados.'),
+    'projetos de TCC apresentados e aprovados.': ('final projects presented and approved.', 'proyectos de TCC presentados y aprobados.'),
+    # Banca
+    'Banca Avaliadora': ('Evaluation panel', 'Tribunal evaluador'), 'Ficha da Banca': ('Panel sheet', 'Ficha del tribunal'),
+    'Salvar como PDF': ('Save as PDF', 'Guardar como PDF'), 'Banca de Avaliação': ('Evaluation panel', 'Tribunal de evaluación'), 'Grupo': ('Group', 'Grupo'),
+    'Minicurrículo não informado.': ('No short bio provided.', 'Minicurrículum no informado.'),
+    'Nenhum avaliador escalado para esta banca.': ('No evaluator assigned to this panel.', 'Ningún evaluador asignado a este tribunal.'),
+    # Certificado e verificação pública
+    'Configurar Diploma': ('Set up certificate', 'Configurar diploma'), 'Logo da Instituição': ('Institution logo', 'Logo de la institución'),
+    'Assinatura:': ('Signature:', 'Firma:'), 'Gestor (B2B)': ('Manager (B2B)', 'Gestor (B2B)'), 'Guardar em PDF': ('Save as PDF', 'Guardar en PDF'),
+    'Voltar aos certificados': ('Back to certificates', 'Volver a los certificados'),
+    'Este painel irá desaparecer automaticamente no PDF gerado.': ('This panel disappears automatically in the generated PDF.', 'Este panel desaparecerá automáticamente en el PDF generado.'),
+    'Selo Oficial': ('Official seal', 'Sello oficial'), 'Certificado de Excelência': ('Certificate of Excellence', 'Certificado de Excelencia'),
+    'Certificamos com a devida honra que': ('We hereby proudly certify that', 'Certificamos con el debido honor que'),
+    'concluiu com êxito o programa de mentoria corporativa e obteve aprovação oficial': (
+        'successfully completed the corporate mentorship program and obtained official approval',
+        'concluyó con éxito el programa de mentoría corporativa y obtuvo la aprobación oficial'),
+    'na Banca de Avaliação do Projeto de Conclusão (TCC):': ('from the Final Project (TCC) Evaluation Panel:', 'en el Tribunal de Evaluación del Proyecto Final (TCC):'),
+    'participou como avaliador(a) voluntário(a) da Banca Examinadora do Projeto de Conclusão (TCC)': (
+        'took part as a volunteer evaluator on the Final Project (TCC) Examination Panel',
+        'participó como evaluador(a) voluntario(a) del Tribunal Examinador del Proyecto Final (TCC)'),
+    'com leitura do trabalho escrito, análise, notas e participação na apresentação.': (
+        'reading the written work, analysing it, grading it and attending the presentation.',
+        'con lectura del trabajo escrito, análisis, notas y participación en la presentación.'),
+    'atuou com excelência no programa corporativo ESG como mentor(a) voluntário(a)': (
+        'served with excellence in the corporate ESG program as a volunteer mentor',
+        'actuó con excelencia en el programa corporativo ESG como mentor(a) voluntario(a)'),
+    'no desenvolvimento e aprovação do projeto:': ('in the development and approval of the project:', 'en el desarrollo y aprobación del proyecto:'),
+    'Tempo dedicado:': ('Time dedicated:', 'Tiempo dedicado:'), 'Tempo dedicado': ('Time dedicated', 'Tiempo dedicado'),
+    'Emitido em': ('Issued on', 'Emitido el'), 'Emitido em:': ('Issued on:', 'Emitido el:'),
+    'Código de verificação': ('Verification code', 'Código de verificación'), 'Confira a autenticidade em': ('Check authenticity at', 'Verifique la autenticidad en'),
+    'Gestor do Parceiro B2B': ('B2B Partner Manager', 'Gestor del Socio B2B'),
+    'Verificação de certificado': ('Certificate verification', 'Verificación de certificado'), 'e': ('and', 'y'),
+    'Certificado autêntico': ('Authentic certificate', 'Certificado auténtico'), 'Participação': ('Participation', 'Participación'),
+    'Projeto (TCC)': ('Project (TCC)', 'Proyecto (TCC)'), 'Jovem participante': ('Young participant', 'Joven participante'),
+    'Nenhum certificado encontrado com o código': ('No certificate found with the code', 'Ningún certificado encontrado con el código'),
+    'Confira se o código foi digitado exatamente como aparece no certificado.': (
+        'Check that the code was typed exactly as it appears on the certificate.', 'Verifique que el código se escribió exactamente como aparece en el certificado.'),
+    # Relatório ESG
+    'Relatório ESG': ('ESG report', 'Informe ESG'), 'Voltar ao Sistema': ('Back to the system', 'Volver al sistema'),
+    'Relatório Executivo ESG': ('ESG Executive Report', 'Informe Ejecutivo ESG'),
+    'Horas de Voluntariado Corporativo e Impacto Social': ('Corporate Volunteering Hours and Social Impact', 'Horas de Voluntariado Corporativo e Impacto Social'),
+    'Horas por colaborador (regulamentares × extraordinárias)': ('Hours per employee (regular × extra)', 'Horas por colaborador (reglamentarias × extraordinarias)'),
+    'Colaborador': ('Employee', 'Colaborador'), 'Regulares': ('Regular', 'Regulares'), 'Extras': ('Extra', 'Extras'), 'Extra': ('Extra', 'Extra'),
+    'Lançamentos': ('Entries', 'Registros'), 'Atividade Executada': ('Activity performed', 'Actividad realizada'), 'Grupo / Projeto': ('Group / Project', 'Grupo / Proyecto'),
+    # Repositório público de TCCs
+    'Repositório de TCCs': ('Final project repository', 'Repositorio de TCC'),
+    'Trabalhos de conclusão aprovados nas bancas do programa {instituicao} com as empresas parceiras (B2B), publicados com autorização dos jovens e responsáveis. Material aberto para pesquisa de jovens, mentores, institutos e mercado.': (
+        'Final projects approved by the panels of the {instituicao} program with partner companies (B2B), published with the consent of the young people and their guardians. Open material for research by young people, mentors, institutes and the market.',
+        'Trabajos finales aprobados por los tribunales del programa {instituicao} con las empresas socias (B2B), publicados con autorización de los jóvenes y sus responsables. Material abierto para la investigación de jóvenes, mentores, institutos y el mercado.'),
+    'Buscar': ('Search', 'Buscar'), 'Buscar por título, tema ou palavra-chave': ('Search by title, topic or keyword', 'Buscar por título, tema o palabra clave'),
+    'Baixar o TCC (PDF)': ('Download the project (PDF)', 'Descargar el TCC (PDF)'), 'Nenhum TCC público encontrado': ('No public project found', 'Ningún TCC público encontrado'),
+    'para': ('for', 'para'),
+    # Ata da reunião
+    'Ata de reunião': ('Meeting minutes', 'Acta de reunión'), 'Tipo:': ('Type:', 'Tipo:'), 'Parceiro B2B:': ('B2B partner:', 'Socio B2B:'),
+    'Gravação:': ('Recording:', 'Grabación:'), 'Gravação na plataforma:': ('Recording on the platform:', 'Grabación en la plataforma:'),
+    'Ticket relacionado:': ('Related ticket:', 'Ticket relacionado:'), 'Participantes': ('Participants', 'Participantes'),
+    'Deliberações': ('Decisions', 'Deliberaciones'), 'Encaminhamentos': ('Follow-up actions', 'Acciones de seguimiento'), 'Responsável': ('Owner', 'Responsable'),
+    'Sem encaminhamentos.': ('No follow-up actions.', 'Sin acciones de seguimiento.'), 'Presença (check-in e check-out)': ('Attendance (check-in and check-out)', 'Asistencia (check-in y check-out)'),
+    'Instituição': ('Institution', 'Institución'), 'motivo:': ('reason:', 'motivo:'), 'Avaliação dos participantes': ("Participants' rating", 'Evaluación de los participantes'),
+    'Média das notas': ('Average rating', 'Promedio de las notas'),
+    'avaliação(ões), com os convidados externos': ('rating(s), including external guests', 'evaluación(es), con los invitados externos'),
+    'Registrada na plataforma': ('Recorded on the platform', 'Registrada en la plataforma'), 'Maria Souza': ('Jane Smith', 'María Souza'),
+    # Agentes de Funcionalidades (mapa da tela)
+    'Dev (código)': ('Dev (code)', 'Dev (código)'),
+    'Varre 100% do código: toda regra de negócio numa regra nomeada, que o Gerente aprende sozinho.': (
+        'Scans 100% of the code: every business rule in a named rule, which the Manager learns by itself.',
+        'Revisa el 100% del código: toda regla de negocio en una regla con nombre, que el Gerente aprende solo.'),
+    'UX/UI (telas)': ('UX/UI (screens)', 'UX/UI (pantallas)'),
+    'Varre 100% das telas: textos traduzidos (pt/en/es), imagens, botões e campos acessíveis e cada papel com o mesmo nome.': (
+        'Scans 100% of the screens: translated texts (pt/en/es), accessible images, buttons and fields, and each role always with the same name.',
+        'Revisa el 100% de las pantallas: textos traducidos (pt/en/es), imágenes, botones y campos accesibles y cada rol con el mismo nombre.'),
+}.items():
+    LITERAIS.setdefault(_pt, _tr)
+
+
+# Provedores de IA: ChatGPT (OpenAI), preços conferidos e reajustes anunciados
+LITERAIS.update({
+    'Chave da API da OpenAI (ChatGPT)': ('OpenAI API key (ChatGPT)', 'Clave de la API de OpenAI (ChatGPT)'),
+    'Reajuste anunciado pelo provedor:': ('Price change announced by the provider:', 'Reajuste anunciado por el proveedor:'),
+    'a partir de': ('from', 'a partir del'),
+    'ex.: gpt-6.1-terra': ('e.g.: gpt-6.1-terra', 'ej.: gpt-6.1-terra'),
+    'Preços padrão conferidos nas páginas oficiais do Claude, do Google e da OpenAI em': ('Default prices checked on the official Claude, Google and OpenAI pages on', 'Precios estándar verificados en las páginas oficiales de Claude, Google y OpenAI el'),
+    'Campo vazio ou igual ao padrão segue o preço padrão; o reajuste anunciado entra sozinho na data.': ('An empty field, or one equal to the default, keeps the default price; an announced price change applies automatically on its date.', 'Un campo vacío o igual al estándar sigue el precio estándar; el reajuste anunciado se aplica solo en la fecha.'),
+})
+
+# Tema v2 em produção: janela Agendar banca nova, menu Administração e credenciais em Provedores de IA
+LITERAIS.update({
+    'Editar banca': ('Edit panel', 'Editar banca'),
+    'Agendar banca': ('Schedule panel', 'Programar banca'),
+    'Escolha o TCC, a data e quem avalia.': ('Choose the final project, the date and who evaluates.', 'Elija el TCC, la fecha y quién evalúa.'),
+    'Quando e onde': ('When and where', 'Cuándo y dónde'),
+    'Data e hora': ('Date and time', 'Fecha y hora'),
+    'Local': ('Location', 'Lugar'),
+    'Ex.: Auditório 2, bloco B': ('E.g.: Auditorium 2, block B', 'Ej.: Auditorio 2, bloque B'),
+    'Link da sala virtual': ('Virtual room link', 'Enlace de la sala virtual'),
+    'Tempo da apresentação': ('Presentation time', 'Tiempo de la presentación'),
+    'Minutos de apresentação': ('Presentation minutes', 'Minutos de presentación'),
+    'Perguntas da banca': ('Panel questions', 'Preguntas de la banca'),
+    'Minutos de perguntas': ('Question minutes', 'Minutos de preguntas'),
+    'Prazos de entrega': ('Delivery deadlines', 'Plazos de entrega'),
+    'Trabalho escrito': ('Written work', 'Trabajo escrito'),
+    'Slides': ('Slides', 'Diapositivas'),
+    'Leitura dos avaliadores': ("Evaluators' reading", 'Lectura de los evaluadores'),
+    'Avaliadores': ('Evaluators', 'Evaluadores'),
+    'Buscar por nome, perfil ou empresa…': ('Search by name, profile or company…', 'Buscar por nombre, perfil o empresa…'),
+    'Buscar avaliadores': ('Search evaluators', 'Buscar evaluadores'),
+    'Envio do formulário aos avaliadores': ('Form sent to evaluators', 'Envío del formulario a los evaluadores'),
+    'horas antes': ('hours before', 'horas antes'),
+    'Horas antes da banca': ('Hours before the panel', 'Horas antes de la banca'),
+    'h antes': ('h before', 'h antes'),
+    'Comentários anônimos para os jovens': ('Anonymous comments for the students', 'Comentarios anónimos para los jóvenes'),
+    'Os avaliadores recebem o formulário {h} h antes da banca.': ('Evaluators receive the form {h} h before the panel.', 'Los evaluadores reciben el formulario {h} h antes de la banca.'),
+    'Ninguém escolhido ainda.': ('Nobody chosen yet.', 'Nadie elegido todavía.'),
+    'Nenhum avaliador encontrado para': ('No evaluator found for', 'Ningún evaluador encontrado para'),
+    'Cadastrar avaliador': ('Register evaluator', 'Registrar evaluador'),
+    'nenhum escolhido': ('none chosen', 'ninguno elegido'),
+    '1 escolhido': ('1 chosen', '1 elegido'),
+    '{n} escolhidos': ('{n} chosen', '{n} elegidos'),
+    'Agente de IA – Fim a Fim': ('AI Agent – End to End', 'Agente de IA – De Punta a Punta'),
+    'As credenciais (chaves das IAs, senha das contas de teste e Microsoft 365) ficam agora em': ('Credentials (AI keys, test account password and Microsoft 365) are now in', 'Las credenciales (claves de las IA, contraseña de las cuentas de prueba y Microsoft 365) ahora están en'),
+    'Cadastre as chaves em Provedores de IA e custos › Credenciais.': ('Add the keys in AI providers and costs › Credentials.', 'Registre las claves en Proveedores de IA y costos › Credenciales.'),
+})
+
+_POR_IDIOMA ={'en': {pt: v[0] for pt, v in LITERAIS.items()}, 'es': {pt: v[1] for pt, v in LITERAIS.items()}}
 
 
 def tt(texto, idioma='pt'):

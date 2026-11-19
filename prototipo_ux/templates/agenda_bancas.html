@@ -1,0 +1,292 @@
+{% extends "base.html" %}
+{% block title %}{{ t('menu_agenda_bancas') }}{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-4 border-bottom pb-3">
+    <div>
+        <h2 class="text-primary fw-bold mb-1"><i class="bi bi-calendar-event"></i> {{ t('menu_agenda_bancas') }}</h2>
+        <p class="text-muted mb-0">{{ t('banca_agenda_subtitulo') }}</p>
+    </div>
+    <div class="d-flex gap-2 flex-wrap">
+        <a href="{{ url_for('avaliadores_banca') }}" class="btn btn-outline-primary fw-bold rounded-pill px-3"><i class="bi bi-person-badge"></i> {{ t('aval_titulo') }}</a>
+        {% if pode_publicar %}
+        <form method="POST" class="m-0"><input type="hidden" name="acao" value="publicar_todas">
+            <button class="btn btn-outline-success fw-bold rounded-pill px-3" type="submit"><i class="bi bi-megaphone"></i> {{ t('banca_publicar_todas') }}</button>
+        </form>
+        {% endif %}
+        <button class="btn btn-primary fw-bold rounded-pill px-4 shadow-sm" data-bs-toggle="modal" data-bs-target="#modalBanca0"><i class="bi bi-plus-circle"></i> {{ t('banca_nova') }}</button>
+    </div>
+</div>
+
+<div class="d-flex flex-column gap-3">
+    {% for b in bancas %}
+    {% set sit = situacao_entrega(b.projeto) %}
+    <div class="card shadow-sm border-0 border-start border-4 {% if b.status == 'Realizada' %}border-success{% elif b.status == 'Cancelada' %}border-secondary{% elif b.status == 'Remarcada' %}border-warning{% else %}border-primary{% endif %}">
+        <div class="card-body">
+            <div class="d-flex justify-content-between align-items-start flex-wrap gap-2">
+                <div>
+                    <h5 class="fw-bold text-dark mb-1">{{ b.projeto.nome }}</h5>
+                    <div class="small text-muted">
+                        {{ t('vol_campo_grupo') }} {{ b.projeto.grupo.nome if b.projeto.grupo else '—' }} ·
+                        <i class="bi bi-calendar-event"></i> <strong class="text-dark">{{ b.data_hora.strftime('%d/%m/%Y %H:%M') }}</strong> ·
+                        {{ b.duracao_apresentacao_min }}+{{ b.duracao_perguntas_min }} min
+                        {% if b.local %} · {{ b.local }}{% endif %}
+                    </div>
+                </div>
+                <div class="d-flex gap-2 align-items-center flex-wrap">
+                    <span class="badge {% if b.status == 'Realizada' %}bg-success{% elif b.status == 'Cancelada' %}bg-secondary{% elif b.status == 'Remarcada' %}bg-warning text-dark{% else %}bg-primary{% endif %}">{{ b.status }}</span>
+                    {% if b.projeto.notas_publicadas %}<span class="badge bg-success-subtle text-success-emphasis border border-success">{{ t('banca_publicada') }}</span>{% endif %}
+                    {% if sit == 'sem' %}<span class="badge bg-light text-dark border">{{ t('entrega_sem') }}</span>
+                    {% elif sit == 'atrasada' %}<span class="badge bg-danger">{{ t('entrega_atrasada') }}</span>
+                    {% else %}<span class="badge bg-success">{{ t('entrega_no_prazo') }}</span>{% endif %}
+                </div>
+            </div>
+
+            <div class="table-responsive mt-2">
+                <table class="table table-sm align-middle small mb-2">
+                    <thead><tr><th>{{ t('banca_avaliador') }}</th><th>{{ t('banca_formulario_enviado') }}</th><th>{{ t('banca_etapas') }}</th></tr></thead>
+                    <tbody>
+                        {% for a in b.avaliadores %}
+                        {% set av = (b.projeto.avaliacoes_banca | selectattr('avaliador_id', 'equalto', a.id) | list | first) %}
+                        <tr>
+                            <td>{{ a.nome }} <span class="text-muted">· {{ a.tipo_usuario }}</span></td>
+                            <td>{{ envios.get((b.id, a.id)).strftime('%d/%m %H:%M') if envios.get((b.id, a.id)) else '—' }}</td>
+                            <td>
+                                <span class="badge {{ 'bg-success' if av and av.etapa_escrita_concluida_em else 'bg-light text-dark border' }}">{{ t('banca_etapa_escrita') }}</span>
+                                <span class="badge {{ 'bg-success' if av and av.etapa_oral_concluida_em else 'bg-light text-dark border' }}">{{ t('banca_etapa_oral') }}</span>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr><td colspan="3" class="text-danger">{{ t('banca_sem_avaliadores') }}</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            {% if b.historico_datas %}
+            <details class="mb-2"><summary class="small fw-bold text-warning-emphasis">{{ t('banca_historico_datas') }} ({{ b.historico_datas|length }})</summary>
+                <ul class="small mb-0 mt-1">
+                    {% for h in b.historico_datas %}<li>{{ h.data_anterior.strftime('%d/%m/%Y %H:%M') }} → <strong>{{ h.data_nova.strftime('%d/%m/%Y %H:%M') }}</strong> · {{ h.motivo }} · {{ h.alterado_por.nome if h.alterado_por else '' }} ({{ h.data_alteracao.strftime('%d/%m/%Y') }})</li>{% endfor %}
+                </ul>
+            </details>
+            {% endif %}
+
+            <div class="d-flex gap-2 flex-wrap">
+                <a href="{{ url_for('painel_banca', id=b.projeto_id) }}" class="btn btn-sm btn-success fw-bold rounded-pill px-3"><i class="bi bi-person-video3"></i> {{ t('banca_sala') }}</a>
+                <a href="{{ url_for('ficha_banca', id=b.id) }}" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-outline-secondary fw-bold rounded-pill px-3"><i class="bi bi-printer"></i> {{ t('banca_ficha') }}</a>
+                {% if b.status in ['Agendada', 'Remarcada'] %}
+                <button class="btn btn-sm btn-outline-primary fw-bold rounded-pill px-3" data-bs-toggle="modal" data-bs-target="#modalBanca{{ b.id }}">{{ t('trilha_editar') }}</button>
+                <form method="POST" class="m-0"><input type="hidden" name="acao" value="cancelar"><input type="hidden" name="banca_id" value="{{ b.id }}">
+                    <button class="btn btn-sm btn-outline-danger fw-bold rounded-pill px-3" type="submit">{{ t('extra_cancelar') }}</button></form>
+                {% endif %}
+                {% if pode_publicar and b.status == 'Realizada' and not b.projeto.notas_publicadas %}
+                <form method="POST" class="m-0"><input type="hidden" name="acao" value="publicar"><input type="hidden" name="banca_id" value="{{ b.id }}">
+                    <button class="btn btn-sm btn-success fw-bold rounded-pill px-3" type="submit"><i class="bi bi-megaphone"></i> {{ t('banca_publicar') }}</button></form>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    {% else %}
+    <div class="card shadow-sm border-0"><div class="card-body text-muted text-center py-5">{{ t('banca_agenda_vazia') }}</div></div>
+    {% endfor %}
+</div>
+
+<!-- MODAIS: NOVA BANCA (0) E EDIÇÃO / REMARCAÇÃO -->
+{% for b in [None] + bancas %}
+{% set bid = b.id if b else 0 %}
+{% set ids_av = b.avaliadores | map(attribute='id') | list if b else [] %}
+{# PROTÓTIPO DE UX/UI: mesmos campos e nomes do formulário de produção (salva de verdade na cópia do banco),
+   organizados em seções, com escolhas rápidas, busca de avaliadores e "Cancelar" ao lado da ação principal. #}
+<div class="modal fade" id="modalBanca{{ bid }}" tabindex="-1" aria-labelledby="tituloBanca{{ bid }}">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <form method="POST" class="d-flex flex-column h-100" style="min-height: 0;">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="tituloBanca{{ bid }}">
+                        {{ tt('Editar banca') if b else tt('Agendar banca') }}
+                        <span class="proto-sub">{{ (b.projeto.nome ~ (' · ' ~ b.projeto.grupo.nome if b.projeto.grupo else '')) if b else tt('Escolha o TCC, a data e quem avalia.') }}</span>
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ t('fechar') }}"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" name="acao" value="salvar">
+                    <input type="hidden" name="banca_id" value="{{ bid }}">
+
+                    <div class="proto-secao">
+                        <span class="proto-rotulo">{{ tt('Quando e onde') }}</span>
+                        {% if not b %}
+                        <div>
+                            <label class="form-label" for="bProjeto0">{{ t('vol_campo_projeto') }}</label>
+                            <select class="form-select" id="bProjeto0" name="projeto_id" required>
+                                <option value="">{{ t('vol_selecione') }}</option>
+                                {% for p in projetos_sem_banca %}<option value="{{ p.id }}">{{ p.nome }} · {{ p.grupo.nome if p.grupo else '' }}</option>{% endfor %}
+                            </select>
+                        </div>
+                        {% endif %}
+                        <div class="row g-3">
+                            <div class="col-md-5">
+                                <label class="form-label" for="bData{{ bid }}">{{ tt('Data e hora') }}</label>
+                                <input type="datetime-local" class="form-control" id="bData{{ bid }}" name="data_hora" required value="{{ b.data_hora.strftime('%Y-%m-%dT%H:%M') if b else '' }}">
+                            </div>
+                            <div class="col-md-7">
+                                <label class="form-label" for="bLocal{{ bid }}">{{ tt('Local') }}</label>
+                                <input class="form-control" id="bLocal{{ bid }}" name="local" value="{{ b.local or '' if b else '' }}" placeholder="{{ tt('Ex.: Auditório 2, bloco B') }}">
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label" for="bLink{{ bid }}">{{ tt('Link da sala virtual') }} <span class="text-muted fw-normal">· {{ t('vol_opcional') }}</span></label>
+                                <input type="url" class="form-control" id="bLink{{ bid }}" name="link_sala" value="{{ b.link_sala or '' if b else '' }}" placeholder="https://">
+                            </div>
+                            {% if b %}
+                            <div class="col-12">
+                                <label class="form-label" for="bMotivo{{ bid }}">{{ t('banca_motivo_alteracao') }}</label>
+                                <input class="form-control" id="bMotivo{{ bid }}" name="motivo_alteracao" placeholder="{{ t('banca_motivo_placeholder') }}">
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <div class="proto-secao">
+                        <span class="proto-rotulo">{{ tt('Tempo da apresentação') }}</span>
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label class="form-label" for="bDurA{{ bid }}">{{ tt('Apresentação') }}</label>
+                                <div class="proto-campo-seg">
+                                    <div class="proto-seg" data-proto-seg="bDurA{{ bid }}" data-proto-unidade="{{ tt('minutos') }}"><button type="button" value="10">10</button><button type="button" value="15">15</button><button type="button" value="20">20</button></div>
+                                    <input type="number" min="1" max="120" class="form-control" id="bDurA{{ bid }}" name="duracao_apresentacao_min" value="{{ b.duracao_apresentacao_min if b else 15 }}" aria-label="{{ tt('Minutos de apresentação') }}"><span class="text-muted">min</span>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label" for="bDurP{{ bid }}">{{ tt('Perguntas da banca') }}</label>
+                                <div class="proto-campo-seg">
+                                    <div class="proto-seg" data-proto-seg="bDurP{{ bid }}" data-proto-unidade="{{ tt('minutos') }}"><button type="button" value="5">5</button><button type="button" value="10">10</button><button type="button" value="15">15</button></div>
+                                    <input type="number" min="1" max="120" class="form-control" id="bDurP{{ bid }}" name="duracao_perguntas_min" value="{{ b.duracao_perguntas_min if b else 10 }}" aria-label="{{ tt('Minutos de perguntas') }}"><span class="text-muted">min</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="proto-secao">
+                        <span class="proto-rotulo">{{ tt('Prazos de entrega') }}</span>
+                        <div class="row g-3">
+                            <div class="col-md-4">
+                                <label class="form-label" for="bPrazoE{{ bid }}">{{ tt('Trabalho escrito') }}</label>
+                                <input type="datetime-local" class="form-control" id="bPrazoE{{ bid }}" name="prazo_entrega_escrito" value="{{ b.prazo_entrega_escrito.strftime('%Y-%m-%dT%H:%M') if b and b.prazo_entrega_escrito else '' }}">
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label" for="bPrazoS{{ bid }}">{{ tt('Slides') }}</label>
+                                <input type="datetime-local" class="form-control" id="bPrazoS{{ bid }}" name="prazo_entrega_slides" value="{{ b.prazo_entrega_slides.strftime('%Y-%m-%dT%H:%M') if b and b.prazo_entrega_slides else '' }}">
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label" for="bPrazoL{{ bid }}">{{ tt('Leitura dos avaliadores') }}</label>
+                                <input type="datetime-local" class="form-control" id="bPrazoL{{ bid }}" name="prazo_leitura_avaliadores" value="{{ b.prazo_leitura_avaliadores.strftime('%Y-%m-%dT%H:%M') if b and b.prazo_leitura_avaliadores else '' }}">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="proto-secao" data-proto-aval="bAval{{ bid }}">
+                        <span class="proto-rotulo">{{ tt('Avaliadores') }} · <span data-proto-contagem></span></span>
+                        <div class="proto-chips" data-proto-chips aria-live="polite"></div>
+                        <input type="search" class="form-control" placeholder="{{ tt('Buscar por nome, perfil ou empresa…') }}" aria-label="{{ tt('Buscar avaliadores') }}" data-proto-busca>
+                        <div class="proto-lista" data-proto-lista></div>
+                        <select class="d-none" id="bAval{{ bid }}" name="avaliadores" multiple aria-hidden="true" tabindex="-1">
+                            {% for p in pessoas %}<option value="{{ p.id }}" data-perfil="{{ p.tipo_usuario }}{% if p.perfil_avaliador and p.perfil_avaliador.empresa_origem %} · {{ p.perfil_avaliador.empresa_origem }}{% endif %}" {% if p.id in ids_av %}selected{% endif %}>{{ p.nome }}</option>{% endfor %}
+                        </select>
+                        <div class="row g-3 align-items-end mt-1">
+                            <div class="col-md-7">
+                                <label class="form-label" for="bHoras{{ bid }}">{{ tt('Envio do formulário aos avaliadores') }}</label>
+                                <div class="proto-campo-seg">
+                                    <div class="proto-seg" data-proto-seg="bHoras{{ bid }}" data-proto-unidade="{{ tt('horas antes') }}"><button type="button" value="12">12 h</button><button type="button" value="24">24 h</button><button type="button" value="48">48 h</button></div>
+                                    <input type="number" min="1" max="240" class="form-control" id="bHoras{{ bid }}" name="horas_antes_formulario" value="{{ b.horas_antes_formulario if b else 24 }}" aria-label="{{ tt('Horas antes da banca') }}"><span class="text-muted">{{ tt('h antes') }}</span>
+                                </div>
+                            </div>
+                            <div class="col-md-5">
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" role="switch" id="bAnon{{ bid }}" name="anonimizar_feedback" {% if not b or b.anonimizar_feedback %}checked{% endif %}>
+                                    <label class="form-check-label" for="bAnon{{ bid }}">{{ tt('Comentários anônimos para os jovens') }}</label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <span class="proto-rodape-dica" data-proto-dica="bHoras{{ bid }}"></span>
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">{{ tt('Cancelar') }}</button>
+                    <button class="btn btn-primary px-4" type="submit">{{ t('banca_salvar') if b else t('banca_agendar') }}</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endfor %}
+<script>
+(function () {
+    // Escolhas rápidas: o botão preenche o campo numérico (que continua editável e é o que vai para o servidor)
+    // A escolhida não é só cor: aria-pressed diz ao leitor de tela qual está marcada, e o nome do botão leva a unidade
+    document.querySelectorAll('[data-proto-seg]').forEach(function (grupo) {
+        var campo = document.getElementById(grupo.dataset.protoSeg), unidade = grupo.dataset.protoUnidade || '';
+        grupo.setAttribute('role', 'group');
+        grupo.setAttribute('aria-label', campo.getAttribute('aria-label') || '');
+        grupo.querySelectorAll('button').forEach(function (b) { b.setAttribute('aria-label', b.value + ' ' + unidade); });
+        function marcar() { grupo.querySelectorAll('button').forEach(function (b) { var sim = b.value === campo.value; b.classList.toggle('ativo', sim); b.setAttribute('aria-pressed', sim ? 'true' : 'false'); }); }
+        grupo.addEventListener('click', function (e) { var b = e.target.closest('button'); if (!b) return; campo.value = b.value; campo.dispatchEvent(new Event('input')); });
+        campo.addEventListener('input', marcar); marcar();
+    });
+    // Dica do rodapé: o que acontece ao salvar
+    document.querySelectorAll('[data-proto-dica]').forEach(function (dica) {
+        var campo = document.getElementById(dica.dataset.protoDica);
+        function escrever() { dica.textContent = {{ tt('Os avaliadores recebem o formulário {h} h antes da banca.')|tojson }}.replace('{h}', campo.value || '?'); }
+        campo.addEventListener('input', escrever); escrever();
+    });
+    // Avaliadores: busca + etiquetas no lugar da lista "segure Ctrl"; o select escondido continua sendo o campo enviado
+    document.querySelectorAll('[data-proto-aval]').forEach(function (caixa) {
+        var sel = document.getElementById(caixa.dataset.protoAval), lista = caixa.querySelector('[data-proto-lista]'),
+            chips = caixa.querySelector('[data-proto-chips]'), busca = caixa.querySelector('[data-proto-busca]'), contagem = caixa.querySelector('[data-proto-contagem]');
+        var vazio = {{ tt('Ninguém escolhido ainda.')|tojson }}, remover = {{ tt('Remover')|tojson }},
+            nenhum = {{ tt('Nenhum avaliador encontrado para')|tojson }}, cadastrar = {{ tt('Cadastrar avaliador')|tojson }},
+            plural = [{{ tt('nenhum escolhido')|tojson }}, {{ tt('1 escolhido')|tojson }}, {{ tt('{n} escolhidos')|tojson }}];
+        // foco = {tipo: 'caixa'|'etiqueta', valor}: a lista é redesenhada a cada mudança; o foco volta para a mesma pessoa
+        // (ou para a busca, se a etiqueta saiu), nunca para fora da janela, e o Esc continua fechando
+        function desenhar(foco) {
+            var termo = (busca.value || '').toLowerCase();
+            lista.innerHTML = ''; chips.innerHTML = '';
+            var escolhidos = 0, mostrados = 0;
+            Array.prototype.forEach.call(sel.options, function (o) {
+                if (o.selected) {
+                    escolhidos++;
+                    var c = document.createElement('button'); c.type = 'button'; c.className = 'proto-chip'; c.dataset.valor = o.value;
+                    c.innerHTML = '<span class="proto-nome"></span><span aria-hidden="true">×</span>';
+                    c.querySelector('.proto-nome').textContent = o.textContent; c.setAttribute('aria-label', remover + ' ' + o.textContent);
+                    c.addEventListener('click', function () { o.selected = false; desenhar({tipo: 'etiqueta', valor: o.value}); });
+                    chips.appendChild(c);
+                }
+                var texto = (o.textContent + ' ' + (o.dataset.perfil || '')).toLowerCase();
+                if (termo && texto.indexOf(termo) < 0) return;
+                mostrados++;
+                var l = document.createElement('label'), i = document.createElement('input');
+                i.type = 'checkbox'; i.className = 'form-check-input m-0'; i.checked = o.selected; i.dataset.valor = o.value;
+                i.addEventListener('change', function () { o.selected = i.checked; desenhar({tipo: 'caixa', valor: o.value}); });
+                var t = document.createElement('div'); t.innerHTML = '<div></div><small></small>';
+                t.firstChild.textContent = o.textContent; t.lastChild.textContent = o.dataset.perfil || '';
+                l.appendChild(i); l.appendChild(t); lista.appendChild(l);
+            });
+            if (!mostrados) {
+                // estado vazio com saída: diz o que aconteceu e o próximo passo
+                var m = document.createElement('div'); m.className = 'proto-lista-vazia'; m.setAttribute('role', 'status');
+                var frase = document.createElement('div'); frase.textContent = termo ? nenhum + ' “' + busca.value + '”.' : vazio;
+                var a = document.createElement('a'); a.href = {{ url_for('avaliadores_banca')|tojson }}; a.textContent = cadastrar;
+                m.appendChild(frase); m.appendChild(a); lista.appendChild(m);
+            }
+            if (!escolhidos) { var v = document.createElement('span'); v.className = 'text-muted small'; v.textContent = vazio; chips.appendChild(v); }
+            contagem.textContent = escolhidos === 0 ? plural[0] : escolhidos === 1 ? plural[1] : plural[2].replace('{n}', escolhidos);
+            if (foco) {
+                var alvo = foco.tipo === 'caixa' ? lista.querySelector('input[data-valor="' + foco.valor + '"]')
+                                                 : (chips.querySelector('.proto-chip') || busca);
+                (alvo || busca).focus();
+            }
+        }
+        busca.addEventListener('input', function () { desenhar(); });
+        desenhar();
+    });
+})();
+</script>
+{% endblock %}

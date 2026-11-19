@@ -97,7 +97,6 @@
             { sel: '.hub-monitor', texto: {{ tt('No centro aparece o navegador do agente em execução, ao vivo.')|tojson }} },
             { sel: '.hub-agente', texto: {{ tt('Cada robô é o agente de um perfil: brilha enquanto testa e recebe ✓ ou ✗ ao terminar.')|tojson }} },
             { sel: '#cardArvoreIa', texto: {{ tt('Os relatórios em PDF com as evidências e os prompts de correção ficam nestas pastas, separados por perfil.')|tojson }} },
-            { sel: '#cardCredenciaisIa', texto: {{ tt('Credenciais dos agentes e integrações: a senha de teste, as chaves de IA e o aplicativo do Microsoft 365 ficam cifrados aqui, visíveis só para o Administrador.')|tojson }} },
             { titulo: {{ tt('Progresso por agente')|tojson }}, texto: {{ tt('O progresso de cada agente, com o tempo estimado para terminar.')|tojson }} },
             { titulo: {{ tt('Etapa atual')|tojson }}, texto: {{ tt('A etapa em execução agora e o registro de tudo o que o agente fez.')|tojson }} },
         ],
@@ -222,6 +221,7 @@
             { sel: '#cardMatriz', texto: {{ tt('O que funciona em cada tipo de hospedagem; a coluna destacada é a desta instalação.')|tojson }} },
         ],
         'provedores_ia_view': [
+            { sel: '#cardCredenciaisIa', texto: {{ tt('Credenciais dos agentes e integrações: a senha de teste, as chaves de IA e o aplicativo do Microsoft 365 ficam cifrados aqui, visíveis só para o Administrador.')|tojson }} },
             { texto: {{ tt('Provedores de IA e custos: escolha qual IA atende cada uso, ligue ou desligue cada uma e acompanhe o gasto do mês.')|tojson }} },
             { sel: '#cardGastoIa', texto: {{ tt('O gasto do mês comparado ao teto. Ao atingir o teto, as IAs param até o mês seguinte; o teto fica em Parâmetros de regras.')|tojson }} },
             { sel: '#custoPorCategoria', texto: {{ tt('Chatbots × Agentes: quanto do gasto vem das conversas (chatbots) e quanto vem do trabalho automático dos agentes.')|tojson }} },

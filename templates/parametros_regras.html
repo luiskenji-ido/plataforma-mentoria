@@ -89,7 +89,7 @@
     <div class="col-lg-5">
         <div class="card shadow-sm border-0 h-100" id="cardNovaRegra">
             <div class="card-header bg-white fw-bold text-primary"><i class="bi bi-plus-square"></i> {{ tt('Criar regra nova') }}</div>
-            <form method="POST" class="card-body row g-2">
+            <form method="POST" class="card-body"><div class="row g-2">
                 <input type="hidden" name="acao" value="criar">
                 <div class="col-12"><label class="form-label small fw-bold mb-0" for="novaNome">{{ tt('Nome da regra') }}</label>
                     <input class="form-control form-control-sm" id="novaNome" name="nova_nome" maxlength="150" required placeholder="{{ tt('Ex.: Horas mínimas de mentoria por aluno') }}"></div>
@@ -103,7 +103,7 @@
                     <textarea class="form-control form-control-sm" id="novaDescricao" name="nova_descricao" rows="2" maxlength="1000"></textarea></div>
                 <div class="col-12 form-text">{{ tt('O código é como o sistema encontra a regra (letras minúsculas, números e _). Depois de criada, ela pode ser alterada aqui como as outras.') }}</div>
                 <div class="col-12 d-grid"><button class="btn btn-success btn-sm fw-bold" type="submit"><i class="bi bi-plus-lg"></i> {{ tt('Criar regra') }}</button></div>
-            </form>
+            </div></form>
         </div>
     </div>
     <div class="col-lg-7">
