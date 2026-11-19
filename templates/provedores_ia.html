@@ -91,7 +91,7 @@
         </div>
         <div class="small text-muted mt-3" id="agentesSemIa">
             <i class="bi bi-check-circle text-success"></i> {{ tt('Sem custo de IA (rodam na própria plataforma):') }}
-            {% for a in r.agentes_sem_ia %}<span class="badge text-bg-light border fw-normal">{{ tt(a) }} · US$ 0.00</span> {% endfor %}
+            {% for a in r.agentes_sem_ia %}<span class="badge text-bg-light border fw-normal text-wrap text-start">{{ tt(a) }} · US$ 0.00</span> {% endfor %}
         </div>
     </div>
 </div>
@@ -147,7 +147,8 @@
                         <tbody>
                             {% for mid, m in r.modelos.items() %}
                             <tr>
-                                <td><span class="fw-bold">{{ m.nome }}</span><div class="text-muted"><code>{{ mid }}</code></div></td>
+                                <td><span class="fw-bold">{{ m.nome }}</span><div class="text-muted"><code>{{ mid }}</code></div>
+                                    {% if m.reajuste %}<div class="text-warning-emphasis small"><i class="bi bi-graph-up-arrow"></i> {{ tt('Reajuste anunciado pelo provedor:') }} US$ {{ m.reajuste.entrada }}/{{ m.reajuste.saida }} {{ tt('a partir de') }} {{ m.reajuste.data }}</div>{% endif %}</td>
                                 <td>{{ provedores[m.provedor][0] }}{% if not r.chaves[m.provedor] %} <span class="badge text-bg-warning">{{ tt('sem chave') }}</span>{% endif %}</td>
                                 <td><input type="text" inputmode="decimal" class="form-control form-control-sm" name="entrada_{{ mid }}" value="{{ m.entrada if m.entrada is not none }}" aria-label="{{ tt('Entrada') }} {{ mid }}"></td>
                                 <td><input type="text" inputmode="decimal" class="form-control form-control-sm" name="saida_{{ mid }}" value="{{ m.saida if m.saida is not none }}" aria-label="{{ tt('Saída') }} {{ mid }}"></td>
@@ -158,6 +159,7 @@
                     </table>
                 </div>
                 <div class="card-body pt-2">
+                    <div class="form-text mb-2"><i class="bi bi-patch-check"></i> {{ tt('Preços padrão conferidos nas páginas oficiais do Claude, do Google e da OpenAI em') }} {{ r.precos_conferidos_em }}. {{ tt('Campo vazio ou igual ao padrão segue o preço padrão; o reajuste anunciado entra sozinho na data.') }}</div>
                     {% if r.sem_preco %}<div class="alert alert-warning small py-2 mb-2"><i class="bi bi-exclamation-triangle"></i> {{ tt('Sem preço, o modelo não entra na conta do teto:') }} {{ r.sem_preco|join(', ') }}. {{ tt('Confira o preço atual no site do provedor e preencha.') }}</div>{% endif %}
                     <button type="submit" class="btn btn-sm btn-primary fw-bold"><i class="bi bi-check2"></i> {{ tt('Salvar preços') }}</button>
                 </div>
@@ -172,16 +174,16 @@
     <div class="col-lg-4">
         <div class="card shadow-sm border-0 h-100" id="cardNovoModeloIa">
             <div class="card-header bg-white fw-bold text-primary"><i class="bi bi-plus-square"></i> {{ tt('Adicionar modelo') }}</div>
-            <form method="POST" action="{{ url_for('provedores_ia_modelos') }}" class="card-body small row g-2">
+            <form method="POST" action="{{ url_for('provedores_ia_modelos') }}" class="card-body small"><div class="row g-2">
                 <div class="col-12"><label class="form-label fw-bold mb-1" for="novoProvedor">{{ tt('Provedor') }}</label>
                     <select class="form-select form-select-sm" name="provedor" id="novoProvedor">{% for p, (nome_p, _) in provedores.items() %}<option value="{{ p }}">{{ nome_p }}</option>{% endfor %}</select></div>
                 <div class="col-12"><label class="form-label fw-bold mb-1" for="novoModelo">{{ tt('Identificador do modelo') }}</label>
-                    <input type="text" class="form-control form-control-sm" name="modelo" id="novoModelo" required maxlength="80" placeholder="ex.: gemini-3.6-flash-lite"></div>
+                    <input type="text" class="form-control form-control-sm" name="modelo" id="novoModelo" required maxlength="80" placeholder="{{ tt('ex.: gpt-6.1-terra') }}"></div>
                 <div class="col-12"><label class="form-label fw-bold mb-1" for="novoNome">{{ tt('Nome na tela') }}</label>
                     <input type="text" class="form-control form-control-sm" name="nome" id="novoNome" maxlength="80"></div>
                 <div class="col-12"><button type="submit" class="btn btn-sm btn-outline-primary fw-bold"><i class="bi bi-plus-lg"></i> {{ tt('Adicionar') }}</button>
                     <div class="form-text">{{ tt('Use o identificador exato do site do provedor. Depois preencha os preços.') }}</div></div>
-            </form>
+            </div></form>
         </div>
     </div>
 </div>

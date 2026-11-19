@@ -2,7 +2,7 @@
 """
 AGENTE ORQUESTRADOR EXECUTOR
 ============================
-Uso (a tela chama em segundo plano): python agentes_orquestrador/executor.py --ids <id> <id> --provedor gemini --usuario "Nome"
+Uso (a tela chama em segundo plano): python agentes_orquestrador/executor.py --ids <id> <id> --provedor gemini|claude|openai --usuario "Nome"
 
 1. Lê os prompts de correção das quatro equipes (coletor.py) e monta o plano com as correções escolhidas.
 2. Cria uma CÓPIA do código (git worktree num ramo novo) e uma cópia do banco: o site em uso nunca é alterado aqui.
@@ -721,7 +721,7 @@ def desfazer_commit(commit, usuario):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--ids', nargs='+', required=True)
-    parser.add_argument('--provedor', choices=['gemini', 'claude'], default='gemini')
+    parser.add_argument('--provedor', choices=['gemini', 'claude', 'openai'], default='gemini')
     parser.add_argument('--usuario', default='Administrador')
     parser.add_argument('--equipes', nargs='+', default=[c for c, *_ in EQUIPES_VALIDACAO])
     args = parser.parse_args()

@@ -1,10 +1,11 @@
 # -*- coding: utf-8 -*-
 """
-IA DO ORQUESTRADOR EXECUTOR (Gemini ou Claude)
-==============================================
+IA DO ORQUESTRADOR EXECUTOR (Gemini, Claude ou ChatGPT/OpenAI)
+==============================================================
 Recebe uma correção + o prompt do agente + os arquivos citados e devolve, em JSON validado, se dá para corrigir e as
 trocas exatas de trecho, com plano de rollback, como testar e riscos. As instruções fixas ficam na Skill
-(skill_correcao.md). Chaves no .env: GEMINI_API_KEY (ou GOOGLE_API_KEY) e/ou ANTHROPIC_API_KEY.
+(skill_correcao.md). Chaves (.env ou Agentes IA › Credenciais): GEMINI_API_KEY (ou GOOGLE_API_KEY), ANTHROPIC_API_KEY
+e/ou OPENAI_API_KEY.
 """
 import json
 import os
@@ -13,6 +14,7 @@ PASTA = os.path.dirname(os.path.abspath(__file__))
 # Os modelos vêm da tela Provedores de IA (a plataforma passa estas variáveis ao iniciar o executor)
 MODELO_GEMINI = os.environ.get('ORQUESTRADOR_MODELO_GEMINI', 'gemini-3.6-flash')
 MODELO_CLAUDE = os.environ.get('ORQUESTRADOR_MODELO_CLAUDE', 'claude-sonnet-5-5')
+MODELO_OPENAI = os.environ.get('ORQUESTRADOR_MODELO_OPENAI', 'gpt-6.2-sol')
 LIMITE_ARQUIVO = 60_000      # arquivos maiores vão em janelas ao redor das linhas citadas
 JANELA = 90                  # linhas antes/depois de cada linha citada
 
@@ -52,6 +54,8 @@ def provedores_disponiveis():
         disponiveis.append('gemini')
     if os.environ.get('ANTHROPIC_API_KEY') or os.environ.get('ANTHROPIC_AUTH_TOKEN'):
         disponiveis.append('claude')
+    if os.environ.get('OPENAI_API_KEY'):
+        disponiveis.append('openai')
     return disponiveis
 
 
@@ -169,10 +173,44 @@ def _claude(pedido):
     return json.loads(texto)
 
 
+def _openai(pedido):
+    try:
+        import openai
+    except ImportError as e:
+        raise IAIndisponivel(f'openai não instalado: {e}')
+    if not os.environ.get('OPENAI_API_KEY'):
+        raise IAIndisponivel('Configure OPENAI_API_KEY no .env ou em Agentes IA › Credenciais')
+    cliente = openai.OpenAI(timeout=900.0, max_retries=1)
+    try:
+        # Saída estruturada (json_schema estrito) no mesmo formato do Claude e do Gemini; store=False: o código do
+        # projeto não fica guardado na OpenAI
+        r = cliente.responses.create(model=MODELO_OPENAI, instructions=skill(), input=pedido, store=False,
+                                     max_output_tokens=64000, reasoning={'effort': 'high'},
+                                     text={'format': {'type': 'json_schema', 'name': 'correcao', 'schema': ESQUEMA, 'strict': True}})
+    except openai.APIStatusError as e:
+        if isinstance(e.body, dict) and e.body.get('type') == 'insufficient_quota':
+            raise IAIndisponivel('A conta da OpenAI está sem créditos (adicione em platform.openai.com › Billing).')
+        raise IAIndisponivel(f'Erro da OpenAI ({e.status_code}).')
+    except (openai.APIConnectionError, openai.APITimeoutError):
+        raise IAIndisponivel('Sem conexão com a OpenAI.')
+    uso = getattr(r, 'usage', None)
+    _anotar_uso('openai', MODELO_OPENAI, getattr(uso, 'input_tokens', 0) or 0, getattr(uso, 'output_tokens', 0) or 0)
+    recusa = next((c.refusal for item in (r.output or []) for c in (getattr(item, 'content', None) or [])
+                   if getattr(c, 'type', '') == 'refusal'), None)
+    if recusa:
+        raise IAIndisponivel(f'A IA recusou a correção: {recusa[:200]}')
+    if r.status == 'incomplete':
+        raise IAIndisponivel('A resposta da IA ficou grande demais e foi cortada.')
+    return json.loads(r.output_text)
+
+
+CHAMADAS = {'claude': _claude, 'gemini': _gemini, 'openai': _openai}
+
+
 def pedir_correcao(provedor, correcao, prompt_do_agente, arquivos_texto, tentativa_anterior=None):
     """Devolve o dicionário no formato ESQUEMA. Levanta IAIndisponivel quando não há chave/biblioteca ou a IA recusa."""
     pedido = montar_pedido(correcao, prompt_do_agente, arquivos_texto, tentativa_anterior)
-    resposta = _claude(pedido) if provedor == 'claude' else _gemini(pedido)
+    resposta = CHAMADAS.get(provedor, _gemini)(pedido)
     for campo in ESQUEMA['required']:
         resposta.setdefault(campo, [] if campo == 'alteracoes' else '')
     return resposta
