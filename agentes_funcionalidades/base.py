@@ -331,7 +331,7 @@ class AgenteFuncional:
                          "A cor de cada texto vem de um papel do tema (texto, texto secundário, ação, estado) e passa no "
                          "contraste WCAG em todos os temas", "Média",
                          "Trocar a cor fixa (text-dark, text-white, bg-white, style=\"color:…\") pelo papel do tema; conferir "
-                         "a paleta com prototipo_ux/paletas.py.", alerta=True)
+                         "a paleta com tema_plataforma.py.", alerta=True)
 
     def print(self, caminho, titulo):
         """Abre a página com a mesma sessão do agente e salva o print (também vira o quadro ao vivo do hub)."""

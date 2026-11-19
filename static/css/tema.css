@@ -215,9 +215,9 @@ html:not(#_):not([data-sem-tema]) span[style*="#7f1d1d"] { background-color: #7f
 html:not(#_):not([data-sem-tema]) span[style*="#2563eb"] { background-color: #2563eb !important; border-color: transparent !important; color: #fff !important; }
 html:not(#_):not([data-sem-tema]) span[style*="#64748b"] { background-color: #64748b !important; border-color: transparent !important; color: #fff !important; }
 /* agentes fora da execução: apagados a 30–55% sumiam (2,5:1); a 85% continuam "em segundo plano" e legíveis */
-html:not(#_):not([data-sem-tema]) :is(.seg-agente, .fn-agente):is(.aguardando, [style*="opacity"]),
-html:not(#_):not([data-sem-tema]) :is(#cardProgressoSeg, #cardProgressoFunc) [style*="opacity"] { opacity: .85 !important; }
-html:not(#_):not([data-sem-tema]) :is(.seg-saida, .fn-saida, #consoleSaida) .tempo { color: #8b98ab !important; }
+html:not(#_):not([data-sem-tema]) :is(.seg-agente, .fn-agente, .hub-agente, .db-agente):is(.aguardando, [style*="opacity"]),
+html:not(#_):not([data-sem-tema]) [id^="cardProgresso"] [style*="opacity"] { opacity: .85 !important; }
+html:not(#_):not([data-sem-tema]) :is(.seg-saida, .fn-saida, .db-saida, .hub-saida, #consoleSaida) .tempo { color: #8b98ab !important; }
 /* caixas com fundo branco fixo no style= (ex.: lista de mentores na janela de editar turma): seguem o tema */
 html:not(#_):not([data-sem-tema]) :is([style*="background-color: #ffffff"], [style*="background-color:#ffffff"], [style*="background-color: #fff;"],
   [style*="background: #fff"], [style*="background:#fff"], [style*="background-color: white"], [style*="background: white"]) { background-color: var(--p-surface) !important; color: var(--p-fg) !important; }
