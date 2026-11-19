@@ -111,6 +111,83 @@ class Acompanhamento(db.Model):
     # Usado no Diário de Classe (admin_notas.html mostra o nome do curso de cada matrícula)
     curso = db.relationship('Curso', lazy='joined')
 
+
+# ---------------------------------------------------------------------------
+# 3.1 CONTEÚDO DO CURSO DENTRO DA PLATAFORMA: aulas, testes e progresso automático
+# ---------------------------------------------------------------------------
+class AulaCurso(db.Model):
+    """Uma aula (capítulo) do curso. Pode ter texto (capítulo do documento enviado), vídeo (arquivo enviado ou
+    YouTube), material de apoio e um teste de conhecimento. O aluno nunca vê o endereço do vídeo."""
+    __tablename__ = 'aula_curso'
+    id = db.Column(db.Integer, primary_key=True)
+    curso_id = db.Column(db.Integer, db.ForeignKey('curso.id'), nullable=False, index=True)
+    ordem = db.Column(db.Integer, nullable=False, default=1)
+    titulo = db.Column(db.String(200), nullable=False)
+    texto = db.Column(TextoLongo, nullable=True)                     # conteúdo de leitura (capítulo do documento)
+    video_tipo = db.Column(db.String(10), nullable=True)             # arquivo / youtube
+    video_arquivo = db.Column(db.String(255), nullable=True)         # nome dentro de uploads/aulas
+    video_nome = db.Column(db.String(255), nullable=True)
+    video_tamanho = db.Column(db.BigInteger, nullable=True)
+    youtube_id = db.Column(db.String(20), nullable=True)
+    video_duracao = db.Column(db.Integer, nullable=True)             # segundos (o player informa na primeira vez)
+    material_arquivo = db.Column(db.String(255), nullable=True)
+    material_nome = db.Column(db.String(255), nullable=True)
+    origem = db.Column(db.String(20), nullable=True)                 # documento / manual
+    criado_em = db.Column(db.DateTime, default=datetime.now)
+    atualizado_em = db.Column(db.DateTime, default=datetime.now, onupdate=datetime.now)
+
+    curso = db.relationship('Curso', backref=db.backref('aulas', lazy='dynamic', order_by='AulaCurso.ordem'))
+    questoes = db.relationship('QuestaoAula', backref='aula', lazy='dynamic', cascade='all, delete-orphan',
+                               order_by='QuestaoAula.ordem')
+
+    @property
+    def tem_video(self):
+        return (self.video_tipo == 'arquivo' and bool(self.video_arquivo)) or (self.video_tipo == 'youtube' and bool(self.youtube_id))
+
+
+class QuestaoAula(db.Model):
+    """Pergunta de múltipla escolha do teste da aula (gerada pela IA, pelo gerador automático ou escrita à mão)."""
+    __tablename__ = 'questao_aula'
+    id = db.Column(db.Integer, primary_key=True)
+    aula_id = db.Column(db.Integer, db.ForeignKey('aula_curso.id'), nullable=False, index=True)
+    ordem = db.Column(db.Integer, nullable=False, default=1)
+    enunciado = db.Column(TextoLongo, nullable=False)
+    alternativas = db.Column(TextoLongo, nullable=False)              # JSON: ["texto A", "texto B", ...]
+    correta = db.Column(db.Integer, nullable=False, default=0)       # índice da alternativa certa
+    explicacao = db.Column(TextoLongo, nullable=True)
+    origem = db.Column(db.String(12), nullable=True)                 # ia / automatica / manual
+    criado_em = db.Column(db.DateTime, default=datetime.now)
+
+    @property
+    def lista_alternativas(self):
+        import json
+        try:
+            valor = json.loads(self.alternativas or '[]')
+            return [str(v) for v in valor] if isinstance(valor, list) else []
+        except ValueError:
+            return []
+
+
+class ProgressoAula(db.Model):
+    """O andamento de um aluno numa aula: quanto do vídeo assistiu, se leu o texto, se abriu o material e o teste."""
+    __tablename__ = 'progresso_aula'
+    id = db.Column(db.Integer, primary_key=True)
+    acompanhamento_id = db.Column(db.Integer, db.ForeignKey('acompanhamento.id'), nullable=False, index=True)
+    aula_id = db.Column(db.Integer, db.ForeignKey('aula_curso.id'), nullable=False, index=True)
+    segundos_assistidos = db.Column(db.Integer, nullable=False, default=0)   # segundos distintos do vídeo
+    posicao_video = db.Column(db.Integer, nullable=False, default=0)         # onde parou (continuar de onde parei)
+    trechos_video = db.Column(TextoLongo, nullable=True)                     # JSON [[início, fim], ...] em segundos
+    video_concluido = db.Column(db.Boolean, nullable=False, default=False)
+    leitura_concluida = db.Column(db.Boolean, nullable=False, default=False)
+    material_aberto = db.Column(db.Boolean, nullable=False, default=False)
+    teste_nota = db.Column(db.Integer, nullable=True)                        # melhor nota (0-100)
+    teste_tentativas = db.Column(db.Integer, nullable=False, default=0)
+    teste_aprovado = db.Column(db.Boolean, nullable=False, default=False)
+    teste_respostas = db.Column(TextoLongo, nullable=True)                   # JSON da última tentativa
+    concluida_em = db.Column(db.DateTime, nullable=True)
+    atualizado_em = db.Column(db.DateTime, default=datetime.now, onupdate=datetime.now)
+    __table_args__ = (db.UniqueConstraint('acompanhamento_id', 'aula_id', name='uq_progresso_aula'),)
+
 # ---------------------------------------------------------------------------
 # 4. TABELA DE SESSÕES DE MENTORIA
 # ---------------------------------------------------------------------------

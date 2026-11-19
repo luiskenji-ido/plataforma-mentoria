@@ -84,6 +84,10 @@ def utility_processor():
 # =========================================================================
 # PROCESSADOR DE CONTEXTO GLOBAL PARA AS NOTIFICAÇÕES DO SINO (Q&A + FEEDBACK)
 # =========================================================================
+# Quem responde às dúvidas do Q&A do Acompanhamento e recebe o aviso no sino (só dos próprios alunos)
+PERFIS_DUVIDAS_ACOMPANHAMENTO = ['Professor']
+
+
 @app.context_processor
 def injetar_notificacoes_qa():
     if not current_user.is_authenticated:
@@ -100,9 +104,17 @@ def injetar_notificacoes_qa():
             QADuvida.lida_pelo_aluno == False,
             Acompanhamento.aluno_id == current_user.id
         ).all()
-    else:
+    elif current_user.tipo_usuario in PERFIS_DUVIDAS_ACOMPANHAMENTO:
+        # Dúvidas do Acompanhamento vão para o professor(a) do aluno (não para o mentor)
+        notifs_qa = QADuvida.query.join(Acompanhamento).join(Usuario, Acompanhamento.aluno_id == Usuario.id).filter(
+            QADuvida.lida_pelo_mentor == False,
+            Usuario.mentores.any(id=current_user.id)
+        ).all()
+    elif current_user.tipo_usuario in ['Administrador', 'Mentor Administrador', 'Admin B2B']:
         notifs_qa = QADuvida.query.filter_by(lida_pelo_mentor=False).all()
-        
+    else:
+        notifs_qa = []  # Mentor e demais perfis não recebem as dúvidas do Acompanhamento
+
     acomp_processados = set()
     for n in notifs_qa:
         if n.acompanhamento_id not in acomp_processados:
@@ -1091,6 +1103,608 @@ app.config['UPLOAD_FOLDER'] = os.path.join(app.root_path, 'uploads')
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 
 
+# ==============================================================================
+# CONTEÚDO DO CURSO DENTRO DA PLATAFORMA: aulas, vídeo, teste de conhecimento e progresso automático
+# (lógica em conteudo_curso.py; telas curso_conteudo.html e estudar_curso.html)
+# ==============================================================================
+import conteudo_curso
+
+PASTA_AULAS = os.path.join(app.config['UPLOAD_FOLDER'], 'aulas')
+EXTENSOES_VIDEO_AULA = {'mp4', 'm4v', 'webm', 'mov', 'ogv'}
+EXTENSOES_MATERIAL_AULA = {'pdf', 'docx', 'pptx', 'xlsx', 'doc', 'ppt', 'xls', 'txt', 'zip', 'png', 'jpg', 'jpeg'}
+PERFIS_GESTAO_CURSOS = ['Administrador', 'Mentor Administrador', 'Admin B2B']
+app.jinja_env.filters['texto_aula'] = conteudo_curso.texto_em_html
+
+
+def _caminho_aula(nome):
+    if not nome:
+        return None
+    caminho = os.path.realpath(os.path.join(PASTA_AULAS, nome))
+    return caminho if caminho.startswith(os.path.realpath(PASTA_AULAS) + os.sep) and os.path.isfile(caminho) else None
+
+
+def _apagar_arquivo_aula(nome):
+    caminho = _caminho_aula(nome)
+    if caminho:
+        try:
+            os.remove(caminho)
+        except OSError:
+            app.logger.warning("Não consegui apagar o arquivo da aula %s", caminho)
+
+
+def apagar_conteudo_do_curso(curso_id):
+    """Apaga aulas, perguntas, progresso dos alunos e os arquivos (vídeos e materiais) de um curso."""
+    from models import AulaCurso, QuestaoAula, ProgressoAula
+    aulas = AulaCurso.query.filter_by(curso_id=curso_id).all()
+    ids = [a.id for a in aulas]
+    if ids:
+        ProgressoAula.query.filter(ProgressoAula.aula_id.in_(ids)).delete(synchronize_session=False)
+        QuestaoAula.query.filter(QuestaoAula.aula_id.in_(ids)).delete(synchronize_session=False)
+    for aula in aulas:
+        _apagar_arquivo_aula(aula.video_arquivo)
+        _apagar_arquivo_aula(aula.material_arquivo)
+        db.session.delete(aula)
+
+
+def _salvar_arquivo_aula(arquivo, aula, prefixo, extensoes):
+    """Grava o arquivo enviado em uploads/aulas. Devolve (nome_salvo, tamanho) ou levanta ValueError (formato/vazio/grande)."""
+    extensao = arquivo.filename.rsplit('.', 1)[-1].lower() if '.' in (arquivo.filename or '') else ''
+    if extensao not in extensoes:
+        raise ValueError('formato')
+    os.makedirs(PASTA_AULAS, exist_ok=True)
+    nome_salvo = f"{prefixo}_{aula.curso_id}_{secrets.token_hex(8)}.{extensao}"
+    caminho = os.path.join(PASTA_AULAS, nome_salvo)
+    arquivo.save(caminho)
+    tamanho = os.path.getsize(caminho)
+    limite = int(regra('video_aula_limite_mb')) * 1024 * 1024
+    if tamanho == 0 or tamanho > limite:
+        os.remove(caminho)
+        raise ValueError('vazio' if tamanho == 0 else 'grande')
+    return nome_salvo, tamanho
+
+
+def _proxima_ordem(curso_id):
+    from models import AulaCurso
+    maior = db.session.query(db.func.max(AulaCurso.ordem)).filter(AulaCurso.curso_id == curso_id).scalar()
+    return (maior or 0) + 1
+
+
+def _reordenar(curso_id):
+    from models import AulaCurso
+    for n, aula in enumerate(AulaCurso.query.filter_by(curso_id=curso_id).order_by(AulaCurso.ordem, AulaCurso.id).all(), 1):
+        aula.ordem = n
+
+
+def _gravar_questoes(aula, questoes, origem, substituir=True):
+    from models import QuestaoAula
+    if substituir:
+        QuestaoAula.query.filter(QuestaoAula.aula_id == aula.id, QuestaoAula.origem != 'manual').delete(synchronize_session=False)
+    inicio = db.session.query(db.func.max(QuestaoAula.ordem)).filter(QuestaoAula.aula_id == aula.id).scalar() or 0
+    for n, q in enumerate(questoes, 1):
+        db.session.add(QuestaoAula(aula_id=aula.id, ordem=inicio + n, enunciado=q['enunciado'],
+                                   alternativas=json.dumps(q['alternativas'], ensure_ascii=False), correta=q['correta'],
+                                   explicacao=q.get('explicacao'), origem=origem))
+
+
+def _recalcular_alunos_do_curso(curso_id):
+    """Mudou o conteúdo (aula ou perguntas): o percentual de quem já estudava é refeito com a nova régua."""
+    for registro in Acompanhamento.query.filter_by(curso_id=curso_id).all():
+        conteudo_curso.recalcular_acompanhamento(registro)
+
+
+def _gerar_testes(aula_ids, usuario_id, usar_ia):
+    """Gera o teste de cada aula (IA ou automático). Devolve (pela_ia, automaticas, sem_texto, aviso)."""
+    from models import AulaCurso
+    quantidade = int(regra('aula_teste_questoes'))
+    ia = automaticas = vazias = 0
+    aviso = None
+    if usar_ia:
+        import credenciais_agentes
+        credenciais_agentes.carregar(app.config['SECRET_KEY'])
+    curso_id = None
+    for aula_id in aula_ids:
+        aula = db.session.get(AulaCurso, aula_id)
+        if not aula:
+            continue
+        curso_id = aula.curso_id
+        if not (aula.texto or '').strip():
+            vazias += 1
+            continue
+        questoes, origem, motivo = conteudo_curso.gerar_questoes(aula.titulo, aula.texto, quantidade,
+                                                                  usuario_id=usuario_id, usar_ia=usar_ia)
+        if motivo:
+            aviso = aviso or motivo
+            usar_ia = False  # a IA falhou (desligada, sem saldo): o resto vai pelo gerador automático, sem nova espera
+        if questoes:
+            _gravar_questoes(aula, questoes, origem)
+            if origem == 'ia':
+                ia += 1
+            else:
+                automaticas += 1
+        else:
+            vazias += 1
+        db.session.commit()
+    if curso_id:
+        _recalcular_alunos_do_curso(curso_id)
+        db.session.commit()
+    return ia, automaticas, vazias, aviso
+
+
+def _gerar_testes_em_segundo_plano(aula_ids, usuario_id):
+    import threading
+
+    def trabalho():
+        with app.app_context():
+            try:
+                ia, automaticas, vazias, _ = _gerar_testes(aula_ids, usuario_id, True)
+                usuario = db.session.get(Usuario, usuario_id)
+                if usuario:
+                    idioma = usuario.idioma or 'pt'
+                    notificar([usuario], tt('Testes das aulas prontos', idioma),
+                              tt('{ia} pela IA, {auto} pelo gerador automático e {vazias} sem texto para gerar perguntas.', idioma)
+                              .format(ia=ia, auto=automaticas, vazias=vazias), por_email=False)
+            except Exception as erro:
+                app.logger.warning("Geração dos testes das aulas falhou: %s", erro)
+            finally:
+                db.session.remove()
+    threading.Thread(target=trabalho, daemon=True).start()
+
+
+def _usa_ia(usuario):
+    """Contas de teste (@local.com) não consomem a IA: usam o gerador automático."""
+    import provedores_ia
+    return not eh_conta_de_teste(usuario) and provedores_ia.ativo('acompanhamento')
+
+
+def _id_do_formulario(nome):
+    valor = request.form.get(nome) or ''
+    return int(valor) if valor.isdigit() else 0
+
+
+@app.route('/admin/cursos/<int:id>/conteudo', methods=['GET', 'POST'])
+@login_required
+def conteudo_curso_admin(id):
+    """Gestão monta o curso: importa o documento (dividido em aulas), envia vídeos e materiais e revisa os testes."""
+    from models import AulaCurso, QuestaoAula, ProgressoAula
+    import base_conhecimento
+    idioma = current_user.idioma
+    if current_user.tipo_usuario not in PERFIS_GESTAO_CURSOS:
+        flash(tt('Acesso negado. Apenas a equipa de gestão pode aceder ao Hub Educacional.', idioma), 'danger')
+        return redirect(url_for('dashboard'))
+    curso = db.session.get(Curso, id)
+    if not curso:
+        flash(tt('Curso não encontrado.', idioma), 'danger')
+        return redirect(url_for('gerenciar_turmas'))
+
+    def voltar_tela(ancora=''):
+        return redirect(url_for('conteudo_curso_admin', id=curso.id) + ancora)
+
+    if request.method == 'POST':
+        acao = request.form.get('acao')
+
+        if acao == 'importar_documento':
+            arquivo = request.files.get('documento')
+            if not arquivo or not arquivo.filename:
+                flash(tt('Escolha o documento do curso.', idioma), 'warning')
+                return voltar_tela()
+            try:
+                texto = base_conhecimento.extrair_texto(arquivo.filename, arquivo.read())
+            except base_conhecimento.ErroDocumento as erro:
+                flash(tt(str(erro), idioma), 'warning')
+                return voltar_tela()
+            capitulos, metodo = conteudo_curso.dividir_em_capitulos(texto, os.path.splitext(arquivo.filename)[0])
+            if metodo == 'tamanho' and _usa_ia(current_user):
+                try:
+                    import credenciais_agentes
+                    credenciais_agentes.carregar(app.config['SECRET_KEY'])
+                    pela_ia = conteudo_curso.dividir_com_ia(texto, current_user.id)
+                    if pela_ia:
+                        capitulos, metodo = pela_ia, 'ia'
+                except Exception as erro:
+                    app.logger.info("A IA não dividiu o documento: %s", erro)
+            if request.form.get('modo') == 'substituir':
+                apagar_conteudo_do_curso(curso.id)
+                db.session.flush()
+            ordem = _proxima_ordem(curso.id)
+            novas = []
+            for n, (titulo, corpo) in enumerate(capitulos):
+                aula = AulaCurso(curso_id=curso.id, ordem=ordem + n, titulo=(titulo or f'Aula {ordem + n}')[:200],
+                                 texto=corpo or None, origem='documento')
+                db.session.add(aula)
+                novas.append(aula)
+            db.session.flush()
+            _recalcular_alunos_do_curso(curso.id)
+            db.session.commit()
+            como = {'titulos': 'pelos títulos do documento', 'palavras': 'pelos capítulos e aulas do texto',
+                    'numeracao': 'pela numeração dos títulos', 'ia': 'pela IA',
+                    'tamanho': 'em partes de tamanho parecido (o documento não tem títulos)'}[metodo]
+            flash(tt('Documento importado: {n} aula(s), divididas {como}.', idioma).format(n=len(novas), como=tt(como, idioma)), 'success')
+            if request.form.get('gerar_testes'):
+                ids = [a.id for a in novas]
+                if _usa_ia(current_user):
+                    _gerar_testes_em_segundo_plano(ids, current_user.id)
+                    flash(tt('A IA está escrevendo os testes das aulas: você recebe um aviso no sino quando terminar.', idioma), 'info')
+                else:
+                    _, automaticas, _, _ = _gerar_testes(ids, current_user.id, False)
+                    flash(tt('Testes gerados automaticamente em {n} aula(s). Revise as perguntas de cada aula.', idioma).format(n=automaticas), 'info')
+            return voltar_tela()
+
+        if acao == 'salvar_aula':
+            aula = db.session.get(AulaCurso, _id_do_formulario('aula_id')) if _id_do_formulario('aula_id') else None
+            if aula and aula.curso_id != curso.id:
+                return voltar_tela()
+            titulo = (request.form.get('titulo') or '').strip()
+            if not titulo:
+                flash(tt('Informe o título da aula.', idioma), 'warning')
+                return voltar_tela()
+            if aula is None:
+                aula = AulaCurso(curso_id=curso.id, ordem=_proxima_ordem(curso.id), origem='manual')
+                db.session.add(aula)
+            aula.titulo = titulo[:200]
+            aula.texto = (request.form.get('texto') or '').strip() or None
+            if request.form.get('remover_video'):
+                if aula.video_tipo == 'arquivo':
+                    _apagar_arquivo_aula(aula.video_arquivo)
+                aula.video_tipo = aula.video_arquivo = aula.video_nome = aula.video_tamanho = aula.youtube_id = aula.video_duracao = None
+            db.session.flush()
+            video = request.files.get('video')
+            youtube = (request.form.get('youtube') or '').strip()
+            if video and video.filename:
+                try:
+                    nome_salvo, tamanho = _salvar_arquivo_aula(video, aula, 'video', EXTENSOES_VIDEO_AULA)
+                except ValueError as erro:
+                    db.session.rollback()
+                    flash({'formato': tt('Formato de vídeo não aceito. Envie MP4, WEBM, MOV ou M4V.', idioma),
+                           'vazio': tt('O arquivo está vazio.', idioma)}.get(str(erro)) or
+                          tt('O arquivo passa do limite de {mb} MB.', idioma).format(mb=int(regra('video_aula_limite_mb'))), 'warning')
+                    return voltar_tela()
+                if aula.video_tipo == 'arquivo':
+                    _apagar_arquivo_aula(aula.video_arquivo)
+                aula.video_tipo, aula.video_arquivo, aula.video_tamanho = 'arquivo', nome_salvo, tamanho
+                aula.video_nome, aula.youtube_id, aula.video_duracao = (secure_filename(video.filename) or nome_salvo)[:255], None, None
+            elif youtube:
+                codigo = conteudo_curso.extrair_youtube_id(youtube)
+                if not codigo:
+                    db.session.rollback()
+                    flash(tt('Não reconheci o link do YouTube. Cole o endereço do vídeo (youtube.com/watch?v=… ou youtu.be/…).', idioma), 'warning')
+                    return voltar_tela()
+                if codigo != aula.youtube_id:
+                    if aula.video_tipo == 'arquivo':
+                        _apagar_arquivo_aula(aula.video_arquivo)
+                    aula.video_tipo, aula.youtube_id, aula.video_duracao = 'youtube', codigo, None
+                    aula.video_arquivo = aula.video_nome = aula.video_tamanho = None
+            if request.form.get('remover_material'):
+                _apagar_arquivo_aula(aula.material_arquivo)
+                aula.material_arquivo = aula.material_nome = None
+            material = request.files.get('material')
+            if material and material.filename:
+                try:
+                    nome_salvo, _ = _salvar_arquivo_aula(material, aula, 'material', EXTENSOES_MATERIAL_AULA)
+                except ValueError:
+                    db.session.rollback()
+                    flash(tt('Material não aceito: envie PDF, Word, PowerPoint, Excel, imagem, TXT ou ZIP dentro do limite.', idioma), 'warning')
+                    return voltar_tela()
+                _apagar_arquivo_aula(aula.material_arquivo)
+                aula.material_arquivo, aula.material_nome = nome_salvo, (secure_filename(material.filename) or nome_salvo)[:255]
+            db.session.flush()
+            _recalcular_alunos_do_curso(curso.id)
+            db.session.commit()
+            flash(tt('Aula salva.', idioma), 'success')
+            return voltar_tela(f'#aula{aula.id}')
+
+        if acao == 'excluir_aula':
+            aula = db.session.get(AulaCurso, _id_do_formulario('aula_id'))
+            if aula and aula.curso_id == curso.id:
+                ProgressoAula.query.filter_by(aula_id=aula.id).delete(synchronize_session=False)
+                _apagar_arquivo_aula(aula.video_arquivo)
+                _apagar_arquivo_aula(aula.material_arquivo)
+                db.session.delete(aula)
+                db.session.flush()
+                _reordenar(curso.id)
+                _recalcular_alunos_do_curso(curso.id)
+                db.session.commit()
+                flash(tt('Aula excluída.', idioma), 'info')
+            return voltar_tela()
+
+        if acao == 'mover_aula':
+            aula = db.session.get(AulaCurso, _id_do_formulario('aula_id'))
+            if aula and aula.curso_id == curso.id:
+                _reordenar(curso.id)
+                lista = AulaCurso.query.filter_by(curso_id=curso.id).order_by(AulaCurso.ordem).all()
+                posicao = lista.index(aula)
+                vizinha = posicao - 1 if request.form.get('direcao') == 'subir' else posicao + 1
+                if 0 <= vizinha < len(lista):
+                    aula.ordem, lista[vizinha].ordem = lista[vizinha].ordem, aula.ordem
+                db.session.commit()
+                return voltar_tela(f'#aula{aula.id}')
+            return voltar_tela()
+
+        if acao in ('gerar_teste', 'gerar_testes_faltando'):
+            if acao == 'gerar_teste':
+                aula = db.session.get(AulaCurso, _id_do_formulario('aula_id'))
+                ids = [aula.id] if aula and aula.curso_id == curso.id else []
+            else:
+                com_teste = {q.aula_id for q in QuestaoAula.query.join(AulaCurso).filter(AulaCurso.curso_id == curso.id).all()}
+                ids = [a.id for a in AulaCurso.query.filter_by(curso_id=curso.id).order_by(AulaCurso.ordem).all() if a.id not in com_teste]
+            if not ids:
+                flash(tt('Todas as aulas já têm teste.', idioma), 'info')
+                return voltar_tela()
+            if _usa_ia(current_user) and len(ids) > 3:
+                _gerar_testes_em_segundo_plano(ids, current_user.id)
+                flash(tt('A IA está escrevendo os testes das aulas: você recebe um aviso no sino quando terminar.', idioma), 'info')
+                return voltar_tela()
+            ia, automaticas, vazias, _ = _gerar_testes(ids, current_user.id, _usa_ia(current_user))
+            if ia or automaticas:
+                flash(tt('Teste gerado: {ia} aula(s) pela IA e {auto} pelo gerador automático. Revise as perguntas.', idioma)
+                      .format(ia=ia, auto=automaticas), 'success')
+            if vazias:
+                flash(tt('{n} aula(s) sem texto suficiente para gerar perguntas: escreva um resumo do vídeo no texto da aula ou crie as perguntas à mão.', idioma)
+                      .format(n=vazias), 'warning')
+            return voltar_tela(f'#aula{ids[0]}' if len(ids) == 1 else '')
+
+        if acao == 'salvar_questao':
+            aula = db.session.get(AulaCurso, _id_do_formulario('aula_id'))
+            if not aula or aula.curso_id != curso.id:
+                return voltar_tela()
+            alternativas = [(request.form.get(f'alternativa_{n}') or '').strip() for n in range(6)]
+            preenchidas = [n for n, a in enumerate(alternativas) if a]
+            correta = _id_do_formulario('correta')
+            enunciado = (request.form.get('enunciado') or '').strip()
+            if not enunciado or len(preenchidas) < 2 or correta not in preenchidas:
+                flash(tt('A pergunta precisa de enunciado, pelo menos duas alternativas e a alternativa certa marcada.', idioma), 'warning')
+                return voltar_tela(f'#aula{aula.id}')
+            questao = db.session.get(QuestaoAula, _id_do_formulario('questao_id')) if _id_do_formulario('questao_id') else None
+            if questao and questao.aula_id != aula.id:
+                return voltar_tela()
+            if questao is None:
+                ordem = (db.session.query(db.func.max(QuestaoAula.ordem)).filter(QuestaoAula.aula_id == aula.id).scalar() or 0) + 1
+                questao = QuestaoAula(aula_id=aula.id, ordem=ordem)
+                db.session.add(questao)
+            questao.enunciado = enunciado[:2000]
+            questao.alternativas = json.dumps([alternativas[n][:500] for n in preenchidas], ensure_ascii=False)
+            questao.correta = preenchidas.index(correta)
+            questao.explicacao = (request.form.get('explicacao') or '').strip() or None
+            questao.origem = 'manual'
+            db.session.flush()
+            _recalcular_alunos_do_curso(curso.id)
+            db.session.commit()
+            flash(tt('Pergunta salva.', idioma), 'success')
+            return voltar_tela(f'#aula{aula.id}')
+
+        if acao == 'excluir_questao':
+            questao = db.session.get(QuestaoAula, _id_do_formulario('questao_id'))
+            if questao and questao.aula.curso_id == curso.id:
+                aula_id = questao.aula_id
+                db.session.delete(questao)
+                db.session.flush()
+                _recalcular_alunos_do_curso(curso.id)
+                db.session.commit()
+                flash(tt('Pergunta excluída.', idioma), 'info')
+                return voltar_tela(f'#aula{aula_id}')
+            return voltar_tela()
+
+        return voltar_tela()
+
+    aulas = AulaCurso.query.filter_by(curso_id=curso.id).order_by(AulaCurso.ordem, AulaCurso.id).all()
+    return render_template('curso_conteudo.html', curso=curso, aulas=aulas,
+                           matriculas=Acompanhamento.query.filter_by(curso_id=curso.id).count(),
+                           limite_video_mb=int(regra('video_aula_limite_mb')), usa_ia=_usa_ia(current_user),
+                           questoes_por_teste=int(regra('aula_teste_questoes')))
+
+
+app.config.setdefault('LIMITES_UPLOAD_ROTA', {})['conteudo_curso_admin'] = lambda: regra('video_aula_limite_mb')
+
+
+def _pode_ver_aulas(usuario, curso_id):
+    """Gestão e mentores veem as aulas (prévia); o aluno só as do curso em que está matriculado e ativo."""
+    if usuario.tipo_usuario != 'Aluno':
+        return True
+    return Acompanhamento.query.filter(Acompanhamento.aluno_id == usuario.id, Acompanhamento.curso_id == curso_id,
+                                       Acompanhamento.status != 'Desativado').first() is not None
+
+
+def _acompanhamento_visivel(acomp_id):
+    """O acompanhamento, se o usuário puder abri-lo: o próprio aluno, seus mentores ou a gestão."""
+    registro = db.session.get(Acompanhamento, acomp_id)
+    if not registro:
+        return None
+    if current_user.tipo_usuario == 'Aluno':
+        return registro if registro.aluno_id == current_user.id and registro.status != 'Desativado' else None
+    if current_user.tipo_usuario in ('Mentor', 'Professor'):
+        aluno = db.session.get(Usuario, registro.aluno_id)
+        return registro if aluno and aluno.mentores.filter_by(id=current_user.id).first() else None
+    return registro
+
+
+@app.route('/cursos/aula/<int:aula_id>/<tipo>')
+@login_required
+def midia_aula(aula_id, tipo):
+    """Vídeo (tocado na página, sem link de download) e material de apoio da aula, só para quem pode ver o curso."""
+    import mimetypes
+    from models import AulaCurso
+    aula = db.session.get(AulaCurso, aula_id)
+    if not aula or tipo not in ('video', 'material') or not _pode_ver_aulas(current_user, aula.curso_id):
+        return ('', 404)
+    caminho = _caminho_aula(aula.video_arquivo if tipo == 'video' else aula.material_arquivo)
+    if not caminho:
+        return ('', 404)
+    if tipo == 'material':
+        if current_user.tipo_usuario == 'Aluno':
+            registro = Acompanhamento.query.filter(Acompanhamento.aluno_id == current_user.id, Acompanhamento.curso_id == aula.curso_id,
+                                                   Acompanhamento.status != 'Desativado').first()
+            if registro:
+                progresso = conteudo_curso.obter_progresso(registro.id, aula.id)
+                if not progresso.material_aberto:
+                    progresso.material_aberto = True
+                    conteudo_curso.fechar_aula_se_concluida(aula, progresso)
+                    _, concluiu = conteudo_curso.recalcular_acompanhamento(registro)
+                    db.session.commit()
+                    if concluiu:
+                        _avisar_conclusao(registro)
+        return send_file(caminho, as_attachment=True, download_name=aula.material_nome or os.path.basename(caminho))
+    resposta = send_file(caminho, mimetype=mimetypes.guess_type(caminho)[0] or 'video/mp4', conditional=True)
+    resposta.headers['Content-Disposition'] = 'inline'
+    resposta.headers['Cache-Control'] = 'private, no-store'
+    return resposta
+
+
+@app.route('/meus-cursos/<int:acomp_id>')
+@login_required
+def estudar_curso(acomp_id):
+    """Sala de estudo: lista de aulas com o andamento, o conteúdo da aula escolhida e o teste de conhecimento."""
+    from models import QuestaoAula
+    registro = _acompanhamento_visivel(acomp_id)
+    if not registro:
+        flash(tt('Acesso negado.', current_user.idioma), 'danger')
+        return redirect(url_for('acompanhamento'))
+    curso = db.session.get(Curso, registro.curso_id)
+    itens, percentual = conteudo_curso.mapa_do_curso(registro)
+    if not itens:
+        flash(tt('Este curso ainda não tem aulas na plataforma.', current_user.idioma), 'info')
+        return redirect(url_for('acompanhamento'))
+    escolhida = request.args.get('aula', type=int)
+    atual = next((i for i in itens if i['aula'].id == escolhida), None)
+    if atual is None:  # continuar de onde parou: a primeira aula ainda não concluída
+        atual = next((i for i in itens if i['situacao']['partes'] and not i['situacao']['concluida']), itens[0])
+    posicao = itens.index(atual)
+    ver = request.args.get('ver') or 'conteudo'
+    if ver not in ('conteudo', 'teste') or (ver == 'teste' and not atual['questoes']):
+        ver = 'conteudo'
+    questoes = QuestaoAula.query.filter_by(aula_id=atual['aula'].id).order_by(QuestaoAula.ordem, QuestaoAula.id).all()
+    progresso = atual['progresso']
+    resultado = None
+    if ver == 'teste' and request.args.get('resultado') and progresso and progresso.teste_respostas:
+        try:
+            respostas = {int(k): v for k, v in json.loads(progresso.teste_respostas).items()}
+        except (ValueError, AttributeError):
+            respostas = {}
+        nota, detalhes = conteudo_curso.corrigir_teste(questoes, respostas)
+        resultado = {'nota': nota, 'detalhes': detalhes}
+    eh_aluno = current_user.tipo_usuario == 'Aluno' and registro.aluno_id == current_user.id
+    if eh_aluno and ver == 'conteudo':
+        session[f'leitura_{registro.id}_{atual["aula"].id}'] = datetime.now().timestamp()
+    return render_template('estudar_curso.html', registro=registro, curso=curso, itens=itens, atual=atual, ver=ver,
+                           anterior=itens[posicao - 1] if posicao > 0 else None,
+                           proxima=itens[posicao + 1] if posicao + 1 < len(itens) else None,
+                           questoes=questoes, resultado=resultado, percentual=percentual,
+                           concluidas=sum(1 for i in itens if i['situacao']['concluida']),
+                           eh_aluno=eh_aluno, aluno=db.session.get(Usuario, registro.aluno_id),
+                           nota_minima=int(regra('aula_teste_nota_minima')),
+                           video_minimo=int(regra('aula_video_percentual_minimo')),
+                           segundos_leitura=conteudo_curso.segundos_de_leitura(atual['aula'].texto),
+                           trechos=json.loads(progresso.trechos_video) if progresso and progresso.trechos_video else [])
+
+
+def _juntar_trechos(trechos):
+    juntos = []
+    for a, b in sorted([a, b] for a, b in trechos if b > a):
+        if juntos and a <= juntos[-1][1] + 1:
+            juntos[-1][1] = max(juntos[-1][1], b)
+        else:
+            juntos.append([a, b])
+    return juntos
+
+
+def _avisar_conclusao(registro):
+    """Avisa o professor(a) do aluno quando ele termina todas as aulas e testes do curso (o Acompanhamento é do professor)."""
+    aluno = db.session.get(Usuario, registro.aluno_id)
+    curso = db.session.get(Curso, registro.curso_id)
+    if not aluno or not curso:
+        return
+    for mentor in [u for u in aluno.mentores.all() if u.tipo_usuario in PERFIS_DUVIDAS_ACOMPANHAMENTO]:
+        idioma = mentor.idioma or 'pt'
+        notificar([mentor], tt('Curso concluído pelas aulas', idioma),
+                  tt('{aluno} concluiu todas as aulas e testes do curso {curso}.', idioma).format(aluno=aluno.nome, curso=curso.nome_curso),
+                  link=url_for('acompanhamento'), referencia=f'curso-concluido:{registro.id}', por_email=not eh_conta_de_teste(aluno))
+
+
+def _registro_do_aluno(acomp_id, aula_id):
+    from models import AulaCurso
+    registro = db.session.get(Acompanhamento, acomp_id)
+    aula = db.session.get(AulaCurso, aula_id)
+    if not registro or not aula or registro.aluno_id != current_user.id or aula.curso_id != registro.curso_id \
+            or registro.status == 'Desativado':
+        return None, None
+    return registro, aula
+
+
+@app.route('/meus-cursos/<int:acomp_id>/aula/<int:aula_id>/progresso', methods=['POST'])
+@login_required
+def progresso_aula(acomp_id, aula_id):
+    """O player avisa o andamento: trechos do vídeo realmente assistidos ou a leitura do texto até o fim."""
+    registro, aula = _registro_do_aluno(acomp_id, aula_id)
+    if not registro:
+        return jsonify({'ok': False}), 403
+    dados = request.get_json(silent=True) or {}
+    progresso = conteudo_curso.obter_progresso(registro.id, aula.id)
+    evento = dados.get('evento')
+    if evento == 'video' and aula.tem_video:
+        try:
+            duracao = int(float(dados.get('duracao') or 0))
+            posicao = int(float(dados.get('posicao') or 0))
+            novos = [[int(float(a)), int(float(b))] for a, b in (dados.get('trechos') or [])[:500]]
+        except (TypeError, ValueError):
+            return jsonify({'ok': False}), 400
+        if duracao > 0 and (not aula.video_duracao or abs(aula.video_duracao - duracao) > 2):
+            aula.video_duracao = duracao
+        limite = aula.video_duracao or duracao
+        antigos = json.loads(progresso.trechos_video) if progresso.trechos_video else []
+        juntos = _juntar_trechos(antigos + [[max(0, a), min(b, limite) if limite else b] for a, b in novos])
+        progresso.trechos_video = json.dumps(juntos)
+        progresso.segundos_assistidos = sum(b - a for a, b in juntos)
+        progresso.posicao_video = max(0, min(posicao, limite) if limite else posicao)
+        if limite and progresso.segundos_assistidos >= limite * int(regra('aula_video_percentual_minimo')) / 100:
+            progresso.video_concluido = True
+    elif evento == 'leitura' and (aula.texto or '').strip():
+        aberta_em = session.get(f'leitura_{registro.id}_{aula.id}')
+        if not aberta_em or datetime.now().timestamp() - aberta_em < conteudo_curso.segundos_de_leitura(aula.texto) - 2:
+            return jsonify({'ok': False, 'motivo': 'cedo'}), 409
+        progresso.leitura_concluida = True
+    else:
+        return jsonify({'ok': False}), 400
+    situacao = conteudo_curso.fechar_aula_se_concluida(aula, progresso)
+    percentual, concluiu = conteudo_curso.recalcular_acompanhamento(registro)
+    db.session.commit()
+    if concluiu:
+        _avisar_conclusao(registro)
+    return jsonify({'ok': True, 'percentual': percentual, 'concluida': situacao['concluida'],
+                    'video_concluido': progresso.video_concluido, 'leitura_concluida': progresso.leitura_concluida,
+                    'assistidos': progresso.segundos_assistidos, 'duracao': aula.video_duracao})
+
+
+@app.route('/meus-cursos/<int:acomp_id>/aula/<int:aula_id>/teste', methods=['POST'])
+@login_required
+def teste_aula(acomp_id, aula_id):
+    """Corrige o teste de conhecimento da aula; vale a melhor nota e o aluno pode refazer."""
+    from models import QuestaoAula
+    registro, aula = _registro_do_aluno(acomp_id, aula_id)
+    if not registro:
+        flash(tt('Acesso negado.', current_user.idioma), 'danger')
+        return redirect(url_for('acompanhamento'))
+    questoes = QuestaoAula.query.filter_by(aula_id=aula.id).order_by(QuestaoAula.ordem, QuestaoAula.id).all()
+    respostas = {}
+    for questao in questoes:
+        valor = request.form.get(f'q{questao.id}') or ''
+        if valor.isdigit():
+            respostas[questao.id] = int(valor)
+    if not questoes or len(respostas) < len(questoes):
+        flash(tt('Responda todas as perguntas antes de enviar.', current_user.idioma), 'warning')
+        return redirect(url_for('estudar_curso', acomp_id=registro.id, aula=aula.id, ver='teste'))
+    nota, _ = conteudo_curso.corrigir_teste(questoes, respostas)
+    progresso = conteudo_curso.obter_progresso(registro.id, aula.id)
+    progresso.teste_tentativas = (progresso.teste_tentativas or 0) + 1
+    progresso.teste_nota = max(progresso.teste_nota or 0, nota)
+    progresso.teste_respostas = json.dumps({str(k): v for k, v in respostas.items()})
+    if nota >= int(regra('aula_teste_nota_minima')):
+        progresso.teste_aprovado = True
+    conteudo_curso.fechar_aula_se_concluida(aula, progresso)
+    _, concluiu = conteudo_curso.recalcular_acompanhamento(registro)
+    db.session.commit()
+    if concluiu:
+        _avisar_conclusao(registro)
+    return redirect(url_for('estudar_curso', acomp_id=registro.id, aula=aula.id, ver='teste', resultado=1))
+
+
 # ---------------------------------------------------------
 # Rota de Acompanhamento de Estudos
 # ---------------------------------------------------------
@@ -1138,7 +1752,7 @@ def acompanhamento():
                 registro.observacao = request.form.get('observacao')
                 registro.data_parecer_mentor = datetime.now()
                 db.session.commit()
-                flash('Parecer oficial do mentor atualizado!', 'success')
+                flash(tt('Parecer oficial do professor(a) atualizado!', current_user.idioma), 'success')
             return redirect(url_for('acompanhamento'))
 
         acompanhamento_id = request.form.get('acompanhamento_id')
@@ -1203,7 +1817,12 @@ def acompanhamento():
                 tem_arquivo_novo = (arquivo is not None and arquivo.filename != '')
                 ja_tem_certificado_salvo = getattr(regstro, 'certificado_anexado', False) or getattr(regstro, 'certificado', False)
                 
-                if (percentual == 100 or status == 'Finalizado') and exige_certificado and not (ja_tem_certificado_salvo or tem_arquivo_novo):
+                # Curso com aulas na plataforma: o progresso é automático (aulas assistidas e testes), não vem do formulário
+                progresso_automatico = conteudo_curso.curso_tem_conteudo(curso.id)
+                if progresso_automatico:
+                    percentual = conteudo_curso.recalcular_acompanhamento(regstro)[0]
+
+                if ((percentual == 100 and not progresso_automatico) or status == 'Finalizado') and exige_certificado and not (ja_tem_certificado_salvo or tem_arquivo_novo):
                     flash("Atenção: Este curso exige certificado para ser finalizado. Faça o upload do arquivo para concluir.", "danger")
                     return redirect(url_for('acompanhamento'))
                 
@@ -1211,7 +1830,7 @@ def acompanhamento():
                     flash("Atenção: Você não pode marcar o status como 'Finalizado' sem ter 100% de progresso.", "warning")
                     return redirect(url_for('acompanhamento'))
                 
-                if percentual == 100:
+                if percentual == 100 and (not exige_certificado or ja_tem_certificado_salvo or tem_arquivo_novo):
                     status = 'Finalizado'
                 
                 if tem_arquivo_novo:
@@ -1338,11 +1957,10 @@ def acompanhamento():
                                 )
                             except Exception:
                                 pass
-                                
-                regstro.planejamento_estudos = "|".join(horarios_salvos.values()) if horarios_salvos else None
-                    
-                if tentou_passado:
-                    flash("⚠️ Datas antigas protegidas. Não é possível alterar horários do passado na agenda.", "warning")
+
+                    regstro.planejamento_estudos = "|".join(horarios_salvos.values()) if horarios_salvos else None
+                    if tentou_passado:
+                        flash("⚠️ Datas antigas protegidas. Não é possível alterar horários do passado na agenda.", "warning")
 
             db.session.commit()
             flash("Acompanhamento atualizado com sucesso!", "success")
@@ -1383,6 +2001,8 @@ def acompanhamento():
     else:
         registros = Acompanhamento.query.order_by(Acompanhamento.id.desc()).all()
 
+    from models import AulaCurso
+    cursos_com_aulas = {c for (c,) in db.session.query(AulaCurso.curso_id).distinct().all()}
     detalhes = []
     for r in registros:
 
@@ -1409,7 +2029,8 @@ def acompanhamento():
         min_restantes = minutos_estudo % 60
         tempo_formatado = f"{horas_estudo}h {min_restantes}m" if horas_estudo > 0 else f"{min_restantes}m"
 
-        detalhes.append({'reg': r, 'aluno': aluno, 'curso': curso, 'qtd_sessoes': qtd_sessoes, 'tempo_estudo': tempo_formatado})
+        detalhes.append({'reg': r, 'aluno': aluno, 'curso': curso, 'qtd_sessoes': qtd_sessoes, 'tempo_estudo': tempo_formatado,
+                         'tem_aulas': r.curso_id in cursos_com_aulas})
         
     if current_user.tipo_usuario in ['Mentor', 'Professor']:
         lista_alunos = Usuario.query.filter(Usuario.tipo_usuario == 'Aluno', Usuario.mentores.any(id=current_user.id)).all()
@@ -2151,6 +2772,11 @@ def deletar_curso(id):
     
     curso = db.session.get(Curso, id)
     if curso:
+        # Presenças apontam para o curso: o histórico não pode sumir (antes dava erro 500)
+        if CheckinAula.query.filter_by(curso_id=curso.id).first():
+            flash(tt('Este curso já tem presenças registradas e não pode ser excluído. Desative o curso em vez de excluir.', current_user.idioma), "warning")
+            return redirect(url_for('gerenciar_turmas'))
+        apagar_conteudo_do_curso(curso.id)
         db.session.delete(curso)
         db.session.commit()
         flash("Curso excluído com sucesso!", "success")
@@ -2903,7 +3529,7 @@ def gravacao_reuniao(id):
     return voltar_reuniao
 
 
-app.config['LIMITES_UPLOAD_ROTA'] = {'gravacao_reuniao': lambda: regra('gravacao_reuniao_limite_mb')}
+app.config.setdefault('LIMITES_UPLOAD_ROTA', {})['gravacao_reuniao'] = lambda: regra('gravacao_reuniao_limite_mb')
 
 
 @app.errorhandler(413)
@@ -5263,6 +5889,10 @@ def manutencao_banco():
                 FeedbackSessao.query.delete()
                 SessaoMentoria.query.delete()
                 HistoricoProgresso.query.delete()
+                from models import ProgressoAula, QuestaoAula, AulaCurso
+                ProgressoAula.query.delete()
+                QuestaoAula.query.delete()
+                AulaCurso.query.delete()
                 Acompanhamento.query.delete()
                 HistoricoSenha.query.filter(HistoricoSenha.usuario_id != current_user.id).delete()
                 SegurancaUsuario.query.filter(SegurancaUsuario.usuario_id != current_user.id).delete()
@@ -6562,7 +7192,10 @@ def gerenciar_turmas():
     # ------------------------------------------------------
 
     # 2. Enviar tudo para o HTML
+    from models import AulaCurso
+    aulas_por_curso = dict(db.session.query(AulaCurso.curso_id, db.func.count(AulaCurso.id)).group_by(AulaCurso.curso_id).all())
     return render_template('admin_turmas.html', 
+                           aulas_por_curso=aulas_por_curso,
                            cursos=cursos, 
                            empresas=empresas,
                            grupos=grupos,

@@ -880,3 +880,113 @@ class EtapasCobertura:
         if not (self.contexto["ids"].get("ciclo") and gestor_inst):
             return False
         return self.avaliar("Gestor {apelido}", gestor_inst["id"], notas, comentario)
+
+    # ------------------------------------------------------------------ Conteúdo do curso: aulas, testes e progresso automático
+    APOSTILA = (b"# Apostila de Python\n\n## Aula 1 - Variaveis e tipos\nVariaveis guardam valores na memoria do computador durante a execucao. "
+                b"O tipo inteiro representa numeros sem casas decimais no programa. Textos ficam em variaveis do tipo string entre aspas.\n\n"
+                b"## Aula 2 - Estruturas de repeticao\nO comando while repete instrucoes enquanto a condicao continuar verdadeira. "
+                b"O comando for percorre cada elemento de uma lista ou sequencia. Interromper o laco antecipadamente exige o comando break.\n\n"
+                b"## Aula 3 - Funcoes\nFuncoes agrupam instrucoes reutilizaveis com um nome descritivo. Parametros recebem valores enviados "
+                b"pela chamada da funcao. O comando return devolve o resultado calculado para quem chamou.\n")
+
+    def conteudo_do_curso(self, curso_id):
+        """Gestão monta o curso na plataforma: apostila dividida em aulas, teste gerado, vídeo do YouTube, pergunta manual."""
+        m = _m()
+        self.etapa("Conteúdo do curso: apostila dividida em aulas e testes de conhecimento")
+        base = f"/admin/cursos/{curso_id}/conteudo"
+        self.post(base, {"acao": "importar_documento", "modo": "acrescentar", "gerar_testes": "1"},
+                  {"documento": ("apostila-funcional.md", self.APOSTILA)})
+        aulas = self.banco(lambda: [(a.id, a.titulo, a.questoes.count()) for a in
+                                    m.AulaCurso.query.filter_by(curso_id=curso_id).order_by(m.AulaCurso.ordem).all()])
+        self.confere(len(aulas) == 3 and all(n >= 1 for _, _, n in aulas), "Apostila vira aulas com teste de conhecimento", "FLX",
+                     f"{len(aulas)} aulas: " + "; ".join(f"{t} ({n} pergunta(s))" for _, t, n in aulas),
+                     f"Aulas criadas: {aulas}.", "O documento é dividido em capítulos e cada aula ganha o teste", "Alta", print_de=base)
+        self.post(base, {"acao": "salvar_aula", "titulo": f"{MARCA} Aula em video"}, {"video": ("programa.exe", b"MZ\x90\x00 disfarcado")})
+        exe = self.banco(lambda: m.AulaCurso.query.filter_by(curso_id=curso_id, titulo=f"{MARCA} Aula em video").first())
+        self.post(base, {"acao": "salvar_aula", "titulo": f"{MARCA} Aula em video", "youtube": "https://www.youtube.com/watch?v=dQw4w9WgXcQ"})
+        video = self.banco(lambda: m.AulaCurso.query.filter_by(curso_id=curso_id, titulo=f"{MARCA} Aula em video").first())
+        if video:
+            self.post(base, {"acao": "salvar_questao", "aula_id": video.id, "enunciado": f"{MARCA} Sobre o que fala o video?",
+                             "alternativa_0": "Python", "alternativa_1": "Culinaria", "correta": "0"})
+            self.post(base, {"acao": "mover_aula", "aula_id": video.id, "direcao": "subir"})
+        dados = self.banco(lambda: (lambda a: (a.youtube_id, a.questoes.count(), a.ordem))(m.AulaCurso.query.get(video.id))) if video else None
+        self.confere(exe is None and dados and dados[0] == "dQw4w9WgXcQ" and dados[1] == 1 and dados[2] == 3,
+                     "Aula com vídeo do YouTube e pergunta escrita à mão", "FLX", "Executável recusado; vídeo, pergunta e nova ordem gravados.",
+                     f"Executável aceito: {exe is not None}; vídeo/perguntas/ordem: {dados}.", "Gestão monta a aula em vídeo e revisa o teste", "Alta")
+        self.post(base, {"acao": "salvar_aula", "titulo": f"{MARCA} Aula descartada"})
+        extra = self.banco(lambda: m.AulaCurso.query.filter_by(curso_id=curso_id, titulo=f"{MARCA} Aula descartada").first())
+        if extra:
+            self.post(base, {"acao": "excluir_aula", "aula_id": extra.id})
+        sobrou = self.banco(lambda: m.AulaCurso.query.filter_by(curso_id=curso_id, titulo=f"{MARCA} Aula descartada").count())
+        self.confere(extra is not None and sobrou == 0, "Gestão exclui uma aula", "FLX", "Aula criada e excluída.",
+                     f"Criada: {extra is not None}; sobrou: {sobrou}.", "Gestão remove aulas do curso", "Baixa")
+        self.contexto["ids"]["curso_com_aulas"] = curso_id
+
+    def estudo_do_curso(self):
+        """Aluno estuda dentro da plataforma: o vídeo e a leitura contam sozinhos, o teste aprova a aula e o percentual sobe."""
+        import time
+        import conteudo_curso
+        m = _m()
+        curso_id, eu = self.contexto["ids"].get("curso_com_aulas"), self.usuario("aluno1")
+        if not (curso_id and eu):
+            return
+        acomp = self.banco(lambda: m.Acompanhamento.query.filter_by(aluno_id=eu["id"], curso_id=curso_id).first())
+        if not acomp:
+            self.registrar("Aluno sem matrícula no curso com aulas", FALHA, "FLX", "A turma não matriculou o aluno no curso com aulas.",
+                           "Matrícula pela turma cria o acompanhamento", "Média")
+            return
+        self.etapa("Estudo dentro da plataforma: progresso automático")
+        aulas = self.banco(lambda: [(a.id, a.video_tipo, a.texto) for a in
+                                    m.AulaCurso.query.filter_by(curso_id=curso_id).order_by(m.AulaCurso.ordem).all()])
+        status, _, pagina = self.cliente.pedir("GET", f"/meus-cursos/{acomp.id}")
+        self.confere(status == 200 and "Teste seus conhecimentos" in pagina, "Aluno abre a sala de estudo do curso", "FLX",
+                     "Aulas listadas com o teste.", f"HTTP {status}.", "O aluno estuda dentro da plataforma", "Alta",
+                     print_de=f"/meus-cursos/{acomp.id}")
+        texto = next((a for a in aulas if a[1] is None and a[2]), None)
+        video = next((a for a in aulas if a[1] == "youtube"), None)
+        if texto:
+            self.cliente.pedir("GET", f"/meus-cursos/{acomp.id}?aula={texto[0]}")
+            cedo, _, _ = self.cliente.pedir("POST", f"/meus-cursos/{acomp.id}/aula/{texto[0]}/progresso", json_corpo={"evento": "leitura"})
+            time.sleep(conteudo_curso.segundos_de_leitura(texto[2]) + 1)
+            self.post_json(f"/meus-cursos/{acomp.id}/aula/{texto[0]}/progresso", {"evento": "leitura"})
+            lida = self.banco(lambda: bool((m.ProgressoAula.query.filter_by(acompanhamento_id=acomp.id, aula_id=texto[0]).first()
+                                            or m.ProgressoAula()).leitura_concluida))
+            self.confere(cedo == 409 and lida, "Leitura conta só depois do tempo mínimo", "REG",
+                         "Leitura recusada logo ao abrir e aceita depois do tempo mínimo.",
+                         f"Resposta ao abrir: HTTP {cedo}; leitura gravada: {lida}.", "Progresso da leitura não é marcado sem ler", "Média")
+            questoes = self.banco(lambda: [(q.id, q.correta, len(q.lista_alternativas)) for q in m.QuestaoAula.query.filter_by(aula_id=texto[0]).all()])
+            self.post(f"/meus-cursos/{acomp.id}/aula/{texto[0]}/teste", {f"q{i}": str((c + 1) % n) for i, c, n in questoes})
+            reprovado = self.banco(lambda: m.ProgressoAula.query.filter_by(acompanhamento_id=acomp.id, aula_id=texto[0]).first().teste_aprovado)
+            self.post(f"/meus-cursos/{acomp.id}/aula/{texto[0]}/teste", {f"q{i}": str(c) for i, c, _ in questoes})
+            final = self.banco(lambda: (lambda p: (p.teste_aprovado, p.teste_nota, p.teste_tentativas, p.concluida_em is not None))(
+                m.ProgressoAula.query.filter_by(acompanhamento_id=acomp.id, aula_id=texto[0]).first()))
+            self.confere(not reprovado and final[0] and final[1] == 100 and final[2] == 2 and final[3], "Teste de conhecimento aprova a aula", "REG",
+                         "Errando tudo não aprova; acertando tudo aprova (2 tentativas, vale a melhor nota) e a aula fica concluída.",
+                         f"Aprovado errando: {reprovado}; depois: {final}.", "Teste com nota mínima e novas tentativas", "Alta",
+                         print_de=f"/meus-cursos/{acomp.id}?aula={texto[0]}&ver=teste")
+        if video:
+            self.post_json(f"/meus-cursos/{acomp.id}/aula/{video[0]}/progresso",
+                           {"evento": "video", "duracao": 200, "posicao": 120, "trechos": [[0, 60], [150, 200]]})
+            pulado = self.banco(lambda: m.ProgressoAula.query.filter_by(acompanhamento_id=acomp.id, aula_id=video[0]).first().video_concluido)
+            self.post_json(f"/meus-cursos/{acomp.id}/aula/{video[0]}/progresso",
+                           {"evento": "video", "duracao": 200, "posicao": 150, "trechos": [[55, 150]]})
+            assistido = self.banco(lambda: (lambda p: (p.video_concluido, p.segundos_assistidos))(
+                m.ProgressoAula.query.filter_by(acompanhamento_id=acomp.id, aula_id=video[0]).first()))
+            self.confere(not pulado and assistido[0] and assistido[1] == 200, "Vídeo conta só o que foi assistido", "REG",
+                         "Com trechos pulados o vídeo não contou; ao completar os trechos, contou.",
+                         f"Concluído com pulos: {pulado}; depois: {assistido}.", "Pular o vídeo não conclui a aula", "Alta")
+        percentual = self.banco(lambda: m.Acompanhamento.query.get(acomp.id).percentual_conclusao)
+        self.post("/acompanhamento", {"acompanhamento_id": acomp.id, "status": "Iniciado", "percentual_conclusao": "100",
+                                      "observacao_aluno": f"{MARCA} Estudando"})
+        depois = self.banco(lambda: m.Acompanhamento.query.get(acomp.id).percentual_conclusao)
+        self.confere(0 < percentual < 100 and depois == percentual, "Progresso do acompanhamento é automático", "REG",
+                     f"Percentual calculado pelas aulas: {percentual}%; o formulário não o altera.",
+                     f"Percentual pelas aulas: {percentual}%; depois de enviar 100% no formulário: {depois}%.",
+                     "Curso com aulas: o progresso vem das aulas e testes", "Alta", print_de="/acompanhamento")
+        outro = self.banco(lambda: m.Acompanhamento.query.filter(m.Acompanhamento.aluno_id != eu["id"], m.Acompanhamento.curso_id == curso_id).first())
+        if outro:
+            status, _, _ = self.cliente.pedir("GET", f"/meus-cursos/{outro.id}")
+            proibido, _, _ = self.cliente.pedir("POST", f"/meus-cursos/{outro.id}/aula/{aulas[0][0]}/progresso", json_corpo={"evento": "leitura"})
+            self.confere(status == 302 and proibido == 403, "Aluno não abre nem marca o curso de outro aluno", "PER",
+                         "Sala de outro aluno recusada e progresso recusado.", f"Sala: HTTP {status}; progresso: HTTP {proibido}.",
+                         "Cada aluno só vê e registra o próprio estudo", "Alta")

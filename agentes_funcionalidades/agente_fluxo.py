@@ -443,7 +443,8 @@ class AgenteMentorAdministrador(AgenteDoFluxo):
                "Edita curso e grupo, exclui grupo e projeto, cria módulo da trilha e importa TCC histórico",
                "Regra: Mentor Administrador não altera contas de Administrador",
                "Convidado externo (sem conta): check-in, check-out e avaliação pelo link pessoal; tempo por instituição",
-               "Envia o arquivo da gravação da reunião (só vídeo ou áudio)", "Avaliação 360°: a gestão avalia o jovem"]
+               "Envia o arquivo da gravação da reunião (só vídeo ou áudio)", "Avaliação 360°: a gestão avalia o jovem",
+               "Conteúdo do curso: apostila dividida em aulas, testes gerados, aula em vídeo do YouTube e pergunta escrita à mão"]
 
     def rodar(self):
         m = _modelos()
@@ -473,6 +474,8 @@ class AgenteMentorAdministrador(AgenteDoFluxo):
             if curso:
                 cursos.append(curso.id)
         self.contexto["ids"]["cursos"] = cursos
+        if cursos:
+            self.conteudo_do_curso(cursos[0])
 
         self.etapa("Cadastro dos perfis do programa")
         self.criar_usuario("gestor", "Admin B2B", "Gestor Parceiro")
@@ -1103,7 +1106,8 @@ class AgenteAluno(AgenteDoFluxo):
                "Regra: não cria tarefa em projeto de outro grupo",
                "Check-in de aula, chat de estudos (sem IA), agenda não conectada e redirecionamento seguro",
                "Abre e comenta uma demanda (não responde oficialmente); atividade encerrada não aceita check-in",
-               "Recupera a senha pelas perguntas de segurança (2 de 3)"]
+               "Recupera a senha pelas perguntas de segurança (2 de 3)",
+               "Estuda dentro da plataforma: leitura e vídeo contam sozinhos, teste aprova a aula e o progresso é automático"]
 
     def rodar(self):
         m = _modelos()
@@ -1126,6 +1130,7 @@ class AgenteAluno(AgenteDoFluxo):
             gravado = self.banco(lambda: m.Acompanhamento.query.get(acomp.id).observacao_aluno)
             self.confere(gravado == f"{MARCA} Minhas anotações", "Anotação do aluno no acompanhamento", "FLX", "Anotação gravada.", f"Gravado: {gravado}.",
                          "Aluno registra suas anotações", "Média", print_de="/acompanhamento")
+        self.estudo_do_curso()
         sessao_id = self.contexto["ids"].get("sessao")
         if sessao_id:
             self.post("/sessoes", {"acao": "enviar_feedback", "sessao_id": sessao_id, "comentario": f"{MARCA} Obrigado pela mentoria"})

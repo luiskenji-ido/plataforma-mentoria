@@ -1,0 +1,232 @@
+{% extends 'base.html' %}
+
+{% macro form_pergunta(aula, q=None) %}
+<form method="POST" class="border rounded p-3 bg-light small" id="formPergunta{{ aula.id }}{% if q %}_{{ q.id }}{% endif %}">
+    <input type="hidden" name="acao" value="salvar_questao">
+    <input type="hidden" name="aula_id" value="{{ aula.id }}">
+    {% if q %}<input type="hidden" name="questao_id" value="{{ q.id }}">{% endif %}
+    <label class="form-label fw-bold mb-1">{{ tt('Pergunta') }}</label>
+    <textarea name="enunciado" class="form-control form-control-sm mb-2" rows="2" required>{{ q.enunciado if q else '' }}</textarea>
+    <label class="form-label fw-bold mb-1">{{ tt('Alternativas (marque a certa)') }}</label>
+    {% set alternativas = q.lista_alternativas if q else [] %}
+    {% for n in range(6) %}
+    <div class="input-group input-group-sm mb-1">
+        <span class="input-group-text">
+            <input class="form-check-input mt-0" type="radio" name="correta" value="{{ n }}" {% if (q and q.correta == n) or (not q and n == 0) %}checked{% endif %} aria-label="{{ tt('Alternativa certa') }}">
+        </span>
+        <span class="input-group-text">{{ 'ABCDEF'[n] }}</span>
+        <input type="text" name="alternativa_{{ n }}" class="form-control" value="{{ alternativas[n] if n < alternativas|length else '' }}" {% if n < 2 %}required{% endif %} placeholder="{{ tt('Opcional') if n >= 2 else '' }}">
+    </div>
+    {% endfor %}
+    <label class="form-label fw-bold mb-1 mt-2">{{ tt('Explicação mostrada depois da correção (opcional)') }}</label>
+    <textarea name="explicacao" class="form-control form-control-sm mb-2" rows="2">{{ q.explicacao or '' if q else '' }}</textarea>
+    <button type="submit" class="btn btn-sm btn-primary fw-bold"><i class="bi bi-check2"></i> {{ tt('Salvar pergunta') }}</button>
+</form>
+{% endmacro %}
+
+{% macro form_aula(aula=None) %}
+<form method="POST" enctype="multipart/form-data" class="row g-2" id="formAula{{ aula.id if aula else 'Nova' }}">
+    <input type="hidden" name="acao" value="salvar_aula">
+    {% if aula %}<input type="hidden" name="aula_id" value="{{ aula.id }}">{% endif %}
+    <div class="col-12">
+        <label class="form-label small fw-bold mb-1">{{ tt('Título da aula') }}</label>
+        <input type="text" name="titulo" class="form-control form-control-sm" maxlength="200" value="{{ aula.titulo if aula else '' }}" required>
+    </div>
+    <div class="col-12">
+        <label class="form-label small fw-bold mb-1">{{ tt('Texto da aula (leitura). Para aula em vídeo, um resumo aqui ajuda a IA a escrever o teste.') }}</label>
+        <textarea name="texto" class="form-control form-control-sm" rows="6">{{ aula.texto or '' if aula else '' }}</textarea>
+    </div>
+    <div class="col-md-6">
+        <label class="form-label small fw-bold mb-1"><i class="bi bi-upload"></i> {{ tt('Vídeo enviado (MP4, WEBM, MOV, M4V)') }} · {{ tt('até {mb} MB').format(mb=limite_video_mb) }}</label>
+        <input type="file" name="video" class="form-control form-control-sm" accept=".mp4,.m4v,.webm,.mov,.ogv,video/*">
+    </div>
+    <div class="col-md-6">
+        <label class="form-label small fw-bold mb-1"><i class="bi bi-youtube text-danger"></i> {{ tt('ou link do YouTube') }}</label>
+        <input type="text" name="youtube" class="form-control form-control-sm" placeholder="https://www.youtube.com/watch?v=..." value="{{ 'https://youtu.be/' ~ aula.youtube_id if aula and aula.youtube_id else '' }}">
+    </div>
+    <div class="col-md-6">
+        <label class="form-label small fw-bold mb-1"><i class="bi bi-paperclip"></i> {{ tt('Material de apoio (PDF, Word, PowerPoint, Excel, imagem, ZIP)') }}</label>
+        <input type="file" name="material" class="form-control form-control-sm">
+    </div>
+    <div class="col-md-6 d-flex align-items-end flex-wrap gap-3">
+        {% if aula and aula.tem_video %}
+        <div class="form-check small">
+            <input class="form-check-input" type="checkbox" name="remover_video" value="1" id="removerVideo{{ aula.id }}">
+            <label class="form-check-label" for="removerVideo{{ aula.id }}">{{ tt('Remover o vídeo atual') }}</label>
+        </div>
+        {% endif %}
+        {% if aula and aula.material_arquivo %}
+        <div class="form-check small">
+            <input class="form-check-input" type="checkbox" name="remover_material" value="1" id="removerMaterial{{ aula.id }}">
+            <label class="form-check-label" for="removerMaterial{{ aula.id }}">{{ tt('Remover o material atual') }}</label>
+        </div>
+        {% endif %}
+    </div>
+    <div class="col-12">
+        <button type="submit" class="btn btn-sm btn-success fw-bold"><i class="bi bi-save"></i> {{ tt('Salvar aula') }}</button>
+    </div>
+</form>
+{% endmacro %}
+
+{% block content %}
+<div class="container mt-4 mb-5" style="max-width: 1100px;">
+    <a href="{{ url_for('gerenciar_turmas') }}" class="btn btn-sm btn-outline-secondary mb-3"><i class="bi bi-arrow-left"></i> {{ tt('Voltar ao Hub Educacional') }}</a>
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+        <div>
+            <h3 class="text-primary fw-bold mb-0"><i class="bi bi-collection-play"></i> {{ curso.nome_curso }}</h3>
+            <small class="text-muted">{{ tt('Conteúdo do curso dentro da plataforma: aulas, vídeos, materiais e testes de conhecimento.') }}</small>
+        </div>
+        <div class="d-flex gap-2">
+            <span class="badge bg-primary fs-6">{{ aulas|length }} {{ tt('aula(s)') }}</span>
+            <span class="badge bg-secondary fs-6">{{ matriculas }} {{ tt('aluno(s) matriculado(s)') }}</span>
+        </div>
+    </div>
+
+    <div class="alert alert-light border small">
+        <i class="bi bi-magic text-success"></i>
+        {{ tt('Com aulas cadastradas, o progresso do aluno no Acompanhamento passa a ser automático: cada aula conta quando o vídeo é assistido (sem pular), o texto é lido até o fim ou o material é aberto, e o teste é aprovado.') }}
+        {{ tt('As regras (quanto do vídeo, nota mínima e número de perguntas) ficam em Administração › Parâmetros de regras › Conteúdo dos cursos.') }}
+    </div>
+
+    <div class="row g-3 mb-4">
+        <div class="col-lg-7">
+            <div class="card shadow-sm h-100">
+                <div class="card-header bg-white fw-bold"><i class="bi bi-file-earmark-arrow-up text-primary"></i> {{ tt('Importar o material do curso') }}</div>
+                <div class="card-body">
+                    <form method="POST" enctype="multipart/form-data" id="formImportarDocumento">
+                        <input type="hidden" name="acao" value="importar_documento">
+                        <p class="small text-muted mb-2">{{ tt('Envie a apostila em PDF, Word, Markdown, TXT ou HTML. A plataforma separa os capítulos sozinha (títulos do Word, “Capítulo 1”, “Aula 2”, “Módulo 3”, “1. Introdução”…) e cria uma aula para cada um.') }}</p>
+                        <input type="file" name="documento" class="form-control form-control-sm mb-2" accept=".pdf,.docx,.md,.markdown,.txt,.html,.htm" required>
+                        <div class="d-flex flex-wrap gap-3 small mb-2">
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="modo" value="acrescentar" id="modoAcrescentar" checked>
+                                <label class="form-check-label" for="modoAcrescentar">{{ tt('Acrescentar às aulas existentes') }}</label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="modo" value="substituir" id="modoSubstituir">
+                                <label class="form-check-label text-danger" for="modoSubstituir">{{ tt('Substituir todas as aulas (apaga vídeos, testes e o andamento dos alunos)') }}</label>
+                            </div>
+                        </div>
+                        <div class="form-check small mb-3">
+                            <input class="form-check-input" type="checkbox" name="gerar_testes" value="1" id="gerarTestes" checked>
+                            <label class="form-check-label" for="gerarTestes">
+                                {{ tt('Gerar o teste de conhecimento de cada aula') }}
+                                ({{ tt('{n} pergunta(s) por aula').format(n=questoes_por_teste) }},
+                                {{ tt('pela IA') if usa_ia else tt('pelo gerador automático, pois a IA está desligada ou é uma conta de teste') }})
+                            </label>
+                        </div>
+                        <button type="submit" class="btn btn-primary btn-sm fw-bold"><i class="bi bi-scissors"></i> {{ tt('Importar e dividir em aulas') }}</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-5">
+            <div class="card shadow-sm h-100">
+                <div class="card-header bg-white fw-bold"><i class="bi bi-patch-question text-success"></i> {{ tt('Testes de conhecimento') }}</div>
+                <div class="card-body small">
+                    <p class="text-muted">{{ tt('A IA lê o texto de cada aula e escreve perguntas de múltipla escolha com a explicação da resposta. Sem IA, o gerador automático monta perguntas de completar a frase com o próprio texto. Revise e edite as perguntas antes de liberar o curso.') }}</p>
+                    <form method="POST" id="formGerarTestesFaltando">
+                        <input type="hidden" name="acao" value="gerar_testes_faltando">
+                        <button type="submit" class="btn btn-outline-success btn-sm fw-bold" {% if not aulas %}disabled{% endif %}><i class="bi bi-stars"></i> {{ tt('Gerar testes das aulas que ainda não têm') }}</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="d-flex justify-content-between align-items-center mb-2">
+        <h5 class="fw-bold mb-0">{{ tt('Aulas') }}</h5>
+        <button class="btn btn-sm btn-success fw-bold" type="button" data-bs-toggle="collapse" data-bs-target="#novaAula" aria-expanded="false" id="botaoNovaAula">
+            <i class="bi bi-plus-lg"></i> {{ tt('Nova aula') }}
+        </button>
+    </div>
+    <div class="collapse mb-3" id="novaAula">
+        <div class="card card-body shadow-sm">{{ form_aula() }}</div>
+    </div>
+
+    {% for aula in aulas %}
+    {% set questoes = aula.questoes.all() %}
+    <div class="card shadow-sm mb-3" id="aula{{ aula.id }}">
+        <div class="card-header bg-white d-flex flex-wrap justify-content-between align-items-center gap-2">
+            <div>
+                <span class="badge bg-dark me-1">{{ tt('Aula') }} {{ loop.index }}</span>
+                <strong>{{ aula.titulo }}</strong>
+                <div class="mt-1 d-flex flex-wrap gap-1">
+                    {% if aula.video_tipo == 'youtube' and aula.youtube_id %}<span class="badge bg-danger"><i class="bi bi-youtube"></i> {{ tt('Vídeo do YouTube') }}</span>{% endif %}
+                    {% if aula.video_tipo == 'arquivo' and aula.video_arquivo %}<span class="badge bg-primary"><i class="bi bi-camera-video"></i> {{ tt('Vídeo enviado') }} · {{ '%.1f'|format((aula.video_tamanho or 0) / 1048576) }} MB</span>{% endif %}
+                    {% if aula.texto %}<span class="badge bg-info text-dark"><i class="bi bi-file-text"></i> {{ aula.texto.split()|length }} {{ tt('palavras') }}</span>{% endif %}
+                    {% if aula.material_arquivo %}<span class="badge bg-secondary"><i class="bi bi-paperclip"></i> {{ aula.material_nome }}</span>{% endif %}
+                    <span class="badge {{ 'bg-success' if questoes else 'bg-warning text-dark' }}"><i class="bi bi-patch-question"></i> {{ questoes|length }} {{ tt('pergunta(s)') }}</span>
+                </div>
+            </div>
+            <div class="d-flex flex-wrap gap-1">
+                <form method="POST" class="d-inline"><input type="hidden" name="acao" value="mover_aula"><input type="hidden" name="aula_id" value="{{ aula.id }}"><input type="hidden" name="direcao" value="subir">
+                    <button class="btn btn-sm btn-outline-secondary" title="{{ tt('Subir') }}" {% if loop.first %}disabled{% endif %}><i class="bi bi-arrow-up"></i></button></form>
+                <form method="POST" class="d-inline"><input type="hidden" name="acao" value="mover_aula"><input type="hidden" name="aula_id" value="{{ aula.id }}"><input type="hidden" name="direcao" value="descer">
+                    <button class="btn btn-sm btn-outline-secondary" title="{{ tt('Descer') }}" {% if loop.last %}disabled{% endif %}><i class="bi bi-arrow-down"></i></button></form>
+                <button class="btn btn-sm btn-outline-primary fw-bold" type="button" data-bs-toggle="collapse" data-bs-target="#editarAula{{ aula.id }}"><i class="bi bi-pencil-square"></i> {{ tt('Editar') }}</button>
+                <form method="POST" class="d-inline" id="formGerarTeste{{ aula.id }}"><input type="hidden" name="acao" value="gerar_teste"><input type="hidden" name="aula_id" value="{{ aula.id }}">
+                    <button class="btn btn-sm btn-outline-success fw-bold" {% if not aula.texto %}disabled title="{{ tt('Escreva o texto ou um resumo da aula para gerar o teste.') }}"{% endif %}><i class="bi bi-stars"></i> {{ tt('Gerar teste') if not questoes else tt('Gerar de novo') }}</button></form>
+                <form method="POST" class="d-inline" onsubmit="return confirm('{{ tt('Excluir esta aula, o vídeo, o material, as perguntas e o andamento dos alunos nela?') }}');">
+                    <input type="hidden" name="acao" value="excluir_aula"><input type="hidden" name="aula_id" value="{{ aula.id }}">
+                    <button class="btn btn-sm btn-outline-danger" title="{{ tt('Excluir aula') }}"><i class="bi bi-trash"></i></button></form>
+            </div>
+        </div>
+        <div class="collapse" id="editarAula{{ aula.id }}">
+            <div class="card-body border-bottom bg-light">{{ form_aula(aula) }}</div>
+        </div>
+        <div class="card-body">
+            {% if aula.texto %}
+            <details class="mb-3">
+                <summary class="small text-primary fw-bold">{{ tt('Ver o texto da aula') }}</summary>
+                <div class="border rounded p-3 mt-2 small" style="max-height: 320px; overflow-y: auto;">{{ aula.texto|texto_aula }}</div>
+            </details>
+            {% endif %}
+            <h6 class="fw-bold small text-uppercase text-muted">{{ tt('Teste de conhecimento') }}</h6>
+            {% for q in questoes %}
+            <div class="border rounded p-2 mb-2">
+                <div class="d-flex justify-content-between gap-2">
+                    <div class="small">
+                        <strong>{{ loop.index }}.</strong> {{ q.enunciado }}
+                        <span class="badge bg-light text-dark border ms-1">{{ {'ia': tt('IA'), 'automatica': tt('automática'), 'manual': tt('manual')}.get(q.origem, q.origem) }}</span>
+                        <ol type="A" class="mb-1 mt-1">
+                            {% for alt in q.lista_alternativas %}
+                            <li class="{{ 'text-success fw-bold' if loop.index0 == q.correta else '' }}">{{ alt }}{% if loop.index0 == q.correta %} <i class="bi bi-check-circle-fill"></i>{% endif %}</li>
+                            {% endfor %}
+                        </ol>
+                    </div>
+                    <div class="d-flex flex-column gap-1">
+                        <button class="btn btn-sm btn-outline-primary" type="button" data-bs-toggle="collapse" data-bs-target="#editarPergunta{{ q.id }}" title="{{ tt('Editar pergunta') }}"><i class="bi bi-pencil"></i></button>
+                        <form method="POST" onsubmit="return confirm('{{ tt('Excluir esta pergunta?') }}');"><input type="hidden" name="acao" value="excluir_questao"><input type="hidden" name="questao_id" value="{{ q.id }}">
+                            <button class="btn btn-sm btn-outline-danger" title="{{ tt('Excluir pergunta') }}"><i class="bi bi-trash"></i></button></form>
+                    </div>
+                </div>
+                <div class="collapse mt-2" id="editarPergunta{{ q.id }}">{{ form_pergunta(aula, q) }}</div>
+            </div>
+            {% else %}
+            <p class="small text-muted mb-2">{{ tt('Sem perguntas ainda: a aula conta só pelo conteúdo.') }}</p>
+            {% endfor %}
+            <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#novaPergunta{{ aula.id }}"><i class="bi bi-plus"></i> {{ tt('Escrever pergunta') }}</button>
+            <div class="collapse mt-2" id="novaPergunta{{ aula.id }}">{{ form_pergunta(aula) }}</div>
+        </div>
+    </div>
+    {% else %}
+    <div class="text-center text-muted py-5 border rounded bg-white">
+        <i class="bi bi-collection-play fs-1 d-block mb-2"></i>
+        {{ tt('Nenhuma aula ainda. Importe a apostila do curso ou crie a primeira aula.') }}
+    </div>
+    {% endfor %}
+</div>
+<script>
+// Tour da tela Conteúdo do curso (o motor fica em _tour_motor.html)
+function iniciarTourDaPagina() {
+    rodarTour([
+        { texto: {{ tt('Conteúdo do curso: aulas, vídeos, materiais e testes de conhecimento que o aluno estuda dentro da plataforma.')|tojson }} },
+        { sel: '#formImportarDocumento', texto: {{ tt('Importe a apostila (PDF, Word, Markdown ou TXT): cada capítulo vira uma aula e o teste de cada aula pode ser gerado na hora.')|tojson }} },
+        { sel: '#formGerarTestesFaltando', texto: {{ tt('A IA escreve as perguntas a partir do texto da aula; sem IA, o gerador automático monta perguntas de completar a frase. Revise antes de liberar.')|tojson }} },
+        { sel: '#botaoNovaAula', texto: {{ tt('Nova aula: título, texto, vídeo enviado ou link do YouTube (o aluno não vê o endereço) e material de apoio.')|tojson }} },
+        { texto: {{ tt('Em cada aula: reordene, edite, gere o teste de novo, escreva perguntas à mão ou exclua. As regras do progresso ficam em Parâmetros de regras › Conteúdo dos cursos.')|tojson }} },
+    ]);
+}
+</script>
+{% endblock %}

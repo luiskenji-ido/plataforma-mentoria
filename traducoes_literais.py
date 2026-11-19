@@ -2149,6 +2149,227 @@ LITERAIS.update({
     'Gestor {apelido}': ('{apelido} manager', 'Gestor {apelido}'),
 })
 
+# Conteúdo dos cursos dentro da plataforma: aulas, vídeo, testes de conhecimento e progresso automático
+for _pt, _tr in {
+    'Alternativas (marque a certa)': ('Options (mark the correct one)', 'Alternativas (marque la correcta)'),
+    'Alternativa certa': ('Correct option', 'Alternativa correcta'),
+    'Opcional': ('Optional', 'Opcional'),
+    'Explicação mostrada depois da correção (opcional)': ('Explanation shown after grading (optional)', 'Explicación mostrada después de la corrección (opcional)'),
+    'Salvar pergunta': ('Save question', 'Guardar pregunta'),
+    'Título da aula': ('Lesson title', 'Título de la clase'),
+    'Texto da aula (leitura). Para aula em vídeo, um resumo aqui ajuda a IA a escrever o teste.': (
+        'Lesson text (reading). For a video lesson, a summary here helps the AI write the quiz.',
+        'Texto de la clase (lectura). En una clase en video, un resumen aquí ayuda a la IA a escribir la prueba.'),
+    'Vídeo enviado (MP4, WEBM, MOV, M4V)': ('Uploaded video (MP4, WEBM, MOV, M4V)', 'Video subido (MP4, WEBM, MOV, M4V)'),
+    'até {mb} MB': ('up to {mb} MB', 'hasta {mb} MB'),
+    'ou link do YouTube': ('or YouTube link', 'o enlace de YouTube'),
+    'Material de apoio (PDF, Word, PowerPoint, Excel, imagem, ZIP)': ('Support material (PDF, Word, PowerPoint, Excel, image, ZIP)', 'Material de apoyo (PDF, Word, PowerPoint, Excel, imagen, ZIP)'),
+    'Remover o vídeo atual': ('Remove the current video', 'Quitar el video actual'),
+    'Remover o material atual': ('Remove the current material', 'Quitar el material actual'),
+    'Salvar aula': ('Save lesson', 'Guardar clase'),
+    'Voltar ao Hub Educacional': ('Back to the Education Hub', 'Volver al Hub Educativo'),
+    'Conteúdo do curso dentro da plataforma: aulas, vídeos, materiais e testes de conhecimento.': (
+        'Course content inside the platform: lessons, videos, materials and knowledge quizzes.',
+        'Contenido del curso dentro de la plataforma: clases, videos, materiales y pruebas de conocimiento.'),
+    'aula(s)': ('lesson(s)', 'clase(s)'),
+    'aluno(s) matriculado(s)': ('enrolled student(s)', 'alumno(s) matriculado(s)'),
+    'Com aulas cadastradas, o progresso do aluno no Acompanhamento passa a ser automático: cada aula conta quando o vídeo é assistido (sem pular), o texto é lido até o fim ou o material é aberto, e o teste é aprovado.': (
+        'With lessons registered, the student\'s progress in Follow-up becomes automatic: each lesson counts when the video is watched (without skipping), the text is read to the end or the material is opened, and the quiz is passed.',
+        'Con clases registradas, el progreso del alumno en el Seguimiento pasa a ser automático: cada clase cuenta cuando el video se ve (sin saltar), el texto se lee hasta el final o el material se abre, y la prueba se aprueba.'),
+    'As regras (quanto do vídeo, nota mínima e número de perguntas) ficam em Administração › Parâmetros de regras › Conteúdo dos cursos.': (
+        'The rules (how much of the video, minimum score and number of questions) are in Administration › Rule parameters › Course content.',
+        'Las reglas (cuánto del video, nota mínima y número de preguntas) están en Administración › Parámetros de reglas › Contenido de los cursos.'),
+    'Importar o material do curso': ('Import the course material', 'Importar el material del curso'),
+    'Envie a apostila em PDF, Word, Markdown, TXT ou HTML. A plataforma separa os capítulos sozinha (títulos do Word, “Capítulo 1”, “Aula 2”, “Módulo 3”, “1. Introdução”…) e cria uma aula para cada um.': (
+        'Upload the handbook as PDF, Word, Markdown, TXT or HTML. The platform splits the chapters by itself (Word headings, “Chapter 1”, “Lesson 2”, “Module 3”, “1. Introduction”…) and creates one lesson for each.',
+        'Envíe el manual en PDF, Word, Markdown, TXT o HTML. La plataforma separa los capítulos sola (títulos de Word, “Capítulo 1”, “Clase 2”, “Módulo 3”, “1. Introducción”…) y crea una clase para cada uno.'),
+    'Acrescentar às aulas existentes': ('Add to the existing lessons', 'Agregar a las clases existentes'),
+    'Substituir todas as aulas (apaga vídeos, testes e o andamento dos alunos)': (
+        'Replace all lessons (deletes videos, quizzes and the students\' progress)',
+        'Reemplazar todas las clases (borra videos, pruebas y el avance de los alumnos)'),
+    'Gerar o teste de conhecimento de cada aula': ('Generate the knowledge quiz for each lesson', 'Generar la prueba de conocimiento de cada clase'),
+    '{n} pergunta(s) por aula': ('{n} question(s) per lesson', '{n} pregunta(s) por clase'),
+    'pela IA': ('by the AI', 'por la IA'),
+    'pelo gerador automático, pois a IA está desligada ou é uma conta de teste': (
+        'by the automatic generator, since the AI is off or this is a test account',
+        'por el generador automático, ya que la IA está apagada o es una cuenta de prueba'),
+    'Importar e dividir em aulas': ('Import and split into lessons', 'Importar y dividir en clases'),
+    'Testes de conhecimento': ('Knowledge quizzes', 'Pruebas de conocimiento'),
+    'A IA lê o texto de cada aula e escreve perguntas de múltipla escolha com a explicação da resposta. Sem IA, o gerador automático monta perguntas de completar a frase com o próprio texto. Revise e edite as perguntas antes de liberar o curso.': (
+        'The AI reads each lesson\'s text and writes multiple-choice questions with the answer explanation. Without AI, the automatic generator builds fill-in-the-blank questions from the text itself. Review and edit the questions before releasing the course.',
+        'La IA lee el texto de cada clase y escribe preguntas de opción múltiple con la explicación de la respuesta. Sin IA, el generador automático arma preguntas de completar la frase con el propio texto. Revise y edite las preguntas antes de liberar el curso.'),
+    'Gerar testes das aulas que ainda não têm': ('Generate quizzes for lessons that have none yet', 'Generar pruebas de las clases que aún no tienen'),
+    'Aulas': ('Lessons', 'Clases'),
+    'Nova aula': ('New lesson', 'Nueva clase'),
+    'Aula': ('Lesson', 'Clase'),
+    'Vídeo do YouTube': ('YouTube video', 'Video de YouTube'),
+    'Vídeo enviado': ('Uploaded video', 'Video subido'),
+    'palavras': ('words', 'palabras'),
+    'pergunta(s)': ('question(s)', 'pregunta(s)'),
+    'Subir': ('Move up', 'Subir'),
+    'Descer': ('Move down', 'Bajar'),
+    'Escreva o texto ou um resumo da aula para gerar o teste.': ('Write the lesson text or a summary to generate the quiz.', 'Escriba el texto o un resumen de la clase para generar la prueba.'),
+    'Gerar teste': ('Generate quiz', 'Generar prueba'),
+    'Gerar de novo': ('Generate again', 'Generar de nuevo'),
+    'Excluir esta aula, o vídeo, o material, as perguntas e o andamento dos alunos nela?': (
+        'Delete this lesson, its video, material, questions and the students\' progress in it?',
+        '¿Eliminar esta clase, el video, el material, las preguntas y el avance de los alumnos en ella?'),
+    'Excluir aula': ('Delete lesson', 'Eliminar clase'),
+    'Ver o texto da aula': ('See the lesson text', 'Ver el texto de la clase'),
+    'Teste de conhecimento': ('Knowledge quiz', 'Prueba de conocimiento'),
+    'automática': ('automatic', 'automática'),
+    'manual': ('manual', 'manual'),
+    'Editar pergunta': ('Edit question', 'Editar pregunta'),
+    'Excluir esta pergunta?': ('Delete this question?', '¿Eliminar esta pregunta?'),
+    'Excluir pergunta': ('Delete question', 'Eliminar pregunta'),
+    'Sem perguntas ainda: a aula conta só pelo conteúdo.': ('No questions yet: the lesson counts by its content only.', 'Aún sin preguntas: la clase cuenta solo por el contenido.'),
+    'Escrever pergunta': ('Write a question', 'Escribir pregunta'),
+    'Nenhuma aula ainda. Importe a apostila do curso ou crie a primeira aula.': (
+        'No lessons yet. Import the course handbook or create the first lesson.',
+        'Aún no hay clases. Importe el manual del curso o cree la primera clase.'),
+    'Anterior': ('Previous', 'Anterior'),
+    'Próxima': ('Next', 'Siguiente'),
+    'Prévia: você vê as aulas e o andamento de {aluno}. Só o próprio aluno registra progresso.': (
+        'Preview: you see the lessons and the progress of {aluno}. Only the student records progress.',
+        'Vista previa: usted ve las clases y el avance de {aluno}. Solo el propio alumno registra avance.'),
+    'aula(s) no total': ('lesson(s) in total', 'clase(s) en total'),
+    'concluída(s)': ('completed', 'concluida(s)'),
+    'faltando': ('remaining', 'pendientes'),
+    'Progresso do curso': ('Course progress', 'Avance del curso'),
+    'Videoaula': ('Video lesson', 'Videoclase'),
+    'Leitura': ('Reading', 'Lectura'),
+    'Teste seus conhecimentos': ('Test your knowledge', 'Ponga a prueba sus conocimientos'),
+    'Material de apoio': ('Support material', 'Material de apoyo'),
+    'Aula concluída': ('Lesson completed', 'Clase concluida'),
+    'Em andamento': ('In progress', 'En curso'),
+    'de': ('of', 'de'),
+    'Vídeo concluído.': ('Video completed.', 'Video concluido.'),
+    'O vídeo conta quando você assiste {pct}% dele (trechos pulados não contam).': (
+        'The video counts when you watch {pct}% of it (skipped parts do not count).',
+        'El video cuenta cuando usted ve el {pct}% (las partes saltadas no cuentan).'),
+    'Resumo da aula': ('Lesson summary', 'Resumen de la clase'),
+    'Leitura concluída.': ('Reading completed.', 'Lectura concluida.'),
+    'Leia até o fim: a leitura conta sozinha.': ('Read to the end: the reading counts by itself.', 'Lea hasta el final: la lectura cuenta sola.'),
+    'Abrir o material da aula': ('Open the lesson material', 'Abrir el material de la clase'),
+    'Nota mínima: {n}%': ('Minimum score: {n}%', 'Nota mínima: {n}%'),
+    'Melhor nota: {n}%': ('Best score: {n}%', 'Mejor nota: {n}%'),
+    'Tentativas: {n}': ('Attempts: {n}', 'Intentos: {n}'),
+    'Teste aprovado': ('Quiz passed', 'Prueba aprobada'),
+    'Você acertou {n}%': ('You got {n}% right', 'Usted acertó el {n}%'),
+    'Aprovado! Esta parte da aula está concluída.': ('Passed! This part of the lesson is complete.', '¡Aprobado! Esta parte de la clase está concluida.'),
+    'Reveja o conteúdo da aula e tente de novo: vale a melhor nota.': ('Review the lesson and try again: the best score counts.', 'Revise el contenido de la clase e intente de nuevo: vale la mejor nota.'),
+    'Refazer o teste': ('Retake the quiz', 'Rehacer la prueba'),
+    'Próxima aula': ('Next lesson', 'Siguiente clase'),
+    'Enviar respostas': ('Submit answers', 'Enviar respuestas'),
+    'Assistido até agora: {pct}%': ('Watched so far: {pct}%', 'Visto hasta ahora: {pct}%'),
+    'Automático: aulas assistidas e testes': ('Automatic: lessons watched and quizzes', 'Automático: clases vistas y pruebas'),
+    'Estudar agora': ('Study now', 'Estudiar ahora'),
+    'Ver aulas e andamento': ('See lessons and progress', 'Ver clases y avance'),
+    'Calculado sozinho pelas aulas assistidas e testes aprovados.': ('Calculated automatically from lessons watched and quizzes passed.', 'Calculado solo por las clases vistas y las pruebas aprobadas.'),
+    'Aulas, vídeos e testes do curso': ('Course lessons, videos and quizzes', 'Clases, videos y pruebas del curso'),
+    'Conteúdo': ('Content', 'Contenido'),
+    'Testes das aulas prontos': ('Lesson quizzes ready', 'Pruebas de las clases listas'),
+    '{ia} pela IA, {auto} pelo gerador automático e {vazias} sem texto para gerar perguntas.': (
+        '{ia} by the AI, {auto} by the automatic generator and {vazias} without text to generate questions.',
+        '{ia} por la IA, {auto} por el generador automático y {vazias} sin texto para generar preguntas.'),
+    'Acesso negado. Apenas a equipa de gestão pode aceder ao Hub Educacional.': (
+        'Access denied. Only the management team can access the Education Hub.',
+        'Acceso denegado. Solo el equipo de gestión puede acceder al Hub Educativo.'),
+    'Curso não encontrado.': ('Course not found.', 'Curso no encontrado.'),
+    'Escolha o documento do curso.': ('Choose the course document.', 'Elija el documento del curso.'),
+    'Documento importado: {n} aula(s), divididas {como}.': ('Document imported: {n} lesson(s), split {como}.', 'Documento importado: {n} clase(s), divididas {como}.'),
+    'A IA está escrevendo os testes das aulas: você recebe um aviso no sino quando terminar.': (
+        'The AI is writing the lesson quizzes: you will get a bell notification when it finishes.',
+        'La IA está escribiendo las pruebas de las clases: recibirá un aviso en la campana cuando termine.'),
+    'Testes gerados automaticamente em {n} aula(s). Revise as perguntas de cada aula.': (
+        'Quizzes generated automatically in {n} lesson(s). Review each lesson\'s questions.',
+        'Pruebas generadas automáticamente en {n} clase(s). Revise las preguntas de cada clase.'),
+    'Informe o título da aula.': ('Enter the lesson title.', 'Indique el título de la clase.'),
+    'Formato de vídeo não aceito. Envie MP4, WEBM, MOV ou M4V.': ('Video format not accepted. Upload MP4, WEBM, MOV or M4V.', 'Formato de video no aceptado. Envíe MP4, WEBM, MOV o M4V.'),
+    'Não reconheci o link do YouTube. Cole o endereço do vídeo (youtube.com/watch?v=… ou youtu.be/…).': (
+        'I did not recognize the YouTube link. Paste the video address (youtube.com/watch?v=… or youtu.be/…).',
+        'No reconocí el enlace de YouTube. Pegue la dirección del video (youtube.com/watch?v=… o youtu.be/…).'),
+    'Material não aceito: envie PDF, Word, PowerPoint, Excel, imagem, TXT ou ZIP dentro do limite.': (
+        'Material not accepted: upload PDF, Word, PowerPoint, Excel, image, TXT or ZIP within the limit.',
+        'Material no aceptado: envíe PDF, Word, PowerPoint, Excel, imagen, TXT o ZIP dentro del límite.'),
+    'Aula salva.': ('Lesson saved.', 'Clase guardada.'),
+    'Aula excluída.': ('Lesson deleted.', 'Clase eliminada.'),
+    'Todas as aulas já têm teste.': ('All lessons already have a quiz.', 'Todas las clases ya tienen prueba.'),
+    'Teste gerado: {ia} aula(s) pela IA e {auto} pelo gerador automático. Revise as perguntas.': (
+        'Quiz generated: {ia} lesson(s) by the AI and {auto} by the automatic generator. Review the questions.',
+        'Prueba generada: {ia} clase(s) por la IA y {auto} por el generador automático. Revise las preguntas.'),
+    '{n} aula(s) sem texto suficiente para gerar perguntas: escreva um resumo do vídeo no texto da aula ou crie as perguntas à mão.': (
+        '{n} lesson(s) without enough text to generate questions: write a video summary in the lesson text or create the questions by hand.',
+        '{n} clase(s) sin texto suficiente para generar preguntas: escriba un resumen del video en el texto de la clase o cree las preguntas a mano.'),
+    'A pergunta precisa de enunciado, pelo menos duas alternativas e a alternativa certa marcada.': (
+        'The question needs a statement, at least two options and the correct option marked.',
+        'La pregunta necesita enunciado, al menos dos alternativas y la alternativa correcta marcada.'),
+    'Pergunta salva.': ('Question saved.', 'Pregunta guardada.'),
+    'Pergunta excluída.': ('Question deleted.', 'Pregunta eliminada.'),
+    'Acesso negado.': ('Access denied.', 'Acceso denegado.'),
+    'Este curso ainda não tem aulas na plataforma.': ('This course has no lessons on the platform yet.', 'Este curso aún no tiene clases en la plataforma.'),
+    'Curso concluído pelas aulas': ('Course completed through the lessons', 'Curso concluido por las clases'),
+    '{aluno} concluiu todas as aulas e testes do curso {curso}.': ('{aluno} completed all lessons and quizzes of the course {curso}.', '{aluno} concluyó todas las clases y pruebas del curso {curso}.'),
+    'Responda todas as perguntas antes de enviar.': ('Answer all questions before submitting.', 'Responda todas las preguntas antes de enviar.'),
+    'pelos títulos do documento': ('by the document headings', 'por los títulos del documento'),
+    'pelos capítulos e aulas do texto': ('by the chapters and lessons in the text', 'por los capítulos y clases del texto'),
+    'pela numeração dos títulos': ('by the heading numbers', 'por la numeración de los títulos'),
+    'em partes de tamanho parecido (o documento não tem títulos)': ('into parts of similar size (the document has no headings)', 'en partes de tamaño parecido (el documento no tiene títulos)'),
+    # Parâmetros de regras › Conteúdo dos cursos
+    'Conteúdo dos cursos (aulas e testes)': ('Course content (lessons and quizzes)', 'Contenido de los cursos (clases y pruebas)'),
+    'Quanto do vídeo o aluno precisa assistir': ('How much of the video the student must watch', 'Cuánto del video debe ver el alumno'),
+    'Nota mínima no teste da aula': ('Minimum score in the lesson quiz', 'Nota mínima en la prueba de la clase'),
+    'Perguntas por teste gerado': ('Questions per generated quiz', 'Preguntas por prueba generada'),
+    'Tamanho máximo do vídeo da aula': ('Maximum lesson video size', 'Tamaño máximo del video de la clase'),
+    'perguntas': ('questions', 'preguntas'),
+    'Conteúdo: monte o curso dentro da plataforma. Envie a apostila (dividida em aulas sozinha), os vídeos (arquivo ou YouTube), o material de apoio e revise o teste de conhecimento de cada aula.': (
+        'Content: build the course inside the platform. Upload the handbook (split into lessons automatically), the videos (file or YouTube), the support material and review each lesson\'s quiz.',
+        'Contenido: arme el curso dentro de la plataforma. Envíe el manual (dividido en clases solo), los videos (archivo o YouTube), el material de apoyo y revise la prueba de cada clase.'),
+    'Estudar agora: abre as aulas do curso dentro da plataforma (para o aluno, depois de marcar a presença). O progresso é automático: vídeo assistido, leitura até o fim e teste aprovado.': (
+        'Study now: opens the course lessons inside the platform (for the student, after checking in). Progress is automatic: video watched, reading to the end and quiz passed.',
+        'Estudiar ahora: abre las clases del curso dentro de la plataforma (para el alumno, después de marcar la asistencia). El avance es automático: video visto, lectura hasta el final y prueba aprobada.'),
+    'Professor(a): registra o parecer, a validação e o boletim final e responde às dúvidas do Q&A; cada dúvida nova do aluno avisa o professor(a) dele no sino.': (
+        'Teacher: records the opinion, the validation and the final report and answers the Q&A questions; each new student question notifies their teacher in the bell.',
+        'Profesor(a): registra el dictamen, la validación y el boletín final y responde las dudas del Q&A; cada duda nueva del alumno avisa a su profesor(a) en la campana.'),
+    'Conteúdo do curso: aulas, vídeos, materiais e testes de conhecimento que o aluno estuda dentro da plataforma.': (
+        'Course content: lessons, videos, materials and knowledge quizzes the student studies inside the platform.',
+        'Contenido del curso: clases, videos, materiales y pruebas de conocimiento que el alumno estudia dentro de la plataforma.'),
+    'Importe a apostila (PDF, Word, Markdown ou TXT): cada capítulo vira uma aula e o teste de cada aula pode ser gerado na hora.': (
+        'Import the handbook (PDF, Word, Markdown or TXT): each chapter becomes a lesson and each lesson\'s quiz can be generated right away.',
+        'Importe el manual (PDF, Word, Markdown o TXT): cada capítulo se vuelve una clase y la prueba de cada clase puede generarse al momento.'),
+    'A IA escreve as perguntas a partir do texto da aula; sem IA, o gerador automático monta perguntas de completar a frase. Revise antes de liberar.': (
+        'The AI writes the questions from the lesson text; without AI, the automatic generator builds fill-in-the-blank questions. Review before releasing.',
+        'La IA escribe las preguntas a partir del texto de la clase; sin IA, el generador automático arma preguntas de completar la frase. Revise antes de liberar.'),
+    'Nova aula: título, texto, vídeo enviado ou link do YouTube (o aluno não vê o endereço) e material de apoio.': (
+        'New lesson: title, text, uploaded video or YouTube link (the student does not see the address) and support material.',
+        'Nueva clase: título, texto, video subido o enlace de YouTube (el alumno no ve la dirección) y material de apoyo.'),
+    'Em cada aula: reordene, edite, gere o teste de novo, escreva perguntas à mão ou exclua. As regras do progresso ficam em Parâmetros de regras › Conteúdo dos cursos.': (
+        'In each lesson: reorder, edit, regenerate the quiz, write questions by hand or delete. The progress rules are in Rule parameters › Course content.',
+        'En cada clase: reordene, edite, genere la prueba de nuevo, escriba preguntas a mano o elimine. Las reglas del avance están en Parámetros de reglas › Contenido de los cursos.'),
+    'Sala de estudo: as aulas do curso, o andamento de cada uma e o teste de conhecimento.': (
+        'Study room: the course lessons, the progress of each one and the knowledge quiz.',
+        'Sala de estudio: las clases del curso, el avance de cada una y la prueba de conocimiento.'),
+    'Lista de aulas: o sinal verde marca o que já foi concluído; clique numa aula para abrir. Ao entrar no curso, a plataforma continua de onde você parou.': (
+        'Lesson list: the green mark shows what is complete; click a lesson to open it. When you enter the course, the platform resumes where you stopped.',
+        'Lista de clases: la marca verde indica lo concluido; haga clic en una clase para abrirla. Al entrar al curso, la plataforma continúa donde usted se quedó.'),
+    'Progresso automático: o vídeo conta quando é assistido sem pular, a leitura conta ao chegar ao fim e o teste conta com a nota mínima. O Acompanhamento é atualizado sozinho.': (
+        'Automatic progress: the video counts when watched without skipping, the reading counts when you reach the end and the quiz counts with the minimum score. Follow-up updates by itself.',
+        'Avance automático: el video cuenta cuando se ve sin saltar, la lectura cuenta al llegar al final y la prueba cuenta con la nota mínima. El Seguimiento se actualiza solo.'),
+    'Teste seus conhecimentos: responda às perguntas da aula; pode refazer quantas vezes quiser e vale a melhor nota.': (
+        'Test your knowledge: answer the lesson questions; you can retake it as many times as you like and the best score counts.',
+        'Ponga a prueba sus conocimientos: responda las preguntas de la clase; puede rehacerla cuantas veces quiera y vale la mejor nota.'),
+    'Validação do Professor(a) (': ('Teacher validation (', 'Validación del profesor(a) ('),
+    'Validação (Professor(a))': ('Validation (teacher)', 'Validación (profesor(a))'),
+    'Avaliação do Professor(a) (Boletim Final)': ('Teacher evaluation (final report)', 'Evaluación del profesor(a) (boletín final)'),
+    'Sem permissão para excluir material do Professor(a)': ("You can't delete the teacher's material", 'Sin permiso para eliminar material del profesor(a)'),
+    'Parecer oficial do professor(a) atualizado!': ("Teacher's official opinion updated!", '¡Dictamen oficial del profesor(a) actualizado!'),
+    'Este curso já tem presenças registradas e não pode ser excluído. Desative o curso em vez de excluir.': (
+        'This course already has attendance records and cannot be deleted. Deactivate the course instead.',
+        'Este curso ya tiene asistencias registradas y no puede eliminarse. Desactive el curso en lugar de eliminarlo.'),
+}.items():
+    LITERAIS.setdefault(_pt, _tr)  # não troca traduções que já existiam
+
+
 _POR_IDIOMA = {'en': {pt: v[0] for pt, v in LITERAIS.items()}, 'es': {pt: v[1] for pt, v in LITERAIS.items()}}
 
 

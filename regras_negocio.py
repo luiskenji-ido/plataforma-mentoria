@@ -21,6 +21,7 @@ GRUPOS = [
     ('acompanhamento', 'Ocorrências e acompanhamento', 'bi-exclamation-triangle'),
     ('avaliacoes', 'Avaliações e alertas', 'bi-star-half'),
     ('reunioes', 'Reuniões com os parceiros B2B', 'bi-journal-text'),
+    ('cursos', 'Conteúdo dos cursos (aulas e testes)', 'bi-play-btn'),
     ('ia','Inteligência artificial (custos)', 'bi-cpu'),
     ('personalizadas', 'Regras criadas pela gestão', 'bi-plus-square'),
 ]
@@ -75,6 +76,22 @@ CATALOGO = {
                                    'Ajuste conforme o espaço em disco do servidor. No servidor Ubuntu, o Nginx precisa aceitar '
                                    'o mesmo tamanho na rota da gravação.',
                                    'inteiro', 100, 10, 4096, 'MB', 'Reuniões › Gravação'),
+    'aula_video_percentual_minimo': ('cursos', 'Quanto do vídeo o aluno precisa assistir',
+                                     'Parte do vídeo da aula (em segundos realmente assistidos, sem contar o que foi pulado) '
+                                     'para o vídeo contar como concluído no progresso automático.',
+                                     'inteiro', 90, 50, 100, '%', 'Meus cursos › Vídeo da aula'),
+    'aula_teste_nota_minima': ('cursos', 'Nota mínima no teste da aula',
+                               'Acertos necessários no teste de conhecimento para a aula contar como concluída. '
+                               'O aluno pode refazer o teste quantas vezes quiser; vale a melhor nota.',
+                               'inteiro', 70, 0, 100, '%', 'Meus cursos › Teste de conhecimento'),
+    'aula_teste_questoes': ('cursos', 'Perguntas por teste gerado',
+                            'Quantas perguntas a IA (ou o gerador automático) escreve para cada aula. A gestão pode editar, '
+                            'apagar e acrescentar perguntas depois.',
+                            'inteiro', 3, 1, 10, 'perguntas', 'Hub Educacional › Conteúdo do curso'),
+    'video_aula_limite_mb': ('cursos', 'Tamanho máximo do vídeo da aula',
+                             'Maior arquivo de vídeo que a gestão pode enviar para uma aula. Ajuste conforme o espaço em disco '
+                             'do servidor. No servidor Ubuntu, o Nginx precisa aceitar o mesmo tamanho na rota do vídeo da aula.',
+                             'inteiro', 100, 10, 4096, 'MB', 'Hub Educacional › Conteúdo do curso'),
     'desengajamento_dias': ('avaliacoes','Dias sem atividade para o alerta de desengajamento',
                             'Jovem ou mentor sem nenhuma atividade na plataforma (login, frequência, sessão, entrega, presença) por estes dias.',
                             'inteiro', 14, 3, 90, 'dias', 'Avaliações › Alertas de acompanhamento'),

@@ -42,7 +42,7 @@ LIMITES = {"login": (30, 60), "recuperar_senha": (15, 60), "chat_ia": (20, 60), 
 CDNS = "https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://unpkg.com"
 POLITICA_CSP = "; ".join([
     "default-src 'self'",
-    f"script-src 'self' 'unsafe-inline' {CDNS}",
+    f"script-src 'self' 'unsafe-inline' {CDNS} https://www.youtube.com",  # YouTube: API do player das aulas (progresso do vídeo)
     f"style-src 'self' 'unsafe-inline' {CDNS} https://fonts.googleapis.com",
     f"font-src 'self' data: {CDNS} https://fonts.gstatic.com",
     "img-src 'self' data: blob: https:",

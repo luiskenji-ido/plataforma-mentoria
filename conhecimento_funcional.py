@@ -32,7 +32,8 @@ PERFIL_DO_AGENTE = {'administrador': 'Administrador', 'mentor_administrador': 'M
                     'professor': 'Professor', 'mentor': 'Mentor', 'aluno': 'Aluno', 'avaliador': 'Avaliador Banca',
                     'encerramento': 'Mentor Administrador'}
 REGRAS_DO_APP = ['PERFIS_SEM_CADASTRO_PROJETO', 'PERFIS_CRIAM_ATIVIDADE_EXTRA', 'PERFIS_GESTAO_REUNIOES', 'PERFIS_GESTAO_BANCA',
-                 'PERFIS_ESCALAVEIS_BANCA', 'PERFIS_TRILHA_TCC', 'VERSAO_TERMO_ATUAL', 'TIPOS_ENTREGA_TCC', 'LIMITE_ENTREGA_MB']
+                 'PERFIS_ESCALAVEIS_BANCA', 'PERFIS_TRILHA_TCC', 'VERSAO_TERMO_ATUAL', 'TIPOS_ENTREGA_TCC', 'LIMITE_ENTREGA_MB',
+                 'PERFIS_DUVIDAS_ACOMPANHAMENTO', 'PERFIS_GESTAO_CURSOS']
 ACOES = re.compile(r"excluir|apagar|deletar|remover|logout|sair|executar|restaurar|limpar|desconectar|parar|iniciar|encerrar|aprovar|"
                    r"rejeitar|reabrir|cancelar|toggle|alternar|marcar|sincronizar|forcar|reset|exportar|baixar|arquivo|csv|json|pdf|quadro|"
                    r"google|oauth|autoriz|conectar|aprender|manutencao", re.I)

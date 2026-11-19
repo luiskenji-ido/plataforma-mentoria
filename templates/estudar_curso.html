@@ -1,0 +1,344 @@
+{% extends 'base.html' %}
+
+{% macro icone(feito) %}{% if feito %}<i class="bi bi-check-circle-fill text-success"></i>{% else %}<i class="bi bi-circle text-muted"></i>{% endif %}{% endmacro %}
+
+{% block content %}
+{% set aula = atual.aula %}
+{% set progresso = atual.progresso %}
+{% set partes = atual.situacao.partes %}
+<style>
+    .sala-aulas .lista-aula { border-left: 3px solid transparent; }
+    .sala-aulas .lista-aula.ativa { border-left-color: var(--bs-primary); background: rgba(13,110,253,.06); }
+    .sala-aulas .item-aula { font-size: .85rem; padding: .3rem .5rem .3rem 1.6rem; display: flex; justify-content: space-between; align-items: center; text-decoration: none; border-radius: .25rem; }
+    .sala-aulas .item-aula.ativo { background: var(--bs-primary); color: #fff !important; }
+    .sala-aulas .item-aula.ativo i { color: #fff !important; }
+    .texto-aula { font-size: 1.02rem; line-height: 1.7; max-height: 65vh; overflow-y: auto; }
+    .player-aula { background: #000; border-radius: .5rem; overflow: hidden; aspect-ratio: 16 / 9; }
+    .player-aula video, .player-aula iframe, .player-aula #playerYoutube { width: 100%; height: 100%; display: block; }
+</style>
+
+<div class="container-fluid mt-3 mb-5 px-lg-4 sala-aulas">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+        <a href="{{ url_for('acompanhamento') }}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-arrow-left"></i> {{ tt('Voltar') }}</a>
+        <div class="d-flex gap-2">
+            {% if anterior %}<a href="{{ url_for('estudar_curso', acomp_id=registro.id, aula=anterior.aula.id) }}" class="btn btn-sm btn-outline-primary" id="aulaAnterior"><i class="bi bi-chevron-left"></i> {{ tt('Anterior') }}</a>{% endif %}
+            {% if proxima %}<a href="{{ url_for('estudar_curso', acomp_id=registro.id, aula=proxima.aula.id) }}" class="btn btn-sm btn-outline-primary" id="aulaProxima">{{ tt('Próxima') }} <i class="bi bi-chevron-right"></i></a>{% endif %}
+        </div>
+    </div>
+
+    {% if not eh_aluno %}
+    <div class="alert alert-info small py-2"><i class="bi bi-eye"></i> {{ tt('Prévia: você vê as aulas e o andamento de {aluno}. Só o próprio aluno registra progresso.').format(aluno=aluno.nome if aluno else '-') }}</div>
+    {% endif %}
+
+    <div class="row g-3">
+        <!-- LISTA DE AULAS -->
+        <div class="col-lg-4 col-xl-3">
+            <div class="card shadow-sm">
+                <div class="card-body pb-2">
+                    <h6 class="fw-bold mb-1">{{ curso.nome_curso }}</h6>
+                    <small class="text-muted d-block mb-2">{{ itens|length }} {{ tt('aula(s) no total') }}</small>
+                    <div class="d-flex gap-1 mb-2">
+                        <span class="badge bg-success" id="aulasConcluidas">{{ concluidas }} {{ tt('concluída(s)') }}</span>
+                        <span class="badge bg-primary">{{ itens|length - concluidas }} {{ tt('faltando') }}</span>
+                    </div>
+                    <div class="progress" style="height: 18px;" role="progressbar" aria-label="{{ tt('Progresso do curso') }}">
+                        <div class="progress-bar bg-success progress-bar-striped" id="barraCurso" style="width: {{ percentual }}%;"><span id="percentualCurso">{{ percentual }}%</span></div>
+                    </div>
+                </div>
+                <div class="list-group list-group-flush" style="max-height: 70vh; overflow-y: auto;">
+                    {% for item in itens %}
+                    {% set a = item.aula %}
+                    {% set p = item.situacao.partes %}
+                    <div class="list-group-item lista-aula {{ 'ativa' if a.id == aula.id else '' }} py-2">
+                        <a href="{{ url_for('estudar_curso', acomp_id=registro.id, aula=a.id) }}" class="d-flex justify-content-between align-items-start text-decoration-none text-body small fw-bold">
+                            <span>{{ tt('Aula') }} {{ loop.index }} · {{ a.titulo }}</span>
+                            <span class="ms-2">{{ icone(item.situacao.concluida) }}</span>
+                        </a>
+                        {% if a.id == aula.id %}
+                        <div class="mt-1">
+                            {% if 'video' in p %}
+                            <a class="item-aula {{ 'ativo' if ver == 'conteudo' else '' }} text-body" href="{{ url_for('estudar_curso', acomp_id=registro.id, aula=a.id) }}">
+                                <span><i class="bi bi-camera-video"></i> {{ tt('Videoaula') }}</span><span id="marcaVideo">{{ icone(p.video) }}</span></a>
+                            {% elif 'leitura' in p %}
+                            <a class="item-aula {{ 'ativo' if ver == 'conteudo' else '' }} text-body" href="{{ url_for('estudar_curso', acomp_id=registro.id, aula=a.id) }}">
+                                <span><i class="bi bi-book"></i> {{ tt('Leitura') }}</span><span id="marcaLeitura">{{ icone(p.leitura) }}</span></a>
+                            {% endif %}
+                            {% if 'teste' in p %}
+                            <a class="item-aula {{ 'ativo' if ver == 'teste' else '' }} text-body" href="{{ url_for('estudar_curso', acomp_id=registro.id, aula=a.id, ver='teste') }}" id="linkTeste">
+                                <span><i class="bi bi-patch-question"></i> {{ tt('Teste seus conhecimentos') }}</span><span>{{ icone(p.teste) }}</span></a>
+                            {% endif %}
+                            {% if a.material_arquivo %}
+                            <a class="item-aula text-body" href="{{ url_for('midia_aula', aula_id=a.id, tipo='material') }}" id="linkMaterial">
+                                <span><i class="bi bi-paperclip"></i> {{ tt('Material de apoio') }}</span><span>{{ icone(item.progresso and item.progresso.material_aberto) }}</span></a>
+                            {% endif %}
+                        </div>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <!-- AULA -->
+        <div class="col-lg-8 col-xl-9">
+            <div class="card shadow-sm">
+                <div class="card-body">
+                    <div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-3">
+                        <div>
+                            <small class="text-muted">{{ tt('Aula') }} {{ itens.index(atual) + 1 }} {{ tt('de') }} {{ itens|length }}</small>
+                            <h4 class="fw-bold mb-0">{{ aula.titulo }}</h4>
+                        </div>
+                        <span class="badge {{ 'bg-success' if atual.situacao.concluida else 'bg-secondary' }} fs-6" id="situacaoAula">
+                            {{ tt('Aula concluída') if atual.situacao.concluida else tt('Em andamento') }}
+                        </span>
+                    </div>
+
+                    {% if ver == 'conteudo' %}
+                        {% if aula.tem_video %}
+                        <div class="player-aula mb-2">
+                            {% if aula.video_tipo == 'arquivo' %}
+                            <video id="videoAula" controls controlslist="nodownload noremoteplayback" disablepictureinpicture preload="metadata" oncontextmenu="return false;"
+                                   src="{{ url_for('midia_aula', aula_id=aula.id, tipo='video') }}"></video>
+                            {% else %}
+                            <div id="playerYoutube"></div>
+                            {% endif %}
+                        </div>
+                        {% if eh_aluno %}
+                        <div class="small text-muted mb-3" id="avisoVideo">
+                            {% if partes.video %}
+                            <i class="bi bi-check-circle-fill text-success"></i> {{ tt('Vídeo concluído.') }}
+                            {% else %}
+                            <i class="bi bi-info-circle"></i> {{ tt('O vídeo conta quando você assiste {pct}% dele (trechos pulados não contam).').format(pct=video_minimo) }}
+                            <span id="assistidoVideo"></span>
+                            {% endif %}
+                        </div>
+                        {% endif %}
+                        {% endif %}
+
+                        {% if aula.texto %}
+                        {% if aula.tem_video %}<h6 class="fw-bold mt-3">{{ tt('Resumo da aula') }}</h6>{% endif %}
+                        <div class="texto-aula border rounded p-3 bg-white" id="textoAula">
+                            {{ aula.texto|texto_aula }}
+                            <div id="fimDoTexto" style="height: 1px;"></div>
+                        </div>
+                        {% if eh_aluno and 'leitura' in partes %}
+                        <div class="small mt-2" id="avisoLeitura">
+                            {% if partes.leitura %}
+                            <span class="text-success"><i class="bi bi-check-circle-fill"></i> {{ tt('Leitura concluída.') }}</span>
+                            {% else %}
+                            <span class="text-muted"><i class="bi bi-info-circle"></i> {{ tt('Leia até o fim: a leitura conta sozinha.') }}</span>
+                            {% endif %}
+                        </div>
+                        {% endif %}
+                        {% endif %}
+
+                        {% if not aula.tem_video and not aula.texto and aula.material_arquivo %}
+                        <div class="text-center py-4">
+                            <i class="bi bi-file-earmark-arrow-down fs-1 text-primary d-block mb-2"></i>
+                            <a href="{{ url_for('midia_aula', aula_id=aula.id, tipo='material') }}" class="btn btn-primary fw-bold" id="baixarMaterial">{{ tt('Abrir o material da aula') }}</a>
+                        </div>
+                        {% endif %}
+
+                        <div class="d-flex flex-wrap gap-2 mt-4">
+                            {% if atual.questoes %}
+                            <a href="{{ url_for('estudar_curso', acomp_id=registro.id, aula=aula.id, ver='teste') }}" class="btn btn-success fw-bold" id="irParaTeste"><i class="bi bi-patch-question"></i> {{ tt('Teste seus conhecimentos') }}</a>
+                            {% endif %}
+                            {% if aula.material_arquivo and (aula.tem_video or aula.texto) %}
+                            <a href="{{ url_for('midia_aula', aula_id=aula.id, tipo='material') }}" class="btn btn-outline-secondary"><i class="bi bi-paperclip"></i> {{ tt('Material de apoio') }}</a>
+                            {% endif %}
+                        </div>
+
+                    {% else %}
+                        <!-- TESTE DE CONHECIMENTO -->
+                        <div class="d-flex flex-wrap gap-2 mb-3 small">
+                            <span class="badge bg-light text-dark border">{{ tt('Nota mínima: {n}%').format(n=nota_minima) }}</span>
+                            {% if progresso and progresso.teste_tentativas %}
+                            <span class="badge bg-light text-dark border">{{ tt('Melhor nota: {n}%').format(n=progresso.teste_nota or 0) }}</span>
+                            <span class="badge bg-light text-dark border">{{ tt('Tentativas: {n}').format(n=progresso.teste_tentativas) }}</span>
+                            {% endif %}
+                            {% if partes.teste %}<span class="badge bg-success">{{ tt('Teste aprovado') }}</span>{% endif %}
+                        </div>
+
+                        {% if resultado %}
+                        <div class="alert {{ 'alert-success' if resultado.nota >= nota_minima else 'alert-warning' }}" id="resultadoTeste">
+                            <h5 class="fw-bold mb-1">{{ tt('Você acertou {n}%').format(n=resultado.nota) }}</h5>
+                            {{ tt('Aprovado! Esta parte da aula está concluída.') if resultado.nota >= nota_minima else tt('Reveja o conteúdo da aula e tente de novo: vale a melhor nota.') }}
+                        </div>
+                        {% for d in resultado.detalhes %}
+                        <div class="border rounded p-3 mb-2 {{ 'border-success' if d.certa else 'border-danger' }}">
+                            <p class="fw-bold mb-2">{{ loop.index }}. {{ d.questao.enunciado }}</p>
+                            {% for alt in d.questao.lista_alternativas %}
+                            <div class="small {{ 'text-success fw-bold' if loop.index0 == d.questao.correta else ('text-danger' if loop.index0 == d.escolhida else '') }}">
+                                {{ 'ABCDEF'[loop.index0] }}) {{ alt }}
+                                {% if loop.index0 == d.questao.correta %}<i class="bi bi-check-lg"></i>{% elif loop.index0 == d.escolhida %}<i class="bi bi-x-lg"></i>{% endif %}
+                            </div>
+                            {% endfor %}
+                            {% if d.questao.explicacao %}<div class="small text-muted mt-2"><i class="bi bi-lightbulb"></i> {{ d.questao.explicacao }}</div>{% endif %}
+                        </div>
+                        {% endfor %}
+                        <div class="d-flex flex-wrap gap-2 mt-3">
+                            <a href="{{ url_for('estudar_curso', acomp_id=registro.id, aula=aula.id, ver='teste') }}" class="btn btn-outline-primary fw-bold" id="refazerTeste"><i class="bi bi-arrow-repeat"></i> {{ tt('Refazer o teste') }}</a>
+                            {% if proxima %}<a href="{{ url_for('estudar_curso', acomp_id=registro.id, aula=proxima.aula.id) }}" class="btn btn-primary fw-bold">{{ tt('Próxima aula') }} <i class="bi bi-chevron-right"></i></a>{% endif %}
+                        </div>
+                        {% else %}
+                        <form method="POST" action="{{ url_for('teste_aula', acomp_id=registro.id, aula_id=aula.id) }}" id="formTesteAula">
+                            {% for q in questoes %}
+                            <fieldset class="border rounded p-3 mb-3">
+                                <legend class="fs-6 fw-bold float-none w-auto px-1 mb-2">{{ loop.index }}. {{ q.enunciado }}</legend>
+                                {% for alt in q.lista_alternativas %}
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="q{{ q.id }}" id="q{{ q.id }}_{{ loop.index0 }}" value="{{ loop.index0 }}" {% if eh_aluno %}required{% else %}disabled{% endif %}>
+                                    <label class="form-check-label" for="q{{ q.id }}_{{ loop.index0 }}">{{ 'ABCDEF'[loop.index0] }}) {{ alt }}</label>
+                                </div>
+                                {% endfor %}
+                            </fieldset>
+                            {% endfor %}
+                            {% if eh_aluno %}
+                            <button type="submit" class="btn btn-success fw-bold"><i class="bi bi-send-check"></i> {{ tt('Enviar respostas') }}</button>
+                            {% endif %}
+                        </form>
+                        {% endif %}
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% if eh_aluno and ver == 'conteudo' %}
+<script>
+(function () {
+    var urlProgresso = "{{ url_for('progresso_aula', acomp_id=registro.id, aula_id=aula.id) }}";
+    var textos = {
+        concluida: {{ tt('Aula concluída')|tojson }},
+        assistido: {{ tt('Assistido até agora: {pct}%')|tojson }},
+        videoOk: {{ tt('Vídeo concluído.')|tojson }},
+        leituraOk: {{ tt('Leitura concluída.')|tojson }}
+    };
+    var marcaFeita = '<i class="bi bi-check-circle-fill text-success"></i>';
+
+    function atualizarTela(r) {
+        if (!r || !r.ok) { return; }
+        document.getElementById('percentualCurso').textContent = r.percentual + '%';
+        document.getElementById('barraCurso').style.width = r.percentual + '%';
+        if (r.concluida) {
+            var s = document.getElementById('situacaoAula');
+            s.textContent = textos.concluida; s.className = 'badge bg-success fs-6';
+        }
+        var aviso = document.getElementById('avisoVideo');
+        if (r.video_concluido) {
+            if (aviso) { aviso.innerHTML = marcaFeita + ' ' + textos.videoOk; }
+            var m = document.getElementById('marcaVideo'); if (m) { m.innerHTML = marcaFeita; }
+        } else if (r.duracao && document.getElementById('assistidoVideo')) {
+            document.getElementById('assistidoVideo').textContent = '· ' + textos.assistido.replace('{pct}', Math.min(100, Math.floor(r.assistidos / r.duracao * 100)));
+        }
+        if (r.leitura_concluida) {
+            var l = document.getElementById('avisoLeitura'); if (l) { l.innerHTML = '<span class="text-success">' + marcaFeita + ' ' + textos.leituraOk + '</span>'; }
+            var ml = document.getElementById('marcaLeitura'); if (ml) { ml.innerHTML = marcaFeita; }
+        }
+    }
+
+    function enviar(dados, final) {
+        return fetch(urlProgresso, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(dados), keepalive: !!final})
+            .then(function (r) { return r.json(); }).then(function (r) { atualizarTela(r); return r; }).catch(function () { return null; });
+    }
+
+    // ---------- VÍDEO: só conta o que foi assistido de fato (trechos contínuos, sem os pulos) ----------
+    {% if aula.tem_video %}
+    var trechos = [], inicio = null, ultimo = null, obterTempo = null, obterDuracao = null;
+    var posicaoSalva = {{ (progresso.posicao_video if progresso else 0) or 0 }};
+
+    function marcar(t) {
+        if (ultimo !== null && t >= ultimo && t - ultimo <= 2.5) { ultimo = t; return; }
+        fecharTrecho(); inicio = t; ultimo = t;
+    }
+    function fecharTrecho() {
+        if (inicio !== null && ultimo !== null && ultimo - inicio >= 1) { trechos.push([Math.floor(inicio), Math.ceil(ultimo)]); }
+        inicio = null; ultimo = null;
+    }
+    function enviarVideo(final) {
+        var pendentes = trechos.splice(0);
+        if (inicio !== null && ultimo !== null && ultimo - inicio >= 1) { pendentes.push([Math.floor(inicio), Math.ceil(ultimo)]); inicio = ultimo; }
+        if (!pendentes.length || !obterDuracao) { return; }
+        enviar({evento: 'video', trechos: pendentes, duracao: obterDuracao(), posicao: obterTempo()}, final);
+    }
+    setInterval(function () { enviarVideo(false); }, 15000);
+    document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'hidden') { fecharTrecho(); enviarVideo(true); } });
+    window.addEventListener('pagehide', function () { fecharTrecho(); enviarVideo(true); });
+
+    {% if aula.video_tipo == 'arquivo' %}
+    var video = document.getElementById('videoAula');
+    obterTempo = function () { return video.currentTime; };
+    obterDuracao = function () { return video.duration || 0; };
+    video.addEventListener('loadedmetadata', function () {
+        if (posicaoSalva > 5 && posicaoSalva < video.duration - 5) { video.currentTime = posicaoSalva; }
+    });
+    video.addEventListener('timeupdate', function () { if (!video.paused && !video.seeking) { marcar(video.currentTime); } });
+    video.addEventListener('seeking', fecharTrecho);
+    video.addEventListener('pause', function () { fecharTrecho(); enviarVideo(false); });
+    video.addEventListener('ended', function () { fecharTrecho(); enviarVideo(false); });
+    {% else %}
+    var playerYoutube = null, relogio = null;
+    window.onYouTubeIframeAPIReady = function () {
+        playerYoutube = new YT.Player('playerYoutube', {
+            host: 'https://www.youtube-nocookie.com',
+            videoId: {{ aula.youtube_id|tojson }},
+            playerVars: {rel: 0, modestbranding: 1, playsinline: 1, disablekb: 0, start: posicaoSalva > 5 ? Math.floor(posicaoSalva) : 0},
+            events: {
+                onStateChange: function (e) {
+                    clearInterval(relogio);
+                    if (e.data === YT.PlayerState.PLAYING) {
+                        relogio = setInterval(function () { marcar(playerYoutube.getCurrentTime()); }, 1000);
+                    } else {
+                        fecharTrecho();
+                        if (e.data === YT.PlayerState.PAUSED || e.data === YT.PlayerState.ENDED) { enviarVideo(false); }
+                    }
+                }
+            }
+        });
+        obterTempo = function () { return playerYoutube.getCurrentTime ? playerYoutube.getCurrentTime() : 0; };
+        obterDuracao = function () { return playerYoutube.getDuration ? playerYoutube.getDuration() : 0; };
+    };
+    var s = document.createElement('script'); s.src = 'https://www.youtube.com/iframe_api'; document.head.appendChild(s);
+    {% endif %}
+    {% endif %}
+
+    // ---------- LEITURA: conta sozinha quando o aluno chega ao fim do texto e ficou o tempo mínimo na página ----------
+    {% if 'leitura' in partes and not partes.leitura %}
+    var abertaEm = Date.now(), minimo = {{ segundos_leitura }} * 1000, chegouAoFim = false, enviada = false;
+    function tentarLeitura() {
+        if (enviada || !chegouAoFim) { return; }
+        var falta = minimo - (Date.now() - abertaEm);
+        if (falta > 0) { setTimeout(tentarLeitura, falta + 500); return; }
+        enviada = true;
+        enviar({evento: 'leitura'}, false).then(function (r) { if (!r || !r.ok) { enviada = false; setTimeout(tentarLeitura, 5000); } });
+    }
+    var fim = document.getElementById('fimDoTexto');
+    if (fim && 'IntersectionObserver' in window) {
+        new IntersectionObserver(function (entradas) {
+            entradas.forEach(function (e) { if (e.isIntersecting) { chegouAoFim = true; tentarLeitura(); } });
+        }, {root: null, threshold: 0}).observe(fim);
+    }
+    {% endif %}
+})();
+</script>
+{% elif not eh_aluno and ver == 'conteudo' and aula.video_tipo == 'youtube' %}
+<script>
+window.onYouTubeIframeAPIReady = function () {
+    new YT.Player('playerYoutube', {host: 'https://www.youtube-nocookie.com', videoId: {{ aula.youtube_id|tojson }}, playerVars: {rel: 0, modestbranding: 1, playsinline: 1}});
+};
+(function () { var s = document.createElement('script'); s.src = 'https://www.youtube.com/iframe_api'; document.head.appendChild(s); })();
+</script>
+{% endif %}
+<script>
+// Tour da sala de estudo (o motor fica em _tour_motor.html)
+function iniciarTourDaPagina() {
+    rodarTour([
+        { texto: {{ tt('Sala de estudo: as aulas do curso, o andamento de cada uma e o teste de conhecimento.')|tojson }} },
+        { sel: '.sala-aulas .list-group', texto: {{ tt('Lista de aulas: o sinal verde marca o que já foi concluído; clique numa aula para abrir. Ao entrar no curso, a plataforma continua de onde você parou.')|tojson }} },
+        { sel: '#barraCurso', texto: {{ tt('Progresso automático: o vídeo conta quando é assistido sem pular, a leitura conta ao chegar ao fim e o teste conta com a nota mínima. O Acompanhamento é atualizado sozinho.')|tojson }} },
+        { texto: {{ tt('Teste seus conhecimentos: responda às perguntas da aula; pode refazer quantas vezes quiser e vale a melhor nota.')|tojson }} },
+    ]);
+}
+</script>
+{% endblock %}

@@ -337,10 +337,13 @@
                         <div class="progress mb-2" style="height: 15px;">
                             <div class="progress-bar bg-success" style="width: {{ item.reg.percentual_conclusao }}%;"></div>
                         </div>
+                        {% if item.tem_aulas %}
+                        <small class="text-success d-block mb-1" style="font-size: 0.75rem;"><i class="bi bi-magic"></i> {{ tt('Automático: aulas assistidas e testes') }}</small>
+                        {% endif %}
                         
                         <!-- PROGRESSO DO MENTOR -->
                         {% if current_user.tipo_usuario != 'Aluno' %}
-                        <label class="form-label text-primary small fw-bold mt-2">{{ tt('Validação do Mentor (') }}{{ item.reg.percentual_mentor or 0 }}%)</label>
+                        <label class="form-label text-primary small fw-bold mt-2">{{ tt('Validação do Professor(a) (') }}{{ item.reg.percentual_mentor or 0 }}%)</label>
                         <div class="progress mb-2" style="height: 15px;">
                             <div class="progress-bar bg-primary progress-bar-striped" style="width: {{ item.reg.percentual_mentor or 0 }}%;"></div>
                         </div>
@@ -376,7 +379,7 @@
                         
                         <!-- LÓGICA DO CHECK-IN DE AULA (CADEADO VIRTUAL PARA ALUNOS) -->
                         {% if current_user.tipo_usuario == 'Aluno' %}
-                            {% if item.ja_fez_checkin_hoje %}
+                            {% if item.reg.ja_fez_checkin_hoje %}
                                 <!-- SE JÁ FEZ CHECK-IN: Libera o acesso -->
                                 <div class="w-100 mb-1 text-center">
                                     <span class="badge bg-success-subtle text-success border border-success mb-1 w-100 py-1">
@@ -416,6 +419,11 @@
                             <a href="{{ url_for('acessar_upload', nome_arquivo=item.reg.certificado) }}" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-outline-success w-100 text-center fw-bold mb-1">{{ tt('Ver Certificado') }}</a>
                         {% endif %}
 
+                        {% if item.tem_aulas and item.reg.status != 'Desativado' and (current_user.tipo_usuario != 'Aluno' or item.reg.ja_fez_checkin_hoje) %}
+                            <a href="{{ url_for('estudar_curso', acomp_id=item.reg.id) }}" class="btn btn-sm btn-success w-100 fw-bold mb-1" id="estudarCurso{{ item.reg.id }}">
+                                <i class="bi bi-play-circle-fill"></i> {{ tt('Estudar agora') if current_user.tipo_usuario == 'Aluno' else tt('Ver aulas e andamento') }}
+                            </a>
+                        {% endif %}
                         {% if item.reg.status != 'Desativado' %}
                             <button class="btn btn-sm btn-primary w-100 fw-bold" data-bs-toggle="modal" data-bs-target="#modalEditar{{ item.reg.id }}">{{ t('atualizar_progresso_anotacoes') }}</button>
                         {% else %}
@@ -451,7 +459,7 @@
                                 {% set nome_arquivo_real = mat_parts[1] if mat_parts|length > 1 else mat_parts[0] %}
                                 
                                 {% set pode_excluir = false %}
-                                {% if current_user.tipo_usuario in ['Administrador', 'Mentor Administrador', 'Mentor'] %}
+                                {% if current_user.tipo_usuario in ['Administrador', 'Mentor Administrador', 'Professor', 'Mentor'] %}
                                     {% set pode_excluir = true %}
                                 {% elif current_user.tipo_usuario == 'Aluno' and autor == 'Aluno' %}
                                     {% set pode_excluir = true %}
@@ -461,7 +469,7 @@
                                     {% if pode_excluir %}
                                         <input class="form-check-input m-0" type="checkbox" name="materiais_excluir" value="{{ mat }}" style="width: 1.2rem; height: 1.2rem;">
                                     {% else %}
-                                        <input class="form-check-input m-0" type="checkbox" disabled title="{{ tt('Sem permissão para excluir material do Mentor') }}" style="width: 1.2rem; height: 1.2rem;">
+                                        <input class="form-check-input m-0" type="checkbox" disabled title="{{ tt('Sem permissão para excluir material do Professor(a)') }}" style="width: 1.2rem; height: 1.2rem;">
                                     {% endif %}
                                     
                                     <div class="flex-grow-1 text-truncate">
@@ -738,12 +746,17 @@
                         
                         <div class="col-md-4 mb-3">
                             <label class="form-label">{{ t('progresso_porcentagem') }} {{ tt('(Aluno)') }}</label>
+                            {% if item.tem_aulas %}
+                            <input type="number" name="percentual_conclusao" class="form-control bg-light" min="0" max="100" value="{{ item.reg.percentual_conclusao }}" readonly>
+                            <small class="text-success"><i class="bi bi-magic"></i> {{ tt('Calculado sozinho pelas aulas assistidas e testes aprovados.') }}</small>
+                            {% else %}
                             <input type="number" name="percentual_conclusao" class="form-control" min="0" max="100" value="{{ item.reg.percentual_conclusao }}" required>
+                            {% endif %}
                         </div>
 
                         {% if current_user.tipo_usuario != 'Aluno' %}
                         <div class="col-md-4 mb-3">
-                            <label class="form-label text-primary fw-bold">{{ tt('Validação (Mentor)') }}</label>
+                            <label class="form-label text-primary fw-bold">{{ tt('Validação (Professor(a))') }}</label>
                             <input type="number" name="percentual_mentor" class="form-control border-primary text-primary fw-bold" min="0" max="100" value="{{ item.reg.percentual_mentor or 0 }}">
                         </div>
                         {% endif %}
@@ -836,7 +849,7 @@
                 {% if current_user.tipo_usuario != 'Aluno' %}
                 <div class="card mt-4 border-primary bg-light shadow-sm">
                     <div class="card-header bg-primary text-white py-2 fw-bold">
-                        <i class="bi bi-award"></i> {{ tt('Avaliação do Mentor (Boletim Final)') }}
+                        <i class="bi bi-award"></i> {{ tt('Avaliação do Professor(a) (Boletim Final)') }}
                     </div>
                     <div class="card-body">
                         
@@ -1070,6 +1083,8 @@ function iniciarTourDaPagina() {
         { sel: '[data-bs-target="#modalNotebookLM"]', texto: {{ t('tour_aco_ia')|tojson }} },
         { sel: '[data-bs-target="#modalMatricula"]', texto: {{ t('tour_aco_vincular')|tojson }} },
         { sel: '.row.mb-5 > div > .card', texto: {{ t('tour_aco_card')|tojson }} },
+        { sel: '[id^="estudarCurso"]', texto: {{ tt('Estudar agora: abre as aulas do curso dentro da plataforma (para o aluno, depois de marcar a presença). O progresso é automático: vídeo assistido, leitura até o fim e teste aprovado.')|tojson }} },
+        { texto: {{ tt('Professor(a): registra o parecer, a validação e o boletim final e responde às dúvidas do Q&A; cada dúvida nova do aluno avisa o professor(a) dele no sino.')|tojson }} },
     ]);
 }
 </script>
