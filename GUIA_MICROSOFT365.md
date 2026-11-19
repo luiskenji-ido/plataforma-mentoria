@@ -56,7 +56,7 @@ Depois disso, todas as pessoas daquela empresa conectam sem pedir aprovação.
 
 ## 4. Cadastrar na plataforma
 
-1. Entre como **Administrador** e abra **Agentes IA**.
+1. Entre como **Administrador** e abra **Administração › Provedores de IA e custos**.
 2. Abra o quadro **Credenciais dos agentes e integrações** e preencha:
    - **ID do aplicativo Microsoft 365:** o ID copiado no passo 1.
    - **Segredo do aplicativo Microsoft 365:** o valor copiado no passo 2.

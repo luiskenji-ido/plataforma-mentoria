@@ -521,15 +521,15 @@ class AgenteAdministrador(AgenteDoFluxo):
                      f"Ficou diferente: {final}", "O teste não deixa marcas", "Média")
 
     def credenciais_dos_agentes(self):
-        """Área Agentes IA: o quadro de credenciais existe e NUNCA mostra a senha das contas de teste (só a situação).
+        """Tela Provedores de IA e custos: o quadro de credenciais existe e NUNCA mostra a senha das contas de teste (só a situação).
         O agente não grava nada aqui: as credenciais reais do servidor não são alteradas pelo teste."""
         self.etapa("Credenciais dos agentes (só leitura)")
-        status, _, pagina = self.cliente.pedir("GET", "/admin/agentes-ia")
+        status, _, pagina = self.cliente.pedir("GET", "/admin/provedores-ia")
         senha = senha_de_teste()
         self.confere(status == 200 and 'id="cardCredenciaisIa"' in pagina and (not senha or senha not in pagina),
                      "Credenciais dos agentes sem expor a senha", "SEG", "Quadro de credenciais presente; nenhum valor aparece na página.",
                      "Quadro ausente ou a senha das contas de teste aparece na página.",
-                     "Administrador cadastra as credenciais dos agentes na plataforma, cifradas", "Alta", print_de="/admin/agentes-ia")
+                     "Administrador cadastra as credenciais dos agentes na plataforma, cifradas", "Alta", print_de="/admin/provedores-ia")
 
     def parametros_de_regras(self):
         """Tela Parâmetros de regras: abre com todos os grupos e RECUSA valores inválidos sem gravar nada.

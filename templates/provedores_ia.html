@@ -10,7 +10,7 @@
         <p class="text-muted mb-0">{{ tt('Ligue ou desligue a IA de cada uso, escolha o modelo principal e a reserva e acompanhe o gasto do mês. O modelo mais barato que dá conta do uso deixa a conta baixa.') }}</p>
     </div>
     <div class="d-flex gap-2 flex-wrap">
-        <a href="{{ url_for('agentes_ia') }}#cardCredenciaisIa" class="btn btn-outline-secondary fw-bold"><i class="bi bi-key"></i> {{ tt('Chaves das IAs') }}</a>
+        <a href="#cardCredenciaisIa" class="btn btn-outline-secondary fw-bold"><i class="bi bi-key"></i> {{ tt('Chaves das IAs') }}</a>
         <a href="{{ url_for('parametros_regras') }}#grupo_ia" class="btn btn-outline-primary fw-bold"><i class="bi bi-sliders"></i> {{ tt('Teto e regras') }}</a>
     </div>
 </div>
@@ -134,6 +134,40 @@
     </div>
     {% endfor %}
 </div>
+
+<!-- Credenciais dos agentes: cifradas no banco, nunca exibidas de volta (só o Administrador vê esta área) -->
+<details class="card shadow-sm border-0 mb-3" id="cardCredenciaisIa" {% if credenciais | selectattr('ilegivel') | list or not (credenciais | selectattr('origem') | list) %}open{% endif %}>
+    <summary class="card-header bg-white fw-bold text-primary" style="cursor: pointer;"><i class="bi bi-key-fill"></i> {{ tt('Credenciais dos agentes e integrações') }}
+        <span class="small text-muted fw-normal">· {{ credenciais | selectattr('origem') | list | length }}/{{ credenciais | length }} {{ tt('configurada(s)') }}</span></summary>
+    <form method="POST" action="{{ url_for('credenciais_agentes_ia') }}" class="card-body" autocomplete="off">
+        <p class="small text-muted">{{ tt('Ficam cifradas no banco e nunca aparecem na tela depois de salvas. Deixe em branco para manter o valor atual. O que estiver no .env vale enquanto nada for cadastrado aqui.') }}</p>
+        {% for c in credenciais %}
+        <div class="row g-2 align-items-center mb-2">
+            <div class="col-md-5"><label class="form-label small fw-bold mb-0" for="cred_{{ c.chave }}">{{ tt(c.nome) }}</label>
+                <div class="small">
+                    {% if c.ilegivel %}<span class="badge bg-danger">{{ tt('ilegível: cadastre de novo') }}</span>
+                    {% elif c.origem == 'tela' %}<span class="badge bg-success">{{ tt('configurada aqui') }}</span> <span class="text-muted">{{ c.atualizado_em.strftime('%d/%m/%Y %H:%M') if c.atualizado_em else '' }}{% if c.por %} · {{ c.por }}{% endif %}</span>
+                    {% elif c.origem == 'env' %}<span class="badge bg-secondary">{{ tt('vem do .env') }}</span>
+                    {% else %}<span class="badge bg-warning text-dark">{{ tt('não configurada') }}</span>{% endif %}
+                </div></div>
+            <div class="col-md-5">
+                {% if c.tipo == 'sim_nao' %}
+                <select class="form-select form-select-sm" id="cred_{{ c.chave }}" name="{{ c.chave }}">
+                    <option value="">{{ tt('Manter') }} ({{ tt('Sim') if c.ligado else tt('Não') }})</option>
+                    <option value="1">{{ tt('Sim') }}</option><option value="0">{{ tt('Não') }}</option>
+                </select>
+                {% else %}
+                <input type="{{ 'text' if c.tipo == 'texto' else 'password' }}" class="form-control form-control-sm" id="cred_{{ c.chave }}" name="{{ c.chave }}" autocomplete="new-password"
+                       placeholder="{{ tt('•••••• (deixe em branco para manter)') if c.origem else '' }}">
+                {% endif %}
+            </div>
+            <div class="col-md-2">{% if c.origem == 'tela' or c.ilegivel %}<div class="form-check small"><input class="form-check-input" type="checkbox" id="rem_{{ c.chave }}" name="remover_{{ c.chave }}" value="1">
+                <label class="form-check-label" for="rem_{{ c.chave }}">{{ tt('Remover') }}</label></div>{% endif %}</div>
+        </div>
+        {% endfor %}
+        <div class="text-end"><button class="btn btn-primary btn-sm fw-bold px-3" type="submit"><i class="bi bi-shield-lock"></i> {{ tt('Salvar credenciais') }}</button></div>
+    </form>
+</details>
 
 <!-- PREÇOS E MODELOS -->
 <div class="row g-3 mb-3">

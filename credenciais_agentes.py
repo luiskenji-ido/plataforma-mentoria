@@ -3,7 +3,7 @@
 CREDENCIAIS DOS AGENTES
 =======================
 A senha das contas de teste, a liberação dos agentes num servidor de produção e as chaves de IA do Orquestrador
-são cadastradas pelo Administrador na área Agentes IA (só ele vê essa área). Ficam cifradas no banco (Fernet,
+são cadastradas pelo Administrador na tela Provedores de IA e custos (só ele vê essa tela). Ficam cifradas no banco (Fernet,
 com chave derivada da SECRET_KEY do servidor) e nunca voltam para a tela: só aparece se estão configuradas.
 
 Os agentes continuam lendo variáveis de ambiente: antes de iniciar qualquer equipe, a plataforma coloca as

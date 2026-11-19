@@ -393,7 +393,7 @@ def recursos():
         chaves = []
     itens.append(_item('ia', 'IAs (Claude / Gemini)', 'ligado' if chaves else 'atencao',
                        ('Chaves: ' + ', '.join(chaves)) if chaves else 'Sem chave: o Assistente responde só com a base, sem IA.',
-                       'Cadastre as chaves em Agentes IA › Credenciais.', 'Integrações'))
+                       'Cadastre as chaves em Provedores de IA e custos › Credenciais.', 'Integrações'))
 
     # Agentes
     segundo_plano = tipo != 'conteiner'

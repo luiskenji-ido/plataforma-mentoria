@@ -4,7 +4,7 @@ IA DO ORQUESTRADOR EXECUTOR (Gemini, Claude ou ChatGPT/OpenAI)
 ==============================================================
 Recebe uma correção + o prompt do agente + os arquivos citados e devolve, em JSON validado, se dá para corrigir e as
 trocas exatas de trecho, com plano de rollback, como testar e riscos. As instruções fixas ficam na Skill
-(skill_correcao.md). Chaves (.env ou Agentes IA › Credenciais): GEMINI_API_KEY (ou GOOGLE_API_KEY), ANTHROPIC_API_KEY
+(skill_correcao.md). Chaves (.env ou Provedores de IA e custos › Credenciais): GEMINI_API_KEY (ou GOOGLE_API_KEY), ANTHROPIC_API_KEY
 e/ou OPENAI_API_KEY.
 """
 import json
@@ -179,7 +179,7 @@ def _openai(pedido):
     except ImportError as e:
         raise IAIndisponivel(f'openai não instalado: {e}')
     if not os.environ.get('OPENAI_API_KEY'):
-        raise IAIndisponivel('Configure OPENAI_API_KEY no .env ou em Agentes IA › Credenciais')
+        raise IAIndisponivel('Configure OPENAI_API_KEY no .env ou em Provedores de IA e custos › Credenciais')
     cliente = openai.OpenAI(timeout=900.0, max_retries=1)
     try:
         # Saída estruturada (json_schema estrito) no mesmo formato do Claude e do Gemini; store=False: o código do

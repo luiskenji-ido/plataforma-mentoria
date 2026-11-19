@@ -8446,7 +8446,7 @@ def credenciais_agentes_ia():
     if bloqueio:
         return bloqueio
     idioma = current_user.idioma
-    voltar = redirect(url_for('agentes_ia') + '#cardCredenciaisIa')
+    voltar = redirect(url_for('provedores_ia_view') + '#cardCredenciaisIa')
     segredo = app.config['SECRET_KEY']
     alteradas, erros = [], []
     for chave, (nome, tipo) in credenciais_agentes.CAMPOS.items():
@@ -8508,7 +8508,8 @@ def provedores_ia_view():
     import provedores_ia
     credenciais_agentes.carregar(app.config['SECRET_KEY'])
     return render_template('provedores_ia.html', r=provedores_ia.resumo_para_tela(), usos=provedores_ia.USOS,
-                           provedores=provedores_ia.PROVEDORES, maximo=provedores_ia.MAXIMO_NA_ORDEM)
+                           provedores=provedores_ia.PROVEDORES, maximo=provedores_ia.MAXIMO_NA_ORDEM,
+                           credenciais=credenciais_agentes.situacao(app.config['SECRET_KEY']))
 
 
 @app.route('/admin/provedores-ia/uso/<uso>', methods=['POST'])
@@ -8783,10 +8784,8 @@ def agentes_ia():
     bloqueio = _somente_administrador()
     if bloqueio:
         return bloqueio
-    import credenciais_agentes
     return render_template('agentes_ia.html', ordem=ORDEM_AGENTES_IA, estado=estado_agentes_ia(), arvore=arvore_agentes_ia(),
-                           playwright_ok=importlib.util.find_spec('playwright') is not None,
-                           credenciais=credenciais_agentes.situacao(app.config['SECRET_KEY']))
+                           playwright_ok=importlib.util.find_spec('playwright') is not None)
 
 
 @app.route('/admin/agentes-ia/iniciar', methods=['POST'])
@@ -10234,6 +10233,18 @@ if os.environ.get('PULAR_ATUALIZACAO_BANCO') != '1':  # 1 = só para gerar migra
 # ===========================================================================
 # As regras nomeadas de perfis chegam a todas as telas pelo mesmo nome (ex.: current_user.tipo_usuario in PERFIS_GESTAO_DEMANDAS)
 app.jinja_env.globals.update({_nome: _valor for _nome, _valor in list(globals().items()) if _nome.startswith('PERFIS_')})
+
+
+def _versao_tema():
+    """Muda quando o tema muda (data dos arquivos): o navegador baixa o CSS novo em vez de usar o guardado."""
+    pasta = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'static', 'css')
+    try:
+        return int(max(os.path.getmtime(os.path.join(pasta, nome)) for nome in ('tokens.css', 'tema.css')))
+    except OSError:
+        return 0
+
+
+app.jinja_env.globals['versao_tema'] = _versao_tema()
 
 
 if __name__ == '__main__':

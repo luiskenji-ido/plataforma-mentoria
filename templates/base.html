@@ -604,6 +604,7 @@
     <link href="https://cdnjs.cloudflare.com/ajax/libs/intro.js/7.2.0/introjs.min.css" rel="stylesheet" integrity="sha384-WrNrUU1p2jx6o0iGe4D8mbzwjRZ6eFv5rVqz0r7cj87IrSYIlFkFNp7gt0CAIlhw" crossorigin="anonymous">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/intro.js/7.2.0/intro.min.js" integrity="sha384-dnCOn7BN1Q6GfmuQMdJ0gNoyzjUps6NsIfYCtDc6g2pXZ8ELg7sXXg8KGzxTSleL" crossorigin="anonymous"></script>
 
+{% include '_tema_plataforma.html' %}
 </head>
 <body>
 
@@ -718,6 +719,10 @@
             <i class="bi bi-gear-fill"></i> {{ t('menu_administracao') }}
           </a>
           <ul class="dropdown-menu shadow border-0" aria-labelledby="adminDropdown">
+            {% if current_user.tipo_usuario in PERFIS_ADMINISTRACAO_SISTEMA and pode_modulo('identidade') %}
+            <li><a class="dropdown-item fw-bold" href="{{ url_for('identidade_instituicao') }}"><i class="bi bi-building"></i> {{ tt('Identidade da instituição') }}</a></li>
+            <li><hr class="dropdown-divider"></li>
+            {% endif %}
             <li><h6 class="dropdown-header">{{ tt('Pessoas') }}</h6></li>
             {% if current_user.tipo_usuario in PERFIS_GESTAO_CADASTROS and pode_modulo('cadastros') %}
             <li><a class="dropdown-item fw-bold" href="{{ url_for('gerenciar_usuarios') }}"><i class="bi bi-people-fill"></i> {{ t('menu_cadastros') }}</a></li>
@@ -728,7 +733,6 @@
             {% if current_user.tipo_usuario in PERFIS_ADMINISTRACAO_SISTEMA and pode_modulo('parametros') %}
             <li><a class="dropdown-item fw-bold" href="{{ url_for('parametros_regras') }}"><i class="bi bi-sliders"></i> {{ tt('Parâmetros de regras') }}</a></li>
             {% endif %}
-            {% if pode_modulo('agenda_bancas') %}<li><a class="dropdown-item fw-bold" href="{{ url_for('avaliadores_banca') }}"><i class="bi bi-person-badge"></i> {{ t('aval_titulo') }}</a></li>{% endif %}
             {% if current_user.tipo_usuario in PERFIS_DECIDEM_SOLICITACOES and pode_modulo('solicitacoes') %}
             <li><a class="dropdown-item fw-bold" href="{{ url_for('gerenciar_solicitacoes') }}"><i class="bi bi-envelope-paper-fill"></i> {{ t('menu_solicitacoes') }}</a></li>
             {% endif %}
@@ -740,13 +744,13 @@
             {% if pode_modulo('reunioes') %}<li><a class="dropdown-item fw-bold" href="{{ url_for('reunioes') }}"><i class="bi bi-journal-text"></i> {{ t('menu_reunioes') }}</a></li>{% endif %}
             {% if pode_modulo('agenda_bancas') %}<li><a class="dropdown-item fw-bold" href="{{ url_for('agenda_bancas') }}"><i class="bi bi-calendar-event"></i> {{ t('menu_agenda_bancas') }}</a></li>{% endif %}
             {% if pode_modulo('indicadores') %}<li><a class="dropdown-item fw-bold" href="{{ url_for('indicadores_voluntariado') }}"><i class="bi bi-bar-chart-line"></i> {{ t('menu_indicadores') }}</a></li>{% endif %}
-            {% if current_user.tipo_usuario in PERFIS_ADMINISTRACAO_SISTEMA and (pode_modulo('agentes_ia') or pode_modulo('manutencao') or pode_modulo('identidade')) %}
+            {% if pode_modulo('agenda_bancas') %}<li><a class="dropdown-item fw-bold" href="{{ url_for('avaliadores_banca') }}"><i class="bi bi-person-badge"></i> {{ t('aval_titulo') }}</a></li>{% endif %}
+            {% if current_user.tipo_usuario in PERFIS_ADMINISTRACAO_SISTEMA and (pode_modulo('agentes_ia') or pode_modulo('manutencao') or pode_modulo('assistente')) %}
             <li><hr class="dropdown-divider"></li>
             <li><h6 class="dropdown-header">{{ tt('Sistema') }}</h6></li>
-            {% if pode_modulo('identidade') %}<li><a class="dropdown-item fw-bold" href="{{ url_for('identidade_instituicao') }}"><i class="bi bi-building"></i> {{ tt('Identidade da instituição') }}</a></li>{% endif %}
             {% if pode_modulo('manutencao') %}<li><a class="dropdown-item fw-bold" href="{{ url_for('ambiente_compatibilidade') }}"><i class="bi bi-hdd-network"></i> {{ tt('Ambiente e compatibilidade') }}</a></li>{% endif %}
             {% if pode_modulo('agentes_ia') %}
-            <li><a class="dropdown-item fw-bold" href="{{ url_for('agentes_ia') }}"><i class="bi bi-robot"></i> {{ tt('Agentes IA') }}</a></li>
+            <li><a class="dropdown-item fw-bold" href="{{ url_for('agentes_ia') }}"><i class="bi bi-robot"></i> {{ tt('Agente de IA – Fim a Fim') }}</a></li>
             <li><a class="dropdown-item fw-bold" href="{{ url_for('agentes_seguranca') }}"><i class="bi bi-shield-lock-fill"></i> {{ tt('Agentes de Segurança') }}</a></li>
             <li><a class="dropdown-item fw-bold" href="{{ url_for('agentes_banco') }}"><i class="bi bi-database-fill-check"></i> {{ tt('Agentes de Banco de Dados') }}</a></li>
             <li><a class="dropdown-item fw-bold" href="{{ url_for('agentes_funcionalidades') }}"><i class="bi bi-diagram-3-fill"></i> {{ tt('Agentes de Funcionalidades') }}</a></li>

@@ -2543,6 +2543,44 @@ LITERAIS.update({
     'Campo vazio ou igual ao padrão segue o preço padrão; o reajuste anunciado entra sozinho na data.': ('An empty field, or one equal to the default, keeps the default price; an announced price change applies automatically on its date.', 'Un campo vacío o igual al estándar sigue el precio estándar; el reajuste anunciado se aplica solo en la fecha.'),
 })
 
+# Tema v2 em produção: janela Agendar banca nova, menu Administração e credenciais em Provedores de IA
+LITERAIS.update({
+    'Editar banca': ('Edit panel', 'Editar banca'),
+    'Agendar banca': ('Schedule panel', 'Programar banca'),
+    'Escolha o TCC, a data e quem avalia.': ('Choose the final project, the date and who evaluates.', 'Elija el TCC, la fecha y quién evalúa.'),
+    'Quando e onde': ('When and where', 'Cuándo y dónde'),
+    'Data e hora': ('Date and time', 'Fecha y hora'),
+    'Local': ('Location', 'Lugar'),
+    'Ex.: Auditório 2, bloco B': ('E.g.: Auditorium 2, block B', 'Ej.: Auditorio 2, bloque B'),
+    'Link da sala virtual': ('Virtual room link', 'Enlace de la sala virtual'),
+    'Tempo da apresentação': ('Presentation time', 'Tiempo de la presentación'),
+    'Minutos de apresentação': ('Presentation minutes', 'Minutos de presentación'),
+    'Perguntas da banca': ('Panel questions', 'Preguntas de la banca'),
+    'Minutos de perguntas': ('Question minutes', 'Minutos de preguntas'),
+    'Prazos de entrega': ('Delivery deadlines', 'Plazos de entrega'),
+    'Trabalho escrito': ('Written work', 'Trabajo escrito'),
+    'Slides': ('Slides', 'Diapositivas'),
+    'Leitura dos avaliadores': ("Evaluators' reading", 'Lectura de los evaluadores'),
+    'Avaliadores': ('Evaluators', 'Evaluadores'),
+    'Buscar por nome, perfil ou empresa…': ('Search by name, profile or company…', 'Buscar por nombre, perfil o empresa…'),
+    'Buscar avaliadores': ('Search evaluators', 'Buscar evaluadores'),
+    'Envio do formulário aos avaliadores': ('Form sent to evaluators', 'Envío del formulario a los evaluadores'),
+    'horas antes': ('hours before', 'horas antes'),
+    'Horas antes da banca': ('Hours before the panel', 'Horas antes de la banca'),
+    'h antes': ('h before', 'h antes'),
+    'Comentários anônimos para os jovens': ('Anonymous comments for the students', 'Comentarios anónimos para los jóvenes'),
+    'Os avaliadores recebem o formulário {h} h antes da banca.': ('Evaluators receive the form {h} h before the panel.', 'Los evaluadores reciben el formulario {h} h antes de la banca.'),
+    'Ninguém escolhido ainda.': ('Nobody chosen yet.', 'Nadie elegido todavía.'),
+    'Nenhum avaliador encontrado para': ('No evaluator found for', 'Ningún evaluador encontrado para'),
+    'Cadastrar avaliador': ('Register evaluator', 'Registrar evaluador'),
+    'nenhum escolhido': ('none chosen', 'ninguno elegido'),
+    '1 escolhido': ('1 chosen', '1 elegido'),
+    '{n} escolhidos': ('{n} chosen', '{n} elegidos'),
+    'Agente de IA – Fim a Fim': ('AI Agent – End to End', 'Agente de IA – De Punta a Punta'),
+    'As credenciais (chaves das IAs, senha das contas de teste e Microsoft 365) ficam agora em': ('Credentials (AI keys, test account password and Microsoft 365) are now in', 'Las credenciales (claves de las IA, contraseña de las cuentas de prueba y Microsoft 365) ahora están en'),
+    'Cadastre as chaves em Provedores de IA e custos › Credenciais.': ('Add the keys in AI providers and costs › Credentials.', 'Registre las claves en Proveedores de IA y costos › Credenciales.'),
+})
+
 _POR_IDIOMA ={'en': {pt: v[0] for pt, v in LITERAIS.items()}, 'es': {pt: v[1] for pt, v in LITERAIS.items()}}
 
 

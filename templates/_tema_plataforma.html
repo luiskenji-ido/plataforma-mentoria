@@ -1,0 +1,6 @@
+{# Tema da plataforma (v2): paletas por tema com contraste conferido (tema_plataforma.py → static/css/tokens.css) e as peças
+   em static/css/tema.css. Incluído no fim do <head>, depois das regras antigas, nas telas interativas (não nas de impressão). #}
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/tokens.css') }}?v={{ versao_tema }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/tema.css') }}?v={{ versao_tema }}">

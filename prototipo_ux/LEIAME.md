@@ -1,5 +1,9 @@
 # Protótipo de UX/UI
 
+> **Aprovado e levado para produção em 19/11/2026**: as paletas estão em `tema_plataforma.py`, o tema em
+> `static/css/tema.css` e a janela Agendar banca em `templates/agenda_bancas.html`. A porta 5071 (`--sem-tema`) passou
+> a mostrar a produção já com o tema novo. Este protótipo continua servindo para experimentar as próximas propostas.
+
 A plataforma real com o visual proposto, para experimentar antes de decidir. **Nada de produção é alterado**: o protótipo
 roda o mesmo `app.py` numa cópia do banco (`dados/prototipo.db`) e numa porta própria, e coloca por cima:
 

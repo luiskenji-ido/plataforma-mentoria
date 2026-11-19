@@ -11,7 +11,7 @@ Permissões pedidas (delegadas, em nome da pessoa):
   - offline_access       → renovar o acesso sem pedir login de novo.
 
 Aplicativo registrado no Microsoft Entra ID (o antigo Azure AD). Configuração, nesta ordem de prioridade:
-área Agentes IA › Credenciais (Administrador) ou o .env:
+tela Provedores de IA e custos › Credenciais (Administrador) ou o .env:
   MS365_CLIENT_ID, MS365_CLIENT_SECRET e MS365_TENANT (padrão 'organizations' = contas de qualquer empresa).
 """
 import base64

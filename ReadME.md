@@ -202,7 +202,7 @@ mentoria/
 		Lite (mais estável quando o Google está sobrecarregado) de reserva.
 		Teto de gasto mensal e aviso em Parâmetros de regras (grupo Inteligência artificial); ao atingir o teto as IAs
 		param até o mês seguinte. A mesma primeira pergunta reaproveita a resposta (sem custo).
-		Chaves em Agentes IA › Credenciais: ANTHROPIC_API_KEY, GEMINI_API_KEY e OPENAI_API_KEY (ChatGPT). Código: provedores_ia.py.
+		Chaves em Provedores de IA e custos › Credenciais: ANTHROPIC_API_KEY, GEMINI_API_KEY e OPENAI_API_KEY (ChatGPT). Código: provedores_ia.py.
 		Preços padrão conferidos nas páginas oficiais (Claude, Google e OpenAI) em PRECOS_CONFERIDOS_EM; reajustes já
 		anunciados (REAJUSTES) passam a valer sozinhos na data; modelos descontinuados viram o substituto (SUBSTITUIDOS).
 
@@ -211,6 +211,12 @@ mentoria/
 		sozinho os botões e abas que nenhum passo cobre. Os agentes OmniTest cobram balões no lugar, seções, abas e botões;
 		o Agente Gerente Técnico aprende o mapa de cada perfil e os erros do tour (conhecimento_tour.py) e ensina os agentes,
 		que conferem primeiro os erros já vistos e avisam quando foram corrigidos.
+
+	🎨 Tema da plataforma (v2)
+		Os 4 temas (Claro, Escuro, Futurista, Vintage) usam paletas com contraste conferido (WCAG 2.2: 4,5:1 no texto).
+		Fonte das cores: tema_plataforma.py → python tema_plataforma.py confere os 144 pares e grava static/css/tokens.css;
+		as peças ficam em static/css/tema.css (incluídos pelo templates/_tema_plataforma.html). Régua de UX/UI:
+		prototipo_ux/SKILL_UX_UI.md; o Agente UX mede o contraste de cada texto nos 4 temas, no navegador.
 
 	📏 Regras nomeadas (o que os agentes aprendem sozinhos)
 		O Gerente de Funcionalidades só aprende o que está numa REGRA NOMEADA: constante em MAIÚSCULAS no app.py (ou em

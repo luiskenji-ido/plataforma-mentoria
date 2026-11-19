@@ -11,7 +11,7 @@ ao teto (Parâmetros de regras › ia_teto_mensal_usd): ao atingir o teto as IAs
 Administradores são avisados (também quando passa do aviso, ia_aviso_teto_pct). Teto zero desliga as IAs.
 
 Provedores: Claude (ANTHROPIC_API_KEY), Gemini (GEMINI_API_KEY ou GOOGLE_API_KEY) e ChatGPT/OpenAI (OPENAI_API_KEY),
-todas cadastradas em Agentes IA › Credenciais. O Orquestrador roda em outro processo: ele grava o consumo em
+todas cadastradas em Provedores de IA e custos › Credenciais. O Orquestrador roda em outro processo: ele grava o consumo em
 instance/uso_ia_externo.jsonl, que é importado aqui (importar_uso_externo).
 
 Todas as funções rodam dentro de um app_context.
