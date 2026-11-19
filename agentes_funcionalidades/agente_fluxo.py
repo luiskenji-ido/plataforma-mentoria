@@ -3,7 +3,7 @@
 AGENTES DE FUNCIONALIDADES — a corrida de revezamento pelo fluxo da plataforma
 Uso: python agentes_funcionalidades/agente_fluxo.py <agente>
 Ordem (o Gerente chama um de cada vez; cada um cria os usuários e os dados que o próximo precisa):
-  administrador → mentor_administrador → gestor_parceiro → professor → mentor → aluno → avaliador → encerramento
+  dev → ux → administrador → mentor_administrador → gestor_parceiro → professor → mentor → aluno → avaliador → encerramento
 """
 import os
 import sys
@@ -179,6 +179,129 @@ class AgenteDoFluxo(EtapasCobertura, AgenteFuncional):
         with open(dados["prompt"].replace("_prompt.md", ".json"), "w", encoding="utf-8") as f:
             json.dump(dados, f, ensure_ascii=False, indent=1)
         return dados
+
+
+# ==============================================================================
+# 0. DEV — regras de negócio no código (estático, sem login: roda antes dos perfis)
+# ==============================================================================
+class AgenteDev(AgenteDoFluxo):
+    """Garante que a plataforma continue aprendendo sozinha: toda regra de negócio precisa estar numa regra nomeada,
+    porque é só isso que o Gerente de Funcionalidades enxerga e ensina aos agentes."""
+    chave, nome, perfil = "dev", "Agente Dev (regras nomeadas no código)", "Código"
+    LIMITE_ACHADOS = 40
+    ROTEIRO = ["Varre 100% do código Python e das telas atrás de regras escritas direto (listas de perfis, poder dado a um perfil, "
+               "tamanhos mínimos, faixas de nota e prazos soltos)",
+               "Confere se o Gerente de Funcionalidades aprendeu todas as regras nomeadas da plataforma (inclusive as novas)",
+               "Confere se cada regra de perfis (PERFIS_*) é usada no código ou nas telas (regra morta engana quem lê)"]
+
+    def rodar(self):
+        import re
+        import varredura_regras as vr
+        self.etapa("Varredura de 100% do código: regras escritas direto")
+        achados = vr.varrer()
+        if not achados:
+            self.confere(True, "Nenhuma regra de negócio escrita direto no código", "DEV",
+                         "Todas as listas de perfis, poderes e números de regra estão em regras nomeadas.", "", "Toda regra numa regra nomeada")
+        for a in achados[:self.LIMITE_ACHADOS]:
+            self.registrar(f"Regra escrita direto no código: {a['arquivo']}:{a['linha']}", ALERTA, "DEV",
+                           f"{a['tipo']}: {a['trecho']}", "Toda regra de negócio numa regra nomeada (o Gerente só aprende o que tem nome)",
+                           "Média", a['sugestao'])
+        if len(achados) > self.LIMITE_ACHADOS:
+            self.registrar(f"Mais {len(achados) - self.LIMITE_ACHADOS} regra(s) escrita(s) direto no código", ALERTA, "DEV",
+                           "Rode python agentes_funcionalidades/varredura_regras.py para a lista completa.",
+                           "Toda regra de negócio numa regra nomeada", "Média")
+
+        self.etapa("O Gerente aprendeu todas as regras nomeadas")
+        from app import app
+        import conhecimento_funcional as cf
+        with app.app_context():
+            atuais = cf.regras_nomeadas_da_plataforma()
+        aprendidas = set((self.regras or {}).get("regras_app", {}))
+        faltam = sorted(set(atuais) - aprendidas)
+        self.confere(not faltam and bool(atuais), "Gerente aprendeu todas as regras nomeadas", "DEV",
+                     f"{len(atuais)} regra(s) nomeada(s) no retrato do Gerente.",
+                     f"{len(faltam)} regra(s) nomeada(s) fora do aprendizado: {', '.join(faltam[:15])}.",
+                     "Regra nova ou alterada vira aprendizado na hora", "Alta",
+                     "Rodar a detecção do Gerente (Agentes de Funcionalidades › Aprender) ou conferir MODULOS_DE_REGRAS em conhecimento_funcional.py.")
+
+        self.etapa("Regras de perfis em uso")
+        textos = []
+        for extensao in (".py", ".html"):
+            for caminho in vr._arquivos(extensao):
+                textos.append(open(caminho, encoding="utf-8").read())
+        tudo = "\n".join(textos)
+        mortas = sorted(n for n in atuais if n.startswith("PERFIS_") and len(re.findall(r"\b" + re.escape(n) + r"\b", tudo)) < 2)
+        self.confere(not mortas, "Toda regra de perfis está em uso", "DEV", "Cada PERFIS_* é usada em pelo menos um lugar.",
+                     f"Regra(s) definida(s) e nunca usada(s): {', '.join(mortas)}.", "Sem regra morta", "Baixa",
+                     "Usar a regra onde a decisão é tomada ou apagá-la.", alerta=True)
+
+
+class AgenteUX(AgenteDoFluxo):
+    """Garante que um cliente novo use a plataforma sozinho: toda tela traduzida (pt/en/es), acessível (alt, nomes dos
+    botões, rótulos dos campos) e chamando cada papel sempre do mesmo jeito (regra nomeada NOME_DO_PAPEL_NAS_TELAS)."""
+    chave, nome, perfil = "ux", "Agente UX/UI (telas traduzidas e acessíveis)", "Telas"
+    LIMITE_ACHADOS = 40
+    # (tipo do achado na varredura, o que a regra garante, severidade)
+    VERIFICACOES = [("Texto visível fora do t()/tt()", "Todo texto da tela passa pelo t() ou tt() (vira inglês e espanhol)", "Média"),
+                    ("tt() sem tradução", "Todo texto do tt() tem inglês e espanhol em traducoes_literais.py", "Média"),
+                    ("t() com chave inexistente", "Toda chave do t() existe em traducoes.py", "Alta"),
+                    ("t() sem tradução", "Toda chave do t() tem inglês e espanhol", "Média"),
+                    ("Função de tradução escondida", "Nenhum laço ou set esconde o t()/tt() (a tela daria erro 500)", "Alta"),
+                    ("Imagem sem alt", "Toda imagem tem alt (o leitor de tela descreve)", "Média"),
+                    ("Botão ou link sem nome", "Todo botão só de ícone tem title ou aria-label", "Média"),
+                    ("Link sem nome", "Todo link só de ícone tem title ou aria-label", "Média"),
+                    ("Campo sem rótulo", "Todo campo tem <label for>, aria-label ou title", "Média"),
+                    ("Layout estourado", "A grade 'row' fica dentro do modal-body/card-body, nunca no próprio (as bordas não estouram)", "Média"),
+                    ("Papel com nome trocado", "O papel aparece com o nome da regra NOME_DO_PAPEL_NAS_TELAS", "Alta")]
+    ROTEIRO = ["Varre 100% das telas (templates/*.html): texto fora do t()/tt(), traduções que faltam em inglês e espanhol "
+               "e t()/tt() escondido por variável de laço (erro 500)",
+               "Acessibilidade: imagem sem alt, botão ou link só de ícone sem nome, campo sem rótulo",
+               "Mesmo papel com o mesmo nome nas telas da regra NOME_DO_PAPEL_NAS_TELAS (ex.: Professor(a) no Acompanhamento)",
+               "Confere se o Gerente de Funcionalidades aprendeu a regra dos nomes dos papéis",
+               "Lista as exceções conscientes marcadas com {# ux: ok #} (cada uma com o motivo)"]
+
+    def rodar(self):
+        import re
+        import varredura_ux as vu
+        self.etapa("Varredura de 100% das telas: tradução, acessibilidade e nomes dos papéis")
+        achados = vu.varrer()
+        por_tipo = {}
+        for a in achados:
+            por_tipo.setdefault(a['tipo'], []).append(a)
+        for tipo, regra, _ in self.VERIFICACOES:
+            if not por_tipo.get(tipo):
+                self.confere(True, f"Telas sem achados: {tipo.lower()}", "UX", regra + ".", "", regra)
+        for a in achados[:self.LIMITE_ACHADOS]:
+            regra, severidade = next(((r, s) for t, r, s in self.VERIFICACOES if t == a['tipo']), (a['tipo'], "Média"))
+            self.registrar(f"{a['tipo']}: {a['arquivo']}:{a['linha']}", ALERTA, "UX", a['trecho'], regra, severidade, a['sugestao'])
+        if len(achados) > self.LIMITE_ACHADOS:
+            self.registrar(f"Mais {len(achados) - self.LIMITE_ACHADOS} problema(s) de UX/UI nas telas", ALERTA, "UX",
+                           "Rode python agentes_funcionalidades/varredura_ux.py para a lista completa.",
+                           "Telas traduzidas, acessíveis e com os papéis bem nomeados", "Média")
+
+        self.etapa("O Gerente aprendeu a regra dos nomes dos papéis")
+        from app import app
+        import conhecimento_funcional as cf
+        with app.app_context():
+            atual = cf.regras_nomeadas_da_plataforma().get("NOME_DO_PAPEL_NAS_TELAS")
+        aprendida = (self.regras or {}).get("regras_app", {}).get("NOME_DO_PAPEL_NAS_TELAS")
+        self.confere(atual is not None and aprendida == atual, "Gerente aprendeu a regra NOME_DO_PAPEL_NAS_TELAS", "UX",
+                     f"Telas com nome de papel conferido: {', '.join(sorted(atual or {}))}.",
+                     f"Regra na plataforma: {atual}; aprendida pelo Gerente: {aprendida}.",
+                     "Mudar o nome de um papel na regra muda o que o Agente UX espera", "Média",
+                     "Rodar a detecção do Gerente (Agentes de Funcionalidades › Aprender) ou conferir NOME_DO_PAPEL_NAS_TELAS em app.py.", alerta=True)
+
+        self.etapa("Exceções conscientes")
+        excecoes = []
+        for caminho in vu._telas():
+            for n, linha in enumerate(open(caminho, encoding="utf-8").read().splitlines(), 1):
+                if vu.MARCA_EXCECAO in linha and vu.MARCA_EXCECAO + "-fim" not in linha:
+                    motivo = re.sub(r"^.*?" + re.escape(vu.MARCA_EXCECAO) + r"(-inicio)?\s*-?\s*", "", linha).split("#}")[0].strip()
+                    excecoes.append(f"{os.path.basename(caminho)}:{n} ({motivo or 'sem motivo'})")
+        sem_motivo = [e for e in excecoes if e.endswith("(sem motivo)")]
+        self.confere(not sem_motivo, f"{len(excecoes)} exceção(ões) consciente(s), todas com o motivo", "UX",
+                     "; ".join(excecoes) or "Nenhuma exceção marcada.", f"Exceção sem motivo: {', '.join(sem_motivo)}.",
+                     "Toda exceção diz por que a tela fica assim", "Baixa", "Escrever o motivo depois de 'ux: ok -'.", alerta=True)
 
 
 # ==============================================================================
@@ -1460,7 +1583,7 @@ class AgenteEncerramento(AgenteDoFluxo):
                      "O arquivo do logo continuou no disco ou no cadastro.", "Gestão remove o logo do parceiro", "Baixa")
 
 
-AGENTES = {a.chave: a for a in (AgenteAdministrador, AgenteMentorAdministrador, AgenteGestorParceiro, AgenteProfessor, AgenteMentor,
+AGENTES = {a.chave: a for a in (AgenteDev, AgenteUX, AgenteAdministrador, AgenteMentorAdministrador, AgenteGestorParceiro, AgenteProfessor, AgenteMentor,
                                 AgenteAluno, AgenteAvaliador, AgenteEncerramento)}
 
 if __name__ == "__main__":

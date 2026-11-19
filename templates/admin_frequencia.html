@@ -112,7 +112,7 @@
         <div class="card-body py-3">
             <form action="{{ url_for('gerenciar_frequencia') }}" method="GET" class="row g-2 align-items-end">
                 <div class="col-md-3">
-                    <label class="form-label small fw-bold text-muted mb-1">{{ tt('Filtrar por Aluno') }}</label>
+                    <label for="filtroAlunoBusca" class="form-label small fw-bold text-muted mb-1">{{ tt('Filtrar por Aluno') }}</label>
                     <select name="aluno_id" id="filtroAlunoBusca" class="form-select form-select-sm border-secondary">
                         <option value="">{{ tt('Todos os Alunos') }}</option>
                         {% for a in alunos %}
@@ -121,8 +121,8 @@
                     </select>
                 </div>
                 <div class="col-md-2">
-                    <label class="form-label small fw-bold text-muted mb-1">{{ tt('Status de Presença') }}</label>
-                    <select name="tipo_presenca" class="form-select form-select-sm border-secondary">
+                    <label for="f_tipo_presenca" class="form-label small fw-bold text-muted mb-1">{{ tt('Status de Presença') }}</label>
+                    <select id="f_tipo_presenca" name="tipo_presenca" class="form-select form-select-sm border-secondary">
                         <option value="">{{ tt('Todos') }}</option>
                         <option value="Presencas" {% if filtro_tipo == 'Presencas' %}selected{% endif %}>{{ tt('🟢 Apenas Presenças') }}</option>
                         <option value="Faltas" {% if filtro_tipo == 'Faltas' %}selected{% endif %}>{{ tt('🔴 Apenas Faltas') }}</option>
@@ -132,12 +132,12 @@
                     </select>
                 </div>
                 <div class="col-md-2">
-                    <label class="form-label small fw-bold text-muted mb-1">{{ tt('Data Inicial') }}</label>
-                    <input type="date" name="data_inicio" class="form-control form-control-sm border-secondary" value="{{ filtro_data_inicio or '' }}">
+                    <label for="f_data_inicio" class="form-label small fw-bold text-muted mb-1">{{ tt('Data Inicial') }}</label>
+                    <input id="f_data_inicio" type="date" name="data_inicio" class="form-control form-control-sm border-secondary" value="{{ filtro_data_inicio or '' }}">
                 </div>
                 <div class="col-md-2">
-                    <label class="form-label small fw-bold text-muted mb-1">{{ tt('Data Final') }}</label>
-                    <input type="date" name="data_fim" class="form-control form-control-sm border-secondary" value="{{ filtro_data_fim or '' }}">
+                    <label for="f_data_fim" class="form-label small fw-bold text-muted mb-1">{{ tt('Data Final') }}</label>
+                    <input id="f_data_fim" type="date" name="data_fim" class="form-control form-control-sm border-secondary" value="{{ filtro_data_fim or '' }}">
                 </div>
                 <div class="col-md-3 d-flex gap-2">
                     <button type="submit" class="btn btn-sm btn-primary fw-bold w-100"><i class="bi bi-funnel"></i> {{ tt('Filtrar') }}</button>
@@ -225,15 +225,15 @@
                                                 <form action="{{ url_for('gerenciar_frequencia') }}" method="POST">
                                                     <div class="modal-header bg-primary text-white">
                                                         <h6 class="modal-title fw-bold">{{ tt('Gestão de Presença') }}</h6>
-                                                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                                                        <button aria-label="{{ tt('Fechar') }}" type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                                                     </div>
                                                     <div class="modal-body">
                                                         <p class="mb-3">{{ tt('A analisar o registo de') }} <strong>{{ r.usuario.nome }}</strong> {{ tt('(Data:') }} {{ r.data_registro.strftime('%d/%m/%Y') }}).</p>
                                                         <input type="hidden" name="frequencia_id" value="{{ r.id }}">
                                                         
                                                         <div class="mb-3">
-                                                            <label class="form-label small fw-bold text-muted">{{ tt('Ação de Correção (Opcional):') }}</label>
-                                                            <select name="alterar_status" class="form-select form-select-sm border-secondary mb-2">
+                                                            <label for="f_alterar_status_{{ loop.index }}" class="form-label small fw-bold text-muted">{{ tt('Ação de Correção (Opcional):') }}</label>
+                                                            <select id="f_alterar_status_{{ loop.index }}" name="alterar_status" class="form-select form-select-sm border-secondary mb-2">
                                                                 <option value="">{{ tt('Manter estado atual (') }}{{ tt(r.tipo_presenca) }})</option>
                                                                 <option value="Falta Justificada">{{ tt('Abonar (Converter em Falta Justificada)') }}</option>
                                                                 <option value="Falta">{{ tt('Reprovar (Converter em Falta Injustificada)') }}</option>
@@ -243,8 +243,8 @@
                                                         </div>
 
                                                         <div class="mb-2">
-                                                            <label class="form-label small fw-bold text-muted">{{ tt('Anotações da Equipa (Visível no Diário):') }}</label>
-                                                            <textarea name="observacoes_admin" class="form-control" rows="2" placeholder="{{ tt('Ex: Atestado médico entregue...') }}"></textarea>
+                                                            <label for="f_observacoes_admin_{{ loop.index }}" class="form-label small fw-bold text-muted">{{ tt('Anotações da Equipa (Visível no Diário):') }}</label>
+                                                            <textarea id="f_observacoes_admin_{{ loop.index }}" name="observacoes_admin" class="form-control" rows="2" placeholder="{{ tt('Ex: Atestado médico entregue...') }}"></textarea>
                                                         </div>
                                                     </div>
                                                     <div class="modal-footer">

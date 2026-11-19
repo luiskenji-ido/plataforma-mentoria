@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}Portal de Demandas Institucionais{% endblock %}
+{% block title %}{{ tt('Portal de Demandas Institucionais') }}{% endblock %}
 
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4 border-bottom pb-3">
@@ -61,7 +61,7 @@
                             <div class="modal-content shadow-lg border-0">
                                 <div class="modal-header bg-light border-bottom-0">
                                     <h5 class="modal-title text-primary fw-bold">Ticket #{{ d.id }}</h5>
-                                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                    <button aria-label="{{ tt('Fechar') }}" type="button" class="btn-close" data-bs-dismiss="modal"></button>
                                 </div>
                                 <div class="modal-body pt-0">
                                     <!-- Dados da Demanda -->
@@ -82,14 +82,14 @@
                                         <input type="hidden" name="acao" value="responder_demanda">
                                         <input type="hidden" name="demanda_id" value="{{ d.id }}">
 
-                                        {% if current_user.tipo_usuario in ['Administrador', 'Mentor Administrador', 'Admin B2B'] %}
+                                        {% if current_user.tipo_usuario in PERFIS_GESTAO_DEMANDAS %}
                                             <!-- Gestor pode editar e responder -->
-                                            <textarea name="resposta_oficial" class="form-control mb-3 shadow-sm border-success" rows="4" placeholder="{{ tt('Escreva a resposta oficial para este ticket...') }}" required>{{ d.resposta_oficial or '' }}</textarea>
+                                            <textarea name="resposta_oficial" class="form-control mb-3 shadow-sm border-success" rows="4" aria-label="{{ tt('Escreva a resposta oficial para este ticket...') }}" placeholder="{{ tt('Escreva a resposta oficial para este ticket...') }}" required>{{ d.resposta_oficial or '' }}</textarea>
                                             
                                             <div class="row align-items-center">
                                                 <div class="col-md-6">
-                                                    <label class="form-label fw-bold text-muted small">{{ tt('Alterar Status') }}</label>
-                                                    <select name="status" class="form-select border-primary shadow-sm">
+                                                    <label for="f_status_{{ loop.index }}" class="form-label fw-bold text-muted small">{{ tt('Alterar Status') }}</label>
+                                                    <select id="f_status_{{ loop.index }}" name="status" class="form-select border-primary shadow-sm">
                                                         <option value="Em Análise" {% if d.status == 'Em Análise' %}selected{% endif %}>{{ tt('Em Análise') }}</option>
                                                         <option value="Concluída" {% if d.status == 'Concluída' %}selected{% endif %}>{{ tt('Concluída (Resolvido)') }}</option>
                                                         <option value="Cancelada" {% if d.status == 'Cancelada' %}selected{% endif %}>{{ tt('Cancelada') }}</option>
@@ -113,7 +113,7 @@
                                         {% endif %}
                                     </form>
 
-                                    {% if current_user.tipo_usuario in ['Administrador', 'Mentor Administrador', 'Admin B2B'] %}
+                                    {% if current_user.tipo_usuario in PERFIS_GESTAO_DEMANDAS %}
                                     <div class="text-end mt-3">
                                         <a href="{{ url_for('editar_reuniao', demanda_id=d.id) }}" class="btn btn-sm btn-outline-secondary fw-bold rounded-pill px-3"><i class="bi bi-journal-plus"></i> {{ t('reuniao_registrar_ticket') }}</a>
                                     </div>
@@ -165,19 +165,19 @@
         <div class="modal-content shadow-lg border-0">
             <div class="modal-header bg-primary text-white">
                 <h5 class="modal-title fw-bold"><i class="bi bi-plus-circle"></i> {{ tt('Abrir Novo Ticket') }}</h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                <button aria-label="{{ tt('Fechar') }}" type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
             <form action="{{ url_for('portal_demandas') }}" method="POST">
                 <input type="hidden" name="acao" value="nova_demanda">
                 <div class="modal-body">
                     <div class="mb-3">
-                        <label class="form-label fw-bold text-dark">{{ tt('Assunto / Título') }}</label>
-                        <input type="text" name="titulo" class="form-control shadow-sm" required placeholder="{{ tt('Ex: Alteração da Data da Banca do Grupo 4') }}">
+                        <label for="f_titulo" class="form-label fw-bold text-dark">{{ tt('Assunto / Título') }}</label>
+                        <input id="f_titulo" type="text" name="titulo" class="form-control shadow-sm" required placeholder="{{ tt('Ex: Alteração da Data da Banca do Grupo 4') }}">
                     </div>
                     <div class="row mb-3">
                         <div class="col-md-6">
-                            <label class="form-label fw-bold text-dark">{{ tt('Categoria') }}</label>
-                            <select name="tipo_demanda" class="form-select shadow-sm" required>
+                            <label for="f_tipo_demanda" class="form-label fw-bold text-dark">{{ tt('Categoria') }}</label>
+                            <select id="f_tipo_demanda" name="tipo_demanda" class="form-select shadow-sm" required>
                                 <option value="Mudança de Data">{{ tt('Mudança de Data / Prazo') }}</option>
                                 <option value="Alinhamento Pedagógico">{{ tt('Alinhamento Pedagógico') }}</option>
                                 <option value="Dúvida Técnica (Plataforma)">{{ tt('Dúvida Técnica (Plataforma)') }}</option>
@@ -189,8 +189,8 @@
                             </select>
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label fw-bold text-dark">{{ tt('Prioridade') }}</label>
-                            <select name="prioridade" class="form-select shadow-sm" required>
+                            <label for="f_prioridade" class="form-label fw-bold text-dark">{{ tt('Prioridade') }}</label>
+                            <select id="f_prioridade" name="prioridade" class="form-select shadow-sm" required>
                                 <option value="Normal">{{ tt('Normal (Análise Padrão)') }}</option>
                                 <option value="Alta">{{ tt('Alta (Requer atenção breve)') }}</option>
                                 <option value="Urgente">{{ tt('Urgente (Trava o andamento do projeto)') }}</option>
@@ -198,8 +198,8 @@
                         </div>
                     </div>
                     <div class="mb-2">
-                        <label class="form-label fw-bold text-dark">{{ tt('Descrição Detalhada') }}</label>
-                        <textarea name="descricao" class="form-control shadow-sm" rows="5" required placeholder="{{ tt('Explique detalhadamente o contexto da sua solicitação para a equipe de gestão...') }}"></textarea>
+                        <label for="f_descricao" class="form-label fw-bold text-dark">{{ tt('Descrição Detalhada') }}</label>
+                        <textarea id="f_descricao" name="descricao" class="form-control shadow-sm" rows="5" required placeholder="{{ tt('Explique detalhadamente o contexto da sua solicitação para a equipe de gestão...') }}"></textarea>
                     </div>
                 </div>
                 <div class="modal-footer bg-light border-0">

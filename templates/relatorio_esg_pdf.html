@@ -2,7 +2,7 @@
 <html lang="pt">
 <head>
     <meta charset="UTF-8">
-    <title>Relatório ESG - PDF</title>
+    <title>{{ tt('Relatório ESG') }} - PDF</title>
     <style>
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color: #333; padding: 20px; }
         .header { text-align: center; border-bottom: 2px solid #198754; padding-bottom: 10px; margin-bottom: 20px; }
@@ -24,17 +24,17 @@
 </head>
 <body onload="window.print()">
     <div class="no-print" style="margin-bottom: 20px; text-align: right;">
-        <button onclick="window.print()" style="background: #198754; color: white; padding: 10px 15px; border: none; border-radius: 5px; cursor: pointer; font-weight: bold;">Salvar como PDF</button>
-        <a href="{{ url_for('dashboard') }}" style="margin-left: 15px; color: #666; text-decoration: none;">Voltar ao Sistema</a>
+        <button onclick="window.print()" style="background: #198754; color: white; padding: 10px 15px; border: none; border-radius: 5px; cursor: pointer; font-weight: bold;">{{ tt('Salvar como PDF') }}</button>
+        <a href="{{ url_for('dashboard') }}" style="margin-left: 15px; color: #666; text-decoration: none;">{{ tt('Voltar ao Sistema') }}</a>
     </div>
     <div class="header">
-        <h1>Relatório Executivo ESG</h1>
-        <p>Horas de Voluntariado Corporativo e Impacto Social | Emitido em: {{ data_emissao }}</p>
+        <h1>{{ tt('Relatório Executivo ESG') }}</h1>
+        <p>{{ tt('Horas de Voluntariado Corporativo e Impacto Social') }} | {{ tt('Emitido em:') }} {{ data_emissao }}</p>
     </div>
 
-    <h2>Horas por colaborador (regulamentares × extraordinárias)</h2>
+    <h2>{{ tt('Horas por colaborador (regulamentares × extraordinárias)') }}</h2>
     <table>
-        <thead><tr><th>Colaborador</th><th>Empresa</th><th>Regulares</th><th>Extras</th><th>Total</th></tr></thead>
+        <thead><tr><th>{{ tt('Colaborador') }}</th><th>{{ tt('Empresa') }}</th><th>{{ tt('Regulares') }}</th><th>{{ tt('Extras') }}</th><th>Total</th></tr></thead>
         <tbody>
             {% for p in resumo %}
             <tr>
@@ -48,19 +48,19 @@
         </tbody>
     </table>
 
-    <h2>Lançamentos</h2>
+    <h2>{{ tt('Lançamentos') }}</h2>
     <table>
         <thead>
             <tr>
-                <th>Colaborador</th>
-                <th>Empresa</th>
-                <th>Atividade Executada</th>
-                <th>Categoria</th>
-                <th>Grupo / Projeto</th>
-                <th>Motivo</th>
-                <th>Minutos</th>
-                <th>Data</th>
-                <th>Status</th>
+                <th>{{ tt('Colaborador') }}</th>
+                <th>{{ tt('Empresa') }}</th>
+                <th>{{ tt('Atividade Executada') }}</th>
+                <th>{{ tt('Categoria') }}</th>
+                <th>{{ tt('Grupo / Projeto') }}</th>
+                <th>{{ tt('Motivo') }}</th>
+                <th>{{ tt('Minutos') }}</th>
+                <th>{{ tt('Data') }}</th>
+                <th>{{ tt('Status') }}</th>
             </tr>
         </thead>
         <tbody>
@@ -69,12 +69,12 @@
                 <td><strong>{{ d.nome }}</strong><br><span class="badge">{{ d.perfil }}</span></td>
                 <td>{{ d.empresa }}</td>
                 <td>{{ d.atividade }}</td>
-                <td>{{ d.categoria }}</td>
+                <td>{{ tt(d.categoria) }}</td>
                 <td>{{ d.grupo }}{% if d.projeto %}<br><small>{{ d.projeto }}</small>{% endif %}</td>
                 <td>{{ d.motivo }}</td>
                 <td class="num"><strong>{{ d.minutos }} min</strong></td>
                 <td>{{ d.data }}</td>
-                <td>{{ d.status }}</td>
+                <td>{{ tt(d.status) }}</td>
             </tr>
             {% endfor %}
         </tbody>

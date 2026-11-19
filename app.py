@@ -27,7 +27,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-# As chamadas às IAs (Claude e Gemini) ficam em provedores_ia.py: ordem de modelos por uso, reserva e teto de gasto.
+# As chamadas às IAs (Claude, Gemini e ChatGPT/OpenAI) ficam em provedores_ia.py: ordem de modelos por uso, reserva e teto de gasto.
 
 # Isso permite testarmos o login do Google no nosso computador (localhost) sem HTTPS
 os.environ['OAUTHLIB_INSECURE_TRANSPORT'] = '1'
@@ -84,8 +84,60 @@ def utility_processor():
 # =========================================================================
 # PROCESSADOR DE CONTEXTO GLOBAL PARA AS NOTIFICAÇÕES DO SINO (Q&A + FEEDBACK)
 # =========================================================================
+# ==============================================================================
+# REGRAS NOMEADAS — quem pode o quê e os números das regras de negócio
+# ==============================================================================
+# O Gerente de Funcionalidades aprende sozinho toda regra nomeada deste arquivo (constante em MAIÚSCULAS): quando
+# uma muda, os agentes passam a esperar o novo comportamento. Regra escrita direto no meio do código fica invisível
+# para ele; o Agente Dev (agentes_funcionalidades/varredura_regras.py) aponta esses casos em toda execução.
+# Aluno, Gestor B2B (Admin B2B) e Avaliador da banca são perfis de escopo (veem só o que é deles) e podem ser
+# comparados direto; todo PODER dado a um perfil usa uma regra PERFIS_* daqui. As PERFIS_* chegam também às telas.
+PERFIS_VEEM_TODAS_DUVIDAS = ['Administrador', 'Mentor Administrador', 'Admin B2B']     # sino: dúvidas de todos os alunos
+PERFIS_SEM_AVISOS_DA_EQUIPE = ['Aluno', 'Avaliador Banca']                             # sem avisos de bloqueio e sem aba de alertas
+PERFIS_VEEM_TODOS_BLOQUEADOS = ['Administrador', 'Mentor Administrador']              # sino: todos os bloqueados (os outros, só os seus alunos)
+PERFIS_GESTAO_DEMANDAS = ['Administrador', 'Mentor Administrador', 'Admin B2B']        # respondem e tratam o Portal de Demandas
+PERFIS_VEEM_TODOS_JOVENS = ['Administrador', 'Mentor Administrador']                  # veem todos os jovens (LGPD: os outros, só os seus)
+PERFIS_CRIAM_ADMINISTRADOR = ['Administrador']                                         # só eles cadastram ou promovem Administradores
+PERFIS_VEEM_SO_SEUS_ALUNOS = ['Mentor', 'Professor']                                   # acompanhamento, sessões e avaliação só dos alunos vinculados
+PERFIS_VEEM_SO_PROJETOS_DO_GRUPO = ['Aluno', 'Mentor']                                 # painel: só os projetos dos grupos de que fazem parte
+PERFIS_GESTAO_CADASTROS = ['Administrador', 'Mentor Administrador']                   # usuários e grupos
+PERFIS_ORIENTADORES = ['Mentor', 'Mentor Administrador', 'Professor']                 # podem ser vinculados ao aluno como mentor/professor(a)
+PERFIS_EXCLUEM_PROJETO = ['Mentor', 'Mentor Administrador', 'Professor', 'Administrador']
+PERFIS_EXCLUEM_ANEXO_TAREFA = ['Administrador', 'Mentor Administrador', 'Mentor']
+PERFIS_EXCLUEM_MATERIAL_ACOMPANHAMENTO = ['Administrador', 'Mentor Administrador', 'Professor', 'Mentor']
+PERFIS_VEEM_TODAS_SESSOES = ['Administrador', 'Mentor Administrador']
+PERFIS_VEEM_TODAS_ATIVIDADES = ['Administrador', 'Mentor Administrador']              # atividades extras de todas as empresas
+PERFIS_VEEM_RELATORIO_ATIVIDADE = ['Administrador', 'Mentor Administrador', 'Admin B2B']
+PERFIS_EXPORTAM_ESG = ['Administrador', 'Mentor Administrador', 'Admin B2B']           # relatório ESG (Excel e PDF)
+PERFIS_GESTAO_LOGOS = ['Administrador', 'Mentor Administrador']                       # logo de qualquer empresa (o Gestor B2B, só da sua)
+PERFIS_GESTAO_TRILHA_TCC = ['Administrador', 'Mentor Administrador']
+PERFIS_ADMINISTRACAO_SISTEMA = ['Administrador']                                       # parâmetros, perfis, banco, backups, identidade e agentes
+PERFIS_USAM_ASSISTENTE = ['Administrador']                                             # Assistente da Plataforma (chat da base de conhecimento)
+PERFIS_DECIDEM_SOLICITACOES = ['Mentor Administrador']                                 # aprova ou recusa os pedidos de mentoria
+PERFIS_REGISTRAM_FREQUENCIA = ['Aluno', 'Mentor', 'Professor']                        # registro de presença diária obrigatório
+PERFIS_GESTORES_DE_TURMA = ['Administrador', 'Admin B2B']                             # podem ser o gestor de uma turma
+PERFIS_GESTAO_ENTREGAS_TCC = ['Administrador', 'Mentor Administrador']                # enviam a entrega por qualquer projeto
+PERFIS_PUBLICAM_BANCAS = ['Administrador', 'Mentor Administrador']
+PERFIS_EMITEM_CERTIFICADOS = ['Administrador', 'Mentor Administrador']                # emitem o certificado de qualquer pessoa
+
+NOTA_MAXIMA = 10                          # notas de 0 a 10 (projeto, diário e banca)
+AVALIACAO_NOTA_MINIMA, AVALIACAO_NOTA_MAXIMA = 1, 5     # avaliações e feedbacks de 1 a 5 estrelas
+MINIMO_CARACTERES_DESCRICAO = 10          # motivo, descrição, resumo e resolução obrigatórios
+MINIMO_CARACTERES_COMENTARIO = 3
+MINIMO_CARACTERES_TITULO = 3
+MINIMO_CARACTERES_MOTIVO_REMARCACAO = 5   # remarcar a banca
+DURACAO_MINIMA_ATIVIDADE_MIN = 10         # atividade extra
+DURACAO_MINIMA_REUNIAO_MIN = 5
+DURACAO_MAXIMA_EVENTO_MIN = 12 * 60       # atividade extra e reunião
+CICLO_AVALIACAO_MAXIMO_DIAS = 90
+RETENCAO_BACKUP_MAXIMA = 365              # cópias guardadas por agendamento de backup
+
+
 # Quem responde às dúvidas do Q&A do Acompanhamento e recebe o aviso no sino (só dos próprios alunos)
 PERFIS_DUVIDAS_ACOMPANHAMENTO = ['Professor']
+# Nome de cada papel nas telas: {tela: {nome certo: [outros nomes que a tela NÃO usa para esse papel]}}. O Agente UX
+# (agentes_funcionalidades/varredura_ux.py) confere o texto da tela, do tt() e do t(); mudar aqui muda o que ele espera.
+NOME_DO_PAPEL_NAS_TELAS = {'acompanhamento.html': {'Professor(a)': ['Mentor', 'Mentora', 'Mentores', 'Mentoras', 'Mentor(a)']}}
 
 
 @app.context_processor
@@ -110,7 +162,7 @@ def injetar_notificacoes_qa():
             QADuvida.lida_pelo_mentor == False,
             Usuario.mentores.any(id=current_user.id)
         ).all()
-    elif current_user.tipo_usuario in ['Administrador', 'Mentor Administrador', 'Admin B2B']:
+    elif current_user.tipo_usuario in PERFIS_VEEM_TODAS_DUVIDAS:
         notifs_qa = QADuvida.query.filter_by(lida_pelo_mentor=False).all()
     else:
         notifs_qa = []  # Mentor e demais perfis não recebem as dúvidas do Acompanhamento
@@ -159,8 +211,8 @@ def injetar_notificacoes_qa():
             })
 
     # 3. BUSCA ALUNOS BLOQUEADOS (SINO DE ADMINS E MENTORES)
-    if current_user.tipo_usuario not in ['Aluno', 'Avaliador Banca']:
-        if current_user.tipo_usuario in ['Administrador', 'Mentor Administrador']:
+    if current_user.tipo_usuario not in PERFIS_SEM_AVISOS_DA_EQUIPE:
+        if current_user.tipo_usuario in PERFIS_VEEM_TODOS_BLOQUEADOS:
             alunos_bloqueados = Usuario.query.filter_by(status='Bloqueado').all()
         else:
             alunos_bloqueados = Usuario.query.filter(Usuario.status == 'Bloqueado', Usuario.mentores.any(id=current_user.id)).all()
@@ -183,7 +235,7 @@ def injetar_notificacoes_qa():
 
 
     # 4. TICKETS DO PORTAL DE DEMANDAS AGUARDANDO RESPOSTA (só gestão)
-    if current_user.tipo_usuario in ['Administrador', 'Mentor Administrador', 'Admin B2B']:
+    if current_user.tipo_usuario in PERFIS_GESTAO_DEMANDAS:
         from models import DemandaInstitucional
         abertas = DemandaInstitucional.query.filter_by(status='Aberta').order_by(DemandaInstitucional.data_criacao.desc()).all()
         if abertas:
@@ -262,7 +314,7 @@ from flask_login import login_user, logout_user, login_required, current_user
 def ids_jovens_visiveis(usuario):
     """None = todos os jovens (Administrador e Mentor Administrador).
     Nos demais perfis, devolve o conjunto de ids dos jovens que a pessoa acompanha."""
-    if usuario.tipo_usuario in ['Administrador', 'Mentor Administrador']:
+    if usuario.tipo_usuario in PERFIS_VEEM_TODOS_JOVENS:
         return None
     if usuario.tipo_usuario == 'Aluno':
         return {usuario.id}
@@ -323,7 +375,7 @@ def gerar_senha_provisoria():
 
 def pode_atribuir_nivel(usuario_logado, tipo_usuario):
     """Só o Administrador cria, promove ou altera Administradores (evita escalada de privilégio pelo Mentor Administrador)."""
-    return tipo_usuario != 'Administrador' or usuario_logado.tipo_usuario == 'Administrador'
+    return tipo_usuario != 'Administrador' or usuario_logado.tipo_usuario in PERFIS_CRIAM_ADMINISTRADOR  # regra-nomeada: ok (o perfil-alvo é dado, não poder)
 
 
 def pode_mexer_no_projeto(usuario, projeto):
@@ -521,7 +573,7 @@ def dashboard():
     if current_user.tipo_usuario == 'Aluno':
         acompanhamentos = Acompanhamento.query.filter_by(aluno_id=current_user.id).all()
         total_sessoes = SessaoMentoria.query.filter_by(aluno_id=current_user.id).count()
-    elif current_user.tipo_usuario in ['Mentor', 'Professor']:
+    elif current_user.tipo_usuario in PERFIS_VEEM_SO_SEUS_ALUNOS:
         # Filtra os acompanhamentos e totalizadores apenas para os alunos deste mentor
         acompanhamentos = Acompanhamento.query.join(Usuario, Acompanhamento.aluno_id == Usuario.id).filter(Usuario.mentores.any(id=current_user.id)).all()
         total_alunos = Usuario.query.filter(Usuario.tipo_usuario == 'Aluno', Usuario.mentores.any(id=current_user.id)).count()
@@ -638,7 +690,7 @@ def dashboard():
     # ==============================================================================
     # INDICADORES DE PROJETOS PARA O DASHBOARD
     # ==============================================================================
-    if current_user.tipo_usuario in ['Aluno', 'Mentor']:
+    if current_user.tipo_usuario in PERFIS_VEEM_SO_PROJETOS_DO_GRUPO:
         meus_projetos = Projeto.query.join(Grupo).filter(Grupo.membros.any(id=current_user.id)).all()
     else:
         meus_projetos = Projeto.query.order_by(Projeto.id.desc()).all()
@@ -750,7 +802,7 @@ def dashboard():
 @login_required
 def gerenciar_grupos():
     # 1. Trava de Segurança: Apenas Administradores podem criar grupos
-    if current_user.tipo_usuario not in ['Administrador', 'Mentor Administrador']:
+    if current_user.tipo_usuario not in PERFIS_GESTAO_CADASTROS:
         flash("Acesso Negado.", "danger")
         return redirect(url_for('dashboard'))
 
@@ -789,7 +841,7 @@ def gerenciar_grupos():
 @app.route('/admin/grupos/editar/<int:id>', methods=['POST'])
 @login_required
 def editar_grupo(id):
-    if current_user.tipo_usuario not in ['Administrador', 'Mentor Administrador']:
+    if current_user.tipo_usuario not in PERFIS_GESTAO_CADASTROS:
         return redirect(url_for('dashboard'))
 
     grupo = db.session.get(Grupo, id)
@@ -817,7 +869,7 @@ def editar_grupo(id):
 @app.route('/admin/grupos/deletar/<int:id>', methods=['POST'])
 @login_required
 def deletar_grupo(id):
-    if current_user.tipo_usuario not in ['Administrador', 'Mentor Administrador']:
+    if current_user.tipo_usuario not in PERFIS_GESTAO_CADASTROS:
         return redirect(url_for('dashboard'))
 
     grupo = db.session.get(Grupo, id)
@@ -896,7 +948,7 @@ def calcular_match_inteligente(aluno, mentores_disponiveis):
 @app.route('/admin/usuarios', methods=['GET', 'POST'])
 @login_required
 def gerenciar_usuarios():
-    if current_user.tipo_usuario not in ['Administrador', 'Mentor Administrador']:
+    if current_user.tipo_usuario not in PERFIS_GESTAO_CADASTROS:
         return "<h1>Acesso Negado</h1>"
     
     if request.method == 'POST':
@@ -960,11 +1012,11 @@ def gerenciar_usuarios():
         return redirect(url_for('gerenciar_usuarios'))
     
     lista_usuarios = Usuario.query.order_by(Usuario.nome).all()
-    lista_mentores = Usuario.query.filter(Usuario.tipo_usuario.in_(['Mentor', 'Mentor Administrador', 'Professor'])).all()
+    lista_mentores = Usuario.query.filter(Usuario.tipo_usuario.in_(PERFIS_ORIENTADORES)).all()
 
     # Busca todos os dados para montar a tela de Cadastros
     usuarios = Usuario.query.order_by(Usuario.nome).all()
-    mentores = Usuario.query.filter(Usuario.tipo_usuario.in_(['Mentor', 'Mentor Administrador', 'Professor'])).all()
+    mentores = Usuario.query.filter(Usuario.tipo_usuario.in_(PERFIS_ORIENTADORES)).all()
     solicitacoes = SolicitacaoMentoria.query.order_by(SolicitacaoMentoria.data_solicitacao.desc()).all()
 
 
@@ -980,7 +1032,7 @@ def gerenciar_usuarios():
 @app.route('/admin/usuarios/editar/<int:id>', methods=['POST'])
 @login_required
 def editar_usuario(id):
-    if current_user.tipo_usuario not in ['Administrador', 'Mentor Administrador']:
+    if current_user.tipo_usuario not in PERFIS_GESTAO_CADASTROS:
         return "Acesso Negado"
     
     usuario = db.session.get(Usuario, id)
@@ -1510,7 +1562,7 @@ def _acompanhamento_visivel(acomp_id):
         return None
     if current_user.tipo_usuario == 'Aluno':
         return registro if registro.aluno_id == current_user.id and registro.status != 'Desativado' else None
-    if current_user.tipo_usuario in ('Mentor', 'Professor'):
+    if current_user.tipo_usuario in PERFIS_VEEM_SO_SEUS_ALUNOS:
         aluno = db.session.get(Usuario, registro.aluno_id)
         return registro if aluno and aluno.mentores.filter_by(id=current_user.id).first() else None
     return registro
@@ -1996,7 +2048,7 @@ def acompanhamento():
     # --- MÉTODO GET: CARREGAR A TELA ---
     if current_user.tipo_usuario == 'Aluno':
         registros = Acompanhamento.query.filter_by(aluno_id=current_user.id).all()
-    elif current_user.tipo_usuario in ['Mentor', 'Professor']:
+    elif current_user.tipo_usuario in PERFIS_VEEM_SO_SEUS_ALUNOS:
         registros = Acompanhamento.query.join(Usuario, Acompanhamento.aluno_id == Usuario.id).filter(Usuario.mentores.any(id=current_user.id)).all()
     else:
         registros = Acompanhamento.query.order_by(Acompanhamento.id.desc()).all()
@@ -2032,7 +2084,7 @@ def acompanhamento():
         detalhes.append({'reg': r, 'aluno': aluno, 'curso': curso, 'qtd_sessoes': qtd_sessoes, 'tempo_estudo': tempo_formatado,
                          'tem_aulas': r.curso_id in cursos_com_aulas})
         
-    if current_user.tipo_usuario in ['Mentor', 'Professor']:
+    if current_user.tipo_usuario in PERFIS_VEEM_SO_SEUS_ALUNOS:
         lista_alunos = Usuario.query.filter(Usuario.tipo_usuario == 'Aluno', Usuario.mentores.any(id=current_user.id)).all()
     else:
         lista_alunos = Usuario.query.filter_by(tipo_usuario='Aluno').all()
@@ -2413,7 +2465,7 @@ def deletar_tarefa(id):
 @login_required
 def deletar_projeto(id):
     # 1. Trava de Segurança: Apenas os perfis autorizados podem deletar
-    perfis_autorizados = ['Mentor', 'Mentor Administrador', 'Professor', 'Administrador']
+    perfis_autorizados = PERFIS_EXCLUEM_PROJETO
     
     if current_user.tipo_usuario not in perfis_autorizados:
         flash('Acesso negado: Apenas mentores e administradores podem excluir projetos.', 'danger')
@@ -2456,7 +2508,7 @@ def avaliar_projeto(id):
                     nota = float(valor.replace(',', '.'))
                 except ValueError:
                     nota = -1
-                if not 0 <= nota <= 10:
+                if not 0 <= nota <= NOTA_MAXIMA:
                     flash(tt('As notas do projeto devem ficar entre 0 e 10.', current_user.idioma), 'warning')
                     return redirect(url_for('projetos'))
 
@@ -2609,7 +2661,7 @@ def sessoes():
     
     if current_user.tipo_usuario == 'Aluno':
         minhas_sessoes = SessaoMentoria.query.filter_by(aluno_id=current_user.id).order_by(SessaoMentoria.data_sessao.desc()).all()
-    elif current_user.tipo_usuario in ['Administrador', 'Mentor Administrador']:
+    elif current_user.tipo_usuario in PERFIS_VEEM_TODAS_SESSOES:
         minhas_sessoes = SessaoMentoria.query.order_by(SessaoMentoria.data_sessao.desc()).all()
     else:
         minhas_sessoes = SessaoMentoria.query.filter_by(mentor_id=current_user.id).order_by(SessaoMentoria.data_sessao.desc()).all()
@@ -2633,7 +2685,7 @@ def sessoes():
             'feedbacks': feedbacks_detalhados
         })
         
-    if current_user.tipo_usuario in ['Mentor', 'Professor']:
+    if current_user.tipo_usuario in PERFIS_VEEM_SO_SEUS_ALUNOS:
         lista_alunos = Usuario.query.filter(Usuario.tipo_usuario == 'Aluno', Usuario.mentores.any(id=current_user.id)).all()
     else:
         lista_alunos = Usuario.query.filter_by(tipo_usuario='Aluno').all()
@@ -2658,7 +2710,7 @@ def ata_sessao(id):
         proximo = datetime.strptime(request.form.get('ata_proximo_encontro'), '%Y-%m-%d').date() if request.form.get('ata_proximo_encontro') else None
     except ValueError:
         proximo = None
-    if len(resumo) < 10 or not plano:
+    if len(resumo) < MINIMO_CARACTERES_DESCRICAO or not plano:
         flash(tt('Preencha o resumo das deliberações (mínimo de 10 caracteres) e pelo menos um passo do plano de ação.', idioma), 'warning')
         return redirect(url_for('sessoes', abrir_ata=sessao.id))
     if sessao.data_sessao > datetime.now() + timedelta(hours=1):
@@ -2870,7 +2922,7 @@ def validar_vinculos_voluntariado(usuario, tipo, formulario):
     if tipo_base == 'Mentoria Extraordinária':
         if grupo_id not in {g.id for g in grupos_do_usuario(usuario)}:
             return 'vol_erro_grupo', None, None, motivo
-        if len(motivo) < 10:
+        if len(motivo) < MINIMO_CARACTERES_DESCRICAO:
             return 'vol_erro_motivo', None, None, motivo
     else:
         grupo_id = None
@@ -2985,7 +3037,7 @@ PERFIS_CRIAM_ATIVIDADE_EXTRA = ['Mentor', 'Professor', 'Mentor Administrador', '
 
 
 def pode_ver_atividade_extra(usuario, atividade):
-    if usuario.tipo_usuario in ['Administrador', 'Mentor Administrador']:
+    if usuario.tipo_usuario in PERFIS_VEEM_TODAS_ATIVIDADES:
         return True
     membros = {m.id for m in atividade.grupo.membros} if atividade.grupo else set()
     if usuario.id in membros or usuario.id == atividade.criado_por_id:
@@ -2996,7 +3048,7 @@ def pode_ver_atividade_extra(usuario, atividade):
 
 
 def pode_gerir_atividade_extra(usuario, atividade):
-    return usuario.id == atividade.criado_por_id or usuario.tipo_usuario in ['Administrador', 'Mentor Administrador']
+    return usuario.id == atividade.criado_por_id or usuario.tipo_usuario in PERFIS_VEEM_TODAS_ATIVIDADES
 
 
 def pode_registrar_presenca(usuario, atividade):
@@ -3065,9 +3117,9 @@ def nova_atividade_extra():
 
     if grupo_id not in {g.id for g in grupos_do_usuario(current_user)}:
         flash(t('vol_erro_grupo', current_user.idioma), "warning")
-    elif not titulo or len(motivo) < 10 or not inicio:
+    elif not titulo or len(motivo) < MINIMO_CARACTERES_DESCRICAO or not inicio:
         flash(t('extra_erro_campos', current_user.idioma), "warning")
-    elif not 10 <= duracao <= 12 * 60:
+    elif not DURACAO_MINIMA_ATIVIDADE_MIN <= duracao <= DURACAO_MAXIMA_EVENTO_MIN:
         flash(t('vol_erro_duracao', current_user.idioma), "warning")
     else:
         atividade = AtividadeExtra(grupo_id=grupo_id, titulo=titulo, motivo=motivo, data_hora_inicio_prevista=inicio,
@@ -3148,7 +3200,7 @@ def relatorio_atividade_extra(id):
     from flask import Response
     from models import AtividadeExtra
     atividade = db.session.get(AtividadeExtra, id)
-    if not atividade or not (pode_gerir_atividade_extra(current_user, atividade) or current_user.tipo_usuario == 'Admin B2B'
+    if not atividade or not (pode_gerir_atividade_extra(current_user, atividade) or current_user.tipo_usuario in PERFIS_VEEM_RELATORIO_ATIVIDADE
                              and pode_ver_atividade_extra(current_user, atividade)):
         flash("Acesso negado.", "danger")
         return redirect(url_for('atividades_extras'))
@@ -3229,7 +3281,7 @@ def salvar_reuniao_do_formulario(reuniao, formulario, usuario):
     duracao = formulario.get('duracao_minutos', type=int) or 0
     if not titulo or not data_hora:
         return 'reuniao_erro_campos'
-    if not 5 <= duracao <= 12 * 60:
+    if not DURACAO_MINIMA_REUNIAO_MIN <= duracao <= DURACAO_MAXIMA_EVENTO_MIN:
         return 'vol_erro_duracao'
     gravacao = (formulario.get('link_gravacao') or '').strip()
     if gravacao:
@@ -3414,7 +3466,7 @@ def convidado_reuniao(codigo):
             nota = request.form.get('nota', type=int)
             if agora < reuniao.data_hora:
                 flash(tt('A avaliação abre quando a reunião começa.', idioma), 'warning')
-            elif not nota or not 1 <= nota <= 5:
+            elif not nota or not AVALIACAO_NOTA_MINIMA <= nota <= AVALIACAO_NOTA_MAXIMA:
                 flash(tt('Dê uma nota de 1 a 5.', idioma), 'warning')
             else:
                 convidado.nota = nota
@@ -3818,7 +3870,7 @@ def feedback_reuniao(id):
         flash(tt('Só os participantes avaliam a reunião.', idioma), 'warning')
     elif datetime.now() < reuniao.data_hora:
         flash(tt('A avaliação abre quando a reunião começa.', idioma), 'warning')
-    elif not nota or not 1 <= nota <= 5:
+    elif not nota or not AVALIACAO_NOTA_MINIMA <= nota <= AVALIACAO_NOTA_MAXIMA:
         flash(tt('Dê uma nota de 1 a 5.', idioma), 'warning')
     else:
         feedback = next((f for f in reuniao.feedbacks if f.usuario_id == current_user.id), None)
@@ -4157,6 +4209,8 @@ def encaminhamentos_atrasados(usuario):
 # ACOMPANHAMENTO DOS JOVENS: DESISTÊNCIAS E OCORRÊNCIAS (pedidos da reunião de alinhamento com a B2B)
 # ==============================================================================
 PERFIS_GESTAO_INSTITUICAO = ['Administrador', 'Mentor Administrador']
+PERFIS_DECIDEM_DESISTENCIA = PERFIS_GESTAO_INSTITUICAO + ['Admin B2B']      # decidem desistências de jovens e mentores
+PERFIS_VEEM_RESULTADOS_AVALIACAO = PERFIS_GESTAO_INSTITUICAO + ['Admin B2B'] # resultados e alertas das avaliações 360°
 PERFIS_EQUIPE = ['Administrador', 'Mentor Administrador', 'Admin B2B', 'Mentor', 'Professor']
 CATEGORIAS_DESISTENCIA = ['Pessoal', 'Estudos', 'Trabalho', 'Saúde', 'Mudança de cidade', 'Sem interesse', 'Outro']
 CATEGORIAS_OCORRENCIA = ['Progresso', 'Comportamento', 'Frequência', 'Entregas', 'Comunicação', 'Outro']
@@ -4291,7 +4345,7 @@ def desistencias():
             flash(tt('Escolha um jovem que você acompanha.', idioma), 'warning')
         elif aluno.status == 'Desistente' or Desistencia.query.filter_by(usuario_id=aluno.id, status='Solicitada').first():
             flash(tt('Este jovem já tem uma desistência registrada.', idioma), 'warning')
-        elif categoria not in CATEGORIAS_DESISTENCIA or len(motivo) < 10 or not data_saida or data_saida > datetime.now().date():
+        elif categoria not in CATEGORIAS_DESISTENCIA or len(motivo) < MINIMO_CARACTERES_DESCRICAO or not data_saida or data_saida > datetime.now().date():
             flash(tt('Informe a data de saída (até hoje), o motivo (mínimo de 10 caracteres) e a categoria.', idioma), 'warning')
         else:
             pedido = Desistencia(usuario_id=aluno.id, categoria=categoria, motivo=motivo[:2000], data_saida=data_saida,
@@ -4317,7 +4371,7 @@ def desistencias():
                            mentores_geridos=geridos, substitutos=substitutos,
                            categorias=CATEGORIAS_DESISTENCIA, hoje=datetime.now().date(),
                            pode_decidir=lambda d: pode_decidir_desistencia(current_user, d),
-                           decide_algo=current_user.tipo_usuario in PERFIS_GESTAO_INSTITUICAO + ['Admin B2B'])
+                           decide_algo=current_user.tipo_usuario in PERFIS_DECIDEM_DESISTENCIA)
 
 
 PERFIS_MENTOR_SUBSTITUIVEL = ['Mentor', 'Professor']
@@ -4372,7 +4426,7 @@ def desistencia_mentor():
     from models import Desistencia
     idioma = current_user.idioma
     voltar = redirect(url_for('desistencias') + '#mentorDesistente')
-    if current_user.tipo_usuario not in PERFIS_GESTAO_INSTITUICAO + ['Admin B2B']:
+    if current_user.tipo_usuario not in PERFIS_DECIDEM_DESISTENCIA:
         flash("Acesso negado.", "danger")
         return voltar
     geridos = {m.id: m for m in mentores_geridos(current_user)}
@@ -4391,7 +4445,7 @@ def desistencia_mentor():
         flash(tt('O substituto precisa ser outro mentor ativo.', idioma), 'warning')
     elif precisa_substituto and substituto is None:
         flash(tt('Este mentor acompanha jovens ou grupos: escolha quem vai substituí-lo.', idioma), 'warning')
-    elif categoria not in CATEGORIAS_DESISTENCIA or len(motivo) < 10 or not data_saida or data_saida > datetime.now().date():
+    elif categoria not in CATEGORIAS_DESISTENCIA or len(motivo) < MINIMO_CARACTERES_DESCRICAO or not data_saida or data_saida > datetime.now().date():
         flash(tt('Informe a data de saída (até hoje), o motivo (mínimo de 10 caracteres) e a categoria.', idioma), 'warning')
     else:
         empresas = sorted({e.id for e in (mentor.empresas_vinculadas or [])})
@@ -4563,7 +4617,7 @@ def nova_ocorrencia():
         elif not responsavel or responsavel.tipo_usuario not in PERFIS_EQUIPE or responsavel.status != 'Ativo':
             flash(tt('Escolha quem deve dar o retorno (equipe {apelido} ou B2B).', idioma), 'warning')
         elif (f.get('categoria') not in CATEGORIAS_OCORRENCIA or f.get('contexto') not in CONTEXTOS_OCORRENCIA
-              or f.get('gravidade') not in GRAVIDADES_OCORRENCIA or len(descricao) < 10 or not prazo or prazo < datetime.now().date()):
+              or f.get('gravidade') not in GRAVIDADES_OCORRENCIA or len(descricao) < MINIMO_CARACTERES_DESCRICAO or not prazo or prazo < datetime.now().date()):
             flash(tt('Preencha categoria, contexto, gravidade, o que foi observado (mínimo de 10 caracteres) e um prazo a partir de hoje.', idioma), 'warning')
         else:
             ocorrencia = Ocorrencia(aluno_id=aluno.id, registrado_por_id=current_user.id, categoria=f['categoria'], contexto=f['contexto'],
@@ -4599,7 +4653,7 @@ def detalhe_ocorrencia(id):
         texto = (request.form.get('texto') or '').strip()[:4000]
         if acao == 'registrar':
             tipo = request.form.get('tipo') if request.form.get('tipo') in ('Retorno', 'Ação', 'Comentário') else 'Comentário'
-            if len(texto) < 3 or ocorrencia.status == 'Resolvida':
+            if len(texto) < MINIMO_CARACTERES_COMENTARIO or ocorrencia.status == 'Resolvida':
                 flash(tt('Escreva o retorno (a ocorrência precisa estar aberta).', idioma), 'warning')
             else:
                 db.session.add(OcorrenciaRegistro(ocorrencia_id=ocorrencia.id, autor_id=current_user.id, tipo=tipo, texto=texto))
@@ -4611,7 +4665,7 @@ def detalhe_ocorrencia(id):
                                    f"ocorrencia-registro:{ocorrencia.id}:{len(ocorrencia.registros)}")
                 flash(tt('Registro adicionado à ocorrência.', idioma), 'success')
         elif acao in ('resolver', 'reabrir') and pode_tratar_ocorrencia(current_user, ocorrencia):
-            if acao == 'resolver' and len(texto) < 10:
+            if acao == 'resolver' and len(texto) < MINIMO_CARACTERES_DESCRICAO:
                 flash(tt('Para resolver, descreva o desfecho (mínimo de 10 caracteres).', idioma), 'warning')
             else:
                 novo = 'Resolvida' if acao == 'resolver' else 'Em tratativa'
@@ -4689,7 +4743,7 @@ def alvos_da_avaliacao(usuario, ciclo):
         alvos += [('Mentor', m) for m in _ativos(list(usuario.mentores))]
         if not micro:
             alvos += [('Gestor B2B', g) for g in _ativos(gestores_b2b_das_empresas(empresas_do_jovem(usuario)))]
-    elif tipo in ('Mentor', 'Professor'):
+    elif tipo in PERFIS_VEEM_SO_SEUS_ALUNOS:
         alvos += [('Jovem', a) for a in _ativos(list(usuario.alunos))]
         if not micro:
             alvos += [('Gestor B2B', e.gestor) for e in (usuario.empresas_vinculadas or []) if e.gestor and e.gestor.status == 'Ativo']
@@ -4798,7 +4852,7 @@ def resultados_avaliacao(usuario):
     """Médias recebidas por pessoa/entidade nos últimos 180 dias, no escopo de quem vê (gestão da instituição e gestor B2B)."""
     from models import RespostaAvaliacao
     tipo = usuario.tipo_usuario
-    if tipo not in PERFIS_GESTAO_INSTITUICAO + ['Admin B2B']:
+    if tipo not in PERFIS_VEEM_RESULTADOS_AVALIACAO:
         return []
     respostas = RespostaAvaliacao.query.filter(RespostaAvaliacao.criado_em >= datetime.now() - timedelta(days=JANELA_RESULTADOS_DIAS)).all()
     if tipo == 'Admin B2B':
@@ -4898,7 +4952,7 @@ def avaliacoes():
             pendentes.append((ciclo, alvo_tipo, pessoa, feitas.get((alvo_tipo, pessoa.id if pessoa else None))))
     gestao = current_user.tipo_usuario in PERFIS_GESTAO_INSTITUICAO
     ciclos = CicloAvaliacao.query.order_by(CicloAvaliacao.inicio.desc()).limit(30).all() \
-        if current_user.tipo_usuario in PERFIS_GESTAO_INSTITUICAO + ['Admin B2B'] else []
+        if current_user.tipo_usuario in PERFIS_VEEM_RESULTADOS_AVALIACAO else []
     return render_template('avaliacoes.html', pendentes=pendentes, criterios_do_alvo=criterios_do_alvo,
                            json_notas=lambda r: json.loads(r.notas) if r else {}, ciclos=ciclos, gestao=gestao,
                            resultados=resultados_avaliacao(current_user), recebidas=avaliacoes_recebidas(current_user),
@@ -4924,7 +4978,7 @@ def responder_avaliacao():
     notas = {}
     for i, criterio in enumerate(criterios_do_alvo(ciclo, alvo_tipo)):
         nota = request.form.get(f'nota_{i}', type=int)
-        if not nota or not 1 <= nota <= 5:
+        if not nota or not AVALIACAO_NOTA_MINIMA <= nota <= AVALIACAO_NOTA_MAXIMA:
             flash(tt('Dê uma nota de 1 a 5 em cada critério.', idioma), 'warning')
             return voltar
         notas[criterio] = nota
@@ -4969,7 +5023,7 @@ def ciclos_avaliacao():
     if empresa_id and not db.session.get(Empresa, empresa_id):
         empresa_id = None
     hoje = datetime.now().date()
-    if len(titulo) < 3 or not inicio or not fim or fim < inicio or fim < hoje or (fim - inicio).days > 90:
+    if len(titulo) < MINIMO_CARACTERES_TITULO or not inicio or not fim or fim < inicio or fim < hoje or (fim - inicio).days > CICLO_AVALIACAO_MAXIMO_DIAS:
         flash(tt('Informe o título e o período (fim a partir de hoje, até 90 dias de duração).', idioma), 'warning')
         return voltar
     ciclo = CicloAvaliacao(titulo=titulo, tipo=tipo, inicio=inicio, fim=fim, empresa_id=empresa_id, criado_por_id=current_user.id)
@@ -5021,7 +5075,7 @@ def portal_demandas():
     # Canal oficial para TODOS os perfis (inclusive o Aluno): cada um vê os próprios tickets
     # e só a gestão vê todos e responde oficialmente.
     from models import DemandaInstitucional, ComentarioDemanda
-    perfis_gestao = ['Administrador', 'Mentor Administrador', 'Admin B2B']
+    perfis_gestao = PERFIS_GESTAO_DEMANDAS
     from datetime import datetime
 
     if request.method == 'POST':
@@ -5192,7 +5246,7 @@ def exportar_relatorio_esg():
     from flask import Response
 
     # 1. Trava de segurança: Apenas Admins e Gestores B2B podem baixar o relatório
-    if current_user.tipo_usuario not in ['Administrador', 'Mentor Administrador', 'Admin B2B']:
+    if current_user.tipo_usuario not in PERFIS_EXPORTAM_ESG:
         flash('Acesso negado. Apenas gestores podem exportar o relatório ESG.', 'danger')
         return redirect(url_for('dashboard'))
 
@@ -5226,7 +5280,7 @@ def exportar_relatorio_esg():
 @app.route('/admin/exportar-relatorio-esg-pdf')
 @login_required
 def exportar_relatorio_esg_pdf():
-    if current_user.tipo_usuario not in ['Administrador', 'Mentor Administrador', 'Admin B2B']:
+    if current_user.tipo_usuario not in PERFIS_EXPORTAM_ESG:
         flash('Acesso negado. Apenas gestores podem exportar o relatório ESG.', 'danger')
         return redirect(url_for('dashboard'))
 
@@ -5330,7 +5384,7 @@ def _apagar_logo(caminho):
 
 
 def pode_gerir_logo(usuario, empresa):
-    return usuario.tipo_usuario in ['Administrador', 'Mentor Administrador'] or (
+    return usuario.tipo_usuario in PERFIS_GESTAO_LOGOS or (
         usuario.tipo_usuario == 'Admin B2B' and empresa.gestor_id == usuario.id)
 
 
@@ -5502,6 +5556,7 @@ def identidade_logo():
 
 # Perfis que precisam concluir a trilha de orientação do TCC antes de usar a plataforma
 PERFIS_TRILHA_TCC = ['Mentor', 'Professor', 'Mentor Administrador']
+PERFIS_VEEM_TRILHA_TCC = PERFIS_TRILHA_TCC + ['Administrador']
 
 # Rotas que continuam livres enquanto o termo ou a trilha estão pendentes
 # (registrar_frequencia estava fora desta lista e prendia Mentor/Professor no primeiro acesso)
@@ -5594,7 +5649,7 @@ def aceitar_termos():
 @login_required
 def trilha_tcc():
     from models import ModuloOnboardingTCC, ConclusaoModuloTCC
-    if current_user.tipo_usuario not in PERFIS_TRILHA_TCC + ['Administrador']:
+    if current_user.tipo_usuario not in PERFIS_VEEM_TRILHA_TCC:
         return redirect(url_for('dashboard'))
 
     modulos = ModuloOnboardingTCC.query.filter_by(ativo=True).order_by(ModuloOnboardingTCC.ordem).all()
@@ -5630,7 +5685,7 @@ def concluir_modulo_tcc(modulo_id):
 @login_required
 def gestao_trilha_tcc():
     from models import ModuloOnboardingTCC, ConclusaoModuloTCC, Usuario
-    if current_user.tipo_usuario not in ['Administrador', 'Mentor Administrador']:
+    if current_user.tipo_usuario not in PERFIS_GESTAO_TRILHA_TCC:
         flash("Acesso negado.", "danger")
         return redirect(url_for('dashboard'))
 
@@ -5775,7 +5830,7 @@ def manutencao_banco():
     import backup_servico as bs
     from models import AgendamentoBackup, AlteracaoAgendamentoBackup
     # Backup, restauração e limpeza de histórico: só o Administrador (o menu também só mostra a ele)
-    if current_user.tipo_usuario != 'Administrador':
+    if current_user.tipo_usuario not in PERFIS_ADMINISTRACAO_SISTEMA:
         flash("Acesso Negado.", "danger")
         return redirect(url_for('dashboard'))
     idioma = current_user.idioma
@@ -5798,7 +5853,7 @@ def manutencao_banco():
             try:
                 data_inicio = datetime.strptime(request.form.get('data_inicio') or '', '%Y-%m-%d').date()
                 retencao = int(request.form.get('retencao') or 7)
-                valido = frequencia in bs.FREQUENCIAS and re.fullmatch(r'([01]\d|2[0-3]):[0-5]\d', horario) and 1 <= retencao <= 365
+                valido = frequencia in bs.FREQUENCIAS and re.fullmatch(r'([01]\d|2[0-3]):[0-5]\d', horario) and 1 <= retencao <= RETENCAO_BACKUP_MAXIMA
             except ValueError:
                 valido = False
             if not valido:
@@ -5945,7 +6000,7 @@ def historico_backup_filtrado(data_inicio, data_fim):
 def baixar_backup():
     """Baixa um arquivo de backup do servidor (só os que estão em instance/backups)."""
     import backup_servico as bs
-    if current_user.tipo_usuario != 'Administrador':
+    if current_user.tipo_usuario not in PERFIS_ADMINISTRACAO_SISTEMA:
         flash("Acesso Negado.", "danger")
         return redirect(url_for('dashboard'))
     caminho = bs.caminho_seguro(request.args.get('f'))
@@ -5966,7 +6021,7 @@ def relatorio_auditoria_backup(tipo):
     import backup_servico as bs
     from flask import Response
     from models import AlteracaoAgendamentoBackup
-    if current_user.tipo_usuario != 'Administrador':
+    if current_user.tipo_usuario not in PERFIS_ADMINISTRACAO_SISTEMA:
         flash("Acesso Negado.", "danger")
         return redirect(url_for('dashboard'))
     saida = io.StringIO()
@@ -6194,7 +6249,7 @@ def solicitar_mentoria():
 @login_required
 def gerenciar_solicitacoes():
     # TRAVA DE SEGURANÇA: Apenas 'Mentor Administrador' passa daqui
-    if current_user.tipo_usuario != 'Mentor Administrador':
+    if current_user.tipo_usuario not in PERFIS_DECIDEM_SOLICITACOES:
         flash("Acesso negado.", "danger")
         return redirect(url_for('dashboard'))
 
@@ -6230,7 +6285,7 @@ def gerenciar_solicitacoes():
 @login_required
 def acao_solicitacao(id, acao):
     # TRAVA DE SEGURANÇA: Apenas 'Mentor Administrador' pode aprovar ou negar
-    if current_user.tipo_usuario != 'Mentor Administrador':
+    if current_user.tipo_usuario not in PERFIS_DECIDEM_SOLICITACOES:
         return redirect(url_for('dashboard'))
 
     solicitacao = SolicitacaoMentoria.query.get_or_404(id)
@@ -6759,7 +6814,7 @@ def verificar_frequencia_diaria():
     precisa_registrar = False
     
     # Só dispara se estiver logado E for Aluno, Mentor ou Professor
-    if current_user.is_authenticated and current_user.tipo_usuario in ['Aluno', 'Mentor', 'Professor'] \
+    if current_user.is_authenticated and current_user.tipo_usuario in PERFIS_REGISTRAM_FREQUENCIA \
             and request.endpoint not in ['onboarding', 'trilha_tcc']:
         from datetime import datetime, time
         
@@ -6819,7 +6874,7 @@ def registrar_frequencia():
 @login_required
 def gerenciar_turmas():
     from datetime import datetime  # <--- ADICIONE ESTA LINHA AQUI
-    if current_user.tipo_usuario not in ['Administrador', 'Mentor Administrador', 'Admin B2B']:
+    if current_user.tipo_usuario not in PERFIS_GESTAO_CURSOS:
         flash('Acesso negado. Apenas a equipa de gestão pode aceder ao Hub Educacional.', 'danger')
         return redirect(url_for('dashboard'))
 
@@ -7178,8 +7233,8 @@ def gerenciar_turmas():
     grupos = Grupo.query.order_by(Grupo.nome).all() 
     
     # Traz apenas quem é puramente Mentor (ignora os gestores Admin B2B para não dar erro)
-    mentores = Usuario.query.filter(Usuario.tipo_usuario.in_(['Mentor', 'Mentor Administrador', 'Professor']), Usuario.status=='Ativo').order_by(Usuario.nome).all()
-    gestores = Usuario.query.filter(Usuario.tipo_usuario.in_(['Administrador', 'Admin B2B']), Usuario.status=='Ativo').order_by(Usuario.nome).all()
+    mentores = Usuario.query.filter(Usuario.tipo_usuario.in_(PERFIS_ORIENTADORES), Usuario.status=='Ativo').order_by(Usuario.nome).all()
+    gestores = Usuario.query.filter(Usuario.tipo_usuario.in_(PERFIS_GESTORES_DE_TURMA), Usuario.status=='Ativo').order_by(Usuario.nome).all()
 
     # --- LÓGICA BLINDADA: MENTORES DISPONÍVEIS (POR ID) ---
     mentores_em_uso_ids = []
@@ -7253,7 +7308,7 @@ def gerenciar_notas():
                     numero = float(valor.replace(',', '.'))
                 except ValueError:
                     numero = None
-                if numero is None or not 0 <= numero <= 10:
+                if numero is None or not 0 <= numero <= NOTA_MAXIMA:
                     invalidas.append(valor)
         if invalidas:
             flash(tt('Notas devem estar entre 0 e 10. Nada foi gravado; confira: {valores}', current_user.idioma)
@@ -7361,7 +7416,7 @@ def membros_do_projeto(projeto):
 
 
 def pode_enviar_entrega(usuario, projeto):
-    return usuario in membros_do_projeto(projeto) or usuario.tipo_usuario in ['Administrador', 'Mentor Administrador']
+    return usuario in membros_do_projeto(projeto) or usuario.tipo_usuario in PERFIS_GESTAO_ENTREGAS_TCC
 
 
 def pode_baixar_entrega(usuario, projeto):
@@ -7529,7 +7584,7 @@ def agenda_bancas():
                 db.session.add(banca)
             elif data_hora != banca.data_hora:
                 motivo = (request.form.get('motivo_alteracao') or '').strip()
-                if len(motivo) < 5:
+                if len(motivo) < MINIMO_CARACTERES_MOTIVO_REMARCACAO:
                     flash(t('banca_erro_motivo', current_user.idioma), "warning")
                     return redirect(url_for('agenda_bancas'))
                 db.session.add(HistoricoDataBanca(banca_id=banca.id, data_anterior=banca.data_hora, data_nova=data_hora,
@@ -7568,7 +7623,7 @@ def agenda_bancas():
             db.session.commit()
             flash(t('banca_cancelada', current_user.idioma), "info")
 
-        elif acao in ['publicar', 'publicar_todas'] and current_user.tipo_usuario in ['Administrador', 'Mentor Administrador']:
+        elif acao in ['publicar', 'publicar_todas'] and current_user.tipo_usuario in PERFIS_PUBLICAM_BANCAS:
             alvo = [banca] if acao == 'publicar' and banca else [b for b in bancas_visiveis_gestao(current_user)]
             publicadas = sum(1 for b in alvo if publicar_resultado_banca(b))
             flash(t('banca_publicadas', current_user.idioma).format(n=publicadas), "success" if publicadas else "info")
@@ -7580,7 +7635,7 @@ def agenda_bancas():
     envios = {(e.banca_id, e.avaliador_id): e.enviado_em for e in EnvioFormularioBanca.query.filter_by(tipo='formulario').all()}
     return render_template('agenda_bancas.html', bancas=bancas, projetos_sem_banca=projetos_sem_banca,
                            pessoas=pessoas_escalaveis_banca(), envios=envios, situacao_entrega=situacao_entrega,
-                           pode_publicar=current_user.tipo_usuario in ['Administrador', 'Mentor Administrador'])
+                           pode_publicar=current_user.tipo_usuario in PERFIS_PUBLICAM_BANCAS)
 
 
 @app.route('/minhas-bancas')
@@ -7764,7 +7819,7 @@ def ler_nota(formulario, campo):
         valor = round(float((formulario.get(campo) or '').replace(',', '.')), 1)
     except ValueError:
         return None
-    return valor if 0 <= valor <= 10 else None
+    return valor if 0 <= valor <= NOTA_MAXIMA else None
 
 
 def registrar_etapa_avaliacao(avaliacao, etapa, formulario):
@@ -7990,7 +8045,7 @@ ROTULOS_ATIVIDADE = {'Leitura Assíncrona de TCC': 'Leitura do TCC', 'Análise e
 # ------------------------------------------------------------------------------
 def pode_emitir_certificado_de(quem, usuario):
     """O próprio usuário, a coordenação ou o Gestor B2B para pessoas das suas empresas."""
-    if quem.id == usuario.id or quem.tipo_usuario in ['Administrador', 'Mentor Administrador']:
+    if quem.id == usuario.id or quem.tipo_usuario in PERFIS_EMITEM_CERTIFICADOS:
         return True
     if quem.tipo_usuario == 'Admin B2B':
         empresas = {e.nome for e in Empresa.query.filter_by(gestor_id=quem.id).all()}
@@ -8311,7 +8366,7 @@ PASTAS_SEGURANCA_IA = ['Agente Configuração e Segredos', 'Agente Inconsistênc
 PASTAS_BANCO_IA = ['Agente Consultas e Desempenho', 'Agente Esquema e Índices', 'Agente Backup e Recuperação',
                    'Agente DBA Manutenção e Logs', 'Agente Multi-banco', 'Consolidado']
 # Agentes de Funcionalidades (mesmos nomes que o agentes_funcionalidades/gestor_funcionalidades.py usa), na ordem do fluxo
-PASTAS_FUNC_IA = ['Agente Administrador', 'Agente Mentor Administrador', 'Agente Gestor Parceiro', 'Agente Professor', 'Agente Mentor',
+PASTAS_FUNC_IA = ['Agente Dev', 'Agente UX', 'Agente Administrador', 'Agente Mentor Administrador', 'Agente Gestor Parceiro', 'Agente Professor', 'Agente Mentor',
                   'Agente Aluno', 'Agente Avaliador da Banca', 'Agente Encerramento do Ciclo', 'Consolidado']
 
 
@@ -8368,7 +8423,7 @@ def arvore_agentes_ia():
 
 
 def _somente_administrador():
-    if current_user.tipo_usuario != 'Administrador':
+    if current_user.tipo_usuario not in PERFIS_ADMINISTRACAO_SISTEMA:
         flash("Acesso Negado.", "danger")
         return redirect(url_for('dashboard'))
     return None
@@ -8522,7 +8577,7 @@ def provedores_ia_modelos():
 # Base: conhecimento dos Agentes gerentes + documentos PRD, PTD e DTD enviados na tela (base_conhecimento.py)
 # ==============================================================================
 def _bloqueio_assistente(como_json=False):
-    if current_user.tipo_usuario == 'Administrador':
+    if current_user.tipo_usuario in PERFIS_USAM_ASSISTENTE:
         return None
     if como_json:
         return jsonify({'erro': tt('Acesso restrito ao Administrador.', current_user.idioma)}), 403
@@ -8803,7 +8858,7 @@ def parar_agentes_ia():
 @app.route('/admin/agentes-ia/estado')
 @login_required
 def estado_agentes_ia_json():
-    if current_user.tipo_usuario != 'Administrador':
+    if current_user.tipo_usuario not in PERFIS_ADMINISTRACAO_SISTEMA:
         return jsonify({'erro': 'acesso negado'}), 403
     quadro = os.path.join(PASTA_AO_VIVO_IA, 'frame.jpg')
     return jsonify({'estado': estado_agentes_ia(), 'agente': _ler_json_ia('agente.json'), 'agora': datetime.now().isoformat(timespec='seconds'),
@@ -8814,7 +8869,7 @@ def estado_agentes_ia_json():
 @login_required
 def quadro_agentes_ia():
     """Último quadro do navegador do agente em execução (o monitor central da página)."""
-    if current_user.tipo_usuario != 'Administrador':
+    if current_user.tipo_usuario not in PERFIS_ADMINISTRACAO_SISTEMA:
         return '', 403
     quadro = os.path.join(PASTA_AO_VIVO_IA, 'frame.jpg')
     if not os.path.exists(quadro):
@@ -8986,7 +9041,7 @@ def parar_agentes_seguranca():
 @app.route('/admin/agentes-seguranca/estado')
 @login_required
 def estado_agentes_seguranca_json():
-    if current_user.tipo_usuario != 'Administrador':
+    if current_user.tipo_usuario not in PERFIS_ADMINISTRACAO_SISTEMA:
         return jsonify({'erro': 'acesso negado'}), 403
     return jsonify({'estado': estado_agentes_seguranca(), 'agente': _ler_json_seg('agente.json'), 'agora': datetime.now().isoformat(timespec='seconds')})
 
@@ -8998,6 +9053,8 @@ PASTA_AO_VIVO_BANCO = os.path.join(PASTA_AGENTES_IA, '.ao_vivo_banco')
 PASTA_AO_VIVO_FUNC = os.path.join(PASTA_AGENTES_IA, '.ao_vivo_funcionalidades')
 # (chave, nome, ícone, o que testa) — na ordem do fluxo: cada um cria os usuários e os dados do próximo
 ORDEM_AGENTES_FUNC = [
+    ('dev', 'Dev (código)', 'bi-code-slash', 'Varre 100% do código: toda regra de negócio numa regra nomeada, que o Gerente aprende sozinho.'),
+    ('ux', 'UX/UI (telas)', 'bi-universal-access', 'Varre 100% das telas: textos traduzidos (pt/en/es), imagens, botões e campos acessíveis e cada papel com o mesmo nome.'),
     ('administrador', 'Administrador', 'bi-shield-fill-check', 'Matriz de acesso, validações do cadastro e cria o Mentor Administrador.'),
     ('mentor_administrador', 'Mentor Administrador', 'bi-person-gear',
      'Primeiro acesso; cria cursos, perfis, empresa, grupo e turma; matricula, cria projeto e tarefa e agenda a banca.'),
@@ -9139,7 +9196,7 @@ def parar_agentes_banco():
 @app.route('/admin/agentes-banco/estado')
 @login_required
 def estado_agentes_banco_json():
-    if current_user.tipo_usuario != 'Administrador':
+    if current_user.tipo_usuario not in PERFIS_ADMINISTRACAO_SISTEMA:
         return jsonify({'erro': 'acesso negado'}), 403
     return jsonify({'estado': estado_agentes_banco(), 'agente': _ler_json_banco('agente.json'), 'agora': datetime.now().isoformat(timespec='seconds')})
 
@@ -9309,7 +9366,8 @@ def iniciar_orquestrador():
     opcoes = {'creationflags': subprocess.CREATE_NEW_PROCESS_GROUP | subprocess.CREATE_NO_WINDOW} if os.name == 'nt' else {'start_new_session': True}
     log = open(os.path.join(executor.PASTA_AO_VIVO, 'executor.log'), 'w', encoding='utf-8')
     ambiente = ambiente_dos_agentes()
-    for nome_provedor, variavel in (('claude', 'ORQUESTRADOR_MODELO_CLAUDE'), ('gemini', 'ORQUESTRADOR_MODELO_GEMINI')):
+    for nome_provedor, variavel in (('claude', 'ORQUESTRADOR_MODELO_CLAUDE'), ('gemini', 'ORQUESTRADOR_MODELO_GEMINI'),
+                                    ('openai', 'ORQUESTRADOR_MODELO_OPENAI')):
         modelo_escolhido = provedores_ia.modelo_de_provedor('orquestrador', nome_provedor)  # tela Provedores de IA
         if modelo_escolhido:
             ambiente[variavel] = modelo_escolhido
@@ -9457,7 +9515,7 @@ def parar_agentes_funcionalidades():
 @app.route('/admin/agentes-funcionalidades/estado')
 @login_required
 def estado_agentes_funcionalidades_json():
-    if current_user.tipo_usuario != 'Administrador':
+    if current_user.tipo_usuario not in PERFIS_ADMINISTRACAO_SISTEMA:
         return jsonify({'erro': 'acesso negado'}), 403
     quadro = os.path.join(PASTA_AO_VIVO_FUNC, 'frame.png')
     return jsonify({'estado': estado_agentes_funcionalidades(), 'agente': _ler_json_func('agente.json'), 'frame': _ler_json_func('frame.json'),
@@ -9468,7 +9526,7 @@ def estado_agentes_funcionalidades_json():
 @login_required
 def quadro_agentes_funcionalidades():
     """Último print capturado pelo agente em execução."""
-    if current_user.tipo_usuario != 'Administrador':
+    if current_user.tipo_usuario not in PERFIS_ADMINISTRACAO_SISTEMA:
         return '', 403
     quadro = os.path.join(PASTA_AO_VIVO_FUNC, 'frame.png')
     if not os.path.exists(quadro):
@@ -9691,7 +9749,7 @@ def aprender_mudancas(origem):
 
 
 def _somente_admin_perfis():
-    if current_user.tipo_usuario != 'Administrador':
+    if current_user.tipo_usuario not in PERFIS_ADMINISTRACAO_SISTEMA:
         flash("Acesso Negado.", "danger")
         return redirect(url_for('dashboard'))
     return None
@@ -10174,6 +10232,10 @@ if os.environ.get('PULAR_ATUALIZACAO_BANCO') != '1':  # 1 = só para gerar migra
 # ===========================================================================
 # EXECUÇÃO DO APLICATIVO
 # ===========================================================================
+# As regras nomeadas de perfis chegam a todas as telas pelo mesmo nome (ex.: current_user.tipo_usuario in PERFIS_GESTAO_DEMANDAS)
+app.jinja_env.globals.update({_nome: _valor for _nome, _valor in list(globals().items()) if _nome.startswith('PERFIS_')})
+
+
 if __name__ == '__main__':
     # Liga a tarefa de backup automático em segundo plano
     iniciar_agendador(app)

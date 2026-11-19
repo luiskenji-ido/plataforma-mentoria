@@ -41,7 +41,33 @@ DOMINIO = "funcional@local.com"
 APROVADO, FALHA, ALERTA = "Aprovado", "Falha", "Alerta"
 SEVERIDADES = ["Crítica", "Alta", "Média", "Baixa", "Informativa"]
 CATEGORIAS = {"FLX": "Fluxo de negócio", "REG": "Regra de negócio", "PER": "Permissão do perfil", "VAL": "Validação de dados",
-              "INT": "Integridade dos dados", "ACE": "Primeiro acesso e onboarding"}
+              "INT": "Integridade dos dados", "ACE": "Primeiro acesso e onboarding",
+              "UX": "Telas traduzidas e acessíveis"}
+# Layout medido no navegador: largura do computador e do celular, e quantas páginas cada perfil mede (as já medidas por
+# um agente anterior da cadeia ficam de fora, para a cadeia não repetir o mesmo trabalho)
+LARGURA_COMPUTADOR, LARGURA_CELULAR = 1366, 375
+LIMITE_PAGINAS_LAYOUT = 30
+LIMITE_PAGINAS_CONTRASTE = 15  # por perfil, em cada um dos 4 temas (as páginas já medidas por outro perfil ficam de fora)
+# Abre cada modal da página e mede: topo, miolo e rodapé dentro da caixa (.modal-content / .card); página sem rolagem lateral
+JS_LAYOUT = """() => {
+  const fora = (el, caixa) => { const a = el.getBoundingClientRect(), b = caixa.getBoundingClientRect();
+    return a.width > 0 && b.width > 0 && (a.left < b.left - 1 || a.right > b.right + 1); };
+  const nome = el => { const c = el.closest('[id]'); return (c ? '#' + c.id.replace(/\\d+/g, 'N') : '') + ' .' + [...el.classList].filter(x => /^(modal|card)-/.test(x))[0]; };
+  const achados = new Set();
+  document.querySelectorAll('.card-header, .card-body, .card-footer').forEach(el => {
+    const caixa = el.closest('.card'); if (caixa && fora(el, caixa)) achados.add(nome(el)); });
+  const vistos = new Set();
+  document.querySelectorAll('.modal').forEach(m => {
+    const tipo = (m.id || '').replace(/\\d+/g, 'N'); if (vistos.has(tipo) || vistos.size >= 12) return; vistos.add(tipo);
+    const antes = [m.style.display, m.className];
+    m.style.display = 'block'; m.classList.add('show');
+    m.querySelectorAll('.modal-header, .modal-body, .modal-footer').forEach(el => {
+      const caixa = el.closest('.modal-content'); if (caixa && fora(el, caixa)) achados.add(nome(el)); });
+    m.style.display = antes[0]; m.className = antes[1];
+  });
+  const raiz = document.documentElement;
+  return {caixas: [...achados], rolagem_lateral: raiz.scrollWidth > raiz.clientWidth + 1, largura: raiz.scrollWidth};
+}"""
 
 
 def regra_da_plataforma(chave):
@@ -218,20 +244,99 @@ class AgenteFuncional:
             return funcao()
 
     # ------------------------------------------------------------------ evidências (prints)
+    def _navegador_com_sessao(self):
+        """Página do Chromium com a mesma sessão (cookie) do agente."""
+        if self._pagina is None:
+            from playwright.sync_api import sync_playwright
+            self._pw = sync_playwright().start()
+            from navegador import abrir_chromium
+            self._navegador = abrir_chromium(self._pw)
+            self._contexto_nav = self._navegador.new_context(viewport={"width": LARGURA_COMPUTADOR, "height": 860})
+            self._pagina = self._contexto_nav.new_page()
+        sessao = self.cliente.cookie_sessao() if self.cliente else None
+        if sessao:
+            self._contexto_nav.clear_cookies()
+            self._contexto_nav.add_cookies([{"name": "session", "value": sessao, "url": BASE_URL}])
+        return self._pagina
+
+    def layout_no_navegador(self, caminhos, base):
+        """Mede o layout de verdade: cada página aberta pelo perfil, no computador e no celular; abre cada modal e confere se
+        topo, miolo e rodapé ficam dentro da caixa (o miolo mais largo que o topo é o layout estourado)."""
+        vistas = set(self.contexto.get("layout_paginas_medidas") or [])
+        caminhos = [c for c in dict.fromkeys(caminhos) if c not in vistas][:LIMITE_PAGINAS_LAYOUT]
+        if not caminhos:
+            return
+        self.etapa(f"Layout no navegador ({base}): modais, cartões e rolagem lateral")
+        caixas, lateral_pc, lateral_celular, medidas = [], [], [], 0
+        try:
+            pagina = self._navegador_com_sessao()
+            for largura, lista in ((LARGURA_COMPUTADOR, lateral_pc), (LARGURA_CELULAR, lateral_celular)):
+                pagina.set_viewport_size({"width": largura, "height": 860 if largura == LARGURA_COMPUTADOR else 812})
+                for caminho in caminhos:
+                    try:
+                        pagina.goto(BASE_URL + caminho, wait_until="domcontentloaded", timeout=30000)
+                        pagina.wait_for_timeout(150)
+                        r = pagina.evaluate(JS_LAYOUT)
+                    except Exception as e:
+                        self.log(f"(layout de {caminho} não medido: {e.__class__.__name__})")
+                        continue
+                    medidas += 1
+                    if r["rolagem_lateral"]:
+                        lista.append(f"{caminho} ({r['largura']}px)")
+                    if largura == LARGURA_COMPUTADOR:
+                        caixas += [f"{caminho} {c}" for c in r["caixas"]]
+            pagina.set_viewport_size({"width": LARGURA_COMPUTADOR, "height": 860})
+        except Exception as e:
+            self.log(f"(navegador indisponível para medir o layout: {e.__class__.__name__})")
+            return
+        self.contexto["layout_paginas_medidas"] = sorted(vistas | set(caminhos))
+        self.confere(not caixas, f"Modais e cartões sem layout estourado ({len(caminhos)} página(s) de {base})", "UX",
+                     "Topo, miolo e rodapé de cada modal e cartão ficam dentro da caixa.",
+                     "Parte mais larga que a caixa: " + "; ".join(caixas[:12]),
+                     "Miolo, topo e rodapé com a mesma largura da caixa", "Média",
+                     "Tirar a grade 'row' da própria parte (modal-body/card-body) e pôr numa div dentro dela.", alerta=True)
+        self.confere(not lateral_pc, f"Páginas sem rolagem lateral no computador ({LARGURA_COMPUTADOR}px)", "UX",
+                     f"{len(caminhos)} página(s) cabem na largura da tela.", "Rolagem lateral em: " + "; ".join(lateral_pc[:12]),
+                     "Nada passa da largura da tela", "Média", "Procurar a grade 'row' sem container ou elemento com largura fixa.",
+                     alerta=True)
+        self.confere(not lateral_celular, f"Páginas sem rolagem lateral no celular ({LARGURA_CELULAR}px)", "UX",
+                     f"{len(caminhos)} página(s) cabem no celular.", "Rolagem lateral em: " + "; ".join(lateral_celular[:12]),
+                     "A plataforma funciona no celular", "Baixa",
+                     "Tabelas dentro de .table-responsive; grupos de botões com flex-wrap; larguras fixas trocadas por max-width.",
+                     alerta=True)
+        self.contraste_no_navegador(caminhos, base)
+
+    def contraste_no_navegador(self, caminhos, base):
+        """Contraste do texto (WCAG 2.2: 4,5:1, ou 3:1 no texto grande) nas mesmas páginas, em CADA tema da plataforma
+        (claro, escuro, futurista, vintage), com as janelas abertas também: a cor da letra tem de combinar com o fundo do
+        tema que a pessoa escolheu, não só com o tema em que a tela foi desenhada."""
+        import contraste
+        self.etapa(f"Contraste do texto em todos os temas ({base})")
+        try:
+            pagina = self._navegador_com_sessao()
+            pagina.set_viewport_size({"width": LARGURA_COMPUTADOR, "height": 860})
+            pagina.goto(BASE_URL + caminhos[0], wait_until="domcontentloaded", timeout=30000)
+            saida = contraste.auditar(pagina, BASE_URL, caminhos[:LIMITE_PAGINAS_CONTRASTE])
+        except Exception as e:
+            self.log(f"(navegador indisponível para medir o contraste: {e.__class__.__name__})")
+            return
+        for tema, (medidos, ruins) in contraste.resumo(saida).items():
+            piores = sorted(((f["razao"], c, f) for c, r in saida[tema].items() for f in r["falhas"]), key=lambda x: x[0])
+            exemplos = "; ".join(f"{c}{' ' + f['janela'] if f.get('janela') else ''} “{f['texto'][:40]}” {f['razao']}:1 "
+                                 f"({f['letra']} em {f['fundo']})" for _, c, f in piores[:10])
+            self.confere(not ruins, f"Texto legível no tema {tema} ({len(saida[tema])} página(s) de {base})", "UX",
+                         f"{medidos} textos com contraste de pelo menos {contraste.CONTRASTE_MINIMO_TEXTO}:1 "
+                         f"({contraste.CONTRASTE_MINIMO_TEXTO_GRANDE}:1 no texto grande).",
+                         f"{ruins} de {medidos} textos abaixo do mínimo: {exemplos}",
+                         "A cor de cada texto vem de um papel do tema (texto, texto secundário, ação, estado) e passa no "
+                         "contraste WCAG em todos os temas", "Média",
+                         "Trocar a cor fixa (text-dark, text-white, bg-white, style=\"color:…\") pelo papel do tema; conferir "
+                         "a paleta com prototipo_ux/paletas.py.", alerta=True)
+
     def print(self, caminho, titulo):
         """Abre a página com a mesma sessão do agente e salva o print (também vira o quadro ao vivo do hub)."""
         try:
-            if self._pagina is None:
-                from playwright.sync_api import sync_playwright
-                self._pw = sync_playwright().start()
-                from navegador import abrir_chromium
-                self._navegador = abrir_chromium(self._pw)
-                self._contexto_nav = self._navegador.new_context(viewport={"width": 1366, "height": 860})
-                self._pagina = self._contexto_nav.new_page()
-            sessao = self.cliente.cookie_sessao() if self.cliente else None
-            if sessao:
-                self._contexto_nav.clear_cookies()
-                self._contexto_nav.add_cookies([{"name": "session", "value": sessao, "url": BASE_URL}])
+            self._navegador_com_sessao()
             if self._pagina.url.split("#")[0] == (BASE_URL + caminho).split("#")[0]:
                 # Mesma página com outra âncora (#card...): o navegador só rolaria a tela; força o carregamento de novo
                 self._pagina.goto("about:blank")
@@ -346,7 +451,7 @@ class AgenteFuncional:
             return
         meus = set(regras.get(base, []))
         rotas = self.regras.get("rotas_get", {})
-        abertas, bloqueadas_errado, liberadas_errado = 0, [], []
+        abertas, bloqueadas_errado, liberadas_errado, paginas_abertas = 0, [], [], []
         # Exceção da plataforma: quem PARTICIPOU de uma reunião instituição × B2B vê a lista e a ata, mesmo sem o módulo de gestão
         por_participacao = self._modulos_por_participacao()
         if por_participacao:
@@ -377,6 +482,8 @@ class AgenteFuncional:
                     liberadas_errado.append(f"{caminho} ({modulo})")
                 elif modulo in meus:
                     abertas += 1
+                    if status == 200:
+                        paginas_abertas.append(caminho)
         self.confere(not liberadas_errado, f"{base} barrado nos módulos que o perfil não tem", "PER",
                      "Nenhuma página de módulo fora do perfil abriu.", "Abriram: " + "; ".join(liberadas_errado[:10]),
                      "Perfil só acessa os módulos definidos para ele", "Alta",
@@ -384,6 +491,7 @@ class AgenteFuncional:
         self.confere(not bloqueadas_errado, f"{base} acessa os módulos do seu perfil ({abertas} página(s))", "PER",
                      f"{abertas} página(s) dos módulos do perfil abriram.", "Bloqueadas por engano: " + "; ".join(bloqueadas_errado[:10]),
                      "Perfil usa todos os módulos definidos para ele", "Média", alerta=True)
+        self.layout_no_navegador(paginas_abertas, base)
 
     def _modulos_por_participacao(self):
         """Módulos liberados por participação, não pelo perfil (regra de pode_ver_reuniao no app.py)."""

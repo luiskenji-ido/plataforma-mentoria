@@ -16,7 +16,7 @@
 
 <!-- Filtros -->
 <form method="GET" class="card shadow-sm border-0 mb-4 d-print-none">
-    <div class="card-body row g-2 align-items-end">
+    <div class="card-body"><div class="row g-2 align-items-end">
         <div class="col-6 col-md-2"><label class="form-label small fw-bold" for="fIni">{{ t('reuniao_de') }}</label><input type="date" class="form-control form-control-sm" id="fIni" name="data_inicio" value="{{ filtros.data_inicio }}"></div>
         <div class="col-6 col-md-2"><label class="form-label small fw-bold" for="fFim">{{ t('reuniao_ate') }}</label><input type="date" class="form-control form-control-sm" id="fFim" name="data_fim" value="{{ filtros.data_fim }}"></div>
         <div class="col-md-3"><label class="form-label small fw-bold" for="fEmpresa">{{ t('aval_empresa') }}</label>
@@ -26,7 +26,7 @@
         <div class="col-md-2"><label class="form-label small fw-bold" for="fGrupo">{{ t('vol_campo_grupo') }}</label>
             <select class="form-select form-select-sm" id="fGrupo" name="grupo_id"><option value="">—</option>{% for g in grupos %}<option value="{{ g.id }}" {% if filtros.grupo_id == g.id %}selected{% endif %}>{{ g.nome }}</option>{% endfor %}</select></div>
         <div class="col-md-1 d-grid"><button class="btn btn-sm btn-primary fw-bold" type="submit">{{ t('reuniao_filtrar') }}</button></div>
-    </div>
+    </div></div>
 </form>
 
 <!-- Números principais -->
@@ -82,11 +82,11 @@
 <div class="card shadow-sm border-0 mb-4">
     <div class="card-header bg-white fw-bold text-primary">{{ t('ind_newsletter') }}</div>
     <div class="card-body small" id="textoNewsletter">
-        📊 O nosso impacto em números:<br>
-        • {{ dados.jovens }} jovens diretamente capacitados.<br>
-        • {{ '%.0f'|format(dados.total_min / 60) }} horas de voluntariado corporativo registadas ({{ '%.0f'|format(dados.extra_min / 60) }} h fora do cronograma oficial).<br>
-        • {{ dados.voluntarios }} voluntários envolvidos.<br>
-        • {{ dados.tccs_aprovados }} projetos de TCC apresentados e aprovados.
+        📊 {{ tt('O nosso impacto em números:') }}<br>
+        • {{ dados.jovens }} {{ tt('jovens diretamente capacitados.') }}<br>
+        • {{ '%.0f'|format(dados.total_min / 60) }} {{ tt('horas de voluntariado corporativo registadas') }} ({{ '%.0f'|format(dados.extra_min / 60) }} {{ tt('h fora do cronograma oficial') }}).<br>
+        • {{ dados.voluntarios }} {{ tt('voluntários envolvidos.') }}<br>
+        • {{ dados.tccs_aprovados }} {{ tt('projetos de TCC apresentados e aprovados.') }}
     </div>
 </div>
 

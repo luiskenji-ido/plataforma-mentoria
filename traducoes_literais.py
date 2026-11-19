@@ -2370,7 +2370,180 @@ for _pt, _tr in {
     LITERAIS.setdefault(_pt, _tr)  # não troca traduções que já existiam
 
 
-_POR_IDIOMA = {'en': {pt: v[0] for pt, v in LITERAIS.items()}, 'es': {pt: v[1] for pt, v in LITERAIS.items()}}
+# ---------------- Agente UX: textos que estavam escritos direto nas telas (login, senha, certificados, relatórios, atas...)
+for _pt, _tr in {
+    # Login, solicitação de mentoria e recuperação de senha
+    'Transforme seu futuro.': ('Transform your future.', 'Transforma tu futuro.'),
+    'O acompanhamento certo é a ponte entre o seu potencial e as suas maiores conquistas. Entre e continue sua jornada.': (
+        'The right guidance is the bridge between your potential and your greatest achievements. Sign in and continue your journey.',
+        'El acompañamiento adecuado es el puente entre tu potencial y tus mayores logros. Entra y continúa tu camino.'),
+    'Acesso à Mentoria': ('Mentorship access', 'Acceso a la Mentoría'), 'Senha': ('Password', 'Contraseña'),
+    'Esqueci minha senha': ('I forgot my password', 'Olvidé mi contraseña'), 'Entrar': ('Sign in', 'Entrar'),
+    'Ainda não faz parte? Deseja acelerar sua carreira?': ('Not a member yet? Want to boost your career?', '¿Aún no formas parte? ¿Quieres acelerar tu carrera?'),
+    'Solicitar Mentoria': ('Request mentorship', 'Solicitar mentoría'), 'Interesse em Mentoria': ('Interest in mentorship', 'Interés en la mentoría'),
+    'Sua solicitação será enviada diretamente para o grupo de Mentor Administrador.': (
+        'Your request will be sent directly to the Mentor Administrator group.', 'Tu solicitud se enviará directamente al grupo de Mentor Administrador.'),
+    'Seu Nome Completo': ('Your full name', 'Tu nombre completo'), 'Seu E-mail': ('Your email', 'Tu correo electrónico'),
+    'Por que você deseja ser mentorado?': ('Why do you want to be mentored?', '¿Por qué quieres recibir mentoría?'),
+    'Enviar Solicitação': ('Send request', 'Enviar solicitud'), 'Recuperar Senha': ('Recover password', 'Recuperar contraseña'),
+    'Para proteger sua conta, digite o e-mail cadastrado. Você precisará responder às suas perguntas de segurança na próxima tela.': (
+        'To protect your account, enter your registered email. You will need to answer your security questions on the next screen.',
+        'Para proteger tu cuenta, escribe el correo registrado. Tendrás que responder tus preguntas de seguridad en la siguiente pantalla.'),
+    'Ex: seu@email.com': ('E.g. you@email.com', 'Ej.: tu@correo.com'), 'Continuar': ('Continue', 'Continuar'),
+    'Configurar Segurança': ('Security setup', 'Configurar seguridad'), 'Configure sua Segurança': ('Set up your security', 'Configura tu seguridad'),
+    'Para garantir que você consiga recuperar sua senha no futuro, escolha 3 perguntas diferentes abaixo e forneça as respostas.': (
+        'To make sure you can recover your password in the future, choose 3 different questions below and give the answers.',
+        'Para garantizar que puedas recuperar tu contraseña en el futuro, elige 3 preguntas diferentes abajo y escribe las respuestas.'),
+    'Você só precisará fazer isso uma vez.': ('You only need to do this once.', 'Solo tendrás que hacerlo una vez.'),
+    'Selecione uma pergunta...': ('Select a question...', 'Seleccione una pregunta...'), 'Sua resposta...': ('Your answer...', 'Tu respuesta...'),
+    'Resposta da pergunta': ('Answer to question', 'Respuesta de la pregunta'), 'Salvar e Continuar': ('Save and continue', 'Guardar y continuar'),
+    'Recuperação de Senha': ('Password recovery', 'Recuperación de contraseña'), 'Validação de Identidade': ('Identity check', 'Validación de identidad'),
+    'Responda corretamente a pelo menos': ('Correctly answer at least', 'Responde correctamente al menos'), '2 das 3': ('2 of the 3', '2 de las 3'),
+    'perguntas abaixo para criar uma nova senha.': ('questions below to create a new password.', 'preguntas de abajo para crear una nueva contraseña.'),
+    'Validar Respostas': ('Check answers', 'Validar respuestas'), 'Cancelar e voltar': ('Cancel and go back', 'Cancelar y volver'),
+    'Troca de Senha': ('Password change', 'Cambio de contraseña'), 'Ação de Segurança Necessária': ('Security action required', 'Acción de seguridad necesaria'),
+    'Este é o seu primeiro acesso ou sua senha foi resetada. Por favor, crie uma nova senha segura para continuar.': (
+        'This is your first sign-in or your password was reset. Please create a new secure password to continue.',
+        'Este es tu primer acceso o tu contraseña fue restablecida. Crea una nueva contraseña segura para continuar.'),
+    'Nova Senha Definitiva': ('New permanent password', 'Nueva contraseña definitiva'), 'Digite sua nova senha': ('Type your new password', 'Escribe tu nueva contraseña'),
+    'Mínimo de {n} caracteres, contendo letras maiúsculas, minúsculas, números e símbolos especiais.': (
+        'At least {n} characters, with uppercase and lowercase letters, numbers and special symbols.',
+        'Mínimo de {n} caracteres, con letras mayúsculas, minúsculas, números y símbolos especiales.'),
+    'Atualizar Senha e Acessar': ('Update password and sign in', 'Actualizar contraseña y acceder'),
+    # Perguntas de segurança (o valor gravado continua em português; a tela mostra no idioma do usuário)
+    'Qual era o nome do seu primeiro animal de estimação?': ("What was your first pet's name?", '¿Cómo se llamaba tu primera mascota?'),
+    'Qual é o nome de solteira da sua mãe?': ("What is your mother's maiden name?", '¿Cuál es el apellido de soltera de tu madre?'),
+    'Qual foi o modelo do seu primeiro carro?': ('What was the model of your first car?', '¿Cuál fue el modelo de tu primer coche?'),
+    'Em qual cidade seus pais se conheceram?': ('In which city did your parents meet?', '¿En qué ciudad se conocieron tus padres?'),
+    'Qual era o nome do seu melhor amigo de infância?': ("What was your best childhood friend's name?", '¿Cómo se llamaba tu mejor amigo de la infancia?'),
+    'Qual o nome da sua primeira escola?': ('What was the name of your first school?', '¿Cómo se llamaba tu primera escuela?'),
+    'Qual é o seu prato favorito?': ('What is your favorite dish?', '¿Cuál es tu plato favorito?'),
+    'Qual foi a primeira viagem internacional que você fez?': ('What was your first trip abroad?', '¿Cuál fue tu primer viaje internacional?'),
+    'Qual é o nome do seu professor favorito no ensino médio?': ('What is the name of your favorite high school teacher?', '¿Cómo se llama tu profesor favorito de la secundaria?'),
+    'Qual é a sua cor favorita?': ('What is your favorite color?', '¿Cuál es tu color favorito?'),
+    'Em qual cidade você nasceu?': ('In which city were you born?', '¿En qué ciudad naciste?'),
+    'Qual é a sua banda ou artista musical favorito?': ('What is your favorite band or music artist?', '¿Cuál es tu banda o artista musical favorito?'),
+    'Qual o título do seu livro favorito?': ('What is the title of your favorite book?', '¿Cuál es el título de tu libro favorito?'),
+    'Qual foi o seu primeiro emprego?': ('What was your first job?', '¿Cuál fue tu primer empleo?'),
+    'Qual é o nome do seu avô materno?': ("What is your maternal grandfather's name?", '¿Cómo se llama tu abuelo materno?'),
+    'Qual é a sua equipe esportiva favorita?': ('What is your favorite sports team?', '¿Cuál es tu equipo deportivo favorito?'),
+    'Em qual rua você morava quando era criança?': ('What street did you live on as a child?', '¿En qué calle vivías cuando eras niño?'),
+    'Qual foi o primeiro filme que você viu no cinema?': ('What was the first movie you saw in a theater?', '¿Cuál fue la primera película que viste en el cine?'),
+    'Qual é o seu apelido de infância?': ('What was your childhood nickname?', '¿Cuál era tu apodo de la infancia?'),
+    'Qual o nome do seu herói ou personagem favorito?': ('What is the name of your favorite hero or character?', '¿Cómo se llama tu héroe o personaje favorito?'),
+    # Menu do topo e presença diária
+    'Fazer um tour por esta tela': ('Take a tour of this screen', 'Hacer un recorrido por esta pantalla'), 'Tour': ('Tour', 'Recorrido'),
+    'Registro de Presença Diária': ('Daily attendance', 'Registro de asistencia diaria'), 'Atenção:': ('Attention:', 'Atención:'),
+    'O registro de presença é obrigatório. Se fechar esta janela novamente ou clicar fora, o sistema gravará uma': (
+        'Attendance is mandatory. If you close this window again or click outside it, the system will record an',
+        'El registro de asistencia es obligatorio. Si cierras esta ventana de nuevo o haces clic fuera, el sistema registrará una'),
+    'Falta Automática': ('Automatic absence', 'Falta automática'), 'Como você está participando hoje?': ('How are you taking part today?', '¿Cómo participas hoy?'),
+    'Modalidade Online / Remoto': ('Online / remote', 'Modalidad en línea / remota'), 'Modalidade Presencial': ('In person', 'Modalidad presencial'),
+    'Observações (opcional)': ('Notes (optional)', 'Observaciones (opcional)'),
+    'Atrasos, saída mais cedo, etc...': ('Late arrival, leaving early, etc...', 'Retrasos, salida anticipada, etc...'),
+    # Painel, Acompanhamento, Sessões, Demandas, Notas e Projetos
+    'Mentor Responsável:': ('Responsible mentor:', 'Mentor responsable:'), 'Não atribuído': ('Not assigned', 'No asignado'),
+    'Ordenar': ('Sort', 'Ordenar'), 'Google Agenda': ('Google Calendar', 'Google Calendar'),
+    'Arquivo escolhido': ('Chosen file', 'Archivo elegido'), 'Feedbacks': ('Feedback', 'Comentarios'),
+    'Salvar no meu Google Agenda': ('Save to my Google Calendar', 'Guardar en mi Google Calendar'), 'Salvar na Agenda': ('Save to calendar', 'Guardar en la agenda'),
+    'Data da Sessão': ('Session date', 'Fecha de la sesión'), 'Portal de Demandas Institucionais': ('Institutional Requests Portal', 'Portal de Solicitudes Institucionales'),
+    'Nota técnica': ('Technical grade', 'Nota técnica'), 'Nota de postura': ('Attitude grade', 'Nota de actitud'),
+    'Alternativa': ('Option', 'Alternativa'), 'Apostila do curso': ('Course handbook', 'Material del curso'),
+    'Logo da instituição': ('Institution logo', 'Logo de la institución'),
+    'Metodologia': ('Methodology', 'Metodología'), 'Apresentação': ('Presentation', 'Presentación'), 'Formatação': ('Formatting', 'Formato'),
+    'finanças pessoais, seguros, jovens': ('personal finance, insurance, youth', 'finanzas personales, seguros, jóvenes'),
+    'Onboarding Institucional': ('Institutional onboarding', 'Incorporación institucional'),
+    'O nosso impacto em números:': ('Our impact in numbers:', 'Nuestro impacto en cifras:'),
+    'jovens diretamente capacitados.': ('young people directly trained.', 'jóvenes capacitados directamente.'),
+    'horas de voluntariado corporativo registadas': ('hours of corporate volunteering recorded', 'horas de voluntariado corporativo registradas'),
+    'h fora do cronograma oficial': ('h outside the official schedule', 'h fuera del cronograma oficial'),
+    'voluntários envolvidos.': ('volunteers involved.', 'voluntarios involucrados.'),
+    'projetos de TCC apresentados e aprovados.': ('final projects presented and approved.', 'proyectos de TCC presentados y aprobados.'),
+    # Banca
+    'Banca Avaliadora': ('Evaluation panel', 'Tribunal evaluador'), 'Ficha da Banca': ('Panel sheet', 'Ficha del tribunal'),
+    'Salvar como PDF': ('Save as PDF', 'Guardar como PDF'), 'Banca de Avaliação': ('Evaluation panel', 'Tribunal de evaluación'), 'Grupo': ('Group', 'Grupo'),
+    'Minicurrículo não informado.': ('No short bio provided.', 'Minicurrículum no informado.'),
+    'Nenhum avaliador escalado para esta banca.': ('No evaluator assigned to this panel.', 'Ningún evaluador asignado a este tribunal.'),
+    # Certificado e verificação pública
+    'Configurar Diploma': ('Set up certificate', 'Configurar diploma'), 'Logo da Instituição': ('Institution logo', 'Logo de la institución'),
+    'Assinatura:': ('Signature:', 'Firma:'), 'Gestor (B2B)': ('Manager (B2B)', 'Gestor (B2B)'), 'Guardar em PDF': ('Save as PDF', 'Guardar en PDF'),
+    'Voltar aos certificados': ('Back to certificates', 'Volver a los certificados'),
+    'Este painel irá desaparecer automaticamente no PDF gerado.': ('This panel disappears automatically in the generated PDF.', 'Este panel desaparecerá automáticamente en el PDF generado.'),
+    'Selo Oficial': ('Official seal', 'Sello oficial'), 'Certificado de Excelência': ('Certificate of Excellence', 'Certificado de Excelencia'),
+    'Certificamos com a devida honra que': ('We hereby proudly certify that', 'Certificamos con el debido honor que'),
+    'concluiu com êxito o programa de mentoria corporativa e obteve aprovação oficial': (
+        'successfully completed the corporate mentorship program and obtained official approval',
+        'concluyó con éxito el programa de mentoría corporativa y obtuvo la aprobación oficial'),
+    'na Banca de Avaliação do Projeto de Conclusão (TCC):': ('from the Final Project (TCC) Evaluation Panel:', 'en el Tribunal de Evaluación del Proyecto Final (TCC):'),
+    'participou como avaliador(a) voluntário(a) da Banca Examinadora do Projeto de Conclusão (TCC)': (
+        'took part as a volunteer evaluator on the Final Project (TCC) Examination Panel',
+        'participó como evaluador(a) voluntario(a) del Tribunal Examinador del Proyecto Final (TCC)'),
+    'com leitura do trabalho escrito, análise, notas e participação na apresentação.': (
+        'reading the written work, analysing it, grading it and attending the presentation.',
+        'con lectura del trabajo escrito, análisis, notas y participación en la presentación.'),
+    'atuou com excelência no programa corporativo ESG como mentor(a) voluntário(a)': (
+        'served with excellence in the corporate ESG program as a volunteer mentor',
+        'actuó con excelencia en el programa corporativo ESG como mentor(a) voluntario(a)'),
+    'no desenvolvimento e aprovação do projeto:': ('in the development and approval of the project:', 'en el desarrollo y aprobación del proyecto:'),
+    'Tempo dedicado:': ('Time dedicated:', 'Tiempo dedicado:'), 'Tempo dedicado': ('Time dedicated', 'Tiempo dedicado'),
+    'Emitido em': ('Issued on', 'Emitido el'), 'Emitido em:': ('Issued on:', 'Emitido el:'),
+    'Código de verificação': ('Verification code', 'Código de verificación'), 'Confira a autenticidade em': ('Check authenticity at', 'Verifique la autenticidad en'),
+    'Gestor do Parceiro B2B': ('B2B Partner Manager', 'Gestor del Socio B2B'),
+    'Verificação de certificado': ('Certificate verification', 'Verificación de certificado'), 'e': ('and', 'y'),
+    'Certificado autêntico': ('Authentic certificate', 'Certificado auténtico'), 'Participação': ('Participation', 'Participación'),
+    'Projeto (TCC)': ('Project (TCC)', 'Proyecto (TCC)'), 'Jovem participante': ('Young participant', 'Joven participante'),
+    'Nenhum certificado encontrado com o código': ('No certificate found with the code', 'Ningún certificado encontrado con el código'),
+    'Confira se o código foi digitado exatamente como aparece no certificado.': (
+        'Check that the code was typed exactly as it appears on the certificate.', 'Verifique que el código se escribió exactamente como aparece en el certificado.'),
+    # Relatório ESG
+    'Relatório ESG': ('ESG report', 'Informe ESG'), 'Voltar ao Sistema': ('Back to the system', 'Volver al sistema'),
+    'Relatório Executivo ESG': ('ESG Executive Report', 'Informe Ejecutivo ESG'),
+    'Horas de Voluntariado Corporativo e Impacto Social': ('Corporate Volunteering Hours and Social Impact', 'Horas de Voluntariado Corporativo e Impacto Social'),
+    'Horas por colaborador (regulamentares × extraordinárias)': ('Hours per employee (regular × extra)', 'Horas por colaborador (reglamentarias × extraordinarias)'),
+    'Colaborador': ('Employee', 'Colaborador'), 'Regulares': ('Regular', 'Regulares'), 'Extras': ('Extra', 'Extras'), 'Extra': ('Extra', 'Extra'),
+    'Lançamentos': ('Entries', 'Registros'), 'Atividade Executada': ('Activity performed', 'Actividad realizada'), 'Grupo / Projeto': ('Group / Project', 'Grupo / Proyecto'),
+    # Repositório público de TCCs
+    'Repositório de TCCs': ('Final project repository', 'Repositorio de TCC'),
+    'Trabalhos de conclusão aprovados nas bancas do programa {instituicao} com as empresas parceiras (B2B), publicados com autorização dos jovens e responsáveis. Material aberto para pesquisa de jovens, mentores, institutos e mercado.': (
+        'Final projects approved by the panels of the {instituicao} program with partner companies (B2B), published with the consent of the young people and their guardians. Open material for research by young people, mentors, institutes and the market.',
+        'Trabajos finales aprobados por los tribunales del programa {instituicao} con las empresas socias (B2B), publicados con autorización de los jóvenes y sus responsables. Material abierto para la investigación de jóvenes, mentores, institutos y el mercado.'),
+    'Buscar': ('Search', 'Buscar'), 'Buscar por título, tema ou palavra-chave': ('Search by title, topic or keyword', 'Buscar por título, tema o palabra clave'),
+    'Baixar o TCC (PDF)': ('Download the project (PDF)', 'Descargar el TCC (PDF)'), 'Nenhum TCC público encontrado': ('No public project found', 'Ningún TCC público encontrado'),
+    'para': ('for', 'para'),
+    # Ata da reunião
+    'Ata de reunião': ('Meeting minutes', 'Acta de reunión'), 'Tipo:': ('Type:', 'Tipo:'), 'Parceiro B2B:': ('B2B partner:', 'Socio B2B:'),
+    'Gravação:': ('Recording:', 'Grabación:'), 'Gravação na plataforma:': ('Recording on the platform:', 'Grabación en la plataforma:'),
+    'Ticket relacionado:': ('Related ticket:', 'Ticket relacionado:'), 'Participantes': ('Participants', 'Participantes'),
+    'Deliberações': ('Decisions', 'Deliberaciones'), 'Encaminhamentos': ('Follow-up actions', 'Acciones de seguimiento'), 'Responsável': ('Owner', 'Responsable'),
+    'Sem encaminhamentos.': ('No follow-up actions.', 'Sin acciones de seguimiento.'), 'Presença (check-in e check-out)': ('Attendance (check-in and check-out)', 'Asistencia (check-in y check-out)'),
+    'Instituição': ('Institution', 'Institución'), 'motivo:': ('reason:', 'motivo:'), 'Avaliação dos participantes': ("Participants' rating", 'Evaluación de los participantes'),
+    'Média das notas': ('Average rating', 'Promedio de las notas'),
+    'avaliação(ões), com os convidados externos': ('rating(s), including external guests', 'evaluación(es), con los invitados externos'),
+    'Registrada na plataforma': ('Recorded on the platform', 'Registrada en la plataforma'), 'Maria Souza': ('Jane Smith', 'María Souza'),
+    # Agentes de Funcionalidades (mapa da tela)
+    'Dev (código)': ('Dev (code)', 'Dev (código)'),
+    'Varre 100% do código: toda regra de negócio numa regra nomeada, que o Gerente aprende sozinho.': (
+        'Scans 100% of the code: every business rule in a named rule, which the Manager learns by itself.',
+        'Revisa el 100% del código: toda regla de negocio en una regla con nombre, que el Gerente aprende solo.'),
+    'UX/UI (telas)': ('UX/UI (screens)', 'UX/UI (pantallas)'),
+    'Varre 100% das telas: textos traduzidos (pt/en/es), imagens, botões e campos acessíveis e cada papel com o mesmo nome.': (
+        'Scans 100% of the screens: translated texts (pt/en/es), accessible images, buttons and fields, and each role always with the same name.',
+        'Revisa el 100% de las pantallas: textos traducidos (pt/en/es), imágenes, botones y campos accesibles y cada rol con el mismo nombre.'),
+}.items():
+    LITERAIS.setdefault(_pt, _tr)
+
+
+# Provedores de IA: ChatGPT (OpenAI), preços conferidos e reajustes anunciados
+LITERAIS.update({
+    'Chave da API da OpenAI (ChatGPT)': ('OpenAI API key (ChatGPT)', 'Clave de la API de OpenAI (ChatGPT)'),
+    'Reajuste anunciado pelo provedor:': ('Price change announced by the provider:', 'Reajuste anunciado por el proveedor:'),
+    'a partir de': ('from', 'a partir del'),
+    'ex.: gpt-6.1-terra': ('e.g.: gpt-6.1-terra', 'ej.: gpt-6.1-terra'),
+    'Preços padrão conferidos nas páginas oficiais do Claude, do Google e da OpenAI em': ('Default prices checked on the official Claude, Google and OpenAI pages on', 'Precios estándar verificados en las páginas oficiales de Claude, Google y OpenAI el'),
+    'Campo vazio ou igual ao padrão segue o preço padrão; o reajuste anunciado entra sozinho na data.': ('An empty field, or one equal to the default, keeps the default price; an announced price change applies automatically on its date.', 'Un campo vacío o igual al estándar sigue el precio estándar; el reajuste anunciado se aplica solo en la fecha.'),
+})
+
+_POR_IDIOMA ={'en': {pt: v[0] for pt, v in LITERAIS.items()}, 'es': {pt: v[1] for pt, v in LITERAIS.items()}}
 
 
 def tt(texto, idioma='pt'):

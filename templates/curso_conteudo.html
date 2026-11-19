@@ -5,8 +5,8 @@
     <input type="hidden" name="acao" value="salvar_questao">
     <input type="hidden" name="aula_id" value="{{ aula.id }}">
     {% if q %}<input type="hidden" name="questao_id" value="{{ q.id }}">{% endif %}
-    <label class="form-label fw-bold mb-1">{{ tt('Pergunta') }}</label>
-    <textarea name="enunciado" class="form-control form-control-sm mb-2" rows="2" required>{{ q.enunciado if q else '' }}</textarea>
+    <label class="form-label fw-bold mb-1" for="enunciado{{ aula.id }}_{{ q.id if q else 'nova' }}">{{ tt('Pergunta') }}</label>
+    <textarea id="enunciado{{ aula.id }}_{{ q.id if q else 'nova' }}" name="enunciado" class="form-control form-control-sm mb-2" rows="2" required>{{ q.enunciado if q else '' }}</textarea>
     <label class="form-label fw-bold mb-1">{{ tt('Alternativas (marque a certa)') }}</label>
     {% set alternativas = q.lista_alternativas if q else [] %}
     {% for n in range(6) %}
@@ -15,11 +15,11 @@
             <input class="form-check-input mt-0" type="radio" name="correta" value="{{ n }}" {% if (q and q.correta == n) or (not q and n == 0) %}checked{% endif %} aria-label="{{ tt('Alternativa certa') }}">
         </span>
         <span class="input-group-text">{{ 'ABCDEF'[n] }}</span>
-        <input type="text" name="alternativa_{{ n }}" class="form-control" value="{{ alternativas[n] if n < alternativas|length else '' }}" {% if n < 2 %}required{% endif %} placeholder="{{ tt('Opcional') if n >= 2 else '' }}">
+        <input type="text" name="alternativa_{{ n }}" aria-label="{{ tt('Alternativa') }} {{ 'ABCDEF'[n] }}" class="form-control" value="{{ alternativas[n] if n < alternativas|length else '' }}" {% if n < 2 %}required{% endif %} placeholder="{{ tt('Opcional') if n >= 2 else '' }}">
     </div>
     {% endfor %}
-    <label class="form-label fw-bold mb-1 mt-2">{{ tt('Explicação mostrada depois da correção (opcional)') }}</label>
-    <textarea name="explicacao" class="form-control form-control-sm mb-2" rows="2">{{ q.explicacao or '' if q else '' }}</textarea>
+    <label class="form-label fw-bold mb-1 mt-2" for="explicacao{{ aula.id }}_{{ q.id if q else 'nova' }}">{{ tt('Explicação mostrada depois da correção (opcional)') }}</label>
+    <textarea id="explicacao{{ aula.id }}_{{ q.id if q else 'nova' }}" name="explicacao" class="form-control form-control-sm mb-2" rows="2">{{ q.explicacao or '' if q else '' }}</textarea>
     <button type="submit" class="btn btn-sm btn-primary fw-bold"><i class="bi bi-check2"></i> {{ tt('Salvar pergunta') }}</button>
 </form>
 {% endmacro %}
@@ -29,24 +29,24 @@
     <input type="hidden" name="acao" value="salvar_aula">
     {% if aula %}<input type="hidden" name="aula_id" value="{{ aula.id }}">{% endif %}
     <div class="col-12">
-        <label class="form-label small fw-bold mb-1">{{ tt('Título da aula') }}</label>
-        <input type="text" name="titulo" class="form-control form-control-sm" maxlength="200" value="{{ aula.titulo if aula else '' }}" required>
+        <label class="form-label small fw-bold mb-1" for="titulo{{ aula.id if aula else 'nova' }}">{{ tt('Título da aula') }}</label>
+        <input id="titulo{{ aula.id if aula else 'nova' }}" type="text" name="titulo" class="form-control form-control-sm" maxlength="200" value="{{ aula.titulo if aula else '' }}" required>
     </div>
     <div class="col-12">
-        <label class="form-label small fw-bold mb-1">{{ tt('Texto da aula (leitura). Para aula em vídeo, um resumo aqui ajuda a IA a escrever o teste.') }}</label>
-        <textarea name="texto" class="form-control form-control-sm" rows="6">{{ aula.texto or '' if aula else '' }}</textarea>
+        <label class="form-label small fw-bold mb-1" for="texto{{ aula.id if aula else 'nova' }}">{{ tt('Texto da aula (leitura). Para aula em vídeo, um resumo aqui ajuda a IA a escrever o teste.') }}</label>
+        <textarea id="texto{{ aula.id if aula else 'nova' }}" name="texto" class="form-control form-control-sm" rows="6">{{ aula.texto or '' if aula else '' }}</textarea>
     </div>
     <div class="col-md-6">
-        <label class="form-label small fw-bold mb-1"><i class="bi bi-upload"></i> {{ tt('Vídeo enviado (MP4, WEBM, MOV, M4V)') }} · {{ tt('até {mb} MB').format(mb=limite_video_mb) }}</label>
-        <input type="file" name="video" class="form-control form-control-sm" accept=".mp4,.m4v,.webm,.mov,.ogv,video/*">
+        <label class="form-label small fw-bold mb-1" for="video{{ aula.id if aula else 'nova' }}"><i class="bi bi-upload"></i> {{ tt('Vídeo enviado (MP4, WEBM, MOV, M4V)') }} · {{ tt('até {mb} MB').format(mb=limite_video_mb) }}</label>
+        <input id="video{{ aula.id if aula else 'nova' }}" type="file" name="video" class="form-control form-control-sm" accept=".mp4,.m4v,.webm,.mov,.ogv,video/*">
     </div>
     <div class="col-md-6">
-        <label class="form-label small fw-bold mb-1"><i class="bi bi-youtube text-danger"></i> {{ tt('ou link do YouTube') }}</label>
-        <input type="text" name="youtube" class="form-control form-control-sm" placeholder="https://www.youtube.com/watch?v=..." value="{{ 'https://youtu.be/' ~ aula.youtube_id if aula and aula.youtube_id else '' }}">
+        <label class="form-label small fw-bold mb-1" for="youtube{{ aula.id if aula else 'nova' }}"><i class="bi bi-youtube text-danger"></i> {{ tt('ou link do YouTube') }}</label>
+        <input id="youtube{{ aula.id if aula else 'nova' }}" type="text" name="youtube" class="form-control form-control-sm" placeholder="https://www.youtube.com/watch?v=..." value="{{ 'https://youtu.be/' ~ aula.youtube_id if aula and aula.youtube_id else '' }}">
     </div>
     <div class="col-md-6">
-        <label class="form-label small fw-bold mb-1"><i class="bi bi-paperclip"></i> {{ tt('Material de apoio (PDF, Word, PowerPoint, Excel, imagem, ZIP)') }}</label>
-        <input type="file" name="material" class="form-control form-control-sm">
+        <label class="form-label small fw-bold mb-1" for="material{{ aula.id if aula else 'nova' }}"><i class="bi bi-paperclip"></i> {{ tt('Material de apoio (PDF, Word, PowerPoint, Excel, imagem, ZIP)') }}</label>
+        <input id="material{{ aula.id if aula else 'nova' }}" type="file" name="material" class="form-control form-control-sm">
     </div>
     <div class="col-md-6 d-flex align-items-end flex-wrap gap-3">
         {% if aula and aula.tem_video %}
@@ -96,7 +96,7 @@
                     <form method="POST" enctype="multipart/form-data" id="formImportarDocumento">
                         <input type="hidden" name="acao" value="importar_documento">
                         <p class="small text-muted mb-2">{{ tt('Envie a apostila em PDF, Word, Markdown, TXT ou HTML. A plataforma separa os capítulos sozinha (títulos do Word, “Capítulo 1”, “Aula 2”, “Módulo 3”, “1. Introdução”…) e cria uma aula para cada um.') }}</p>
-                        <input type="file" name="documento" class="form-control form-control-sm mb-2" accept=".pdf,.docx,.md,.markdown,.txt,.html,.htm" required>
+                        <input type="file" name="documento" aria-label="{{ tt('Apostila do curso') }}" class="form-control form-control-sm mb-2" accept=".pdf,.docx,.md,.markdown,.txt,.html,.htm" required>
                         <div class="d-flex flex-wrap gap-3 small mb-2">
                             <div class="form-check">
                                 <input class="form-check-input" type="radio" name="modo" value="acrescentar" id="modoAcrescentar" checked>

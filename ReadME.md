@@ -202,13 +202,29 @@ mentoria/
 		Lite (mais estável quando o Google está sobrecarregado) de reserva.
 		Teto de gasto mensal e aviso em Parâmetros de regras (grupo Inteligência artificial); ao atingir o teto as IAs
 		param até o mês seguinte. A mesma primeira pergunta reaproveita a resposta (sem custo).
-		Chaves em Agentes IA › Credenciais: ANTHROPIC_API_KEY e GEMINI_API_KEY. Código: provedores_ia.py.
+		Chaves em Agentes IA › Credenciais: ANTHROPIC_API_KEY, GEMINI_API_KEY e OPENAI_API_KEY (ChatGPT). Código: provedores_ia.py.
+		Preços padrão conferidos nas páginas oficiais (Claude, Google e OpenAI) em PRECOS_CONFERIDOS_EM; reajustes já
+		anunciados (REAJUSTES) passam a valer sozinhos na data; modelos descontinuados viram o substituto (SUBSTITUIDOS).
 
 	🧭 Tour guiado
 		Motor único em templates/_tour_motor.html: segue o menu de cada perfil, abre as abas ({aba: '#painel'}) e explica
 		sozinho os botões e abas que nenhum passo cobre. Os agentes OmniTest cobram balões no lugar, seções, abas e botões;
 		o Agente Gerente Técnico aprende o mapa de cada perfil e os erros do tour (conhecimento_tour.py) e ensina os agentes,
 		que conferem primeiro os erros já vistos e avisam quando foram corrigidos.
+
+	📏 Regras nomeadas (o que os agentes aprendem sozinhos)
+		O Gerente de Funcionalidades só aprende o que está numa REGRA NOMEADA: constante em MAIÚSCULAS no app.py (ou em
+		conteudo_curso, tarefas_agendadas, seguranca_web, base_conhecimento e notificacoes), como PERFIS_GESTAO_CURSOS,
+		NOTA_MAXIMA ou MINIMO_CARACTERES_DESCRICAO, além dos valores da tela Parâmetros de regras. Regra nova ou alterada
+		vira aprendizado na próxima detecção, sem lista fixa para manter.
+		- Todo PODER dado a um perfil usa uma regra PERFIS_* (as PERFIS_* chegam também às telas pelo mesmo nome):
+		  current_user.tipo_usuario in PERFIS_EXPORTAM_ESG, nunca in ['Administrador', ...] direto no código.
+		- Aluno, Gestor B2B (Admin B2B) e Avaliador da banca são perfis de escopo (veem só o que é deles) e podem ser
+		  comparados direto (tipo_usuario == 'Aluno').
+		- Exceção consciente (formato técnico, heurística): comentário "# regra-nomeada: ok (motivo)" na linha.
+		O Agente Dev (primeiro da cadeia dos Agentes de Funcionalidades) varre 100% do código e das telas e aponta cada
+		regra escrita direto, confere se o Gerente aprendeu todas as regras nomeadas e se há regra de perfis sem uso.
+		Lista na hora: python agentes_funcionalidades/varredura_regras.py
 
 	🏢 Identidade da instituição (Administração › Sistema › Identidade da instituição)
 		Cada cliente tem a sua própria instalação. Nenhum nome de instituição ou de programa fica no código: as telas,

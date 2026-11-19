@@ -32,12 +32,12 @@ from datetime import datetime
 from base import RAIZ_PROJETO, PASTA_RELATORIOS, APROVADO, FALHA, ALERTA, SEVERIDADES
 
 PASTA = os.path.dirname(os.path.abspath(__file__))
-ORDEM = ["administrador", "mentor_administrador", "gestor_parceiro", "professor", "mentor", "aluno", "avaliador", "encerramento"]
-NOMES = {"administrador": "Agente Administrador", "mentor_administrador": "Agente Mentor Administrador", "gestor_parceiro": "Agente Gestor Parceiro",
+ORDEM = ["dev", "ux", "administrador", "mentor_administrador", "gestor_parceiro", "professor", "mentor", "aluno", "avaliador", "encerramento"]
+NOMES = {"dev": "Agente Dev", "ux": "Agente UX", "administrador": "Agente Administrador", "mentor_administrador": "Agente Mentor Administrador", "gestor_parceiro": "Agente Gestor Parceiro",
          "professor": "Agente Professor", "mentor": "Agente Mentor", "aluno": "Agente Aluno", "avaliador": "Agente Avaliador da Banca",
          "encerramento": "Agente Encerramento do Ciclo"}
 PASTAS = {c: NOMES[c] for c in ORDEM} | {"consolidado": "Consolidado"}
-ESTIMATIVA = {"administrador": 15, "mentor_administrador": 30, "gestor_parceiro": 15, "professor": 15, "mentor": 15, "aluno": 20,
+ESTIMATIVA = {"dev": 10, "ux": 10, "administrador": 15, "mentor_administrador": 30, "gestor_parceiro": 15, "professor": 15, "mentor": 15, "aluno": 20,
               "avaliador": 15, "encerramento": 10}
 
 BASE_IA = os.path.join(RAIZ_PROJETO, "Agent Reports", "Agentes IA")

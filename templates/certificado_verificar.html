@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Verificação de certificado · {{ marca.plataforma }}</title>
+    <title>{{ tt('Verificação de certificado') }} · {{ marca.plataforma }}</title>
     <style>
         :root { --fundo: #f4f6fa; --cartao: #ffffff; --texto: #1d2633; --suave: #5d6878; --ok: #1b7a43; --erro: #b42318; --linha: #dde2ea; }
         @media (prefers-color-scheme: dark) { :root { --fundo: #11161e; --cartao: #18202b; --texto: #e6ebf2; --suave: #9aa6b6; --ok: #6fcf97; --erro: #f2877c; --linha: #2a3442; } }
@@ -20,21 +20,21 @@
 </head>
 <body>
     <main class="cartao">
-        <h1>Verificação de certificado</h1>
-        <p>{{ marca.plataforma }} · {{ marca.nome }} e {{ parceiros }}</p>
+        <h1>{{ tt('Verificação de certificado') }}</h1>
+        <p>{{ marca.plataforma }} · {{ marca.nome }} {{ tt('e') }} {{ parceiros }}</p>
         {% if certificado %}
-        <div class="selo ok">✔ Certificado autêntico</div>
+        <div class="selo ok">✔ {{ tt('Certificado autêntico') }}</div>
         <dl>
-            <dt>Código</dt><dd>{{ certificado.codigo }}</dd>
-            <dt>Participante</dt><dd>{{ certificado.usuario.nome.split()[0] }} {{ certificado.usuario.nome.split()[-1] if certificado.usuario.nome.split()|length > 1 else '' }}</dd>
-            <dt>Participação</dt><dd>{{ certificado.tipo }}</dd>
-            <dt>Projeto (TCC)</dt><dd>{{ certificado.projeto.nome }}</dd>
-            {% if certificado.minutos_total %}<dt>Tempo dedicado</dt><dd>{{ certificado.minutos_total // 60 }} h {{ certificado.minutos_total % 60 }} min</dd>{% endif %}
-            <dt>Emitido em</dt><dd>{{ certificado.data_emissao.strftime('%d/%m/%Y') }}</dd>
+            <dt>{{ tt('Código') }}</dt><dd>{{ certificado.codigo }}</dd>
+            <dt>{{ tt('Participante') }}</dt><dd>{{ certificado.usuario.nome.split()[0] }} {{ certificado.usuario.nome.split()[-1] if certificado.usuario.nome.split()|length > 1 else '' }}</dd>
+            <dt>{{ tt('Participação') }}</dt><dd>{{ tt(certificado.tipo) }}</dd>
+            <dt>{{ tt('Projeto (TCC)') }}</dt><dd>{{ certificado.projeto.nome }}</dd>
+            {% if certificado.minutos_total %}<dt>{{ tt('Tempo dedicado') }}</dt><dd>{{ certificado.minutos_total // 60 }} h {{ certificado.minutos_total % 60 }} min</dd>{% endif %}
+            <dt>{{ tt('Emitido em') }}</dt><dd>{{ certificado.data_emissao.strftime('%d/%m/%Y') }}</dd>
         </dl>
         {% else %}
-        <div class="selo erro">✖ Nenhum certificado encontrado com o código "{{ codigo }}".</div>
-        <p>Confira se o código foi digitado exatamente como aparece no certificado.</p>
+        <div class="selo erro">✖ {{ tt('Nenhum certificado encontrado com o código') }} "{{ codigo }}".</div>
+        <p>{{ tt('Confira se o código foi digitado exatamente como aparece no certificado.') }}</p>
         {% endif %}
     </main>
 </body>

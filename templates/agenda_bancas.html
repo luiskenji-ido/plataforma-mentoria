@@ -103,7 +103,7 @@
                     <h5 class="modal-title fw-bold">{{ b.projeto.nome if b else t('banca_nova') }}</h5>
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="{{ t('fechar') }}"></button>
                 </div>
-                <div class="modal-body row g-3">
+                <div class="modal-body"><div class="row g-3">
                     <input type="hidden" name="acao" value="salvar">
                     <input type="hidden" name="banca_id" value="{{ bid }}">
                     {% if not b %}
@@ -168,8 +168,8 @@
                         <input class="form-check-input" type="checkbox" id="bAnon{{ bid }}" name="anonimizar_feedback" {% if not b or b.anonimizar_feedback %}checked{% endif %}>
                         <label class="form-check-label" for="bAnon{{ bid }}">{{ t('banca_anonimizar') }}</label>
                     </div>
-                </div>
-                <div class="modal-footer"><button class="btn btn-success fw-bold px-4" type="submit">{{ t('trilha_salvar') }}</button></div>
+                </div></div>
+                <div class="modal-footer"><button class="btn btn-success fw-bold px-4" type="submit">{{ t('banca_salvar') if b else t('banca_agendar') }}</button></div>
             </form>
         </div>
     </div>

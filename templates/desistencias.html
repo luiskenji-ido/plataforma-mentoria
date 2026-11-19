@@ -14,7 +14,7 @@
     <div class="col-lg-4">
         <div class="card shadow-sm border-0" id="cardNovaDesistencia">
             <div class="card-header bg-white fw-bold text-primary"><i class="bi bi-plus-circle"></i> {{ tt('Registrar desistência') }}</div>
-            <form method="POST" class="card-body row g-2">
+            <form method="POST" class="card-body"><div class="row g-2">
                 <div class="col-12"><label class="form-label small fw-bold mb-0" for="dAluno">{{ tt('Jovem') }}</label>
                     <select class="form-select form-select-sm" id="dAluno" name="aluno_id" required>
                         <option value="">—</option>
@@ -33,13 +33,13 @@
                     <label class="form-check-label small" for="dConfirmar">{{ tt('Já confirmar (você é da gestão)') }}</label></div>
                 {% endif %}
                 <div class="col-12 d-grid"><button class="btn btn-danger btn-sm fw-bold" type="submit"><i class="bi bi-person-dash"></i> {{ tt('Registrar') }}</button></div>
-            </form>
+            </div></form>
         </div>
         {% if mentores_geridos %}
         <!-- Mentor desistente: o substituto assume na hora jovens, grupos, turmas e sessões futuras; as horas ficam com quem as fez -->
         <div class="card shadow-sm border-0 mt-3" id="mentorDesistente">
             <div class="card-header bg-white fw-bold text-primary"><i class="bi bi-arrow-left-right"></i> {{ tt('Mentor desistente e substituto') }}</div>
-            <form method="POST" action="{{ url_for('desistencia_mentor') }}" class="card-body row g-2">
+            <form method="POST" action="{{ url_for('desistencia_mentor') }}" class="card-body"><div class="row g-2">
                 <div class="col-12"><label class="form-label small fw-bold mb-0" for="mMentor">{{ tt('Mentor que está saindo') }}</label>
                     <select class="form-select form-select-sm" id="mMentor" name="mentor_id" required>
                         <option value="">—</option>
@@ -60,7 +60,7 @@
                 <div class="col-12 small text-muted">{{ tt('O substituto assume na hora os jovens, grupos, turmas e sessões futuras. As horas de voluntariado continuam no nome de quem as fez.') }}</div>
                 <div class="col-12 d-grid"><button class="btn btn-outline-danger btn-sm fw-bold" type="submit"
                     onclick="return confirm({{ tt('Desligar o mentor e passar os jovens ao substituto?') | tojson }})"><i class="bi bi-arrow-left-right"></i> {{ tt('Desligar e substituir') }}</button></div>
-            </form>
+            </div></form>
         </div>
         {% endif %}
     </div>

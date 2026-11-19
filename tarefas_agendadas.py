@@ -17,6 +17,7 @@ from notificacoes import notificar, eh_conta_de_teste
 
 # Relógio de voluntariado aberto há mais tempo que isto recebe o lembrete de check-out
 HORAS_RELOGIO_ESQUECIDO = 4
+AVISO_FIM_CICLO_DIAS = 2  # lembra as avaliações pendentes quando faltam estes dias para fechar o ciclo
 
 
 def lembrar_checkout_esquecido(agora):
@@ -192,7 +193,7 @@ def lembrar_avaliacao_pendente(agora):
     from app import ciclos_abertos, alvos_da_avaliacao, respostas_do_avaliador
     hoje, enviados = datetime.now().date(), 0
     for ciclo in ciclos_abertos():
-        if (ciclo.fim - hoje).days > 2:
+        if (ciclo.fim - hoje).days > AVISO_FIM_CICLO_DIAS:
             continue
         pendentes = []
         for pessoa in Usuario.query.filter(Usuario.status == 'Ativo').all():

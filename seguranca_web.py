@@ -33,6 +33,7 @@ from flask import request, session, redirect, url_for, flash, jsonify, render_te
 from markupsafe import Markup
 
 EM_PRODUCAO = bool(os.environ.get("PYTHONANYWHERE_DOMAIN") or os.environ.get("MENTORIA_PRODUCAO") == "1")
+MINIMO_CARACTERES_SECRET_KEY = 32  # SECRET_KEY curta é trocada por uma nova (sessões assinadas)
 LIMITE_UPLOAD_MB = 50  # maior arquivo aceito (backups, entregas de TCC e currículos)
 
 # Limite de requisições POST por IP: endpoint -> (máximo, janela em segundos)
@@ -85,7 +86,7 @@ def carregar_chave_secreta(pasta_instance):
             chave = f.read().strip()
     except OSError:
         chave = ""
-    if len(chave) < 32:
+    if len(chave) < MINIMO_CARACTERES_SECRET_KEY:
         os.makedirs(pasta_instance, exist_ok=True)
         chave = secrets.token_hex(32)
         with open(caminho, "w", encoding="utf-8") as f:

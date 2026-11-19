@@ -73,7 +73,7 @@
             {% if a.presencas %}
             <details class="mt-3">
                 <summary class="small fw-bold text-primary">{{ t('extra_participantes') }} ({{ a.presencas|length }})</summary>
-                {% if pode_gerir(a) or current_user.tipo_usuario in ['Administrador', 'Mentor Administrador', 'Admin B2B'] %}
+                {% if pode_gerir(a) or current_user.tipo_usuario in PERFIS_VEEM_RELATORIO_ATIVIDADE %}
                 <div class="table-responsive mt-2">
                     <table class="table table-sm align-middle small mb-2">
                         <thead><tr><th>{{ t('trilha_col_pessoa') }}</th><th>{{ t('trilha_col_perfil') }}</th><th>{{ t('extra_entrada') }}</th><th>{{ t('extra_saida') }}</th><th class="text-end">Min</th><th>{{ t('modalidade_participacao') }}</th></tr></thead>
@@ -109,10 +109,10 @@
         <div class="modal-content shadow-lg border-0">
             <div class="modal-header bg-primary text-white">
                 <h5 class="modal-title fw-bold"><i class="bi bi-plus-circle"></i> {{ t('extra_nova') }}</h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="{{ t('fechar') }}"></button>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="{{ tt('Fechar') }}"></button>
             </div>
             <form method="POST" action="{{ url_for('nova_atividade_extra') }}">
-                <div class="modal-body row g-3">
+                <div class="modal-body"><div class="row g-3">
                     <div class="col-md-6">
                         <label class="form-label fw-bold" for="extraGrupo">{{ t('vol_campo_grupo') }}</label>
                         <select name="grupo_id" id="extraGrupo" class="form-select" required>
@@ -148,9 +148,9 @@
                         <label class="form-label fw-bold" for="extraMotivo">{{ t('vol_campo_motivo') }}</label>
                         <textarea name="motivo" id="extraMotivo" class="form-control" rows="3" minlength="10" required placeholder="{{ t('vol_motivo_placeholder') }}"></textarea>
                     </div>
-                </div>
+                </div></div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-outline-secondary fw-bold" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-outline-secondary fw-bold" data-bs-dismiss="modal">{{ tt('Cancelar') }}</button>
                     <button type="submit" class="btn btn-primary fw-bold px-4">{{ t('extra_criar') }}</button>
                 </div>
             </form>

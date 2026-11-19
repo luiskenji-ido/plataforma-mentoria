@@ -21,17 +21,17 @@
             <form action="{{ url_for('gerenciar_grupos') }}" method="POST">
                 <div class="row">
                     <div class="col-md-12 mb-3">
-                        <label class="form-label fw-bold">{{ tt('Nome do Grupo') }}</label>
-                        <input type="text" name="nome" class="form-control" required placeholder="{{ tt('Ex: Turma Azure 2026 - Noturno') }}">
+                        <label for="f_nome" class="form-label fw-bold">{{ tt('Nome do Grupo') }}</label>
+                        <input id="f_nome" type="text" name="nome" class="form-control" required placeholder="{{ tt('Ex: Turma Azure 2026 - Noturno') }}">
                     </div>
                     
                     <div class="col-md-12 mb-3">
-                        <label class="form-label fw-bold">{{ tt('Descrição') }}</label>
-                        <textarea name="descricao" class="form-control" rows="2" placeholder="{{ tt('Qual o objetivo desta turma?') }}"></textarea>
+                        <label for="f_descricao" class="form-label fw-bold">{{ tt('Descrição') }}</label>
+                        <textarea id="f_descricao" name="descricao" class="form-control" rows="2" placeholder="{{ tt('Qual o objetivo desta turma?') }}"></textarea>
                     </div>
                     
                     <div class="col-md-12 mb-4">
-                        <label class="form-label fw-bold">{{ tt('Atribuir Membros ao Grupo') }}</label>
+                        <label for="filtroMembros" class="form-label fw-bold">{{ tt('Atribuir Membros ao Grupo') }}</label>
                         <input type="text" id="filtroMembros" class="form-control mb-3 border-primary" placeholder="{{ tt('🔍 Buscar por nome do aluno ou mentor...') }}">
 
                         <div class="row">
@@ -124,24 +124,24 @@
                                     <form action="{{ url_for('editar_grupo', id=g.id) }}" method="POST">
                                         <div class="modal-header bg-info">
                                             <h5 class="modal-title fw-bold text-dark">{{ tt('Editar Grupo:') }} {{ g.nome }}</h5>
-                                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                            <button aria-label="{{ tt('Fechar') }}" type="button" class="btn-close" data-bs-dismiss="modal"></button>
                                         </div>
                                         <div class="modal-body">
                                             <div class="row">
                                                 <div class="col-md-12 mb-3">
-                                                    <label class="form-label fw-bold">{{ tt('Nome do Grupo') }}</label>
-                                                    <input type="text" name="nome" class="form-control" value="{{ g.nome }}" required>
+                                                    <label for="f_nome_133_{{ loop.index }}" class="form-label fw-bold">{{ tt('Nome do Grupo') }}</label>
+                                                    <input id="f_nome_133_{{ loop.index }}" type="text" name="nome" class="form-control" value="{{ g.nome }}" required>
                                                 </div>
                                                 <div class="col-md-12 mb-3">
-                                                    <label class="form-label fw-bold">{{ tt('Descrição') }}</label>
-                                                    <textarea name="descricao" class="form-control" rows="2">{{ g.descricao }}</textarea>
+                                                    <label for="f_descricao_137_{{ loop.index }}" class="form-label fw-bold">{{ tt('Descrição') }}</label>
+                                                    <textarea id="f_descricao_137_{{ loop.index }}" name="descricao" class="form-control" rows="2">{{ g.descricao }}</textarea>
                                                 </div>
                                                 
                                                 <div class="col-md-12 mb-3">
-                                                    <label class="form-label fw-bold text-primary">{{ tt('Gerenciar Membros') }}</label>
+                                                    <label for="f_campo_{{ loop.index }}" class="form-label fw-bold text-primary">{{ tt('Gerenciar Membros') }}</label>
                                                     
                                                     <!-- NOVO: Barra de pesquisa exclusiva para o modal de edição -->
-                                                    <input type="text" class="form-control mb-3 filtro-modal border-info" data-target="lista-modal-{{ g.id }}" placeholder="{{ tt('🔍 Buscar por nome do aluno ou mentor...') }}">
+                                                    <input id="f_campo_{{ loop.index }}" type="text" class="form-control mb-3 filtro-modal border-info" data-target="lista-modal-{{ g.id }}" placeholder="{{ tt('🔍 Buscar por nome do aluno ou mentor...') }}">
 
                                                     <div class="row mt-2" id="lista-modal-{{ g.id }}">
                                                         <div class="col-md-6 mb-3">

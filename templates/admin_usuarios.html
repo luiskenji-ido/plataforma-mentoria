@@ -1,7 +1,7 @@
 {% from "_macros_adequacoes.html" import selo_modalidade with context %}
 {% extends "base.html" %}
 
-{% block title %}{{ t('gerenciamento_cadastros') }} - Mentoria{% endblock %}
+{% block title %}{{ t('gerenciamento_cadastros') }} - {{ marca.plataforma if marca.configurada else t('nome_app') }}{% endblock %}
 
 {% block content %}
     <style>
@@ -17,7 +17,7 @@
     <!-- MACRO: MOLDE REUTILIZÁVEL DA TABELA DE USUÁRIOS (DRY)     -->
     <!-- ========================================================= -->
     {% macro render_tabela_usuarios(lista_usuarios, filtro_tipos, badge_class, mostrar_nivel=true) %}
-    <table class="table table-hover align-middle mb-0 text-center">
+    <div class="table-responsive"><table class="table table-hover align-middle mb-0 text-center">
         <thead class="table-light">
             <tr>
                 <th>{{ t('col_id') }}</th>
@@ -54,7 +54,7 @@
             {% endif %}
             {% endfor %}
         </tbody>
-    </table>
+    </table></div>
     {% endmacro %}
 
     <!-- Formulário de Criação -->
@@ -70,21 +70,21 @@
             <form method="POST" action="{{ url_for('gerenciar_usuarios') }}">
                 <div class="row align-items-end">
                     <div class="col-md-3 mb-3">
-                        <label class="form-label text-muted">{{ t('nome') }}</label>
-                        <input type="text" name="nome" class="form-control" value="{{ fill_nome }}" required>
+                        <label for="f_nome" class="form-label text-muted">{{ t('nome') }}</label>
+                        <input id="f_nome" type="text" name="nome" class="form-control" value="{{ fill_nome }}" required>
                     </div>
                     <div class="col-md-3 mb-3">
-                        <label class="form-label text-muted">{{ t('email') }}</label>
-                        <input type="email" name="email" class="form-control" placeholder="exemplo@dominio.com" value="{{ fill_email }}" required>
+                        <label for="f_email" class="form-label text-muted">{{ t('email') }}</label>
+                        <input id="f_email" type="email" name="email" class="form-control" placeholder="exemplo@dominio.com" value="{{ fill_email }}" required>
                     </div>
                     <div class="col-md-2 mb-3">
-                        <label class="form-label text-muted">{{ t('nivel') }}</label>
+                        <label for="tipo_usuario_novo" class="form-label text-muted">{{ t('nivel') }}</label>
                         <select name="tipo_usuario" id="tipo_usuario_novo" class="form-select" required>
                             <option value="Aluno">{{ tt('Aluno') }}</option>
                             <option value="Professor">{{ tt('Professor') }}</option>
                             <option value="Mentor">{{ tt('Mentor') }}</option>
                             <option value="Mentor Administrador">{{ tt('Mentor Administrador') }}</option>
-                            {% if current_user.tipo_usuario == 'Administrador' %}<option value="Administrador">{{ tt('Administrador') }}</option>{% endif %}
+                            {% if current_user.tipo_usuario in PERFIS_CRIAM_ADMINISTRADOR %}<option value="Administrador">{{ tt('Administrador') }}</option>{% endif %}
                             <option value="Admin B2B">{{ tt('Gestor Parceiro (Admin B2B)') }}</option>
                             <option value="Avaliador Banca">{{ tt('Avaliador da Banca (executivo convidado)') }}</option>
                             {% set personalizados = perfis_personalizados_ativos() %}
@@ -104,16 +104,16 @@
                         </select>
                     </div>
                     <div class="col-md-2 mb-3">
-                        <label class="form-label text-muted">{{ t('status') }}</label>
-                        <select name="status" class="form-select" required>
+                        <label for="f_status" class="form-label text-muted">{{ t('status') }}</label>
+                        <select id="f_status" name="status" class="form-select" required>
                             <option value="Ativo" {% if request.form.get('status') == 'Ativo' or not request.form.get('status') %}selected{% endif %}>{{ t('ativo') }}</option>
                             <option value="Ausente" {% if request.form.get('status') == 'Ausente' %}selected{% endif %}>{{ t('status_ausente') }}</option>
                             <option value="Desativado" {% if request.form.get('status') == 'Desativado' %}selected{% endif %}>{{ t('status_desativado') }}</option>
                         </select>
                     </div>
                     <div class="col-md-2 mb-3">
-                        <label class="form-label text-muted">{{ t('senha') }}</label>
-                        <input type="password" name="senha" class="form-control" required>
+                        <label for="f_senha" class="form-label text-muted">{{ t('senha') }}</label>
+                        <input id="f_senha" type="password" name="senha" class="form-control" required>
                     </div>
                     
                     <div class="col-12 mb-3">
@@ -139,7 +139,7 @@
     <div class="d-flex justify-content-end mb-3">
         <div class="input-group w-50 shadow-sm" style="border: 1px solid #212529; border-radius: 6px; overflow: hidden;">
             <span class="input-group-text bg-light text-secondary border-0"><i class="bi bi-search"></i></span>
-            <input type="text" id="filtroUsuarios" class="form-control border-0 shadow-none" placeholder="{{ tt('Buscar qualquer usuário, e-mail ou mentor...') }}">
+            <input type="text" id="filtroUsuarios" class="form-control border-0 shadow-none" aria-label="{{ tt('Buscar qualquer usuário, e-mail ou mentor...') }}" placeholder="{{ tt('Buscar qualquer usuário, e-mail ou mentor...') }}">
         </div>
     </div>
 
@@ -229,7 +229,7 @@
                         <path fill-rule="evenodd" d="M5.828 10.172a.5.5 0 00-.707 0l-4.096 4.096V11.5a.5.5 0 0 0-1 0v3.975a.5.5 0 0 0 .5.5H4.5a.5.5 0 0 0 0-1H1.732l4.096-4.096a.5.5 0 0 0 0-.707m4.344 0a.5.5 0 0 1 .707 0l4.096 4.096V11.5a.5.5 0 1 1 1 0v3.975a.5.5 0 0 1-.5.5H11.5a.5.5 0 0 1 0-1h2.768l-4.096-4.096a.5.5 0 0 1 0-.707m0-4.344a.5.5 0 0 0 .707 0l4.096-4.096V4.5a.5.5 0 1 0 1 0V.525a.5.5 0 0 0-.5-.5H11.5a.5.5 0 0 0 0 1h2.768l-4.096 4.096a.5.5 0 0 0 0 .707m-4.344 0a.5.5 0 0 1-.707 0L1.025 1.732V4.5a.5.5 0 0 1-1 0V.525a.5.5 0 0 1 .5-.5H4.5a.5.5 0 0 1 0 1H1.732l4.096 4.096a.5.5 0 0 1 0 .707"/>
                     </svg>
                 </button>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                <button aria-label="{{ tt('Fechar') }}" type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
             </div>
                     
@@ -238,24 +238,24 @@
                         <h6 class="text-primary fw-bold border-bottom pb-2 mb-3">{{ t('dados_acesso') }}</h6>
                         <div class="row">
                             <div class="col-md-6 mb-3">
-                                <label class="form-label">{{ t('nome_completo') }}</label>
-                                <input type="text" name="nome" class="form-control" placeholder="{{ t('nome_completo') }}" value="{{ u.nome }}" required>
+                                <label for="f_nome_242_{{ loop.index }}" class="form-label">{{ t('nome_completo') }}</label>
+                                <input id="f_nome_242_{{ loop.index }}" type="text" name="nome" class="form-control" placeholder="{{ t('nome_completo') }}" value="{{ u.nome }}" required>
                             </div>
                             <div class="col-md-6 mb-3">
-                                <label class="form-label">{{ t('email') }}</label>
-                                <input type="email" name="email" class="form-control" value="{{ u.email }}" required>
+                                <label for="f_email_246_{{ loop.index }}" class="form-label">{{ t('email') }}</label>
+                                <input id="f_email_246_{{ loop.index }}" type="email" name="email" class="form-control" value="{{ u.email }}" required>
                             </div>
                         </div>
                         
                         <div class="row">
                             <div class="col-md-6 mb-3">
-                                <label class="form-label">{{ t('nivel_acesso') }}</label>
-                                <select name="tipo_usuario" class="form-select">
+                                <label for="f_tipo_usuario_{{ loop.index }}" class="form-label">{{ t('nivel_acesso') }}</label>
+                                <select id="f_tipo_usuario_{{ loop.index }}" name="tipo_usuario" class="form-select">
                                     <option value="Aluno" {% if u.tipo_usuario == 'Aluno' %}selected{% endif %}>{{ t('nivel_aluno') }}</option>
                                     <option value="Professor" {% if u.tipo_usuario == 'Professor' %}selected{% endif %}>{{ tt('Professor') }}</option>
                                     <option value="Mentor" {% if u.tipo_usuario == 'Mentor' %}selected{% endif %}>{{ t('nivel_mentor') }}</option>
                                     <option value="Mentor Administrador" {% if u.tipo_usuario == 'Mentor Administrador' %}selected{% endif %}>{{ t('nivel_mentor_admin') }}</option>
-                                    {% if current_user.tipo_usuario == 'Administrador' %}<option value="Administrador" {% if u.tipo_usuario == 'Administrador' %}selected{% endif %}>{{ t('nivel_administrador') }}</option>{% endif %}
+                                    {% if current_user.tipo_usuario in PERFIS_CRIAM_ADMINISTRADOR %}<option value="Administrador" {% if u.tipo_usuario == 'Administrador' %}selected{% endif %}>{{ t('nivel_administrador') }}</option>{% endif %}
                                     <option value="Admin B2B" {% if u.tipo_usuario == 'Admin B2B' %}selected{% endif %}>{{ tt('Gestor Parceiro (Admin B2B)') }}</option>
                                     <option value="Avaliador Banca" {% if u.tipo_usuario == 'Avaliador Banca' and not u.perfil_personalizado_id %}selected{% endif %}>{{ tt('Avaliador da Banca (executivo convidado)') }}</option>
                                     {% set personalizados = perfis_personalizados_ativos() %}
@@ -267,8 +267,8 @@
                                 </select>
                             </div>
                             <div class="col-md-6 mb-3">
-                                <label class="form-label">{{ t('status') }}</label>
-                                <select name="status" class="form-select">
+                                <label for="f_status_271_{{ loop.index }}" class="form-label">{{ t('status') }}</label>
+                                <select id="f_status_271_{{ loop.index }}" name="status" class="form-select">
                                     <option value="Ativo" {% if u.status == 'Ativo' %}selected{% endif %}>{{ t('ativo') }}</option>
                                     <option value="Ausente" {% if u.status == 'Ausente' %}selected{% endif %}>{{ t('status_ausente') }}</option>
                                     <option value="Desativado" {% if u.status == 'Desativado' %}selected{% endif %}>{{ t('status_desativado') }}</option>
@@ -288,8 +288,8 @@
                         </div>
 
                         <div class="mb-4">
-                            <label class="form-label text-danger">{{ t('nova_senha_opcional') }}</label>
-                            <input type="password" name="senha" class="form-control" placeholder="{{ t('placeholder_senha') }}">
+                            <label for="f_senha_292_{{ loop.index }}" class="form-label text-danger">{{ t('nova_senha_opcional') }}</label>
+                            <input id="f_senha_292_{{ loop.index }}" type="password" name="senha" class="form-control" placeholder="{{ t('placeholder_senha') }}">
                             <div class="form-text">{{ t('aviso_senha') }}</div>
                             
                             <div class="form-check mt-3">
@@ -312,24 +312,24 @@
                             <h6 class="text-success fw-bold mb-3">{{ t('prontuario_entrevista') }}</h6>
                             
                             <div class="mb-3">
-                                <label class="form-label text-muted">{{ t('perfil_aluno') }}</label>
-                                <input type="text" name="perfil_aluno" class="form-control" value="{{ u.perfil_aluno or '' }}" placeholder="{{ t('placeholder_perfil_aluno') }}">
+                                <label for="f_perfil_aluno_{{ loop.index }}" class="form-label text-muted">{{ t('perfil_aluno') }}</label>
+                                <input id="f_perfil_aluno_{{ loop.index }}" type="text" name="perfil_aluno" class="form-control" value="{{ u.perfil_aluno or '' }}" placeholder="{{ t('placeholder_perfil_aluno') }}">
                             </div>
 
                             <div class="row">
                                 <div class="col-md-6 mb-3">
-                                    <label class="form-label text-muted">{{ t('rotulo_objetivo') }}</label>
-                                    <textarea name="objetivo_principal" class="form-control" rows="2" placeholder="{{ t('placeholder_objetivo') }}">{{ u.objetivo_principal or '' }}</textarea>
+                                    <label for="f_objetivo_principal_{{ loop.index }}" class="form-label text-muted">{{ t('rotulo_objetivo') }}</label>
+                                    <textarea id="f_objetivo_principal_{{ loop.index }}" name="objetivo_principal" class="form-control" rows="2" placeholder="{{ t('placeholder_objetivo') }}">{{ u.objetivo_principal or '' }}</textarea>
                                 </div>
                                 <div class="col-md-6 mb-3">
-                                    <label class="form-label text-muted">{{ t('rotulo_expectativa') }}</label>
-                                    <textarea name="expectativa_mentoria" class="form-control" rows="2" placeholder="{{ t('placeholder_expectativa') }}">{{ u.expectativa_mentoria or '' }}</textarea>
+                                    <label for="f_expectativa_mentoria_{{ loop.index }}" class="form-label text-muted">{{ t('rotulo_expectativa') }}</label>
+                                    <textarea id="f_expectativa_mentoria_{{ loop.index }}" name="expectativa_mentoria" class="form-control" rows="2" placeholder="{{ t('placeholder_expectativa') }}">{{ u.expectativa_mentoria or '' }}</textarea>
                                 </div>
                             </div>
 
                             <div class="mb-3">
-                                <label class="form-label fw-bold text-primary">{{ t('observacoes_mentor_privativo') }}</label>
-                                <textarea name="observacoes_mentor" class="form-control" rows="3" placeholder="{{ t('placeholder_observacoes_mentor') }}">{{ u.observacoes_mentor or '' }}</textarea>
+                                <label for="f_observacoes_mentor_{{ loop.index }}" class="form-label fw-bold text-primary">{{ t('observacoes_mentor_privativo') }}</label>
+                                <textarea id="f_observacoes_mentor_{{ loop.index }}" name="observacoes_mentor" class="form-control" rows="3" placeholder="{{ t('placeholder_observacoes_mentor') }}">{{ u.observacoes_mentor or '' }}</textarea>
                             </div>
                         {% endif %}
 

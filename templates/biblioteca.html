@@ -10,7 +10,7 @@
     <div class="col-md-3"><label class="form-label fw-bold small" for="edicao{{ sufixo }}">{{ t('acervo_edicao') }}</label>
         <input class="form-control form-control-sm" id="edicao{{ sufixo }}" name="edicao" value="{{ item.edicao or '' if item else marca.plataforma }}"></div>
     <div class="col-12"><label class="form-label fw-bold small" for="palavras{{ sufixo }}">{{ t('acervo_palavras') }}</label>
-        <input class="form-control form-control-sm" id="palavras{{ sufixo }}" name="palavras_chave" value="{{ item.palavras_chave or '' if item else '' }}" placeholder="finanças pessoais, seguros, jovens"></div>
+        <input class="form-control form-control-sm" id="palavras{{ sufixo }}" name="palavras_chave" value="{{ item.palavras_chave or '' if item else '' }}" placeholder="{{ tt('finanças pessoais, seguros, jovens') }}"></div>
     <div class="col-12"><label class="form-label fw-bold small" for="resumo{{ sufixo }}">{{ t('acervo_resumo') }}</label>
         <textarea class="form-control form-control-sm" id="resumo{{ sufixo }}" name="resumo" rows="3">{{ item.resumo or '' if item else '' }}</textarea></div>
     <div class="col-md-4"><label class="form-label fw-bold small" for="vis{{ sufixo }}">{{ t('acervo_visibilidade') }}</label>
@@ -41,13 +41,13 @@
 </div>
 
 <form method="GET" class="card shadow-sm border-0 mb-4">
-    <div class="card-body row g-2 align-items-end">
+    <div class="card-body"><div class="row g-2 align-items-end">
         <div class="col-md-7"><label class="form-label small fw-bold" for="busca">{{ t('acervo_buscar') }}</label>
             <input class="form-control" id="busca" name="q" value="{{ busca }}" placeholder="{{ t('acervo_buscar_dica') }}"></div>
         <div class="col-md-3"><label class="form-label small fw-bold" for="filtroAno">{{ t('acervo_ano') }}</label>
             <select class="form-select" id="filtroAno" name="ano"><option value="">—</option>{% for a in anos %}<option value="{{ a }}" {% if ano == a %}selected{% endif %}>{{ a }}</option>{% endfor %}</select></div>
         <div class="col-md-2 d-grid"><button class="btn btn-primary fw-bold" type="submit">{{ t('reuniao_filtrar') }}</button></div>
-    </div>
+    </div></div>
 </form>
 
 <h5 class="fw-bold mb-3">{{ t('acervo_tccs') }} ({{ itens|length }})</h5>
@@ -77,8 +77,8 @@
     {% if gestor %}
     <div class="modal fade" id="modalAcervo{{ i.id }}" tabindex="-1"><div class="modal-dialog modal-lg"><div class="modal-content">
         <form method="POST">
-            <div class="modal-header bg-primary text-white"><h5 class="modal-title fw-bold">{{ i.titulo }}</h5><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="{{ t('fechar') }}"></button></div>
-            <div class="modal-body row g-2"><input type="hidden" name="acao" value="editar_acervo"><input type="hidden" name="acervo_id" value="{{ i.id }}">{{ campos_acervo(i, 'E' ~ i.id) }}</div>
+            <div class="modal-header bg-primary text-white"><h5 class="modal-title fw-bold">{{ i.titulo }}</h5><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="{{ tt('Fechar') }}"></button></div>
+            <div class="modal-body"><div class="row g-2"><input type="hidden" name="acao" value="editar_acervo"><input type="hidden" name="acervo_id" value="{{ i.id }}">{{ campos_acervo(i, 'E' ~ i.id) }}</div></div>
             <div class="modal-footer"><button class="btn btn-success fw-bold px-4" type="submit">{{ t('trilha_salvar') }}</button></div>
         </form>
     </div></div></div>
@@ -93,7 +93,7 @@
     <ul class="list-group list-group-flush">
         {% for m in materiais %}
         <li class="list-group-item bg-transparent d-flex justify-content-between align-items-center gap-2 flex-wrap">
-            <div><strong>{{ m.titulo }}</strong> <span class="badge bg-light text-dark border">{{ m.categoria }}</span>{% if m.descricao %}<div class="small text-muted">{{ m.descricao }}</div>{% endif %}</div>
+            <div><strong>{{ m.titulo }}</strong> <span class="badge bg-light text-dark border">{{ tt(m.categoria) }}</span>{% if m.descricao %}<div class="small text-muted">{{ m.descricao }}</div>{% endif %}</div>
             <a href="{{ url_for('baixar_acervo', id=m.id, tipo='material') }}" class="btn btn-sm btn-outline-primary fw-bold rounded-pill"><i class="bi bi-download"></i> {{ t('acervo_baixar') }}</a>
         </li>
         {% else %}
@@ -105,25 +105,25 @@
 {% if gestor %}
 <div class="modal fade" id="modalImportar" tabindex="-1"><div class="modal-dialog modal-lg"><div class="modal-content">
     <form method="POST" enctype="multipart/form-data">
-        <div class="modal-header bg-primary text-white"><h5 class="modal-title fw-bold">{{ t('acervo_importar') }}</h5><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="{{ t('fechar') }}"></button></div>
-        <div class="modal-body row g-2">
+        <div class="modal-header bg-primary text-white"><h5 class="modal-title fw-bold">{{ t('acervo_importar') }}</h5><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="{{ tt('Fechar') }}"></button></div>
+        <div class="modal-body"><div class="row g-2">
             <input type="hidden" name="acao" value="importar_historico">
             <div class="col-md-8"><label class="form-label fw-bold small" for="impTitulo">{{ t('reuniao_campo_titulo') }}</label><input class="form-control form-control-sm" id="impTitulo" name="titulo" required></div>
             <div class="col-md-4"><label class="form-label fw-bold small" for="impPdf">PDF</label><input type="file" class="form-control form-control-sm" id="impPdf" name="arquivo_pdf" accept="application/pdf" required></div>
             <div class="col-12"><label class="form-label fw-bold small" for="impAutores">{{ t('acervo_autores') }}</label><input class="form-control form-control-sm" id="impAutores" name="autores_exibicao" placeholder="{{ t('acervo_autores_dica') }}"></div>
             {{ campos_acervo(None, 'Imp') }}
-        </div>
+        </div></div>
         <div class="modal-footer"><button class="btn btn-success fw-bold px-4" type="submit">{{ t('acervo_importar') }}</button></div>
     </form>
 </div></div></div>
 <div class="modal fade" id="modalMaterial" tabindex="-1"><div class="modal-dialog"><div class="modal-content">
     <form method="POST" enctype="multipart/form-data">
-        <div class="modal-header bg-secondary text-white"><h5 class="modal-title fw-bold">{{ t('acervo_novo_material') }}</h5><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="{{ t('fechar') }}"></button></div>
+        <div class="modal-header bg-secondary text-white"><h5 class="modal-title fw-bold">{{ t('acervo_novo_material') }}</h5><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="{{ tt('Fechar') }}"></button></div>
         <div class="modal-body d-flex flex-column gap-2">
             <input type="hidden" name="acao" value="material">
             <label class="form-label fw-bold small mb-0" for="matTitulo">{{ t('reuniao_campo_titulo') }}</label><input class="form-control form-control-sm" id="matTitulo" name="titulo" required>
             <label class="form-label fw-bold small mb-0" for="matCat">{{ t('acervo_categoria') }}</label>
-            <select class="form-select form-select-sm" id="matCat" name="categoria"><option>Metodologia</option><option>Apresentação</option><option>Formatação</option><option>Outros</option></select>
+            <select class="form-select form-select-sm" id="matCat" name="categoria"><option value="Metodologia">{{ tt('Metodologia') }}</option><option value="Apresentação">{{ tt('Apresentação') }}</option><option value="Formatação">{{ tt('Formatação') }}</option><option value="Outros">{{ tt('Outros') }}</option></select>
             <label class="form-label fw-bold small mb-0" for="matDesc">{{ t('acervo_descricao') }}</label><textarea class="form-control form-control-sm" id="matDesc" name="descricao" rows="2"></textarea>
             <label class="form-label fw-bold small mb-0" for="matArq">{{ t('entrega_arquivo') }} (PDF, DOCX, PPTX, XLSX)</label><input type="file" class="form-control form-control-sm" id="matArq" name="arquivo" required>
         </div>

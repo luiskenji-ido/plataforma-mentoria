@@ -207,7 +207,7 @@
                 </select></div>
             <div class="col-md-2"><label class="form-label small fw-bold mb-0" for="ateLimpeza">{{ tt('Até') }}</label><input type="date" class="form-control" id="ateLimpeza" name="ate"></div>
             <div class="col-md-3"><label class="form-label small fw-bold mb-0" for="confirmaLimpeza">{{ tt('Para liberar, digite LIMPAR') }}</label>
-                <input class="form-control" id="confirmaLimpeza" name="confirmacao" autocomplete="off" placeholder="LIMPAR"></div>
+                <input class="form-control" id="confirmaLimpeza" name="confirmacao" autocomplete="off" placeholder="LIMPAR"></div> {# ux: ok - palavra de confirmação conferida pelo servidor em qualquer idioma (não se traduz) #}
             <div class="col-md-3 d-grid"><button class="btn btn-danger fw-bold" type="submit" id="btnLimpar" disabled><i class="bi bi-trash"></i> {{ tt('Limpar aprendizados') }}</button></div>
         </form>
     </div>

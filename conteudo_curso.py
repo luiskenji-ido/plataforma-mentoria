@@ -52,6 +52,11 @@ _PALAVRA_CAPITULO = re.compile(
     r'\s+([0-9]{1,3}|[ivxlc]{1,6}|[a-z])\b[^\n]{0,110}$', re.I)
 _NUMERADO = re.compile(r'^\s*(\d{1,2})\s*[\.\)\-–]?\s+([A-ZÁÉÍÓÚÂÊÔÃÕÇ][^\n]{2,90})$')
 PALAVRAS_POR_PARTE = 1500
+CAPITULOS_MINIMO, CAPITULOS_MAXIMO = 2, 80              # menos que 2 títulos não é divisão; mais que 80 é ruído
+PALAVRAS_FRASE_MINIMO, PALAVRAS_FRASE_MAXIMO = 8, 40    # frases usadas nas perguntas de completar
+PALAVRAS_CHAVE_MINIMO = 4                               # sem 4 termos distintos não há alternativas boas
+DISTRATORES_MINIMO = 3                                  # alternativas erradas por pergunta
+ALTERNATIVAS_MINIMO, ALTERNATIVAS_MAXIMO = 2, 6         # alternativas aceitas numa pergunta da IA
 
 
 def _limpar(texto):
@@ -80,14 +85,14 @@ def _por_titulos_markdown(linhas):
             por_nivel.setdefault(len(achado.group(1)), []).append((i, achado.group(2).strip()))
     for nivel in sorted(por_nivel):
         marcas = por_nivel[nivel]
-        if 2 <= len(marcas) <= 80:
+        if CAPITULOS_MINIMO <= len(marcas) <= CAPITULOS_MAXIMO:
             return _cortar(linhas, [i for i, _ in marcas], [t for _, t in marcas])
     return None
 
 
 def _por_palavra_capitulo(linhas):
     marcas = [(i, linha.strip()) for i, linha in enumerate(linhas) if _PALAVRA_CAPITULO.match(linha)]
-    if 2 <= len(marcas) <= 80:
+    if CAPITULOS_MINIMO <= len(marcas) <= CAPITULOS_MAXIMO:
         return _cortar(linhas, [i for i, _ in marcas], [t for _, t in marcas])
     return None
 
@@ -195,7 +200,7 @@ def _sem_acento(palavra):
 def _frases(texto):
     texto = re.sub(r'^#+\s*', '', texto or '', flags=re.M)
     texto = re.sub(r'\s+', ' ', texto)
-    return [f.strip() for f in re.split(r'(?<=[\.\!\?])\s+', texto) if 8 <= len(f.split()) <= 40]
+    return [f.strip() for f in re.split(r'(?<=[\.\!\?])\s+', texto) if PALAVRAS_FRASE_MINIMO <= len(f.split()) <= PALAVRAS_FRASE_MAXIMO]
 
 
 def _palavras_chave(texto):
@@ -213,7 +218,7 @@ def gerar_questoes_automaticas(texto, quantidade=3, semente=None):
     sorteio = random.Random(semente)
     frases = _frases(texto)
     vocabulario = _palavras_chave(texto)
-    if len(vocabulario) < 4 or not frases:
+    if len(vocabulario) < PALAVRAS_CHAVE_MINIMO or not frases:
         return []
     candidatas = []
     for frase in frases:
@@ -231,9 +236,9 @@ def gerar_questoes_automaticas(texto, quantidade=3, semente=None):
         distratores = [p for k, p in vocabulario.items() if k != chave and _sem_acento(p) not in _sem_acento(frase)]
         distratores.sort(key=lambda p: abs(len(p) - len(termo)))
         distratores = distratores[:8]
-        if len(distratores) < 3:
+        if len(distratores) < DISTRATORES_MINIMO:
             continue
-        alternativas = sorteio.sample(distratores, 3) + [termo]
+        alternativas = sorteio.sample(distratores, DISTRATORES_MINIMO) + [termo]
         sorteio.shuffle(alternativas)
         lacuna = re.sub(r'\b' + re.escape(termo) + r'\b', '______', frase, count=1)
         questoes.append({
@@ -255,7 +260,7 @@ def _validar_questao(item):
     except (TypeError, ValueError):
         return None
     enunciado = str(item.get('enunciado') or '').strip()
-    if not enunciado or not 2 <= len(alternativas) <= 6 or not 0 <= correta < len(alternativas):
+    if not enunciado or not ALTERNATIVAS_MINIMO <= len(alternativas) <= ALTERNATIVAS_MAXIMO or not 0 <= correta < len(alternativas):
         return None
     certa = alternativas[correta]
     random.shuffle(alternativas)  # a IA tende a pôr a certa sempre na mesma letra

@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}Onboarding Institucional{% endblock %}
+{% block title %}{{ tt('Onboarding Institucional') }}{% endblock %}
 
 {% block content %}
 <div class="container mt-2 mb-5" style="max-width: 800px;">
@@ -11,10 +11,11 @@
 
     <div class="card shadow-lg border-0">
         <div class="card-body p-4 p-md-5">
-            <h5 class="fw-bold mb-3 text-dark">Olá, {{ current_user.nome.split()[0] }}!</h5>
+            <h5 class="fw-bold mb-3 text-dark">{{ tt('Olá,') }} {{ current_user.nome.split()[0] }}!</h5>
             <p class="text-dark">{{ t('termo_intro') }}</p>
 
             <!-- Texto legal do termo (em português, idioma oficial do instrumento) -->
+            {# ux: ok-inicio - termo jurídico brasileiro (Lei 9.608/98), versionado em VERSAO_TERMO_ATUAL: traduzir exige revisão jurídica #}
             <div class="bg-light border rounded p-4 mb-4" style="height: 340px; overflow-y: auto; font-size: 0.9rem;" tabindex="0" aria-label="{{ t('termo_titulo') }}">
                 <h6 class="fw-bold text-dark text-center mb-3">TERMO DE ADESÃO AO SERVIÇO VOLUNTÁRIO</h6>
                 <p class="text-muted">Pelo presente instrumento, de um lado, <strong>{{ organizacao }}</strong>, doravante denominada ORGANIZAÇÃO, e de outro lado, o(a) colaborador(a) <strong>{{ current_user.nome }}</strong> ({{ current_user.email }}), doravante denominado(a) VOLUNTÁRIO(A), ajustam o presente Termo de Adesão para prestação de serviço voluntário, mediante as seguintes cláusulas:</p>
@@ -44,6 +45,7 @@
 
                 <p class="text-muted mb-0">Assinado eletronicamente nesta plataforma em {{ data_hoje }}. Versão do termo: {{ versao_termo }}.</p>
             </div>
+            {# ux: ok-fim #}
 
             <form action="{{ url_for('aceitar_termos') }}" method="POST">
                 <div class="form-check mb-4">
