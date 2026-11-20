@@ -9,19 +9,15 @@ from flask import Flask, render_template, request, redirect, url_for, flash, sen
 
 # Importações do Google Calendar
 from google_auth_oauthlib.flow import Flow
-import os
 import httplib2
-import socks
 import google_auth_httplib2
 
 import google.oauth2.credentials
 from googleapiclient.discovery import build
-import datetime
 
 
 # Configuração da Inteligência Artificial
 # Substitua o texto abaixo pela chave enorme que você copiou no Passo 1
-import os
 
 from dotenv import load_dotenv
 
@@ -48,13 +44,11 @@ from flask_login import LoginManager, login_user, logout_user, login_required, c
 from flask_bcrypt import Bcrypt
 
 # Importações do Banco de Dados
-from models import db, Usuario, Curso, Acompanhamento, SessaoMentoria, FeedbackSessao, QADuvida, HistoricoProgresso, aluno_mentor, HistoricoSenha, SegurancaUsuario, SolicitacaoMentoria, RegistroBackup, Projeto, Tarefa, Grupo, grupo_usuario, RegistroBackup, Projeto, Tarefa, Grupo, grupo_usuario, Frequencia, AvaliacaoProjeto, Empresa, Turma, turma_aluno, turma_mentor, turma_curso, CheckinAula
+from models import db, Usuario, Curso, Acompanhamento, SessaoMentoria, FeedbackSessao, QADuvida, HistoricoProgresso, aluno_mentor, HistoricoSenha, SegurancaUsuario, SolicitacaoMentoria, RegistroBackup, Projeto, Tarefa, Grupo, Frequencia, AvaliacaoProjeto, Empresa, Turma, turma_aluno, CheckinAula
 import os
-import time
 
 # Importações para Upload de Arquivos
 import os
-from werkzeug.utils import secure_filename
 
 
 # Inicializando o aplicativo Flask (o "motor" do nosso site)
@@ -153,13 +147,13 @@ def injetar_notificacoes_qa():
         notifs_qa = []
     elif current_user.tipo_usuario == 'Aluno':
         notifs_qa = QADuvida.query.join(Acompanhamento).filter(
-            QADuvida.lida_pelo_aluno == False,
+            QADuvida.lida_pelo_aluno == db.false(),
             Acompanhamento.aluno_id == current_user.id
         ).all()
     elif current_user.tipo_usuario in PERFIS_DUVIDAS_ACOMPANHAMENTO:
         # Dúvidas do Acompanhamento vão para o professor(a) do aluno (não para o mentor)
         notifs_qa = QADuvida.query.join(Acompanhamento).join(Usuario, Acompanhamento.aluno_id == Usuario.id).filter(
-            QADuvida.lida_pelo_mentor == False,
+            QADuvida.lida_pelo_mentor == db.false(),
             Usuario.mentores.any(id=current_user.id)
         ).all()
     elif current_user.tipo_usuario in PERFIS_VEEM_TODAS_DUVIDAS:
@@ -192,7 +186,7 @@ def injetar_notificacoes_qa():
         notifs_fb = []
     elif current_user.tipo_usuario == 'Aluno':
         notifs_fb = FeedbackSessao.query.join(SessaoMentoria).filter(
-            FeedbackSessao.lida_pelo_aluno == False,
+            FeedbackSessao.lida_pelo_aluno == db.false(),
             SessaoMentoria.aluno_id == current_user.id
         ).all()
     else:
@@ -300,8 +294,6 @@ def load_user(user_id):
         return usuario
     return None
 
-from flask import render_template, request, redirect, url_for, flash
-from flask_login import login_user, logout_user, login_required, current_user
 
 # ===========================================================================
 # ROTAS (PÁGINAS DO SISTEMA)
@@ -522,7 +514,6 @@ def desativar_tour():
 # ---------------------------------------------------------
 # Rota do Painel Interno (Dashboard e Indicadores)
 # ---------------------------------------------------------
-from datetime import datetime
 import re
 import json
 
@@ -1037,9 +1028,6 @@ def gerenciar_usuarios():
         flash("Usuário cadastrado com sucesso!", "success")
         return redirect(url_for('gerenciar_usuarios'))
     
-    lista_usuarios = Usuario.query.order_by(Usuario.nome).all()
-    lista_mentores = Usuario.query.filter(Usuario.tipo_usuario.in_(PERFIS_ORIENTADORES)).all()
-
     # Busca todos os dados para montar a tela de Cadastros
     usuarios = Usuario.query.order_by(Usuario.nome).all()
     mentores = Usuario.query.filter(Usuario.tipo_usuario.in_(PERFIS_ORIENTADORES)).all()
@@ -1940,8 +1928,10 @@ def acompanhamento():
                 if current_user.tipo_usuario != 'Aluno':
                     nota_tecnica = request.form.get('nota_tecnica')
                     nota_postura = request.form.get('nota_postura')
-                    if nota_tecnica: regstro.nota_tecnica = float(nota_tecnica)
-                    if nota_postura: regstro.nota_postura = float(nota_postura)
+                    if nota_tecnica:
+                        regstro.nota_tecnica = float(nota_tecnica)
+                    if nota_postura:
+                        regstro.nota_postura = float(nota_postura)
 
                 novo_percentual_mentor = request.form.get('percentual_mentor')
                 if novo_percentual_mentor is not None:
@@ -2146,7 +2136,7 @@ def acompanhamento():
         if isinstance(item, dict):
             item['ja_fez_checkin_hoje'] = ja_tem
         else:
-            setattr(item, 'ja_fez_checkin_hoje', ja_tem)
+            item.ja_fez_checkin_hoje = ja_tem
     
     return render_template('acompanhamento.html', registros=detalhes, alunos=lista_alunos, cursos=lista_cursos)
 
@@ -2270,7 +2260,8 @@ def projetos():
 # ==============================================================================
 def recalcular_progresso_projeto(projeto_id):
     projeto = db.session.get(Projeto, projeto_id)
-    if not projeto: return
+    if not projeto:
+        return
 
     # Filtra apenas as tarefas "Pai" (que não têm tarefa acima delas)
     tarefas_principais = [t for t in projeto.tarefas if t.tarefa_pai_id is None]
@@ -2391,8 +2382,6 @@ def atualizar_tarefa():
         arquivos = request.files.getlist('arquivos_anexos')
         for arquivo in arquivos:
             if arquivo and arquivo.filename:
-                import os
-                from werkzeug.utils import secure_filename
                 filename = secure_filename(arquivo.filename)
                 arquivo.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
                 
@@ -2731,7 +2720,7 @@ def ata_sessao(id):
         return redirect(url_for('sessoes'))
     resumo = (request.form.get('ata_resumo') or '').strip()[:5000]
     fontes = (request.form.get('ata_fontes') or '').strip()[:3000]
-    plano = '\n'.join(l.strip() for l in (request.form.get('ata_plano_acao') or '').splitlines() if l.strip())[:3000]
+    plano = '\n'.join(linha.strip() for linha in (request.form.get('ata_plano_acao') or '').splitlines() if linha.strip())[:3000]
     try:
         proximo = datetime.strptime(request.form.get('ata_proximo_encontro'), '%Y-%m-%d').date() if request.form.get('ata_proximo_encontro') else None
     except ValueError:
@@ -3114,7 +3103,6 @@ def fechar_presenca(presenca, horario_saida, automatico=False):
 @app.route('/atividades-extras')
 @login_required
 def atividades_extras():
-    from models import AtividadeExtra
     lista = atividades_extras_visiveis(current_user)
     minhas = {p.atividade_id: p for a in lista for p in a.presencas if p.usuario_id == current_user.id}
     pode_criar = current_user.tipo_usuario in PERFIS_CRIAM_ATIVIDADE_EXTRA
@@ -3339,7 +3327,7 @@ def salvar_reuniao_do_formulario(reuniao, formulario, usuario):
     # Encaminhamentos novos (linhas preenchidas no formulário)
     from models import EncaminhamentoReuniao
     for descricao, responsavel, prazo in zip(formulario.getlist('enc_descricao'), formulario.getlist('enc_responsavel'),
-                                             formulario.getlist('enc_prazo')):
+                                             formulario.getlist('enc_prazo'), strict=False):
         if descricao.strip():
             try:
                 data_prazo = datetime.strptime(prazo, "%Y-%m-%d").date() if prazo else None
@@ -3383,7 +3371,8 @@ def sincronizar_convidados_reuniao(reuniao):
     Quem sai da lista perde o link; se já tinha presença ou avaliação, fica no histórico da reunião."""
     import convites_reuniao
     from models import ConvidadoReuniao
-    chave = lambda c: (c.email or '').lower() or c.nome.strip().lower()
+    def chave(c):
+        return (c.email or '').lower() or c.nome.strip().lower()
     atuais = {chave(c): c for c in reuniao.convidados}
     for pessoa in convites_reuniao.ler_externos(reuniao.participantes_externos):
         convidado = atuais.pop(pessoa['email'] or pessoa['nome'].strip().lower(), None)
@@ -3440,8 +3429,8 @@ def tempo_investido_reuniao(reuniao):
         if c.check_out:
             somar(c.instituicao or tt('Convidados externos', current_user.idioma if current_user.is_authenticated else 'pt'),
                   c.total_minutos)
-    lista = sorted(lados.values(), key=lambda l: -l['minutos'])
-    return lista, sum(l['minutos'] for l in lista)
+    lista = sorted(lados.values(), key=lambda lado: -lado['minutos'])
+    return lista, sum(lado['minutos'] for lado in lista)
 
 
 def janela_checkin_reuniao(reuniao, agora=None):
@@ -5847,7 +5836,6 @@ def emitir_certificado(projeto_id, usuario_id):
 # EXECUÇÃO DO APLICATIVO
 # ===========================================================================
 import os
-from datetime import datetime
 
 @app.route('/admin/banco', methods=['GET', 'POST'])
 @login_required
@@ -6163,9 +6151,12 @@ def recuperar_senha():
         r3_digitada = request.form.get('resposta_3', '').strip().lower()
 
         # Compara com o hash guardado no banco (as respostas nunca ficam legíveis)
-        if conferir_resposta_seguranca(r1_digitada, seguranca.resposta_1): acertos += 1
-        if conferir_resposta_seguranca(r2_digitada, seguranca.resposta_2): acertos += 1
-        if conferir_resposta_seguranca(r3_digitada, seguranca.resposta_3): acertos += 1
+        if conferir_resposta_seguranca(r1_digitada, seguranca.resposta_1):
+            acertos += 1
+        if conferir_resposta_seguranca(r2_digitada, seguranca.resposta_2):
+            acertos += 1
+        if conferir_resposta_seguranca(r3_digitada, seguranca.resposta_3):
+            acertos += 1
 
         # 6. Regra de Negócio: Se acertou 2 ou mais, libera o acesso para troca
         if acertos >= 2:
@@ -6490,7 +6481,6 @@ def sincronizar_evento_google(titulo, descricao, data_inicio, horario_str="09:00
         print(f"Erro silencioso ao sincronizar agenda: {e}")
         return False
 
-from flask import jsonify
 
 # ==============================================================================
 # INTEGRAÇÃO COM IA - ESTILO NOTEBOOKLM
@@ -8184,20 +8174,20 @@ def calcular_indicadores(usuario, filtros):
     registros = registros_indicadores(usuario, filtros)
     concluidos = [r for r in registros if r.data_hora_fim]
     linhas = [linha_relatorio_esg(r) for r in concluidos]
-    total = sum(l['minutos'] for l in linhas)
+    total = sum(linha['minutos'] for linha in linhas)
     por_pessoa, por_tipo, por_empresa, por_mes = {}, {}, {}, {}
     regular = extra = 0
-    for r, l in zip(concluidos, linhas):
-        por_pessoa[l['nome']] = por_pessoa.get(l['nome'], 0) + l['minutos']
+    for r, linha in zip(concluidos, linhas, strict=False):
+        por_pessoa[linha['nome']] = por_pessoa.get(linha['nome'], 0) + linha['minutos']
         rotulo = ROTULOS_ATIVIDADE.get(r.tipo_atividade.replace(' (Lançamento Manual)', ''), r.tipo_atividade)
-        por_tipo[rotulo] = por_tipo.get(rotulo, 0) + l['minutos']
-        por_empresa[l['empresa']] = por_empresa.get(l['empresa'], 0) + l['minutos']
+        por_tipo[rotulo] = por_tipo.get(rotulo, 0) + linha['minutos']
+        por_empresa[linha['empresa']] = por_empresa.get(linha['empresa'], 0) + linha['minutos']
         mes = r.data_hora_inicio.strftime('%Y-%m')
-        por_mes[mes] = por_mes.get(mes, 0) + l['minutos']
-        if l['categoria'] == 'Extra':
-            extra += l['minutos']
+        por_mes[mes] = por_mes.get(mes, 0) + linha['minutos']
+        if linha['categoria'] == 'Extra':
+            extra += linha['minutos']
         else:
-            regular += l['minutos']
+            regular += linha['minutos']
 
     visiveis = ids_jovens_visiveis(usuario)
     consulta_jovens = Usuario.query.filter(Usuario.tipo_usuario == 'Aluno', Usuario.status == 'Ativo')
@@ -8307,7 +8297,6 @@ def dados_acervo_do_formulario(item, formulario):
 @login_required
 def aprovar_versao_final(id):
     """Orientador do grupo ou gestão leva a versão final aprovada para o acervo."""
-    import shutil
     from models import TCCAcervo
     projeto = db.session.get(Projeto, id)
     if not projeto or not (eh_orientador(current_user, projeto) or pode_gerir_bancas(current_user)):

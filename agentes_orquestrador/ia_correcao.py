@@ -128,7 +128,7 @@ def _gemini(pedido):
         from google import genai
         from google.genai import types
     except ImportError as e:
-        raise IAIndisponivel(f'google-genai não instalado: {e}')
+        raise IAIndisponivel(f'google-genai não instalado: {e}') from e
     if not (os.environ.get('GEMINI_API_KEY') or os.environ.get('GOOGLE_API_KEY')):
         raise IAIndisponivel('Configure GEMINI_API_KEY no .env')
     cliente = genai.Client()
@@ -146,7 +146,7 @@ def _claude(pedido):
     try:
         import anthropic
     except ImportError as e:
-        raise IAIndisponivel(f'anthropic não instalado: {e}')
+        raise IAIndisponivel(f'anthropic não instalado: {e}') from e
     if not (os.environ.get('ANTHROPIC_API_KEY') or os.environ.get('ANTHROPIC_AUTH_TOKEN')):
         raise IAIndisponivel('Configure ANTHROPIC_API_KEY no .env')
     cliente = anthropic.Anthropic()
@@ -177,7 +177,7 @@ def _openai(pedido):
     try:
         import openai
     except ImportError as e:
-        raise IAIndisponivel(f'openai não instalado: {e}')
+        raise IAIndisponivel(f'openai não instalado: {e}') from e
     if not os.environ.get('OPENAI_API_KEY'):
         raise IAIndisponivel('Configure OPENAI_API_KEY no .env ou em Provedores de IA e custos › Credenciais')
     cliente = openai.OpenAI(timeout=900.0, max_retries=1)
@@ -189,10 +189,10 @@ def _openai(pedido):
                                      text={'format': {'type': 'json_schema', 'name': 'correcao', 'schema': ESQUEMA, 'strict': True}})
     except openai.APIStatusError as e:
         if isinstance(e.body, dict) and e.body.get('type') == 'insufficient_quota':
-            raise IAIndisponivel('A conta da OpenAI está sem créditos (adicione em platform.openai.com › Billing).')
-        raise IAIndisponivel(f'Erro da OpenAI ({e.status_code}).')
+            raise IAIndisponivel('A conta da OpenAI está sem créditos (adicione em platform.openai.com › Billing).') from e
+        raise IAIndisponivel(f'Erro da OpenAI ({e.status_code}).') from e
     except (openai.APIConnectionError, openai.APITimeoutError):
-        raise IAIndisponivel('Sem conexão com a OpenAI.')
+        raise IAIndisponivel('Sem conexão com a OpenAI.') from None
     uso = getattr(r, 'usage', None)
     _anotar_uso('openai', MODELO_OPENAI, getattr(uso, 'input_tokens', 0) or 0, getattr(uso, 'output_tokens', 0) or 0)
     recusa = next((c.refusal for item in (r.output or []) for c in (getattr(item, 'content', None) or [])

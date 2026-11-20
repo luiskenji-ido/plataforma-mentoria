@@ -1,5 +1,4 @@
 from app import app, db
-from models import CheckinAula
 
 with app.app_context():
     try:

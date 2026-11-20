@@ -119,7 +119,7 @@ def ler_env(caminho):
         from dotenv import dotenv_values
         return {k: v for k, v in dotenv_values(caminho).items() if v is not None} if os.path.exists(caminho) else {}
     except ImportError:
-        raise SystemExit('Falta o python-dotenv: rode antes  pip install -r requirements.txt')
+        raise SystemExit('Falta o python-dotenv: rode antes  pip install -r requirements.txt') from None
 
 
 def gravar_env(caminho, valores, anteriores):
@@ -259,7 +259,7 @@ def main():
         try:
             os.makedirs(pasta_arquivo, exist_ok=True)
         except OSError:
-            raise SystemExit(f"Sem permissão para criar {pasta_arquivo}: sudo mkdir -p {pasta_arquivo} && sudo chown {getpass.getuser()} {pasta_arquivo}")
+            raise SystemExit(f"Sem permissão para criar {pasta_arquivo}: sudo mkdir -p {pasta_arquivo} && sudo chown {getpass.getuser()} {pasta_arquivo}") from None
     else:
         if tipo == 'conteiner':
             print('\nNum contêiner o banco precisa ser gerenciado pela nuvem (RDS, Cloud SQL ou Azure Database).')
@@ -324,7 +324,7 @@ def main():
 
     # 6. Driver, conexão, cópia e estrutura
     if not instalar_driver(banco, p):
-        return _fim(hosp, False, f"Instale o driver do banco e rode o instalador de novo.")
+        return _fim(hosp, False, "Instale o driver do banco e rode o instalador de novo.")
     ok, erro = testar_conexao(url)
     if not ok:
         return _fim(hosp, False, f"Não conectou ao banco: {erro}\nCrie o banco (passo acima) e rode o instalador de novo.")

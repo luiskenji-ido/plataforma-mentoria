@@ -131,7 +131,6 @@ def problemas_de_ux():
 
 
 def retrato_regras():
-    import app as modulo_app
     import perfis_acesso
     rotas_get = {}
     for r in current_app.url_map.iter_rules():

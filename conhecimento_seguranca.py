@@ -136,7 +136,8 @@ def detectar_mudancas(origem=GERENTE_SEGURANCA):
         anterior = {'rotas': atual['rotas'], 'sensiveis': atual['sensiveis'], 'componentes': atual['componentes'], 'perfis': {}}
 
     # Rotas
-    chave = lambda r: (r['endpoint'], r['regra'])
+    def chave(r):
+        return (r['endpoint'], r['regra'])
     antes = {chave(r): r for r in anterior.get('rotas', [])}
     agora = {chave(r): r for r in atual['rotas']}
     novas = [r for k, r in agora.items() if k not in antes or antes[k] != r]
@@ -281,7 +282,7 @@ def pesquisar_vulnerabilidades(origem=GERENTE_SEGURANCA, forcar=False, limite=15
     import sys
     sys.path.insert(0, os.path.join(current_app.root_path, 'agentes_seguranca'))
     from agente_dependencias import afeta
-    for consulta, resposta in zip(consultas, respostas):
+    for consulta, resposta in zip(consultas, respostas, strict=False):
         pacote, versao = consulta['package']['name'], consulta['version']
         for vid in [v['id'] for v in resposta.get('vulns', [])][:10]:
             if len(criados) >= limite or _ja_conhecido('seg_vulnerabilidade', f'"id": "{vid}"'):

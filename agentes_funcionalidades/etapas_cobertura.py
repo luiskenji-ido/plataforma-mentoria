@@ -613,7 +613,6 @@ class EtapasCobertura:
 
     def recuperacao_de_senha(self, papel):
         """No fim do agente: recupera a senha pelas perguntas de segurança (2 de 3) e entra com a nova."""
-        m = _m()
         from base import Cliente
         eu = self.usuario(papel)
         self.etapa("Recuperação de senha pelas perguntas de segurança")

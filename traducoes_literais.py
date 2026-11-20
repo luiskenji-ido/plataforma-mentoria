@@ -250,7 +250,7 @@ LITERAIS = {
     'Concluída': ('Completed', 'Concluida'), 'Iniciado': ('Started', 'Iniciado'), 'Ativa': ('Active', 'Activa'), 'Inativa': ('Inactive', 'Inactiva'),
     'Normal': ('Normal', 'Normal'), 'Admin B2B': ('B2B Admin', 'Admin B2B'), 'Avaliador Banca': ('Panel evaluator', 'Evaluador del tribunal'),
     'Agendada': ('Scheduled', 'Programada'), 'Realizada': ('Held', 'Realizada'), 'Remarcada': ('Rescheduled', 'Reprogramada'),
-    'Aprovado': ('Approved', 'Aprobado'), 'Negado': ('Denied', 'Rechazado'), 'Em andamento': ('In progress', 'En curso'),
+    'Negado': ('Denied', 'Rechazado'), 'Em andamento': ('In progress', 'En curso'),
     'Hibrido': ('Hybrid', 'Híbrido'), 'Híbrido': ('Hybrid', 'Híbrido'),
 
     # ---------------- Textos com ícone
@@ -502,7 +502,6 @@ LITERAIS = {
     'Agentes Teste Fim a Fim': ('End-to-end test agents', 'Agentes de prueba de punta a punta'),
     'Agentes Teste de Segurança': ('Security test agents', 'Agentes de prueba de seguridad'),
     'Relatórios de Testes Fim a Fim e Evidencias': ('End-to-end test reports and evidence', 'Informes de pruebas de punta a punta y evidencias'),
-    'Relatórios de Testes de Segurança': ('Security test reports', 'Informes de pruebas de seguridad'),
     'Prompt de correção LLM': ('LLM fix prompt', 'Prompt de corrección LLM'),
     'O Agente Gestor coordena os agentes de teste: cada perfil é testado de ponta a ponta, ao vivo, e o relatório em PDF com as evidências vai para a pasta do perfil.': (
         "The Manager Agent coordinates the test agents: each profile is tested end to end, live, and the PDF report with the evidence goes to the profile's folder.",

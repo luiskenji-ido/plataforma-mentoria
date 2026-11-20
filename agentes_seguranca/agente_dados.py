@@ -257,7 +257,7 @@ class AgenteDados(AgenteSeguranca):
             self.ok("Todas as contas ativas têm perguntas de segurança")
 
     def integridade(self):
-        from models import db, EntregaTCC, Banca
+        from models import db, EntregaTCC
         self.etapa("Integridade do banco e dos arquivos")
         if db.engine.dialect.name != "sqlite":
             # MySQL/PostgreSQL verificam as chaves estrangeiras sozinhos (InnoDB); confere só os vínculos de grupo e os arquivos

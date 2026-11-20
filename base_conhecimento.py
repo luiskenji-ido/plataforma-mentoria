@@ -114,7 +114,7 @@ def _texto_docx(dados):
         with zipfile.ZipFile(io.BytesIO(dados)) as z:
             raiz = ElementTree.fromstring(z.read('word/document.xml'))
     except (zipfile.BadZipFile, KeyError, ElementTree.ParseError):
-        raise ErroDocumento('Arquivo .docx inválido ou corrompido.')
+        raise ErroDocumento('Arquivo .docx inválido ou corrompido.') from None
     linhas = []
     corpo = raiz.find(f'{_W}body')
     for bloco in (corpo if corpo is not None else []):
@@ -143,12 +143,12 @@ def _texto_pdf(dados):
     try:
         from pypdf import PdfReader
     except ImportError:
-        raise ErroDocumento('Para ler PDF, instale o pacote pypdf no servidor (pip install pypdf) ou envie o documento em .docx ou .md.')
+        raise ErroDocumento('Para ler PDF, instale o pacote pypdf no servidor (pip install pypdf) ou envie o documento em .docx ou .md.') from None
     try:
         leitor = PdfReader(io.BytesIO(dados))
         return '\n'.join(f'# Página {i}\n{(pagina.extract_text() or "").strip()}' for i, pagina in enumerate(leitor.pages, 1))
     except Exception as e:
-        raise ErroDocumento(f'Não foi possível ler o PDF: {e}')
+        raise ErroDocumento(f'Não foi possível ler o PDF: {e}') from e
 
 
 def _decodificar(dados):
@@ -376,7 +376,7 @@ def _secoes_dos_gerentes():
     for modulo, nome in ((conhecimento, 'Agente Gerente Técnico'), (conhecimento_seguranca, 'Gerente de Segurança'),
                          (conhecimento_banco, 'Gerente de Banco de Dados'), (conhecimento_funcional, 'Gerente de Funcionalidades')):
         linhas_doc = (modulo.__doc__ or '').strip().splitlines()
-        doc = '\n'.join(l for l in linhas_doc if not re.fullmatch(r'\s*[=\-~]{3,}\s*', l))  # sem as linhas de sublinhado
+        doc = '\n'.join(linha for linha in linhas_doc if not re.fullmatch(r'\s*[=\-~]{3,}\s*', linha))  # sem as linhas de sublinhado
         if doc:
             secoes.append((f'{nome} › Como trabalha', doc))
 

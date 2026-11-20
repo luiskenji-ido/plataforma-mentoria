@@ -376,7 +376,7 @@ def recursos():
         livre = espaco_livre(pasta)
         pouco = livre is not None and livre < 1024 ** 3
         itens.append(_item('backup', 'Backup pela plataforma', 'atencao' if pouco else 'ligado',
-                           f'Pasta {pasta}' + (f' · menos de 1 GB livre' if pouco else ''), 'Libere espaço no disco.' if pouco else '', 'Backup'))
+                           f'Pasta {pasta}' + (' · menos de 1 GB livre' if pouco else ''), 'Libere espaço no disco.' if pouco else '', 'Backup'))
     externa = pasta_backups_externa()
     if externa and _gravavel(externa):
         itens.append(_item('backup_externo', 'Cópia dos backups fora do servidor', 'ligado', f'Pasta {externa}', '', 'Backup'))

@@ -193,7 +193,7 @@ class _LeitorDeTela(HTMLParser):
         self.close()
         for aberto in self.abertos:
             self._fechar(aberto)
-        for linha, tag, ident, trecho in self.campos:
+        for linha, _tag, ident, trecho in self.campos:
             if not (ident and ident in self.rotulos_para):
                 self._registrar(linha, 'Campo sem rótulo', trecho,
                                 'Ligar a um <label for="id"> ou pôr aria-label="{{ tt(\'o que preencher\') }}" (o placeholder some ao digitar).')

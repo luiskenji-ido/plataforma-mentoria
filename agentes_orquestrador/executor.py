@@ -173,8 +173,8 @@ def limpar_sobras():
 def _sem_numeros_de_linha(trecho):
     """A IA às vezes copia os números de linha mostrados no contexto ('  123| texto'); retira se TODAS as linhas tiverem."""
     linhas = trecho.split('\n')
-    if linhas and all(re.match(r'^\s*\d+\| ', l) for l in linhas if l.strip()):
-        return '\n'.join(re.sub(r'^\s*\d+\| ', '', l) for l in linhas)
+    if linhas and all(re.match(r'^\s*\d+\| ', linha) for linha in linhas if linha.strip()):
+        return '\n'.join(re.sub(r'^\s*\d+\| ', '', linha) for linha in linhas)
     return trecho
 
 
@@ -352,7 +352,7 @@ def restaurar_estado(raiz):
     instance/backups, anexos em uploads/) e no banco some antes da próxima — senão a comparação com a contraprova engana."""
     for pasta in ('instance', 'uploads'):
         alvo = os.path.join(raiz, pasta)
-        for tentativa in range(15):  # no Windows o arquivo do banco demora alguns segundos para ser liberado
+        for _tentativa in range(15):  # no Windows o arquivo do banco demora alguns segundos para ser liberado
             try:
                 _apagar_pasta(alvo)
                 break
@@ -594,7 +594,7 @@ def executar(ids, provedor, usuario, equipes, rdm=None):
         'rdm': rdm or None,  # requisição de mudança que disparou a execução (commit ou rollback automáticos)
     }
     execucao = Execucao(dados)
-    for item, c in zip(dados['correcoes'], escolhidas):
+    for item, c in zip(dados['correcoes'], escolhidas, strict=False):
         item['_correcao'] = c
     execucao.etapa('plano', 'concluido', f"{len(escolhidas)} correção(ões) escolhida(s) · IA: {provedor} · ambiente: {capacidade['nome']}")
     execucao.log(f"Plano: {len(escolhidas)} correção(ões) com {provedor}, por {usuario}, no ambiente {capacidade['nome']}.")

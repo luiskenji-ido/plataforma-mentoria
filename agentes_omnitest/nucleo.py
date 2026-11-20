@@ -1270,8 +1270,8 @@ class AgenteOmniTest:
             problemas.append(f"{len(dados)} linha(s) no CSV × {total} lançamento(s) no escopo do perfil")
         if "Empresa Associada" in cabecalho:
             col_nome, col_emp = cabecalho.index("Nome do Colaborador"), cabecalho.index("Empresa Associada")
-            erradas = sorted({l[col_nome] for l in dados
-                              if empresas_por_pessoa.get(l[col_nome]) and not all(e in l[col_emp] for e in empresas_por_pessoa[l[col_nome]])})
+            erradas = sorted({linha[col_nome] for linha in dados
+                              if empresas_por_pessoa.get(linha[col_nome]) and not all(e in linha[col_emp] for e in empresas_por_pessoa[linha[col_nome]])})
             if erradas:
                 problemas.append(f"'Empresa Associada' sem a empresa real de: {', '.join(erradas[:5])} (saiu como '{dados[0][col_emp]}')")
         if problemas:

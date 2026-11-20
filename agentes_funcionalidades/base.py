@@ -425,7 +425,7 @@ class AgenteFuncional:
                 return [x.id for x in m.ModuloOnboardingTCC.query.filter_by(ativo=True).order_by(m.ModuloOnboardingTCC.ordem).all()
                         if (lidos.get(x.id) or 0) < (x.versao or 1)]
             destinos = []
-            for tentativa in range(2):  # uma nova tentativa só para os módulos que ficaram pendentes
+            for _tentativa in range(2):  # uma nova tentativa só para os módulos que ficaram pendentes
                 for modulo_id in self.banco(pendentes):
                     destinos.append(self.cliente.pedir("POST", f"/onboarding/trilha-tcc/{modulo_id}/concluir")[1])
                 _, desvio, _ = self.cliente.pedir("GET", self.PAGINA_SONDA)

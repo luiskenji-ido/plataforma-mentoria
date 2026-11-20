@@ -124,7 +124,7 @@ def _fontes_citaveis(encontrados):
 
 def montar_trechos(encontrados):
     blocos = []
-    for n, (nota, trecho, fonte) in enumerate(encontrados, 1):
+    for n, (_nota, trecho, fonte) in enumerate(encontrados, 1):
         rotulo = f"{base_conhecimento.TIPOS.get(fonte.tipo, fonte.tipo)} · {fonte.titulo} (versão {fonte.versao})"
         blocos.append(f'<trecho n="{n}" fonte="{rotulo}" secao="{trecho.secao or ""}">\n{trecho.texto}\n</trecho>')
     return '\n'.join(blocos) or '(nenhum trecho encontrado)'

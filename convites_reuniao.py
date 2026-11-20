@@ -154,7 +154,7 @@ def gerar_ics(reuniao, link=None, metodo='PUBLISH', organizador=None, convidados
     linhas += ['STATUS:CONFIRMED', 'TRANSP:OPAQUE',
                'BEGIN:VALARM', 'ACTION:DISPLAY', 'TRIGGER:-PT15M', f'DESCRIPTION:{_texto_ics(reuniao.titulo)}', 'END:VALARM',
                'END:VEVENT', 'END:VCALENDAR']
-    return '\r\n'.join(_dobrar(l) for l in linhas) + '\r\n'
+    return '\r\n'.join(_dobrar(linha) for linha in linhas) + '\r\n'
 
 
 # ------------------------------------------------------------------------------ links "adicionar à agenda"

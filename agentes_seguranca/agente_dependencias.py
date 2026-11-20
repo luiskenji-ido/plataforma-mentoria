@@ -87,7 +87,7 @@ class AgenteDependencias(AgenteSeguranca):
         for a in self.aprendizados_do_tipo("seg_dependencia"):
             mudancas = json.loads(a.conteudo)
             partes = []
-            for tipo, m in mudancas.items():
+            for _tipo, m in mudancas.items():
                 partes += [f"novo {p} {v}" for p, v in list(m.get("novos", {}).items())[:6]]
                 partes += [f"{p} {v[0]}→{v[1]}" for p, v in list(m.get("atualizados", {}).items())[:6]]
                 partes += [f"removido {p}" for p in m.get("removidos", [])[:4]]
@@ -200,7 +200,7 @@ class AgenteDependencias(AgenteSeguranca):
             return
         self.ok(f"{len(consultas)} componente(s) consultado(s) na OSV.dev")
         vulneraveis = 0
-        for consulta, resposta in zip(consultas, respostas):
+        for consulta, resposta in zip(consultas, respostas, strict=False):
             ids = [v["id"] for v in resposta.get("vulns", [])]
             if not ids:
                 continue

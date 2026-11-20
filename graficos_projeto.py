@@ -86,13 +86,13 @@ def gantt(projeto, hoje=None):
                        'responsavel': ', '.join(_responsaveis(t)), 'prazo': _situacao_prazo(t, hoje)})
     if not linhas:
         return {'linhas': [], 'sem_datas': sem_datas, 'marcas': [], 'hoje_pct': None}
-    comeco = min(l['inicio'] for l in linhas)
-    final = max(l['fim'] for l in linhas)
+    comeco = min(linha['inicio'] for linha in linhas)
+    final = max(linha['fim'] for linha in linhas)
     total = (final - comeco).days + 1
-    for l in linhas:
-        l['esquerda'] = round((l['inicio'] - comeco).days / total * 100, 3)
-        l['largura'] = max(round(((l['fim'] - l['inicio']).days + 1) / total * 100, 3), 0.8)
-        l['dias'] = (l['fim'] - l['inicio']).days + 1
+    for linha in linhas:
+        linha['esquerda'] = round((linha['inicio'] - comeco).days / total * 100, 3)
+        linha['largura'] = max(round(((linha['fim'] - linha['inicio']).days + 1) / total * 100, 3), 0.8)
+        linha['dias'] = (linha['fim'] - linha['inicio']).days + 1
     # Marcas da régua: semanas em projetos curtos, meses nos longos
     marcas, passo = [], (7 if total <= 120 else None)
     if passo:

@@ -147,7 +147,7 @@ def converter(tipo, texto):
         try:
             return round(float(texto.replace(',', '.')), 2)
         except ValueError:
-            raise ValueError('Informe um número (ex.: 7 ou 6,5).')
+            raise ValueError('Informe um número (ex.: 7 ou 6,5).') from None
     if tipo == 'sim_nao':
         if texto.lower() not in ('sim', 'nao', 'não', 'true', 'false', '1', '0'):
             raise ValueError('Escolha sim ou não.')

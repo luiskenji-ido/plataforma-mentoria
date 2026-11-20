@@ -198,8 +198,8 @@ def salvar_precos(valores, usuario_id=None):
         try:
             novo = [_preco(ent), _preco(sai)]
         except ValueError:
-            raise ValueError(f'Preço inválido para {mid}: use números de 0 a 1000 (US$ por milhão de tokens).')
-        novo = [None if v == padrao[mid][campo] else v for v, campo in zip(novo, ('entrada', 'saida'))]
+            raise ValueError(f'Preço inválido para {mid}: use números de 0 a 1000 (US$ por milhão de tokens).') from None
+        novo = [None if v == padrao[mid][campo] else v for v, campo in zip(novo, ('entrada', 'saida'), strict=False)]
         if novo != [None, None]:
             precos[mid] = novo
     _gravar('precos', precos, usuario_id)
@@ -393,7 +393,7 @@ def _claude(modelo, sistema, mensagens, max_tokens, esforco):
     try:
         import anthropic
     except ImportError:
-        raise FalhaProvedor('biblioteca anthropic não instalada')
+        raise FalhaProvedor('biblioteca anthropic não instalada') from None
     cliente = anthropic.Anthropic(timeout=120.0, max_retries=1)
     try:
         with cliente.messages.stream(model=modelo, max_tokens=max_tokens,
@@ -401,15 +401,15 @@ def _claude(modelo, sistema, mensagens, max_tokens, esforco):
                                      messages=mensagens, output_config={'effort': esforco}) as fluxo:
             r = fluxo.get_final_message()
     except anthropic.AuthenticationError:
-        raise FalhaProvedor('chave recusada pela Anthropic')
+        raise FalhaProvedor('chave recusada pela Anthropic') from None
     except anthropic.RateLimitError:
-        raise FalhaProvedor('limite de uso da Anthropic atingido')
+        raise FalhaProvedor('limite de uso da Anthropic atingido') from None
     except anthropic.NotFoundError:
-        raise FalhaProvedor(f'modelo {modelo} não encontrado na Anthropic')
+        raise FalhaProvedor(f'modelo {modelo} não encontrado na Anthropic') from None
     except anthropic.APIConnectionError:
-        raise FalhaProvedor('sem conexão com a Anthropic')
+        raise FalhaProvedor('sem conexão com a Anthropic') from None
     except anthropic.APIStatusError as e:
-        raise FalhaProvedor(f'erro da Anthropic ({e.status_code})')
+        raise FalhaProvedor(f'erro da Anthropic ({e.status_code})') from e
     if r.stop_reason == 'refusal':
         raise FalhaProvedor('a IA recusou o pedido')
     texto = ''.join(b.text for b in r.content if b.type == 'text').strip()
@@ -425,7 +425,7 @@ def _gemini(modelo, sistema, mensagens, max_tokens, esforco):
         from google import genai
         from google.genai import types
     except ImportError:
-        raise FalhaProvedor('biblioteca google-genai não instalada')
+        raise FalhaProvedor('biblioteca google-genai não instalada') from None
     chave = os.environ.get('GEMINI_API_KEY') or os.environ.get('GOOGLE_API_KEY')
     cliente = genai.Client(api_key=chave, http_options=types.HttpOptions(timeout=30_000))
     conteudos = [types.Content(role='model' if m['role'] == 'assistant' else 'user', parts=[types.Part(text=m['content'])])
@@ -439,8 +439,8 @@ def _gemini(modelo, sistema, mensagens, max_tokens, esforco):
     except Exception as e:
         # Sobrecarga ou prazo estourado: sem nova tentativa, vai logo para o próximo modelo da ordem (resposta mais rápida)
         if any(c in str(e) for c in ('503', '504', 'DEADLINE_EXCEEDED', 'UNAVAILABLE', 'overloaded', 'timed out')):
-            raise FalhaProvedor(f'{modelo} demorou demais ou está sobrecarregado no Google')
-        raise FalhaProvedor(f'erro do Gemini: {_sem_segredos(e)[:160]}')
+            raise FalhaProvedor(f'{modelo} demorou demais ou está sobrecarregado no Google') from e
+        raise FalhaProvedor(f'erro do Gemini: {_sem_segredos(e)[:160]}') from e
     texto = (getattr(r, 'text', None) or '').strip()
     u = getattr(r, 'usage_metadata', None)
     entrada = getattr(u, 'prompt_token_count', 0) or 0
@@ -452,7 +452,7 @@ def _openai(modelo, sistema, mensagens, max_tokens, esforco):
     try:
         import openai
     except ImportError:
-        raise FalhaProvedor('biblioteca openai não instalada')
+        raise FalhaProvedor('biblioteca openai não instalada') from None
     cliente = openai.OpenAI(timeout=120.0, max_retries=1)
     try:
         # API Responses; store=False: a conversa não fica guardada na OpenAI (dados de jovens e mentores)
@@ -460,18 +460,18 @@ def _openai(modelo, sistema, mensagens, max_tokens, esforco):
                                      input=[{'role': m['role'], 'content': m['content']} for m in mensagens],
                                      reasoning={'effort': esforco if esforco in ('low', 'medium', 'high') else 'low'})
     except openai.AuthenticationError:
-        raise FalhaProvedor('chave recusada pela OpenAI')
+        raise FalhaProvedor('chave recusada pela OpenAI') from None
     except openai.RateLimitError as e:
         # 429 com insufficient_quota = conta sem créditos (não adianta esperar); o resto é limite por minuto
         if (e.body or {}).get('type') == 'insufficient_quota' if isinstance(e.body, dict) else False:
-            raise FalhaProvedor('a conta da OpenAI está sem créditos (adicione em platform.openai.com › Billing)')
-        raise FalhaProvedor('limite de uso da OpenAI atingido')
+            raise FalhaProvedor('a conta da OpenAI está sem créditos (adicione em platform.openai.com › Billing)') from e
+        raise FalhaProvedor('limite de uso da OpenAI atingido') from e
     except openai.NotFoundError:
-        raise FalhaProvedor(f'modelo {modelo} não encontrado na OpenAI')
+        raise FalhaProvedor(f'modelo {modelo} não encontrado na OpenAI') from None
     except (openai.APIConnectionError, openai.APITimeoutError):
-        raise FalhaProvedor('sem conexão com a OpenAI')
+        raise FalhaProvedor('sem conexão com a OpenAI') from None
     except openai.APIStatusError as e:
-        raise FalhaProvedor(f'erro da OpenAI ({e.status_code})')
+        raise FalhaProvedor(f'erro da OpenAI ({e.status_code})') from e
     texto = (r.output_text or '').strip()
     if r.status == 'incomplete' and getattr(r.incomplete_details, 'reason', '') == 'content_filter':
         raise FalhaProvedor('a IA recusou o pedido')
@@ -554,12 +554,12 @@ def kpis_por_uso(inicio=None):
             d['custo'] += c or 0
         else:
             d['falhas'] += n
-    for uso, sucesso, n, e, s, c in somar(anterior, inicio):
+    for uso, sucesso, _n, _e, _s, c in somar(anterior, inicio):
         if uso in dados and sucesso:
             dados[uso]['custo_anterior'] += c or 0
     mais_usado = db.session.query(UsoIA.uso, UsoIA.modelo, db.func.count(UsoIA.id)) \
         .filter(UsoIA.quando >= inicio, UsoIA.sucesso.is_(True)).group_by(UsoIA.uso, UsoIA.modelo).all()
-    for uso, modelo, n in sorted(mais_usado, key=lambda x: x[2]):
+    for uso, modelo, _n in sorted(mais_usado, key=lambda x: x[2]):
         if uso in dados:
             dados[uso]['modelo'] = catalogo.get(modelo, {}).get('nome', modelo)
     for uso, quando in db.session.query(UsoIA.uso, db.func.max(UsoIA.quando)).group_by(UsoIA.uso).all():

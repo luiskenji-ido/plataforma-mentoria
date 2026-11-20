@@ -212,7 +212,7 @@ class AgenteAluno(AgenteOmniTest):
                 esperado = (meses, horas, concluidos)
                 descricao = f"meses {meses}, horas {horas}, concluídos {concluidos}"
             else:
-                lido = dict(zip(g["labels"], g["datasets"][0] if g["datasets"] else []))
+                lido = dict(zip(g["labels"], g["datasets"][0] if g["datasets"] else [], strict=False))
                 esperado = radar
                 descricao = f"progresso médio por tipo {radar}"
 
@@ -270,7 +270,7 @@ class AgenteAluno(AgenteOmniTest):
         termo = linhas[0]["curso"][:6]
         busca.fill(termo)
         visiveis = self.page.evaluate(self.JS_LINHAS_VISIVEIS)
-        esperado = [l for l in linhas if termo in l["curso"] or termo in l["aluno"]]
+        esperado = [linha for linha in linhas if termo in linha["curso"] or termo in linha["aluno"]]
         if len(visiveis) == len(esperado) and all(termo in v["curso"] or termo in v["aluno"] for v in visiveis):
             self.registrar("Painel Geral", "Filtro por texto", APROVADO, f"'{termo}' → {len(visiveis)} linha(s).", evidencia=False)
         else:
@@ -294,7 +294,7 @@ class AgenteAluno(AgenteOmniTest):
         if len(linhas) < 2:
             self.registrar("Painel Geral", "Ordenar por...", PULADO, "Só 1 linha na tabela: cadastre mais acompanhamentos para testar a ordenação.", evidencia=False)
             return
-        ordem_original = [l["curso"] for l in linhas]
+        ordem_original = [linha["curso"] for linha in linhas]
         seletor = self.page.locator("#ordenacaoTabela")
         opcoes = [o for o in seletor.locator("option").evaluate_all("os => os.map(o => [o.value, o.textContent.trim()])") if o[0] != "padrao"]
         erradas = []
@@ -309,7 +309,7 @@ class AgenteAluno(AgenteOmniTest):
             self.registrar("Painel Geral", "Ordenar por...", APROVADO, f"{len(opcoes)} opções conferidas.", evidencia=False)
 
         seletor.select_option("padrao")
-        if [l["curso"] for l in self.page.evaluate(self.JS_LINHAS_VISIVEIS)] != ordem_original:
+        if [linha["curso"] for linha in self.page.evaluate(self.JS_LINHAS_VISIVEIS)] != ordem_original:
             self.registrar("Painel Geral", "Voltar para 'Padrão'", ALERTA, "Escolher 'Padrão' não restaura a ordem original da tabela.",
                            esperado="A opção 'Padrão' devolve a ordem inicial",
                            dica="No script de ordenação de dashboard.html, guardar a ordem inicial das linhas e reaplicá-la quando ordem === 'padrao'.")

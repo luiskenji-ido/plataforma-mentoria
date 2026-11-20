@@ -40,3 +40,10 @@ select = ["E4", "E7", "E9", "F", "B"]
 
 [tool.ruff.lint.per-file-ignores]
 "tests/*" = ["B011"]
+# Imports no meio do arquivo de propósito: app.py importa os módulos que dependem do app depois de criá-lo
+# (evita import circular); models.py registra o evento depois dos modelos; traducoes.py junta os textos das
+# adequações no fim; nucleo.py ajusta a saída do terminal antes do Playwright.
+"app.py" = ["E402"]
+"models.py" = ["E402"]
+"traducoes.py" = ["E402"]
+"agentes_omnitest/nucleo.py" = ["E402"]

@@ -105,7 +105,7 @@ def varrer_template(caminho):
     for n, linha in enumerate(open(caminho, encoding='utf-8').read().splitlines(), 1):
         if MARCA_EXCECAO in linha:
             continue
-        for operador, valor in TEMPLATE_PERFIL.findall(linha):
+        for _operador, valor in TEMPLATE_PERFIL.findall(linha):
             if valor[0] in '[(':
                 achados.append(_achado(caminho, n, 'Lista de perfis solta na tela', linha,
                                        'Usar a regra nomeada PERFIS_* (as regras PERFIS_* do app.py já chegam a todas as telas).'))

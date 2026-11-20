@@ -60,7 +60,7 @@ def arquivos_citados(*textos):
                 if achado and '.venv' not in achado and 'Agent Reports' not in achado:
                     rel = os.path.relpath(achado, RAIZ).replace('\\', '/')
                     vistos.setdefault(rel, set())
-    return [(c, sorted(l)) for c, l in vistos.items()]
+    return [(c, sorted(lista)) for c, lista in vistos.items()]
 
 
 def _identificador(equipe, agente, titulo, onde):

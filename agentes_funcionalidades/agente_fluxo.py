@@ -339,7 +339,7 @@ class AgenteAdministrador(AgenteDoFluxo):
             form = {"nome": f"{MARCA} Teste", "email": f"invalido_{DOMINIO}", "tipo_usuario": "Aluno", "status": "Ativo", "senha": senha_forte(),
                     "forcar_troca_senha": "False", **ajuste}
             _, _, html = self.post("/admin/usuarios", form)
-            criado = self.banco(lambda: _modelos().Usuario.query.filter_by(email=form["email"]).count())
+            criado = self.banco(lambda form=form: _modelos().Usuario.query.filter_by(email=form["email"]).count())
             self.confere(trecho in html and (criado == 0 or form["email"] == email_admin), f"Cadastro recusa {nome}", "VAL",
                          f"Recusado com a mensagem certa: {trecho}.", f"Não recusou como esperado. Mensagens: {' | '.join(mensagens(html))[:200]}",
                          f"Cadastro de usuário recusa {nome}", "Alta")
@@ -591,7 +591,7 @@ class AgenteMentorAdministrador(AgenteDoFluxo):
         for nome, tipo in (("Python para Dados", "Técnico"), ("Comunicação e Carreira", "Comportamental")):
             self.post("/admin/turmas", {"acao": "novo_curso", "nome": f"{MARCA} {nome}", "plataforma": "Alura", "tipo": tipo, "carga_horaria": "20",
                                         "link": "https://exemplo.org/curso", "exige_certificado": "Sim", "status": "Ativo"})
-            curso = self.banco(lambda: m.Curso.query.filter_by(nome_curso=f"{MARCA} {nome}").first())
+            curso = self.banco(lambda nome=nome: m.Curso.query.filter_by(nome_curso=f"{MARCA} {nome}").first())
             self.confere(curso is not None, f"Cria o curso {nome}", "FLX", "Curso no catálogo.", "Curso não foi criado.", "Catálogo de cursos", "Alta",
                          print_de="/admin/turmas")
             if curso:
@@ -1489,7 +1489,7 @@ class AgenteEncerramento(AgenteDoFluxo):
 
     def resultado_da_avaliacao(self):
         m = _modelos()
-        ciclo_id, mentor = self.contexto["ids"].get("ciclo"), self.usuario("mentor")
+        ciclo_id = self.contexto["ids"].get("ciclo")
         if not ciclo_id:
             return
         self.etapa("Avaliação 360°: alerta de ruído de comunicação, resultados e encerramento")

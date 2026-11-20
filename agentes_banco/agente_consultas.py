@@ -95,7 +95,7 @@ class AgenteConsultas(AgenteBanco):
                             iteravel = ast.get_source_segment(fonte, gerador.iter) or ""
                             if gerador.ifs and re.search(r"\.query\b.*\.all\(\)\s*$", iteravel):
                                 filtro_python.append(f"{rel}:{no.lineno} {iteravel[:70]}")
-                            elif _chamadas_de_consulta(getattr(no, "elt", None) or getattr(no, "value")):
+                            elif _chamadas_de_consulta(getattr(no, "elt", None) or no.value):
                                 n1.append(f"{rel}:{no.lineno} {funcao_de.get(id(no), '')}() (compreensão)")
                     if isinstance(no, ast.Call) and isinstance(no.func, ast.Name) and no.func.id == "len" and no.args:
                         trecho = ast.get_source_segment(fonte, no.args[0]) or ""
@@ -314,7 +314,7 @@ class AgenteConsultas(AgenteBanco):
             tabelas_mudadas.update(dados.get("tabelas_novas", []))
             tabelas_mudadas.update(dados.get("colunas_novas", {}).keys())
         usados, nao_usados = {}, []
-        for nome, (tabela, codigo) in indices_novos.items():
+        for nome, (_tabela, codigo) in indices_novos.items():
             vezes = sum(p["vezes"] for p in self.planos if any(re.search(rf"\bINDEX {re.escape(nome)}\b", passo) for passo in p["plano"]))
             if vezes:
                 usados[nome] = vezes

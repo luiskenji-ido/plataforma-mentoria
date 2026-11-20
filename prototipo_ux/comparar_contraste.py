@@ -38,7 +38,7 @@ def medir(versoes):
             resultado[versao] = {}
             for (email, _, perfil), telas in ((CONTAS[0], TELAS), (CONTAS[1], TELAS_ALUNO)):
                 contraste.entrar(pg, base, email, SENHA_DEMO)
-                r = contraste.auditar(pg, base, telas, ao_medir=lambda t, c, x: print(
+                r = contraste.auditar(pg, base, telas, ao_medir=lambda t, c, x, versao=versao, perfil=perfil: print(
                     f"  {versao:9s} {perfil:13s} {t:9s} {c:34s} {sum(f['vezes'] for f in x['falhas']):4d} abaixo de {x['medidos']}", flush=True))
                 for tema, pags in r.items():
                     for caminho, medida in pags.items():

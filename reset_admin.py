@@ -16,7 +16,7 @@ with app.app_context():
         admin.forcar_troca_senha = True # Vai forçar você a escolher uma nova logo ao entrar
         
         db.session.commit()
-        print(f"✅ SUCESSO! Conta desbloqueada.")
+        print("✅ SUCESSO! Conta desbloqueada.")
         print(f"📧 E-mail do Admin: {admin.email}")
         print(f"🔑 Senha temporária: {senha_temporaria}")
     else:

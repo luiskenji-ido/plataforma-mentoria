@@ -49,7 +49,7 @@ def menu():
     """{endpoint: 'Grupo › Seção › Nome'} na ordem do menu principal."""
     linhas = _ler('templates/base.html').splitlines()
     caminhos, grupo, secao, dentro, rotulo_pendente = {}, None, None, False, False
-    inicio = next(i for i, l in enumerate(linhas) if 'navbar-nav me-auto' in l)
+    inicio = next(i for i, linha in enumerate(linhas) if 'navbar-nav me-auto' in linha)
     for linha in linhas[inicio:]:
         if 'navbar-nav ms-auto' in linha or 'central_notificacoes' in linha:
             break
