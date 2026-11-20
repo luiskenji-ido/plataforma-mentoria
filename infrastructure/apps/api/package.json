@@ -1,0 +1,29 @@
+{
+  "name": "@infra/api",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node --watch --watch-path=src --watch-path=../../packages/shared/src --watch-path=../../pulumi --import tsx src/server.ts",
+    "build": "tsup",
+    "start": "node dist/server.cjs"
+  },
+  "dependencies": {
+    "@aws-sdk/client-cloudwatch": "^3.1173.0",
+    "@aws-sdk/client-ec2": "^3.1173.0",
+    "@aws-sdk/client-ecr": "^3.1173.0",
+    "@aws-sdk/client-pricing": "^3.1173.0",
+    "@aws-sdk/client-ssm": "^3.1173.0",
+    "@aws-sdk/client-sts": "^3.1173.0",
+    "@aws-sdk/credential-providers": "^3.1173.0",
+    "@fastify/static": "^10.1.12",
+    "@pulumi/aws": "^7.55.0",
+    "@pulumi/pulumi": "^3.277.0",
+    "@smithy/shared-ini-file-loader": "^4.7.2",
+    "@smithy/types": "^4.20.0",
+    "fastify": "^5.12.8"
+  },
+  "devDependencies": {
+    "aws-sdk-client-mock": "^4.1.0"
+  }
+}

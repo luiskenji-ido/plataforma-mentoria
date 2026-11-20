@@ -1,0 +1,7 @@
+node_modules/
+dist/
+coverage/
+# Estado local do painel e do Pulumi (contém o estado cifrado da infraestrutura: faça backup, nunca publique)
+.state/
+.env
+*.log

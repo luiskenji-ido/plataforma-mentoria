@@ -1,0 +1,12 @@
+{
+  "name": "@infra/pulumi",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "main": "index.ts",
+  "types": "index.ts",
+  "dependencies": {
+    "@pulumi/aws": "^7.55.0",
+    "@pulumi/pulumi": "^3.277.0"
+  }
+}

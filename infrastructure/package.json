@@ -1,0 +1,38 @@
+{
+  "name": "mentoria-infra",
+  "private": true,
+  "description": "Painel local para provisionar e gerenciar a infraestrutura AWS (EC2 + Docker) da plataforma Mentoria com Pulumi",
+  "type": "module",
+  "engines": {
+    "node": ">=20.19"
+  },
+  "workspaces": [
+    "packages/shared",
+    "pulumi",
+    "apps/api",
+    "apps/web"
+  ],
+  "scripts": {
+    "dev": "node scripts/doctor.mjs --warn && concurrently -k -n api,web -c blue,magenta \"npm:dev -w apps/api\" \"npm:dev -w apps/web\"",
+    "start": "node scripts/doctor.mjs --warn && npm run build -w apps/web && npm run start -w apps/api",
+    "doctor": "node scripts/doctor.mjs",
+    "build": "npm run build -w apps/web && npm run build -w apps/api",
+    "typecheck": "tsc -p packages/shared && tsc -p pulumi && tsc -p apps/api && tsc -p apps/web",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "check": "npm run typecheck && npm run lint && npm run test && npm run build"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@types/node": "^26.6.6",
+    "concurrently": "^10.0.7",
+    "eslint": "^10.15.0",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "globals": "^17.14.0",
+    "tsup": "^9.0.0",
+    "tsx": "^4.23.15",
+    "typescript": "~6.0",
+    "typescript-eslint": "^8.73.0",
+    "vitest": "^5.1.1"
+  }
+}
