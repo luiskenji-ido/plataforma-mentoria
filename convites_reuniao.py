@@ -13,7 +13,7 @@ import os
 import re
 import base64
 import logging
-import smtplib
+import email_smtp
 from datetime import datetime, timedelta, timezone
 from email.message import EmailMessage
 from email.utils import formataddr
@@ -259,7 +259,7 @@ def montar_email_link_pessoal(reuniao, remetente, convidado_nome, convidado_emai
 
 # ------------------------------------------------------------------------------ envio
 def smtp_configurado():
-    return bool(os.environ.get('MAIL_SERVER') and os.environ.get('MAIL_REMETENTE'))
+    return email_smtp.configurado()
 
 
 def remetente_smtp():
@@ -267,12 +267,7 @@ def remetente_smtp():
 
 
 def enviar_smtp(mensagem):
-    with smtplib.SMTP(os.environ['MAIL_SERVER'], int(os.environ.get('MAIL_PORT', 587)), timeout=20) as smtp:
-        if os.environ.get('MAIL_USE_TLS', '1') != '0':
-            smtp.starttls()
-        if os.environ.get('MAIL_USERNAME'):
-            smtp.login(os.environ['MAIL_USERNAME'], os.environ.get('MAIL_PASSWORD', ''))
-        smtp.send_message(mensagem)
+    email_smtp.enviar(mensagem)
 
 
 def credenciais_gmail(token, refresh_token, caminho_client_secret):

@@ -10,7 +10,7 @@ Variáveis do .env (todas opcionais):
     MAIL_REMETENTE, MAIL_USE_TLS (padrão 1) e APP_BASE_URL (ex.: https://meuapp.pythonanywhere.com)
 """
 import os
-import smtplib
+import email_smtp
 import logging
 from email.message import EmailMessage
 
@@ -31,7 +31,7 @@ def _plataforma():
 
 
 def email_configurado():
-    return bool(os.environ.get('MAIL_SERVER') and os.environ.get('MAIL_REMETENTE'))
+    return email_smtp.configurado()
 
 
 def link_absoluto(link):
@@ -54,15 +54,10 @@ def enviar_email(destinatario, assunto, texto):
     mensagem['To'] = destinatario
     mensagem.set_content(texto)
     try:
-        with smtplib.SMTP(os.environ['MAIL_SERVER'], int(os.environ.get('MAIL_PORT', 587)), timeout=15) as smtp:
-            if os.environ.get('MAIL_USE_TLS', '1') != '0':
-                smtp.starttls()
-            if os.environ.get('MAIL_USERNAME'):
-                smtp.login(os.environ['MAIL_USERNAME'], os.environ.get('MAIL_PASSWORD', ''))
-            smtp.send_message(mensagem)
+        email_smtp.enviar(mensagem, tempo_limite=15)
         return True
-    except Exception as erro:
-        log.warning("Falha ao enviar e-mail para %s: %s", destinatario, erro)
+    except Exception as erro:  # o aviso continua na plataforma; o e-mail é complemento
+        log.warning("Falha ao enviar e-mail para %s: %s: %s", destinatario, type(erro).__name__, erro)
         return False
 
 

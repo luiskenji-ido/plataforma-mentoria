@@ -55,12 +55,20 @@ def opcoes_do_motor(url):
     "MySQL server has gone away" depois de uma madrugada sem acessos."""
     if eh_sqlite(url):
         return {}
-    return {
+    opcoes = {
         'pool_pre_ping': True,
         'pool_recycle': int(os.environ.get('DB_POOL_RECYCLE', '280')),
         'pool_size': int(os.environ.get('DB_POOL_SIZE', '5')),
         'max_overflow': int(os.environ.get('DB_MAX_OVERFLOW', '10')),
+        # espera máxima por uma conexão livre do pool (segundos): sem ela, um pico trava o pedido indefinidamente
+        'pool_timeout': int(os.environ.get('DB_POOL_TIMEOUT', '30')),
     }
+    if dialeto(url) == 'mysql':
+        # tempo-limite para abrir a conexão e para cada leitura/escrita (PyMySQL), em segundos
+        opcoes['connect_args'] = {'connect_timeout': int(os.environ.get('DB_CONNECT_TIMEOUT', '10')),
+                                  'read_timeout': int(os.environ.get('DB_READ_TIMEOUT', '60')),
+                                  'write_timeout': int(os.environ.get('DB_WRITE_TIMEOUT', '60'))}
+    return opcoes
 
 
 def endereco_sem_senha(url=None):

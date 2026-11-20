@@ -38,8 +38,15 @@ def test_sqlite_nao_tem_opcoes_de_pool():
 
 def test_servidor_de_banco_testa_e_renova_conexoes(monkeypatch):
     monkeypatch.setenv("DB_POOL_SIZE", "8")
+    opcoes = bc.opcoes_do_motor("postgresql+psycopg://u:p@h/m")
+    assert opcoes == {"pool_pre_ping": True, "pool_recycle": 280, "pool_size": 8, "max_overflow": 10, "pool_timeout": 30}
+
+
+def test_mysql_tem_tempo_limite_de_conexao_e_de_leitura(monkeypatch):
+    monkeypatch.setenv("DB_CONNECT_TIMEOUT", "5")
     opcoes = bc.opcoes_do_motor("mysql+pymysql://u:p@h/m")
-    assert opcoes == {"pool_pre_ping": True, "pool_recycle": 280, "pool_size": 8, "max_overflow": 10}
+    assert opcoes["connect_args"] == {"connect_timeout": 5, "read_timeout": 60, "write_timeout": 60}
+    assert opcoes["pool_pre_ping"] and opcoes["pool_timeout"] == 30
 
 
 def test_endereco_sem_senha_nunca_mostra_a_senha():

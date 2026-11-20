@@ -23,6 +23,10 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+# Logs em JSON na saída padrão, com segredos e e-mails mascarados (logs_estruturados.py)
+import logs_estruturados
+logs_estruturados.configurar_logs()
+
 # As chamadas às IAs (Claude, Gemini e ChatGPT/OpenAI) ficam em provedores_ia.py: ordem de modelos por uso, reserva e teto de gasto.
 
 # Login do Google sem HTTPS só no computador de desenvolvimento (localhost). Em produção o oauthlib exige HTTPS:
@@ -257,10 +261,10 @@ def injetar_notificacoes_qa():
 # ===========================================================================
 # SECRET_KEY (variável de ambiente ou instance/.secret_key), cookies, CSRF, cabeçalhos, limite de requisições
 # e de upload: tudo em seguranca_web.py (achados dos Agentes de Segurança)
-import seguranca_web
 from seguranca_web import voltar
 seguranca_web.configurar_seguranca(
     app, lambda texto: tt(texto, current_user.idioma if current_user.is_authenticated else session.get('idioma', 'pt')))
+logs_estruturados.ligar_no_app(app)  # id da requisição e uma linha de log por requisição
 # Banco de dados: DATABASE_URL (arquivo .env ou variável de ambiente) escolhe o motor, sem mudar o código.
 #   SQLite (padrão, desenvolvimento):  sqlite:///mentoria.db  (arquivo em instance/)
 #   MySQL / MariaDB:                   mysql+pymysql://usuario:senha@localhost:3306/mentoria?charset=utf8mb4
@@ -275,6 +279,11 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 # INICIALIZANDO AS EXTENSÕES
 # ===========================================================================
 db.init_app(app)
+
+# Sondas de saúde: /healthz (processo vivo) e /readyz (banco e demais serviços de apoio respondendo)
+import saude
+app.register_blueprint(saude.bp)
+saude.registrar('banco', saude.verificar_banco(db))
 # Versões da estrutura do banco (Flask-Migrate / Alembic): migrations/. render_as_batch deixa o SQLite alterar colunas.
 from flask_migrate import Migrate
 migrate = Migrate(app, db, directory=os.path.join(app.root_path, 'migrations'), render_as_batch=True)
@@ -6059,6 +6068,12 @@ def relatorio_auditoria_backup(tipo):
 
 # Agendamentos vencidos também rodam quando o app está em uso (no máximo uma verificação a cada 5 minutos);
 # no PythonAnywhere quem garante a execução é o tarefas_agendadas.py, de hora em hora.
+def tarefas_no_processo_web():
+    """MENTORIA_TAREFAS_NO_WEB=0 (contêiner): o processo web só atende pedidos; backups e requisições de mudança ficam
+    com o processo worker. Sem a variável (PythonAnywhere, servidor), o comportamento de sempre."""
+    return os.environ.get('MENTORIA_TAREFAS_NO_WEB', '1') != '0'
+
+
 _ULTIMA_VERIFICACAO_BACKUP = [datetime.min]
 
 
@@ -6066,6 +6081,8 @@ _ULTIMA_VERIFICACAO_BACKUP = [datetime.min]
 def verificar_backups_agendados():
     if os.environ.get('MENTORIA_VALIDACAO') == '1':
         return  # instância de validação do Orquestrador (cópia do banco): nunca grava backups nas pastas reais
+    if not tarefas_no_processo_web() or request.blueprint == 'saude':
+        return  # contêiner: as tarefas rodam no serviço "worker" (tarefas_agendadas.py --continuo), não nas requisições
     agora = datetime.now()
     if agora - _ULTIMA_VERIFICACAO_BACKUP[0] < timedelta(minutes=5):
         return
@@ -6482,7 +6499,7 @@ def sincronizar_evento_google(titulo, descricao, data_inicio, horario_str="09:00
         service.events().insert(calendarId='primary', body=evento).execute()
         return True
     except Exception as e:
-        print(f"Erro silencioso ao sincronizar agenda: {e}")
+        app.logger.warning("Sincronização com a agenda do Google falhou: %s: %s", type(e).__name__, e)
         return False
 
 
@@ -6618,7 +6635,7 @@ def rotina_de_backups(app_context):
                 backup_servico.executar_vencidos()
             except Exception as e:
                 db.session.rollback()
-                print(f"Erro ao processar backup agendado: {e}")
+                app.logger.warning("Backup agendado falhou: %s: %s", type(e).__name__, e)
             time.sleep(60)
 
 def iniciar_agendador(app):

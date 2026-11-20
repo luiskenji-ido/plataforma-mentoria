@@ -8,12 +8,19 @@ No PythonAnywhere: aba "Tasks" › "Scheduled tasks" › Hourly, com o comando
     cd /home/<seu_usuario>/<pasta_do_projeto> && python3 tarefas_agendadas.py
 No computador:
     python tarefas_agendadas.py
+No contêiner (serviço "worker", processo próprio, separado do web):
+    python tarefas_agendadas.py --continuo      roda agora e depois a cada TAREFAS_INTERVALO_SEGUNDOS (3600);
+                                                SIGTERM termina a tarefa em andamento e sai sem começar outra.
 """
+import logging
+import os
 from datetime import datetime, timedelta
 
 from app import app
 from models import db, CheckinVoluntariado, Usuario, EncaminhamentoReuniao, Banca, EnvioFormularioBanca, AvaliacaoBanca, EntregaTCC
 from notificacoes import notificar, eh_conta_de_teste
+
+log = logging.getLogger("tarefas")
 
 # Relógio de voluntariado aberto há mais tempo que isto recebe o lembrete de check-out
 HORAS_RELOGIO_ESQUECIDO = 4
@@ -269,7 +276,7 @@ def aprender_seguranca(agora):
         novos += len(conhecimento_seguranca.pesquisar_vulnerabilidades('Gerente de Segurança (tarefa diária)'))
     except Exception as erro:
         db.session.rollback()
-        print(f"   OSV.dev indisponível: {erro}")
+        log.warning("OSV.dev indisponível: %s: %s", type(erro).__name__, erro)
     return novos
 
 
@@ -306,18 +313,52 @@ TAREFAS = [aplicar_mudancas_aprovadas, executar_mudancas_de_codigo, lembrar_chec
            executar_backups_agendados, aprender_mudancas_da_plataforma, aprender_seguranca, aprender_banco_de_dados, aprender_funcionalidades]
 
 
-def executar_tarefas():
+def executar_tarefas(parar=None):
+    """Roda todas as tarefas uma vez. 'parar' (threading.Event): pedido de desligamento, checado entre as tarefas.
+    Devolve {tarefa: resultado ou 'ERRO'}."""
     agora = datetime.utcnow()
+    resultados = {}
     with app.app_context():
         for tarefa in TAREFAS:
+            if parar is not None and parar.is_set():
+                log.info("desligamento pedido: as tarefas restantes ficam para a próxima rodada")
+                break
             try:
-                print(f"[{agora:%d/%m/%Y %H:%M}] {tarefa.__name__}: {tarefa(agora)} aviso(s)")
+                resultados[tarefa.__name__] = tarefa(agora)
+                log.info("%s: %s aviso(s)", tarefa.__name__, resultados[tarefa.__name__], extra={"evento": "tarefa"})
             except Exception as erro:
                 db.session.rollback()
-                print(f"[{agora:%d/%m/%Y %H:%M}] {tarefa.__name__}: ERRO {erro}")
+                resultados[tarefa.__name__] = "ERRO"
+                log.error("%s falhou: %s: %s", tarefa.__name__, type(erro).__name__, erro, extra={"evento": "tarefa"})
     import ambiente
     ambiente.anotar_execucao_das_tarefas()   # a tela Ambiente e compatibilidade mostra se as tarefas estão rodando
+    return resultados
+
+
+INTERVALO_PADRAO = 3600  # segundos entre as rodadas no modo contínuo
+
+
+def rodar_continuo(parar, intervalo=None, rodada=executar_tarefas):
+    """Rodadas até 'parar' ser ligado (SIGTERM/SIGINT). A espera entre rodadas acorda na hora no desligamento."""
+    intervalo = intervalo or int(os.environ.get("TAREFAS_INTERVALO_SEGUNDOS") or INTERVALO_PADRAO)
+    rodadas = 0
+    while not parar.is_set():
+        rodada(parar)
+        rodadas += 1
+        parar.wait(intervalo)
+    log.info("worker encerrado depois de %d rodada(s)", rodadas)
+    return rodadas
 
 
 if __name__ == "__main__":
-    executar_tarefas()
+    import signal
+    import sys
+    import threading
+
+    if "--continuo" in sys.argv:
+        parar = threading.Event()
+        for sinal in (signal.SIGTERM, signal.SIGINT):
+            signal.signal(sinal, lambda *_: parar.set())
+        rodar_continuo(parar)
+    else:
+        executar_tarefas()

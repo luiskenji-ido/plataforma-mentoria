@@ -49,9 +49,10 @@ def configurado():
 
 
 def _requisicao(metodo, url, **kwargs):
-    """Ponto único de saída para a internet (os testes trocam esta função por uma simulação)."""
-    import requests
-    return requests.request(metodo, url, timeout=TIMEOUT, **kwargs)
+    """Ponto único de saída para a internet (os testes trocam esta função por uma simulação). Conexões reaproveitadas
+    e novas tentativas só nos métodos que podem repetir e nas respostas 429/502/503/504 (resiliencia.py)."""
+    import resiliencia
+    return resiliencia.sessao_http().request(metodo, url, timeout=TIMEOUT, **kwargs)
 
 
 def _json(resposta):

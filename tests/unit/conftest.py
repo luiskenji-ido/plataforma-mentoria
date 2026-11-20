@@ -35,6 +35,17 @@ def ambiente_limpo(monkeypatch):
         "MENTORIA_CONTEINER",
         "MENTORIA_EXIGIR_SECRET_KEY",
         "GOOGLE_CLIENT_SECRETS_FILE",
+        "DB_POOL_TIMEOUT",
+        "DB_CONNECT_TIMEOUT",
+        "DB_READ_TIMEOUT",
+        "DB_WRITE_TIMEOUT",
+        "LOG_FORMATO",
+        "LOG_TRACEBACK",
+        "MAIL_SERVER",
+        "MAIL_USERNAME",
+        "MAIL_PASSWORD",
+        "MAIL_USE_TLS",
+        "MAIL_PORT",
     ):
         monkeypatch.delenv(nome, raising=False)
 

@@ -26,6 +26,7 @@ As funções rodam dentro de um app_context (rotas do Flask ou tarefas_agendadas
 import os
 import re
 import csv
+import logging
 import gzip
 import shutil
 import sqlite3
@@ -253,7 +254,7 @@ def copiar_para_fora(caminho, subpasta):
         os.replace(alvo + '.parcial', alvo)   # nunca deixa uma cópia pela metade com o nome final
         return alvo
     except OSError as e:
-        print(f"Cópia externa do backup falhou: {e}")
+        logging.getLogger("backup").warning("Cópia externa do backup falhou: %s", e)
         return ''
 
 
