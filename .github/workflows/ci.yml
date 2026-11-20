@@ -1,0 +1,111 @@
+# Integração contínua: lint → unidade → integração → imagem → ponta a ponta. Cada etapa só roda se a anterior passou.
+name: CI
+
+on:
+  push:
+    branches: [main, adequacoes-b2b, cloud-native]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PYTHON_VERSION: "3.12"
+  PIP_DISABLE_PIP_VERSION_CHECK: "1"
+
+jobs:
+  lint:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - run: pip install ruff==0.14.5 pip-audit==2.9.0
+      - name: Ruff (erros e armadilhas)
+        run: ruff check .
+      - name: Ruff (formatação do código novo)
+        run: ruff format --check tests armazenamento.py email_smtp.py gunicorn.conf.py logs_estruturados.py resiliencia.py saude.py
+      - name: Vulnerabilidades conhecidas nas dependências
+        run: |
+          pip-audit -r requirements.txt --no-deps --disable-pip --progress-spinner off
+          pip-audit -r requirements-dev.txt --no-deps --disable-pip --progress-spinner off
+
+  unit:
+    needs: lint
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: requirements*.txt
+      - run: pip install -r requirements-dev.txt
+      - name: Testes de unidade (com cobertura)
+        run: pytest tests/unit -q --cov --cov-report=term --cov-report=xml:coverage-unit.xml
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cobertura-unit
+          path: coverage-unit.xml
+
+  integration:
+    needs: unit
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: requirements*.txt
+      - run: pip install -r requirements-dev.txt
+      - name: Testes de integração (MySQL 8.4 real via Testcontainers)
+        run: pytest tests/integration -q --cov --cov-report=term --cov-report=xml:coverage-integration.xml
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cobertura-integration
+          path: coverage-integration.xml
+
+  image:
+    needs: integration
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build da imagem de produção
+        run: docker build -t mentoria:ci .
+      - name: A imagem não leva segredos nem arquivos locais
+        run: |
+          docker run --rm --entrypoint sh mentoria:ci -c '
+            test ! -e /app/.env && test ! -e /app/client_secret.json && test ! -d /app/tests && test ! -d /app/.git &&
+            test ! -e /app/instance/.secret_key && test "$(id -u)" = "10001"'
+      - name: Sem SECRET_KEY o contêiner não sobe
+        run: |
+          if docker run --rm -e DATABASE_URL=sqlite:////tmp/x.db --read-only --tmpfs /tmp --tmpfs /app/instance mentoria:ci \
+               python -c "import app"; then echo "subiu sem SECRET_KEY"; exit 1; fi
+
+  e2e:
+    needs: image
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: requirements*.txt
+      - run: pip install -r requirements-dev.txt
+      - name: Testes ponta a ponta contra a imagem (MySQL, Redis e MinIO pelo docker compose)
+        run: pytest tests/e2e -q
+      - name: Logs dos contêineres (em caso de falha)
+        if: failure()
+        run: docker compose -p mentoria_e2e logs --no-color || true
