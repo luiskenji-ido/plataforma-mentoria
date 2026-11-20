@@ -5,7 +5,7 @@ from werkzeug.utils import secure_filename
 
 
 # Importações do Flask
-from flask import Flask, render_template, request, redirect, url_for, flash, send_from_directory, send_file, session, jsonify
+from flask import Flask, render_template, request, redirect, url_for, flash, send_file, session, jsonify
 
 # Importações do Google Calendar
 from google_auth_oauthlib.flow import Flow
@@ -44,7 +44,6 @@ os.environ.setdefault('OAUTHLIB_RELAX_TOKEN_SCOPE', '1')
 # Thread (Tarefa em Segundo Plano)
 import threading
 import secrets
-import shutil
 import time
 
 # Importações de Segurança e Login (Aqui está o LoginManager que faltava!)
@@ -284,6 +283,10 @@ db.init_app(app)
 import saude
 app.register_blueprint(saude.bp)
 saude.registrar('banco', saude.verificar_banco(db))
+if os.environ.get('REDIS_URL'):
+    saude.registrar('redis', seguranca_web.verificar_redis)
+if (os.environ.get('ARMAZENAMENTO') or 'local').lower() == 's3':
+    saude.registrar('arquivos', lambda: guarda_arquivos().verificar())
 # Versões da estrutura do banco (Flask-Migrate / Alembic): migrations/. render_as_batch deixa o SQLite alterar colunas.
 from flask_migrate import Migrate
 migrate = Migrate(app, db, directory=os.path.join(app.root_path, 'migrations'), render_as_batch=True)
@@ -1178,8 +1181,36 @@ def editar_curso(id):
     return redirect(url_for('gerenciar_turmas'))
 
 
-app.config['UPLOAD_FOLDER'] = os.path.join(app.root_path, 'uploads')
-os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
+app.config['UPLOAD_FOLDER'] = os.environ.get('PASTA_UPLOADS') or os.path.join(app.root_path, 'uploads')
+
+# Arquivos enviados: disco local (padrão) ou bucket S3 (ARMAZENAMENTO=s3), sempre por chaves relativas como as que
+# já estão no banco ('tcc/x.pdf', 'aulas/y.mp4'). Nenhuma pasta é criada ao importar: o contêiner roda com o sistema
+# de arquivos só de leitura (armazenamento.py).
+import armazenamento
+
+
+def guarda_arquivos():
+    return armazenamento.atual()
+
+
+def chave_em(pasta, nome):
+    """'pasta/nome' com o nome reduzido ao último trecho (um nome vindo do banco nunca sai da pasta)."""
+    nome = os.path.basename((nome or '').replace('\\', '/'))
+    return f"{pasta}/{nome}" if pasta and nome else nome
+
+
+def nome_unico(nome_enviado):
+    """Nome seguro e único para um arquivo enviado: anexos com o mesmo nome de pessoas diferentes não se sobrescrevem."""
+    return f"{secrets.token_hex(4)}_{secure_filename(nome_enviado) or 'arquivo'}"
+
+
+def tamanho_do_envio(arquivo):
+    """Tamanho do arquivo enviado sem gravá-lo (o ponteiro volta ao começo)."""
+    fluxo = arquivo.stream
+    fluxo.seek(0, os.SEEK_END)
+    tamanho = fluxo.tell()
+    fluxo.seek(0)
+    return tamanho
 
 
 # ==============================================================================
@@ -1195,20 +1226,18 @@ PERFIS_GESTAO_CURSOS = ['Administrador', 'Mentor Administrador', 'Admin B2B']
 app.jinja_env.filters['texto_aula'] = conteudo_curso.texto_em_html
 
 
-def _caminho_aula(nome):
+def _chave_aula(nome):
+    """Chave do vídeo/material da aula, só se o arquivo existir."""
     if not nome:
         return None
-    caminho = os.path.realpath(os.path.join(PASTA_AULAS, nome))
-    return caminho if caminho.startswith(os.path.realpath(PASTA_AULAS) + os.sep) and os.path.isfile(caminho) else None
+    chave = chave_em('aulas', nome)
+    return chave if guarda_arquivos().existe(chave) else None
 
 
 def _apagar_arquivo_aula(nome):
-    caminho = _caminho_aula(nome)
-    if caminho:
-        try:
-            os.remove(caminho)
-        except OSError:
-            app.logger.warning("Não consegui apagar o arquivo da aula %s", caminho)
+    chave = _chave_aula(nome)
+    if chave and not guarda_arquivos().apagar(chave):
+        app.logger.warning("Não consegui apagar o arquivo da aula %s", chave)
 
 
 def apagar_conteudo_do_curso(curso_id):
@@ -1230,15 +1259,12 @@ def _salvar_arquivo_aula(arquivo, aula, prefixo, extensoes):
     extensao = arquivo.filename.rsplit('.', 1)[-1].lower() if '.' in (arquivo.filename or '') else ''
     if extensao not in extensoes:
         raise ValueError('formato')
-    os.makedirs(PASTA_AULAS, exist_ok=True)
     nome_salvo = f"{prefixo}_{aula.curso_id}_{secrets.token_hex(8)}.{extensao}"
-    caminho = os.path.join(PASTA_AULAS, nome_salvo)
-    arquivo.save(caminho)
-    tamanho = os.path.getsize(caminho)
+    tamanho = tamanho_do_envio(arquivo)
     limite = int(regra('video_aula_limite_mb')) * 1024 * 1024
     if tamanho == 0 or tamanho > limite:
-        os.remove(caminho)
         raise ValueError('vazio' if tamanho == 0 else 'grande')
+    guarda_arquivos().salvar(chave_em('aulas', nome_salvo), arquivo)
     return nome_salvo, tamanho
 
 
@@ -1604,8 +1630,8 @@ def midia_aula(aula_id, tipo):
     aula = db.session.get(AulaCurso, aula_id)
     if not aula or tipo not in ('video', 'material') or not _pode_ver_aulas(current_user, aula.curso_id):
         return ('', 404)
-    caminho = _caminho_aula(aula.video_arquivo if tipo == 'video' else aula.material_arquivo)
-    if not caminho:
+    chave = _chave_aula(aula.video_arquivo if tipo == 'video' else aula.material_arquivo)
+    if not chave:
         return ('', 404)
     if tipo == 'material':
         if current_user.tipo_usuario == 'Aluno':
@@ -1620,8 +1646,8 @@ def midia_aula(aula_id, tipo):
                     db.session.commit()
                     if concluiu:
                         _avisar_conclusao(registro)
-        return send_file(caminho, as_attachment=True, download_name=aula.material_nome or os.path.basename(caminho))
-    resposta = send_file(caminho, mimetype=mimetypes.guess_type(caminho)[0] or 'video/mp4', conditional=True)
+        return guarda_arquivos().resposta(chave, como_anexo=True, nome_download=aula.material_nome or os.path.basename(chave))
+    resposta = guarda_arquivos().resposta(chave, mimetype=mimetypes.guess_type(chave)[0] or 'video/mp4')
     resposta.headers['Content-Disposition'] = 'inline'
     resposta.headers['Cache-Control'] = 'private, no-store'
     return resposta
@@ -1791,8 +1817,6 @@ def teste_aula(acomp_id, aula_id):
 @login_required
 def acompanhamento():
     from datetime import datetime, timedelta, timezone
-    from werkzeug.utils import secure_filename
-    import os
 
     if request.method == 'POST':
         # --- EXCLUIR MATERIAIS DE APOIO ---
@@ -1809,15 +1833,11 @@ def acompanhamento():
                     if mat in materiais_para_excluir:
                         mat_parts = mat.split('::')
                         nome_arquivo = mat_parts[1] if len(mat_parts) > 1 else mat_parts[0]
-                        try:
-                            caminho_arquivo = os.path.join(app.config['UPLOAD_FOLDER'], nome_arquivo)
-                            if os.path.exists(caminho_arquivo):
-                                os.remove(caminho_arquivo)
-                        except Exception:
-                            pass
+                        if not guarda_arquivos().apagar(chave_em('', nome_arquivo)):
+                            app.logger.warning("Material de apoio não encontrado para apagar: %s", nome_arquivo)
                     else:
                         materiais_restantes.append(mat)
-                
+
                 registro.material_apoio = '|'.join(materiais_restantes) if materiais_restantes else None
                 db.session.commit()
                 flash('Materiais excluídos permanentemente.', 'success')
@@ -1913,17 +1933,15 @@ def acompanhamento():
                     status = 'Finalizado'
                 
                 if tem_arquivo_novo:
-                    filename = secure_filename(arquivo.filename)
-                    caminho_arquivo = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-                    arquivo.save(caminho_arquivo)
+                    filename = nome_unico(arquivo.filename)
+                    guarda_arquivos().salvar(filename, arquivo)
                     regstro.certificado_anexado = True
                     regstro.certificado = filename
                 
                 arq_apoio = request.files.get('material_apoio')
                 if arq_apoio and arq_apoio.filename != '':
-                    filename_apoio = secure_filename(arq_apoio.filename)
-                    caminho_apoio = os.path.join(app.config['UPLOAD_FOLDER'], filename_apoio)
-                    arq_apoio.save(caminho_apoio)
+                    filename_apoio = nome_unico(arq_apoio.filename)
+                    guarda_arquivos().salvar(filename_apoio, arq_apoio)
                     
                     autor_tag = 'Aluno' if current_user.tipo_usuario == 'Aluno' else 'Mentor'
                     arquivo_carimbado = f"{autor_tag}::{filename_apoio}"
@@ -2381,12 +2399,8 @@ def atualizar_tarefa():
                 if mat in materiais_para_excluir:
                     mat_parts = mat.split('::')
                     nome_arquivo = mat_parts[1] if len(mat_parts) > 1 else mat_parts[0]
-                    try:
-                        caminho_arquivo = os.path.join(app.config['UPLOAD_FOLDER'], nome_arquivo)
-                        if os.path.exists(caminho_arquivo):
-                            os.remove(caminho_arquivo)
-                    except Exception:
-                        pass
+                    if not guarda_arquivos().apagar(chave_em('', nome_arquivo)):
+                        app.logger.warning("Anexo da tarefa não encontrado para apagar: %s", nome_arquivo)
                 else:
                     materiais_restantes.append(mat)
             tarefa.arquivo_anexo = '|'.join(materiais_restantes) if materiais_restantes else None
@@ -2395,8 +2409,8 @@ def atualizar_tarefa():
         arquivos = request.files.getlist('arquivos_anexos')
         for arquivo in arquivos:
             if arquivo and arquivo.filename:
-                filename = secure_filename(arquivo.filename)
-                arquivo.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
+                filename = nome_unico(arquivo.filename)  # nomes iguais de pessoas diferentes não se sobrescrevem
+                guarda_arquivos().salvar(filename, arquivo)
                 
                 autor_tag = current_user.tipo_usuario
                 arquivo_carimbado = f"{autor_tag}::{filename}"
@@ -2816,12 +2830,22 @@ def acessar_upload(nome_arquivo):
             Projeto.grupo_id.in_(meus_grupos), Tarefa.arquivo_anexo.like(f"%{nome_arquivo}%")).all()
         materiais = Acompanhamento.query.filter(Acompanhamento.aluno_id == current_user.id,
                                                 Acompanhamento.material_apoio.like(f"%{nome_arquivo}%")).all()
-        dono = any(nome_arquivo in (x.arquivo_anexo or '').split('|') for x in tarefas) or \
-            any(nome_arquivo in (x.material_apoio or '').split('|') for x in materiais)
+        dono = any(nome_arquivo in _nomes_dos_anexos(x.arquivo_anexo) for x in tarefas) or \
+            any(nome_arquivo in _nomes_dos_anexos(x.material_apoio) for x in materiais)
         if not dono:
             flash("Acesso negado.", "danger")
             return redirect(url_for('dashboard'))
-    return send_from_directory(app.config['UPLOAD_FOLDER'], nome_arquivo)
+    try:
+        if not guarda_arquivos().existe(nome_arquivo):
+            return ('', 404)
+    except armazenamento.ChaveInvalida:
+        return ('', 404)
+    return guarda_arquivos().resposta(nome_arquivo)
+
+
+def _nomes_dos_anexos(campo):
+    """'Aluno::a.pdf|Mentor::b.pdf|c.pdf' → {'a.pdf', 'b.pdf', 'c.pdf'} (o carimbo de quem enviou não faz parte do nome)."""
+    return {parte.split('::', 1)[-1] for parte in (campo or '').split('|') if parte}
 
 # ---------------------------------------------------------
 # Rota de Logout (Sair do Sistema)
@@ -3532,30 +3556,27 @@ EXTENSOES_GRAVACAO = {'mp4', 'm4v', 'mov', 'webm', 'mkv', 'mp3', 'm4a', 'wav', '
 PASTA_GRAVACOES = os.path.join(app.config['UPLOAD_FOLDER'], 'reunioes')
 
 
-def _caminho_gravacao(reuniao):
+def _chave_gravacao(reuniao):
     if not reuniao.gravacao_arquivo:
         return None
-    caminho = os.path.realpath(os.path.join(PASTA_GRAVACOES, reuniao.gravacao_arquivo))
-    return caminho if caminho.startswith(os.path.realpath(PASTA_GRAVACOES) + os.sep) and os.path.isfile(caminho) else None
+    chave = chave_em('reunioes', reuniao.gravacao_arquivo)
+    return chave if guarda_arquivos().existe(chave) else None
 
 
 def _enviar_gravacao(reuniao):
     import mimetypes
-    caminho = _caminho_gravacao(reuniao)
-    if not caminho:
+    chave = _chave_gravacao(reuniao)
+    if not chave:
         return ('', 404)
-    tipo = mimetypes.guess_type(caminho)[0] or 'application/octet-stream'
-    # conditional=True responde a pedidos parciais (Range): o vídeo toca no navegador sem baixar inteiro antes
-    return send_file(caminho, mimetype=tipo, conditional=True, download_name=reuniao.gravacao_nome or os.path.basename(caminho))
+    tipo = mimetypes.guess_type(chave)[0] or 'application/octet-stream'
+    # Range: o vídeo toca no navegador sem baixar inteiro antes
+    return guarda_arquivos().resposta(chave, mimetype=tipo, nome_download=reuniao.gravacao_nome or os.path.basename(chave))
 
 
 def _apagar_arquivo_gravacao(reuniao):
-    caminho = _caminho_gravacao(reuniao)
-    if caminho:
-        try:
-            os.remove(caminho)
-        except OSError:
-            app.logger.warning("Não consegui apagar a gravação %s", caminho)
+    chave = _chave_gravacao(reuniao)
+    if chave and not guarda_arquivos().apagar(chave):
+        app.logger.warning("Não consegui apagar a gravação %s", chave)
     reuniao.gravacao_arquivo = reuniao.gravacao_nome = reuniao.gravacao_tamanho = reuniao.gravacao_enviada_em = None
 
 
@@ -3590,17 +3611,14 @@ def gravacao_reuniao(id):
     if extensao not in EXTENSOES_GRAVACAO:
         flash(tt('Formato não aceito. Envie vídeo (MP4, MOV, WEBM, MKV) ou áudio (MP3, M4A, WAV, OGG).', idioma), 'warning')
         return voltar_reuniao
-    os.makedirs(PASTA_GRAVACOES, exist_ok=True)
     nome_salvo = f"reuniao_{reuniao.id}_{secrets.token_hex(8)}.{extensao}"
-    caminho = os.path.join(PASTA_GRAVACOES, nome_salvo)
-    arquivo.save(caminho)
-    tamanho = os.path.getsize(caminho)
+    tamanho = tamanho_do_envio(arquivo)
     limite = int(regra('gravacao_reuniao_limite_mb')) * 1024 * 1024
     if tamanho == 0 or tamanho > limite:
-        os.remove(caminho)
         flash(tt('O arquivo passa do limite de {mb} MB.', idioma).format(mb=limite // (1024 * 1024)) if tamanho else
               tt('O arquivo está vazio.', idioma), 'warning')
         return voltar_reuniao
+    guarda_arquivos().salvar(chave_em('reunioes', nome_salvo), arquivo)
     _apagar_arquivo_gravacao(reuniao)
     reuniao.gravacao_arquivo, reuniao.gravacao_tamanho, reuniao.gravacao_enviada_em = nome_salvo, tamanho, datetime.now()
     reuniao.gravacao_nome = (secure_filename(arquivo.filename) or nome_salvo)[:255]
@@ -5397,18 +5415,24 @@ app.jinja_env.filters['fromjson'] = lambda texto: json.loads(texto) if texto els
 app.jinja_env.globals.update(nome_parceiro_b2b=nome_parceiro_b2b, empresas_parceiras=empresas_parceiras)
 
 # ------------------------------------------------------------------------------ logo do parceiro B2B (vai no certificado)
-PASTA_LOGOS = os.path.join(app.root_path, 'uploads', 'logos')
+PASTA_LOGOS = os.path.join(app.config['UPLOAD_FOLDER'], 'logos')  # disco local (suítes de agentes); o app usa chaves 'logos/...'
 FORMATOS_LOGO = {'png': b'\x89PNG\r\n\x1a\n', 'jpg': b'\xff\xd8\xff', 'jpeg': b'\xff\xd8\xff', 'webp': b'RIFF'}
 LIMITE_LOGO_BYTES = 2 * 1024 * 1024
 
 
-def _apagar_logo(caminho):
-    """Apaga o arquivo antigo; se estiver em uso (Windows), fica para trás sem quebrar a tela — o banco já não aponta para ele."""
-    try:
-        if caminho and os.path.exists(caminho):
-            os.remove(caminho)
-    except OSError as erro:
-        app.logger.warning("Logo antigo não apagado (%s): %s", caminho, erro)
+def _apagar_logo(nome):
+    """Apaga o logo antigo; se não der (arquivo em uso no Windows), fica para trás sem quebrar a tela — o banco já não aponta para ele."""
+    if nome and not guarda_arquivos().apagar(chave_em('logos', nome)):
+        app.logger.warning("Logo antigo não apagado: %s", nome)
+
+
+def _servir_logo(nome, max_age):
+    chave = chave_em('logos', nome) if nome else ''
+    if not chave or not guarda_arquivos().existe(chave):
+        return ('', 404)
+    resposta = guarda_arquivos().resposta(chave, max_age=max_age)
+    resposta.headers['X-Content-Type-Options'] = 'nosniff'
+    return resposta
 
 
 def pode_gerir_logo(usuario, empresa):
@@ -5422,12 +5446,7 @@ def logo_empresa(id):
     empresa = db.session.get(Empresa, id)
     if not empresa or not empresa.logo_arquivo:
         return ('', 404)
-    caminho = os.path.join(PASTA_LOGOS, os.path.basename(empresa.logo_arquivo))
-    if not os.path.exists(caminho):
-        return ('', 404)
-    resposta = send_file(caminho, max_age=3600)
-    resposta.headers['X-Content-Type-Options'] = 'nosniff'
-    return resposta
+    return _servir_logo(empresa.logo_arquivo, 3600)
 
 
 @app.route('/empresas/<int:id>/logo/enviar', methods=['POST'])
@@ -5439,7 +5458,7 @@ def enviar_logo_empresa(id):
     if not empresa or not pode_gerir_logo(current_user, empresa):
         flash("Acesso negado.", "danger")
         return voltar('gerenciar_turmas')
-    antigo = os.path.join(PASTA_LOGOS, os.path.basename(empresa.logo_arquivo)) if empresa.logo_arquivo else None
+    antigo = empresa.logo_arquivo
     if request.form.get('acao') == 'remover':
         empresa.logo_arquivo = None
         db.session.commit()
@@ -5455,10 +5474,8 @@ def enviar_logo_empresa(id):
     elif len(conteudo) > LIMITE_LOGO_BYTES:
         flash(tt('O logo deve ter no máximo 2 MB.', idioma), 'warning')
     else:
-        os.makedirs(PASTA_LOGOS, exist_ok=True)
         nome = f"empresa_{empresa.id}_{secrets.token_hex(6)}.{'jpg' if extensao == 'jpeg' else extensao}"
-        with open(os.path.join(PASTA_LOGOS, nome), 'wb') as f:
-            f.write(conteudo)
+        guarda_arquivos().salvar(chave_em('logos', nome), conteudo)
         empresa.logo_arquivo = nome
         db.session.commit()
         _apagar_logo(antigo)
@@ -5484,13 +5501,7 @@ def _marca_no_template():
 @app.route('/instituicao/logo')
 def logo_instituicao():
     """Logo da instituição (público: aparece no login, nos certificados e na verificação pública)."""
-    nome = identidade.obter().get('logo_arquivo')
-    caminho = os.path.join(PASTA_LOGOS, os.path.basename(nome)) if nome else ''
-    if not caminho or not os.path.exists(caminho):
-        return ('', 404)
-    resposta = send_file(caminho, max_age=300)
-    resposta.headers['X-Content-Type-Options'] = 'nosniff'
-    return resposta
+    return _servir_logo(identidade.obter().get('logo_arquivo'), 300)
 
 
 def _recurso_indisponivel(chave):
@@ -5560,7 +5571,7 @@ def identidade_logo():
         return redirect(url_for('identidade_instituicao'))
     if request.form.get('acao') == 'remover':
         antigo = identidade.definir_logo(None)
-        _apagar_logo(os.path.join(PASTA_LOGOS, os.path.basename(antigo)) if antigo else None)
+        _apagar_logo(antigo)
         flash(tt('Logo removido.', idioma), 'info')
         return redirect(url_for('identidade_instituicao'))
     arquivo = request.files.get('logo')
@@ -5572,12 +5583,10 @@ def identidade_logo():
     elif len(conteudo) > LIMITE_LOGO_BYTES:
         flash(tt('O logo deve ter no máximo 2 MB.', idioma), 'warning')
     else:
-        os.makedirs(PASTA_LOGOS, exist_ok=True)
         nome = f"instituicao_{secrets.token_hex(6)}.{'jpg' if extensao == 'jpeg' else extensao}"
-        with open(os.path.join(PASTA_LOGOS, nome), 'wb') as f:
-            f.write(conteudo)
+        guarda_arquivos().salvar(chave_em('logos', nome), conteudo)
         antigo = identidade.definir_logo(nome)
-        _apagar_logo(os.path.join(PASTA_LOGOS, os.path.basename(antigo)) if antigo else None)
+        _apagar_logo(antigo)
         flash(tt('Logo da instituição atualizado: ele aparece no menu, nos certificados e na verificação pública.', idioma), 'success')
     return redirect(url_for('identidade_instituicao'))
 
@@ -7398,8 +7407,17 @@ PERFIS_GESTAO_BANCA = ['Administrador', 'Mentor Administrador', 'Admin B2B']
 TIPO_AVALIADOR = 'Avaliador Banca'
 # Quem pode ser escalado numa banca: executivos convidados e a equipe de mentoria
 PERFIS_ESCALAVEIS_BANCA = [TIPO_AVALIADOR, 'Mentor', 'Professor', 'Mentor Administrador']
-PASTA_TCC = os.path.join(app.config['UPLOAD_FOLDER'], 'tcc')
-os.makedirs(PASTA_TCC, exist_ok=True)
+PASTA_TCC = os.path.join(app.config['UPLOAD_FOLDER'], 'tcc')  # disco local (suítes de agentes); o app usa chaves 'tcc/...'
+
+
+def _servir_arquivo(chave, como_anexo=False, nome_download=None):
+    """Resposta com o arquivo guardado; 404 se ele não existe (ou a chave for inválida)."""
+    try:
+        if not chave or not guarda_arquivos().existe(chave):
+            return ('', 404)
+    except armazenamento.ChaveInvalida:
+        return ('', 404)
+    return guarda_arquivos().resposta(chave, como_anexo=como_anexo, nome_download=nome_download)
 TIPOS_ENTREGA_TCC = {'Escrito final': {'pdf'}, 'Slides da apresentação': {'pdf', 'pptx', 'ppt'}}
 LIMITE_ENTREGA_MB = 20
 
@@ -7550,7 +7568,7 @@ def avaliadores_banca():
                 flash(t('aval_erro_tamanho', current_user.idioma), "warning")
                 return redirect(url_for('avaliadores_banca'))
             nome_arquivo = f"curriculo_{perfil.usuario_id}_{datetime.now().strftime('%Y%m%d%H%M%S')}.pdf"
-            arquivo.save(os.path.join(PASTA_TCC, nome_arquivo))
+            guarda_arquivos().salvar(chave_em('tcc', nome_arquivo), arquivo)
             perfil.curriculo_arquivo = nome_arquivo
         db.session.commit()
         flash(t('aval_salvo', current_user.idioma), "success")
@@ -7570,7 +7588,7 @@ def curriculo_avaliador(usuario_id):
     if not perfil or not perfil.curriculo_arquivo or not (pode_gerir_bancas(current_user) or colega or current_user.id == usuario_id):
         flash("Acesso negado.", "danger")
         return redirect(url_for('dashboard'))
-    return send_from_directory(PASTA_TCC, perfil.curriculo_arquivo, as_attachment=False)
+    return _servir_arquivo(chave_em('tcc', perfil.curriculo_arquivo))
 
 
 @app.route('/bancas/<int:id>/ficha')
@@ -7721,7 +7739,7 @@ def enviar_entrega_tcc(id):
 
     versao = 1 + max([e.versao for e in projeto.entregas if e.tipo == tipo] or [0])
     nome_salvo = f"tcc_{projeto.id}_{'escrito' if tipo == 'Escrito final' else 'slides'}_v{versao}_{datetime.now().strftime('%Y%m%d%H%M%S')}.{extensao}"
-    arquivo.save(os.path.join(PASTA_TCC, nome_salvo))
+    guarda_arquivos().salvar(chave_em('tcc', nome_salvo), arquivo)
     banca = getattr(projeto, 'banca', None)
     prazo = (banca.prazo_entrega_escrito if tipo == 'Escrito final' else banca.prazo_entrega_slides) if banca else None
     entrega = EntregaTCC(projeto_id=projeto.id, tipo=tipo, arquivo=nome_salvo, nome_original=secure_filename(arquivo.filename),
@@ -7747,8 +7765,7 @@ def baixar_entrega_tcc(id):
     if not entrega or not pode_baixar_entrega(current_user, entrega.projeto):
         flash("Acesso negado.", "danger")
         return redirect(url_for('dashboard'))
-    return send_from_directory(PASTA_TCC, entrega.arquivo, as_attachment=True,
-                               download_name=entrega.nome_original or entrega.arquivo)
+    return _servir_arquivo(chave_em('tcc', entrega.arquivo), como_anexo=True, nome_download=entrega.nome_original or entrega.arquivo)
 
 
 # ------------------------------------------------------------------------------
@@ -8071,8 +8088,7 @@ def telao_banca(id):
 # ==============================================================================
 # FASE 4 — CERTIFICADOS COM HORAS, INDICADORES DE VOLUNTARIADO E REPOSITÓRIO DE TCCs
 # ==============================================================================
-PASTA_ACERVO = os.path.join(app.config['UPLOAD_FOLDER'], 'acervo')
-os.makedirs(PASTA_ACERVO, exist_ok=True)
+PASTA_ACERVO = os.path.join(app.config['UPLOAD_FOLDER'], 'acervo')  # disco local (suítes de agentes)
 ROTULOS_ATIVIDADE = {'Leitura Assíncrona de TCC': 'Leitura do TCC', 'Análise e Notas': 'Análise e notas',
                      'Avaliação de Banca Ao Vivo': 'Banca ao vivo', 'Mentoria Extraordinária': 'Mentoria extra',
                      'Reunião Institucional': 'Reuniões institucionais', 'Apoio Institucional': 'Apoio institucional'}
@@ -8296,7 +8312,7 @@ def salvar_arquivo_acervo(arquivo, prefixo, extensoes):
     if extensao not in extensoes:
         return None
     nome = f"{prefixo}_{datetime.now().strftime('%Y%m%d%H%M%S%f')}.{extensao}"
-    arquivo.save(os.path.join(PASTA_ACERVO, nome))
+    guarda_arquivos().salvar(chave_em('acervo', nome), arquivo)
     return nome
 
 
@@ -8337,7 +8353,7 @@ def aprovar_versao_final(id):
     for entrega, campo in [(escrito, 'arquivo_pdf'), (next((e for e in projeto.entregas if e.tipo == 'Slides da apresentação'), None), 'arquivo_slides')]:
         if entrega:
             destino = f"acervo_{projeto.id}_{entrega.arquivo}"
-            shutil.copyfile(os.path.join(PASTA_TCC, entrega.arquivo), os.path.join(PASTA_ACERVO, destino))
+            guarda_arquivos().copiar(chave_em('tcc', entrega.arquivo), chave_em('acervo', destino))
             setattr(item, campo, destino)
     db.session.add(item)
     db.session.commit()
@@ -8360,7 +8376,7 @@ def baixar_acervo(id, tipo):
         return redirect(url_for('biblioteca_tccs'))
     item.downloads = (item.downloads or 0) + 1
     db.session.commit()
-    return send_from_directory(PASTA_ACERVO, arquivo, as_attachment=True)
+    return _servir_arquivo(chave_em('acervo', arquivo), como_anexo=True)
 
 
 @app.route('/repositorio')
@@ -8382,7 +8398,7 @@ def baixar_repositorio_publico(id):
         return redirect(url_for('repositorio_publico'))
     item.downloads = (item.downloads or 0) + 1
     db.session.commit()
-    return send_from_directory(PASTA_ACERVO, item.arquivo_pdf, as_attachment=True)
+    return _servir_arquivo(chave_em('acervo', item.arquivo_pdf), como_anexo=True)
 
 
 # ==============================================================================
@@ -8740,7 +8756,7 @@ def assistente_documentos():
         return redirect(url_for('assistente', aba='base'))
     try:
         fonte = base_conhecimento.adicionar_documento(request.form.get('tipo'), request.form.get('titulo'), arquivo.filename,
-                                                      arquivo.read(), app.config['UPLOAD_FOLDER'], current_user.id,
+                                                      arquivo.read(), guarda_arquivos(), current_user.id,
                                                       request.form.get('descricao', ''))
     except base_conhecimento.ErroDocumento as e:
         db.session.rollback()
@@ -8791,12 +8807,11 @@ def assistente_arquivo_documento(id):
     import base_conhecimento
     from models import FonteConhecimento
     fonte = db.get_or_404(FonteConhecimento, id)
-    pasta = os.path.realpath(base_conhecimento.pasta_documentos(app.config['UPLOAD_FOLDER']))
-    caminho = os.path.realpath(fonte.arquivo_caminho or '')
-    if not fonte.arquivo_caminho or not caminho.startswith(pasta + os.sep) or not os.path.isfile(caminho):
+    chave = base_conhecimento.chave_do_documento(fonte)
+    if not chave or not guarda_arquivos().existe(chave):
         flash(tt('Arquivo não encontrado.', current_user.idioma), 'warning')
         return redirect(url_for('assistente', aba='base'))
-    return send_file(caminho, as_attachment=True, download_name=fonte.arquivo_nome or os.path.basename(caminho))
+    return guarda_arquivos().resposta(chave, como_anexo=True, nome_download=fonte.arquivo_nome or os.path.basename(chave))
 
 
 @app.route('/admin/assistente/documentos/<int:id>/trechos')

@@ -97,7 +97,9 @@ def limpar(registrar=print):
 
         if apagar.get("fonte_conhecimento"):  # documentos enviados ao Assistente da Plataforma
             lista = ",".join(str(int(i)) for i in apagar["fonte_conhecimento"])
-            arquivos += [r[0] for r in con.execute(text(f"SELECT arquivo_caminho FROM fonte_conhecimento WHERE id IN ({lista})")) if r[0]]
+            # documentos novos guardam a chave relativa ('base_conhecimento/x'); os antigos, o caminho absoluto
+            arquivos += [r[0] if os.path.isabs(r[0]) else os.path.join(app.config["UPLOAD_FOLDER"], r[0])
+                         for r in con.execute(text(f"SELECT arquivo_caminho FROM fonte_conhecimento WHERE id IN ({lista})")) if r[0]]
 
         # Associações (sem PK própria) que apontam para qualquer linha apagada
         total = 0

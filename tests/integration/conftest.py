@@ -93,7 +93,7 @@ def novo_usuario(app_real, criados):
             u.forcar_troca_senha = False
             db.session.add(u)
             db.session.commit()
-            resposta = bcrypt.generate_password_hash("x").decode()
+            resposta = bcrypt.generate_password_hash(uuid.uuid4().hex).decode()  # resposta aleatória por conta
             filhos = [
                 TermoAceite(usuario_id=u.id, versao_termo=app_real.VERSAO_TERMO_ATUAL),
                 SegurancaUsuario(
@@ -146,3 +146,9 @@ class Navegador:
 @pytest.fixture
 def navegador(app_real):
     return Navegador(app_real.app)
+
+
+@pytest.fixture
+def novo_navegador(app_real):
+    """Outro navegador (outra sessão), para testar o acesso de uma segunda pessoa."""
+    return lambda: Navegador(app_real.app)

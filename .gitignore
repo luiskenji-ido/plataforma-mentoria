@@ -22,3 +22,9 @@ Agent Reports/
 
 # Cópia do banco e senha das contas de demonstração do protótipo
 prototipo_ux/dados/
+
+# Cobertura dos testes
+.coverage
+.coverage.*
+coverage*.xml
+htmlcov/

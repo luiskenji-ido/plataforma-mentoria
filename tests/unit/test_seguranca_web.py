@@ -96,3 +96,74 @@ def test_ip_do_cliente_confia_no_proxy_quando_configurado(app, monkeypatch):
     monkeypatch.setenv("ATRAS_DE_PROXY", "1")
     with app.test_request_context("/", headers={"X-Real-IP": "8.8.8.8"}, environ_base={"REMOTE_ADDR": "10.0.0.1"}):
         assert sw.ip_do_cliente() == "8.8.8.8"
+
+
+# ------------------------------------------------------------------ limitador no Redis
+class PipeFalso:
+    def __init__(self, cliente):
+        self.cliente, self.ops = cliente, []
+
+    def incr(self, nome):
+        self.ops.append(("incr", nome))
+
+    def expire(self, nome, segundos):
+        self.ops.append(("expire", nome, segundos))
+
+    def execute(self):
+        if self.cliente.fora_do_ar:
+            raise ConnectionError("redis fora")
+        resultado = []
+        for op in self.ops:
+            if op[0] == "incr":
+                self.cliente.valores[op[1]] = self.cliente.valores.get(op[1], 0) + 1
+                resultado.append(self.cliente.valores[op[1]])
+            else:
+                self.cliente.expiracoes[op[1]] = op[2]
+                resultado.append(True)
+        return resultado
+
+
+class RedisFalso:
+    def __init__(self):
+        self.valores, self.expiracoes, self.fora_do_ar = {}, {}, False
+
+    def pipeline(self):
+        return PipeFalso(self)
+
+
+def test_redis_conta_por_janela_e_chave_e_expira():
+    redis = RedisFalso()
+    lim = sw.LimitadorRedis(redis, relogio=lambda: 1200.0)
+    assert [lim.permitir(("login", "1.1.1.1"), 2, 60)[0] for _ in range(2)] == [True, True]
+    assert lim.permitir(("login", "1.1.1.1"), 2, 60) == (False, 61)
+    assert lim.permitir(("login", "2.2.2.2"), 2, 60)[0] is True
+    assert all(segundos == 61 for segundos in redis.expiracoes.values())
+
+
+def test_redis_janela_nova_libera():
+    agora = [1200.0]
+    lim = sw.LimitadorRedis(RedisFalso(), relogio=lambda: agora[0])
+    lim.permitir("k", 1, 60)
+    assert lim.permitir("k", 1, 60)[0] is False
+    agora[0] += 60
+    assert lim.permitir("k", 1, 60)[0] is True
+
+
+def test_redis_fora_do_ar_usa_o_limite_local(relogio):
+    redis = RedisFalso()
+    redis.fora_do_ar = True
+    lim = sw.LimitadorRedis(redis)
+    assert lim.permitir("k", 1, 60) == (True, 0)
+    assert lim.permitir("k", 1, 60)[0] is False  # o limite local continua valendo
+
+
+def test_chave_do_redis_nao_aceita_caracteres_de_controle():
+    redis = RedisFalso()
+    sw.LimitadorRedis(redis, relogio=lambda: 0.0).permitir(("login", "1.1.1.1\r\nFLUSHALL"), 5, 60)
+    (nome,) = redis.valores
+    assert "\r" not in nome and "\n" not in nome and " " not in nome
+
+
+def test_sem_redis_url_o_limitador_e_em_memoria(monkeypatch):
+    monkeypatch.delenv("REDIS_URL", raising=False)
+    assert isinstance(sw.criar_limitador(), sw.LimitadorRequisicoes)

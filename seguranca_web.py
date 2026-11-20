@@ -151,7 +151,58 @@ class LimitadorRequisicoes:
             return True, 0
 
 
-limitador = LimitadorRequisicoes()
+class LimitadorRedis:
+    """Janela fixa no Redis, compartilhada por todas as réplicas (REDIS_URL). Se o Redis cair, cai para o limitador
+    em memória deste processo (o login continua funcionando, só o limite deixa de ser global) e registra um aviso."""
+
+    def __init__(self, cliente, reserva=None, relogio=time.time):
+        self.cliente = cliente
+        self.reserva = reserva or LimitadorRequisicoes()
+        self.relogio = relogio
+
+    @staticmethod
+    def _parte(valor):
+        return re.sub(r"[^A-Za-z0-9_.:\-]", "_", str(valor))[:80]
+
+    def permitir(self, chave, maximo, janela):
+        agora = self.relogio()
+        inicio_janela = int(agora // janela)
+        partes = chave if isinstance(chave, (tuple, list)) else (chave,)
+        nome = "mentoria:limite:" + ":".join(self._parte(p) for p in partes) + f":{inicio_janela}"
+        try:
+            pipe = self.cliente.pipeline()
+            pipe.incr(nome)
+            pipe.expire(nome, int(janela) + 1)
+            contagem = pipe.execute()[0]
+        except Exception as erro:
+            import logging
+
+            logging.getLogger("seguranca").warning("Redis indisponível para o limite de tentativas (%s); usando o limite local",
+                                                   type(erro).__name__)
+            return self.reserva.permitir(chave, maximo, janela)
+        if contagem > maximo:
+            return False, int(janela - (agora % janela)) + 1
+        return True, 0
+
+
+def criar_limitador():
+    """Redis quando REDIS_URL existe (contêiner com várias réplicas); senão, memória do processo."""
+    url = os.environ.get("REDIS_URL", "").strip()
+    if not url:
+        return LimitadorRequisicoes()
+    import redis
+
+    cliente = redis.Redis.from_url(url, socket_connect_timeout=2, socket_timeout=2, health_check_interval=30)
+    return LimitadorRedis(cliente)
+
+
+def verificar_redis():
+    """Prontidão: PING no Redis (só quando o limitador usa Redis)."""
+    if isinstance(limitador, LimitadorRedis):
+        limitador.cliente.ping()
+
+
+limitador = criar_limitador()
 
 
 def ip_do_cliente():

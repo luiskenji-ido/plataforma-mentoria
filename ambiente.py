@@ -285,20 +285,46 @@ def _arquivo_batimento():
     return os.path.join(RAIZ, 'instance', 'ultima_execucao_tarefas.txt')
 
 
-def anotar_execucao_das_tarefas():
+CHAVE_BATIMENTO_REDIS = 'mentoria:tarefas:ultima_execucao'
+
+
+def _redis_do_batimento():
+    """Com REDIS_URL (contêiner), o batimento fica no Redis: o worker grava e as réplicas web leem."""
+    url = (os.environ.get('REDIS_URL') or '').strip()
+    if not url:
+        return None
+    import redis
+    return redis.Redis.from_url(url, socket_connect_timeout=2, socket_timeout=2)
+
+
+def anotar_execucao_das_tarefas(agora=None):
+    momento = (agora or datetime.now()).isoformat(timespec='seconds')
     try:
+        cliente = _redis_do_batimento()
+        if cliente is not None:
+            cliente.set(CHAVE_BATIMENTO_REDIS, momento)
+            return
         os.makedirs(os.path.dirname(_arquivo_batimento()), exist_ok=True)
         with open(_arquivo_batimento(), 'w', encoding='utf-8') as f:
-            f.write(datetime.now().isoformat(timespec='seconds'))
-    except OSError:
-        pass
+            f.write(momento)
+    except Exception as erro:  # o batimento é só um indicador da tela Ambiente; nunca derruba as tarefas
+        import logging
+        logging.getLogger('ambiente').warning('Não foi possível anotar a execução das tarefas: %s', erro)
 
 
 def ultima_execucao_das_tarefas():
     try:
+        cliente = _redis_do_batimento()
+        if cliente is not None:
+            valor = cliente.get(CHAVE_BATIMENTO_REDIS)
+            return datetime.fromisoformat(valor.decode()) if valor else None
         with open(_arquivo_batimento(), encoding='utf-8') as f:
             return datetime.fromisoformat(f.read().strip())
     except (OSError, ValueError):
+        return None
+    except Exception as erro:
+        import logging
+        logging.getLogger('ambiente').warning('Não foi possível ler a execução das tarefas: %s', erro)
         return None
 
 

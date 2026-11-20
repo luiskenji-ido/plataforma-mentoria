@@ -48,3 +48,42 @@ def test_fora_da_aws(linux_sem_arquivos):
 def test_windows_so_pelas_variaveis(monkeypatch):
     monkeypatch.setattr(ambiente.sys, "platform", "win32")
     assert ambiente.aws_servico() is None
+
+
+# ------------------------------------------------------------------ batimento das tarefas no Redis
+class RedisDeTeste:
+    def __init__(self):
+        self.dados = {}
+
+    def set(self, chave, valor):
+        self.dados[chave] = valor.encode()
+
+    def get(self, chave):
+        return self.dados.get(chave)
+
+
+def test_batimento_das_tarefas_vai_para_o_redis(monkeypatch):
+    from datetime import datetime
+
+    redis = RedisDeTeste()
+    monkeypatch.setattr(ambiente, "_redis_do_batimento", lambda: redis)
+    ambiente.anotar_execucao_das_tarefas(datetime(2026, 11, 20, 10, 30))
+    assert ambiente.ultima_execucao_das_tarefas() == datetime(2026, 11, 20, 10, 30)
+
+
+def test_batimento_sem_registro_no_redis(monkeypatch):
+    monkeypatch.setattr(ambiente, "_redis_do_batimento", lambda: RedisDeTeste())
+    assert ambiente.ultima_execucao_das_tarefas() is None
+
+
+def test_redis_fora_do_ar_nao_derruba_as_tarefas(monkeypatch):
+    class Fora:
+        def set(self, *a):
+            raise ConnectionError("fora")
+
+        def get(self, *a):
+            raise ConnectionError("fora")
+
+    monkeypatch.setattr(ambiente, "_redis_do_batimento", lambda: Fora())
+    ambiente.anotar_execucao_das_tarefas()
+    assert ambiente.ultima_execucao_das_tarefas() is None

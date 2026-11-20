@@ -254,14 +254,18 @@ def _hash(texto):
 # ------------------------------------------------------------------------------
 # Documentos do projeto (PRD, PTD, DTD...)
 # ------------------------------------------------------------------------------
-def pasta_documentos(raiz_uploads):
-    caminho = os.path.join(raiz_uploads, PASTA)
-    os.makedirs(caminho, exist_ok=True)
-    return caminho
+def chave_do_documento(fonte):
+    """Chave do arquivo no armazenamento. Documentos antigos guardaram o caminho absoluto do disco: vale o nome do
+    arquivo dentro da pasta da base (é onde ele está em uploads/)."""
+    guardado = (fonte.arquivo_caminho or '').replace('\\', '/')
+    if not guardado:
+        return None
+    return f"{PASTA}/{guardado.rsplit('/', 1)[-1]}"
 
 
-def adicionar_documento(tipo, titulo, nome_arquivo, dados, raiz_uploads, usuario_id=None, descricao=''):
-    """Grava o arquivo, extrai o texto e cria a fonte (nova versão se já houver uma com o mesmo tipo e título)."""
+def adicionar_documento(tipo, titulo, nome_arquivo, dados, armazenamento, usuario_id=None, descricao=''):
+    """Grava o arquivo (armazenamento.py), extrai o texto e cria a fonte (nova versão se já houver uma com o mesmo
+    tipo e título)."""
     from werkzeug.utils import secure_filename
     tipo = (tipo or '').upper()
     if tipo not in TIPOS_UPLOAD:
@@ -272,11 +276,10 @@ def adicionar_documento(tipo, titulo, nome_arquivo, dados, raiz_uploads, usuario
                                                 db.func.lower(FonteConhecimento.titulo) == titulo.lower()).all()
     versao = max([f.versao for f in anteriores] or [0]) + 1
     nome_seguro = secure_filename(nome_arquivo) or 'documento'
-    caminho = os.path.join(pasta_documentos(raiz_uploads), f'{uuid.uuid4().hex[:12]}_{nome_seguro}')
-    with open(caminho, 'wb') as f:
-        f.write(dados)
+    chave = f'{PASTA}/{uuid.uuid4().hex[:12]}_{nome_seguro}'
+    armazenamento.salvar(chave, dados)
     fonte = FonteConhecimento(tipo=tipo, titulo=titulo, versao=versao, descricao=(descricao or '').strip()[:1000] or None,
-                              arquivo_nome=nome_arquivo[:255], arquivo_caminho=caminho, hash_conteudo=_hash(texto),
+                              arquivo_nome=nome_arquivo[:255], arquivo_caminho=chave, hash_conteudo=_hash(texto),
                               ativo=True, criado_por_id=usuario_id)
     db.session.add(fonte)
     db.session.flush()
@@ -297,15 +300,14 @@ def excluir(fonte):
     """Apaga a fonte, os trechos e o arquivo enviado (a fonte dos gerentes não é apagada, só desativada)."""
     if fonte.tipo == 'GERENTES':
         raise ErroDocumento('A fonte dos Agentes gerentes não pode ser excluída; desative-a se não quiser usá-la.')
-    caminho = fonte.arquivo_caminho
+    import armazenamento
+    chave = chave_do_documento(fonte)
     db.session.delete(fonte)
     db.session.commit()
     _INDICE.clear()
-    if caminho and os.path.isfile(caminho):
-        try:
-            os.remove(caminho)
-        except OSError:
-            pass
+    if chave and not armazenamento.atual().apagar(chave):
+        import logging
+        logging.getLogger('base_conhecimento').warning("Arquivo do documento não encontrado para apagar: %s", chave)
 
 
 # ------------------------------------------------------------------------------
