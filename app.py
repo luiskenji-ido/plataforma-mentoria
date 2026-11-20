@@ -6084,6 +6084,7 @@ def verificar_backups_agendados():
     except Exception as e:
         db.session.rollback()
         app.logger.warning(f"Verificação de backups agendados falhou: {e}")
+    _executar_mudancas_com_seguranca()  # requisições de mudança de código aprovadas e na data agendada
 
 
 def hash_resposta_seguranca(resposta):
@@ -9345,6 +9346,7 @@ def agentes_orquestrador():
     if bloqueio:
         return bloqueio
     import mudancas
+    _executar_mudancas_com_seguranca()
     executor, coletor, ambiente_orq, ia = _orquestrador()
     ignorados = executor.ignorados()
     correcoes = coletor.coletar()
@@ -9359,11 +9361,132 @@ def agentes_orquestrador():
                            rdm_para_commit=mudancas.aprovadas_para_commit())
 
 
+def _problema_da_ia_do_orquestrador(provedor):
+    """Por que o Orquestrador não pode usar esta IA agora: (mensagem em português, detalhe) ou None."""
+    _, _, _, ia = _orquestrador()
+    if provedor not in ia.provedores_disponiveis():
+        return 'A IA escolhida não tem chave configurada no .env.', ''
+    import provedores_ia
+    if not provedores_ia.ativo('orquestrador'):
+        return 'A IA do Agente Orquestrador está desligada. Ligue em Administração › Provedores de IA.', ''
+    try:
+        provedores_ia.conferir_orcamento()
+    except provedores_ia.OrcamentoEsgotado as e:
+        return 'O Orquestrador não pode usar a IA agora', str(e)
+    return None
+
+
+def _disparar_executor(ids, provedor, usuario, equipes, rdm=None):
+    """Abre o Agente Orquestrador executor em segundo plano (a tela e a requisição de mudança usam o mesmo caminho)."""
+    import subprocess
+    import sys as _sys
+    import provedores_ia
+    executor, *_ = _orquestrador()
+    raiz = os.path.dirname(os.path.abspath(__file__))
+    os.makedirs(executor.PASTA_AO_VIVO, exist_ok=True)
+    cmd = [_sys.executable, os.path.join(raiz, 'agentes_orquestrador', 'executor.py'), '--provedor', provedor,
+           '--usuario', usuario, '--ids', *ids, '--equipes', *equipes]
+    if rdm:
+        cmd += ['--rdm', json.dumps(rdm, ensure_ascii=False)]
+    opcoes = {'creationflags': subprocess.CREATE_NEW_PROCESS_GROUP | subprocess.CREATE_NO_WINDOW} if os.name == 'nt' else {'start_new_session': True}
+    log = open(os.path.join(executor.PASTA_AO_VIVO, 'executor.log'), 'w', encoding='utf-8')
+    ambiente = ambiente_dos_agentes()
+    for nome_provedor, variavel in (('claude', 'ORQUESTRADOR_MODELO_CLAUDE'), ('gemini', 'ORQUESTRADOR_MODELO_GEMINI'),
+                                    ('openai', 'ORQUESTRADOR_MODELO_OPENAI')):
+        modelo_escolhido = provedores_ia.modelo_de_provedor('orquestrador', nome_provedor)  # tela Provedores de IA
+        if modelo_escolhido:
+            ambiente[variavel] = modelo_escolhido
+    subprocess.Popen(cmd, cwd=raiz, stdout=log, stderr=subprocess.STDOUT, env=ambiente, **opcoes)
+
+
+def sincronizar_execucoes_de_codigo():
+    """Leva para a CR o resultado da execução que ela disparou (commit automático ou rollback). Também encerra a CR
+    cuja execução foi parada ou ficou sem sinal (o executor caiu): rollback e Não aplicada."""
+    import time as _time
+    import mudancas
+    executor, *_ = _orquestrador()
+    concluidas = 0
+    for r in mudancas.em_execucao():
+        estado = executor.ler_estado() or {}
+        dono = (estado.get('rdm') or {}).get('id') == r.id
+        iniciada = mudancas.conteudo(r).get('execucao_iniciada') or ''
+        try:
+            minutos = (datetime.now() - datetime.fromisoformat(iniciada)).total_seconds() / 60
+        except ValueError:
+            minutos = 10 ** 6
+        limite = mudancas.MINUTOS_SEM_SINAL_EXECUCAO
+        if dono and estado.get('resultado_rdm'):
+            res = estado['resultado_rdm']
+            mudancas.concluir_execucao(r, res.get('status') == 'aplicada', res.get('motivo', ''), res.get('commit', ''))
+        elif dono and estado.get('status') == 'revertido':
+            mudancas.concluir_execucao(r, False, 'A execução foi parada na tela do Orquestrador: rollback feito, nada mudou no código em uso.')
+        elif dono and (_time.time() - (estado.get('batimento') or 0)) / 60 > limite and \
+                not (estado.get('status') == 'executando' and _orquestrador_em_execucao(estado)):
+            executor.rollback(f"Agente executor ({mudancas.numero(r)})")
+            mudancas.concluir_execucao(r, False, 'A execução foi interrompida (o executor parou de dar sinal): rollback feito, nada mudou no código em uso.')
+        elif not dono and minutos > limite:
+            mudancas.concluir_execucao(r, False, 'O Agente Orquestrador executor não começou a execução desta requisição.')
+        else:
+            continue
+        concluidas += 1
+    return concluidas
+
+
+def _banco_e_copia():
+    """SQLite fora da pasta instance/ deste projeto = cópia (protótipo, cadeia de agentes, testes). As CRs de uma cópia
+    nunca disparam o executor, porque ele corrige e faz push no repositório git real."""
+    uri = app.config.get('SQLALCHEMY_DATABASE_URI') or ''
+    if not uri.startswith('sqlite'):
+        return False  # banco de servidor (MySQL/PostgreSQL): é o da plataforma
+    caminho = uri.split(':///', 1)[-1].split('?', 1)[0]
+    if not os.path.isabs(caminho):
+        caminho = os.path.join(app.instance_path, caminho)  # o Flask-SQLAlchemy resolve o caminho relativo na instance/
+    pasta_instance = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'instance')
+    return os.path.normcase(os.path.dirname(os.path.abspath(caminho))) != os.path.normcase(pasta_instance)
+
+
+def executar_mudancas_de_codigo():
+    """CR de código aprovada e na data agendada → dispara o Agente Orquestrador executor (uma execução por vez).
+    Chamado pelas tarefas agendadas, pelas telas do Orquestrador e de Requisições e logo depois da aprovação.
+    Devolve quantas execuções começou."""
+    import mudancas
+    if os.environ.get('MENTORIA_VALIDACAO') == '1' or os.environ.get('MENTORIA_SEM_EXECUCAO_AUTOMATICA') == '1' or _banco_e_copia():
+        return 0  # validação, protótipo ou testes (cópia do banco): o executor mexe no git real, então nunca dispara daqui
+    sincronizar_execucoes_de_codigo()
+    prontas = mudancas.prontas_para_executar()
+    if not prontas:
+        return 0
+    executor, coletor, ambiente_orq, ia = _orquestrador()
+    r = prontas[0]
+    estado = executor.ler_estado()
+    if mudancas.em_execucao() or _orquestrador_em_execucao(estado) or (estado and estado.get('status') == 'aguardando_confirmacao'):
+        mudancas.anotar_espera(r, 'Aguardando: o Orquestrador tem outra correção em andamento. Começa assim que ela terminar.')
+        return 0
+    capacidade = ambiente_orq.capacidades()
+    if not capacidade['pode_corrigir']:
+        mudancas.anotar_espera(r, f"Aguardando: este ambiente ({capacidade['nome']}) não permite que o executor corrija o código. "
+                                  'A CR roda num ambiente que permita (servidor com git, processos em segundo plano e disco persistente).')
+        return 0
+    dados = mudancas.conteudo(r)
+    disponiveis = ia.provedores_disponiveis()
+    provedor = dados.get('provedor') if dados.get('provedor') in disponiveis else (disponiveis[0] if disponiveis else dados.get('provedor') or 'gemini')
+    problema_ia = _problema_da_ia_do_orquestrador(provedor)
+    if problema_ia:
+        mudancas.anotar_espera(r, 'Aguardando: ' + problema_ia[0] + (f": {problema_ia[1]}." if problema_ia[1] else ''))
+        return 0
+    todas_equipes = [c for c, *_ in executor.EQUIPES_VALIDACAO]
+    equipes = [e for e in (dados.get('equipes') or []) if e in todas_equipes] or todas_equipes
+    ids = [c['id'] for c in dados.get('correcoes') or []]
+    if not mudancas.iniciar_execucao(r):
+        return 0  # outro processo já começou esta CR
+    _disparar_executor(ids, provedor, f"{r.solicitante.nome if r.solicitante else ''} · {mudancas.numero(r)}", equipes,
+                       mudancas.dados_para_o_executor(r))
+    return 1
+
+
 @app.route('/admin/agentes-orquestrador/iniciar', methods=['POST'])
 @login_required
 def iniciar_orquestrador():
-    import subprocess
-    import sys as _sys
     bloqueio = _somente_administrador()
     if bloqueio:
         return bloqueio
@@ -9378,17 +9501,9 @@ def iniciar_orquestrador():
         flash(tt('Este ambiente não permite corrigir o código. Veja os itens em vermelho no quadro do ambiente.', idioma), 'danger')
         return redirect(url_for('agentes_orquestrador'))
     provedor = request.form.get('provedor', 'gemini')
-    if provedor not in ia.provedores_disponiveis():
-        flash(tt('A IA escolhida não tem chave configurada no .env.', idioma), 'warning')
-        return redirect(url_for('agentes_orquestrador'))
-    import provedores_ia
-    if not provedores_ia.ativo('orquestrador'):
-        flash(tt('A IA do Agente Orquestrador está desligada. Ligue em Administração › Provedores de IA.', idioma), 'warning')
-        return redirect(url_for('agentes_orquestrador'))
-    try:
-        provedores_ia.conferir_orcamento()
-    except provedores_ia.OrcamentoEsgotado as e:
-        flash(f"{tt('O Orquestrador não pode usar a IA agora', idioma)}: {e}.", 'warning')
+    problema_ia = _problema_da_ia_do_orquestrador(provedor)
+    if problema_ia:
+        flash(tt(problema_ia[0], idioma) + (f": {problema_ia[1]}." if problema_ia[1] else ''), 'warning')
         return redirect(url_for('agentes_orquestrador'))
     ignorados = executor.ignorados()
     disponiveis = [c['id'] for c in coletor.coletar() if c['id'] not in ignorados]
@@ -9398,19 +9513,7 @@ def iniciar_orquestrador():
         return redirect(url_for('agentes_orquestrador'))
     equipes = [e for e in request.form.getlist('equipes') if e in {c for c, *_ in executor.EQUIPES_VALIDACAO}] or \
         [c for c, *_ in executor.EQUIPES_VALIDACAO]
-    raiz = os.path.dirname(os.path.abspath(__file__))
-    os.makedirs(executor.PASTA_AO_VIVO, exist_ok=True)
-    cmd = [_sys.executable, os.path.join(raiz, 'agentes_orquestrador', 'executor.py'), '--provedor', provedor,
-           '--usuario', current_user.nome, '--ids', *ids, '--equipes', *equipes]
-    opcoes = {'creationflags': subprocess.CREATE_NEW_PROCESS_GROUP | subprocess.CREATE_NO_WINDOW} if os.name == 'nt' else {'start_new_session': True}
-    log = open(os.path.join(executor.PASTA_AO_VIVO, 'executor.log'), 'w', encoding='utf-8')
-    ambiente = ambiente_dos_agentes()
-    for nome_provedor, variavel in (('claude', 'ORQUESTRADOR_MODELO_CLAUDE'), ('gemini', 'ORQUESTRADOR_MODELO_GEMINI'),
-                                    ('openai', 'ORQUESTRADOR_MODELO_OPENAI')):
-        modelo_escolhido = provedores_ia.modelo_de_provedor('orquestrador', nome_provedor)  # tela Provedores de IA
-        if modelo_escolhido:
-            ambiente[variavel] = modelo_escolhido
-    subprocess.Popen(cmd, cwd=raiz, stdout=log, stderr=subprocess.STDOUT, env=ambiente, **opcoes)
+    _disparar_executor(ids, provedor, current_user.nome, equipes)
     flash(tt('Orquestrador iniciado: as correções são feitas numa cópia do código e validadas pelas equipes antes de qualquer commit.', idioma), 'success')
     return redirect(url_for('agentes_orquestrador'))
 
@@ -9886,7 +9989,33 @@ def _requisicoes_de_mudanca_no_template():
             'rdm_pode_decidir': lambda r: current_user.is_authenticated and mudancas.pode_decidir(current_user, r),
             'rdm_pode_ver': lambda: current_user.is_authenticated and mudancas.pode_ver(current_user),
             'rdm_exemplo': lambda: f"{mudancas.prefixo(idioma)}-{datetime.now().year}-0001",
-            'rdm_form_correcoes': _correcoes_para_cr, 'rdm_form_regras': _regras_para_cr}
+            'rdm_form_correcoes': _correcoes_para_cr, 'rdm_form_regras': _regras_para_cr,
+            'rdm_form_provedores': _provedores_para_cr, 'rdm_form_equipes': _equipes_para_cr,
+            'rdm_executavel': mudancas.executavel, 'rdm_hora_limite': mudancas.HORA_LIMITE_EXECUCAO_CODIGO}
+
+
+def _executar_mudancas_com_seguranca():
+    """A execução automática das CRs de código nunca derruba a tela que a chamou."""
+    try:
+        return executar_mudancas_de_codigo()
+    except Exception as e:
+        db.session.rollback()
+        app.logger.warning(f"Execução das requisições de mudança de código falhou: {e}")
+        return 0
+
+
+def _provedores_para_cr():
+    try:
+        return _orquestrador()[3].provedores_disponiveis()
+    except Exception:
+        return []
+
+
+def _equipes_para_cr():
+    try:
+        return _orquestrador()[0].EQUIPES_VALIDACAO
+    except Exception:
+        return []
 
 
 def _correcoes_para_cr():
@@ -9917,6 +10046,7 @@ def mudancas_view():
         flash("Acesso Negado.", "danger")
         return redirect(url_for('dashboard'))
     mudancas.aplicar_vencidas()
+    _executar_mudancas_com_seguranca()
     return render_template('mudancas.html', abertas=mudancas.abertas(), todas=mudancas.todas(), membros=mudancas.membros())
 
 
@@ -9955,8 +10085,16 @@ def criar_mudanca():
     if correcoes:
         _, coletor, *_ = _orquestrador()
         escolhidas = [c for c in coletor.coletar() if c['id'] in correcoes]
-        conteudo = {'correcoes': [{'id': c['id'], 'titulo': c['titulo'], 'equipe': c['equipe_nome']} for c in escolhidas]}
+        executor, *_ = _orquestrador()
+        todas_equipes = [c for c, *_ in executor.EQUIPES_VALIDACAO]
+        provedor = request.form.get('provedor') if request.form.get('provedor') in ('gemini', 'claude', 'openai') else None
+        equipes = [e for e in request.form.getlist('equipes') if e in todas_equipes] or todas_equipes
+        conteudo = {'correcoes': [{'id': c['id'], 'titulo': c['titulo'], 'equipe': c['equipe_nome']} for c in escolhidas],
+                    'provedor': provedor, 'equipes': equipes}
         descricao = (descricao + '\n\n' if descricao else '') + '\n'.join(f"- [{c['equipe_nome']}] {c['titulo']}" for c in escolhidas)
+        if data_agendada and data_agendada.hour >= mudancas.HORA_LIMITE_EXECUCAO_CODIGO:
+            flash(tt('Atenção: a execução com os testes das equipes leva horas e, agendada a partir das {hora}h, pode virar a meia-noite.', idioma)
+                  .format(hora=mudancas.HORA_LIMITE_EXECUCAO_CODIGO), 'warning')
     r, erro = mudancas.criar(tipo, request.form.get('titulo'), current_user, descricao=descricao,
                              justificativa=request.form.get('justificativa'), risco=request.form.get('risco'),
                              plano_rollback=request.form.get('plano_rollback'), data_agendada=data_agendada, conteudo=conteudo)
@@ -9972,9 +10110,14 @@ def criar_mudanca():
 def decidir_mudanca(rdm_id):
     import mudancas
     from models import RequisicaoMudanca
-    ok, mensagem = mudancas.decidir(db.session.get(RequisicaoMudanca, rdm_id), current_user,
-                                    request.form.get('decisao') == 'aprovar', request.form.get('motivo'))
+    r = db.session.get(RequisicaoMudanca, rdm_id)
+    ok, mensagem = mudancas.decidir(r, current_user, request.form.get('decisao') == 'aprovar', request.form.get('motivo'))
     flash(tt(mensagem, current_user.idioma), 'success' if ok else 'warning')
+    if ok and r.status == mudancas.APROVADA and mudancas.executavel(r):
+        if _executar_mudancas_com_seguranca():
+            flash(tt('O Agente Orquestrador executor começou esta requisição: o commit sai sozinho se todas as equipes aprovarem.', current_user.idioma), 'info')
+        elif r.status == mudancas.APROVADA and r.resultado:
+            flash(tt(r.resultado, current_user.idioma), 'info')
     return _voltar_mudanca()
 
 

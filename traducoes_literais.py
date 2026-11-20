@@ -2700,6 +2700,23 @@ LITERAIS.update({
     '{n} regra(s) atualizada(s) com a {numero}. Passam a valer a partir de agora.': ('{n} rule(s) updated with {numero}. They take effect from now on.', '{n} regla(s) actualizada(s) con la {numero}. Valen a partir de ahora.'),
 })
 
+# Requisição de mudança de código: o Agente Orquestrador executor roda sozinho na data agendada (commit ou rollback automáticos)
+LITERAIS.update({
+    'Atenção: a execução com os testes das equipes leva horas e, agendada a partir das {hora}h, pode virar a meia-noite.': ('Warning: the run with the team tests takes hours and, scheduled from {hora}h on, it may cross midnight.', 'Atención: la ejecución con las pruebas de los equipos lleva horas y, programada a partir de las {hora}h, puede pasar la medianoche.'),
+    'A execução com os testes das equipes leva horas: agendada a partir das {hora}h, ela pode virar a meia-noite.': ('The run with the team tests takes hours: scheduled from {hora}h on, it may cross midnight.', 'La ejecución con las pruebas de los equipos lleva horas: programada a partir de las {hora}h, puede pasar la medianoche.'),
+    'O Agente Orquestrador executor começou esta requisição: o commit sai sozinho se todas as equipes aprovarem.': ('The Orchestrator executor Agent started this request: the commit goes out on its own if all teams approve.', 'El Agente Orquestador ejecutor comenzó esta solicitud: el commit sale solo si todos los equipos aprueban.'),
+    'Aguardando: o Orquestrador tem outra correção em andamento. Começa assim que ela terminar.': ('Waiting: the Orchestrator has another fix in progress. It starts as soon as that one ends.', 'En espera: el Orquestador tiene otra corrección en curso. Comienza en cuanto termine.'),
+    'O Agente Orquestrador executor está corrigindo e as equipes vão validar.': ('The Orchestrator executor Agent is fixing and the teams will validate.', 'El Agente Orquestador ejecutor está corrigiendo y los equipos van a validar.'),
+    'Só dá para cancelar uma requisição que ainda não foi aplicada nem está em execução.': ('You can only cancel a request that has not been applied and is not running.', 'Solo se puede cancelar una solicitud que aún no fue aplicada ni está en ejecución.'),
+    'Aprovada, na data agendada (ou logo após a aprovação) o Agente Orquestrador executor corrige numa cópia, as equipes validam e, se todas aprovarem, o commit sai sozinho com o número da requisição. Se alguma reprovar, o rollback é automático e nada muda no código em uso.': ('Once approved, on the scheduled date (or right after approval) the Orchestrator executor Agent fixes a copy, the teams validate it and, if all approve, the commit goes out on its own with the request number. If any rejects it, the rollback is automatic and nothing changes in the code in use.', 'Aprobada, en la fecha programada (o justo después de la aprobación) el Agente Orquestador ejecutor corrige en una copia, los equipos validan y, si todos aprueban, el commit sale solo con el número de la solicitud. Si alguno la rechaza, el rollback es automático y nada cambia en el código en uso.'),
+    'Executada sozinha pelo Agente Orquestrador executor': ('Run on its own by the Orchestrator executor Agent', 'Ejecutada sola por el Agente Orquestador ejecutor'),
+    'commit automático': ('automatic commit', 'commit automático'),
+    'Todas as equipes aprovaram: o executor está fazendo o commit e o push da requisição': ('All teams approved: the executor is making the commit and the push of request', 'Todos los equipos aprobaron: el ejecutor está haciendo el commit y el push de la solicitud'),
+    'A execução foi parada na tela do Orquestrador: rollback feito, nada mudou no código em uso.': ('The run was stopped on the Orchestrator screen: rollback done, nothing changed in the code in use.', 'La ejecución se detuvo en la pantalla del Orquestador: rollback hecho, nada cambió en el código en uso.'),
+    'A execução foi interrompida (o executor parou de dar sinal): rollback feito, nada mudou no código em uso.': ('The run was interrupted (the executor stopped responding): rollback done, nothing changed in the code in use.', 'La ejecución se interrumpió (el ejecutor dejó de dar señal): rollback hecho, nada cambió en el código en uso.'),
+    'O Agente Orquestrador executor não começou a execução desta requisição.': ('The Orchestrator executor Agent did not start running this request.', 'El Agente Orquestador ejecutor no comenzó la ejecución de esta solicitud.'),
+})
+
 _POR_IDIOMA ={'en': {pt: v[0] for pt, v in LITERAIS.items()}, 'es': {pt: v[1] for pt, v in LITERAIS.items()}}
 
 

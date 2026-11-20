@@ -37,7 +37,30 @@
                             <div class="form-check"><input class="form-check-input" type="checkbox" name="correcoes" value="{{ c.id }}" id="rdmCorr_{{ c.id }}">
                                 <label class="form-check-label" for="rdmCorr_{{ c.id }}"><b>{{ tt(c.severidade) }}</b> · {{ c.titulo }} <span class="text-muted">({{ tt(c.equipe_nome) }} · {{ c.agente }})</span></label></div>
                             {% else %}<div class="text-muted">{{ tt('Nenhuma correção pendente: as últimas execuções das equipes não pediram correções.') }}</div>{% endfor %}
-                        </div></div>
+                        </div>
+                        {% set provedores_cr = rdm_form_provedores() %}
+                        <div class="d-flex flex-wrap gap-3 mt-2 small align-items-center">
+                            <span class="fw-bold">{{ tt('IA') }}:</span>
+                            {% for chave, nome in [('gemini', 'Gemini'), ('claude', 'Claude'), ('openai', 'ChatGPT')] %}
+                            <div class="form-check form-check-inline m-0">
+                                <input class="form-check-input" type="radio" name="provedor" value="{{ chave }}" id="rdmIa_{{ chave }}"
+                                       {% if chave not in provedores_cr %}disabled{% elif chave == provedores_cr[0] %}checked{% endif %}>
+                                <label class="form-check-label" for="rdmIa_{{ chave }}">{{ nome }}{% if chave not in provedores_cr %} <span class="text-muted">({{ tt('sem chave') }})</span>{% endif %}</label>
+                            </div>
+                            {% endfor %}
+                        </div>
+                        <div class="d-flex flex-wrap gap-3 mt-1 small align-items-center">
+                            <span class="fw-bold">{{ tt('Equipes que validam') }}:</span>
+                            {% for e in rdm_form_equipes() %}
+                            <div class="form-check form-check-inline m-0">
+                                <input class="form-check-input" type="checkbox" name="equipes" value="{{ e[0] }}" id="rdmEq_{{ e[0] }}" checked>
+                                <label class="form-check-label" for="rdmEq_{{ e[0] }}">{{ tt(e[1]) }}</label>
+                            </div>
+                            {% endfor %}
+                        </div>
+                        <div class="alert alert-light border small mt-2 mb-0 d-flex gap-2" id="rdmComoExecuta"><i class="bi bi-robot mt-1"></i>
+                            <div>{{ tt('Aprovada, na data agendada (ou logo após a aprovação) o Agente Orquestrador executor corrige numa cópia, as equipes validam e, se todas aprovarem, o commit sai sozinho com o número da requisição. Se alguma reprovar, o rollback é automático e nada muda no código em uso.') }}</div></div>
+                        </div>
 
                     <!-- Parâmetros e regras: cada regra com o valor atual; preencha só o valor novo das que vão mudar -->
                     <div class="col-12 d-none" id="rdmPainelParametros" data-rdm-painel="parametros">
@@ -64,8 +87,10 @@
                     <div class="col-12"><label class="form-label" for="rdmJustificativa">{{ tt('Por que mudar (justificativa)') }}</label>
                         <textarea class="form-control" name="justificativa" id="rdmJustificativa" rows="2" maxlength="3000"></textarea></div>
                     <div class="col-md-6"><label class="form-label" for="rdmData">{{ tt('Data agendada para aplicar') }} <span class="text-muted fw-normal">· {{ tt('opcional') }}</span></label>
-                        <input type="datetime-local" class="form-control" name="data_agendada" id="rdmData">
-                        <div class="form-text">{{ tt('Vazio: aplica assim que for aprovada.') }}</div></div>
+                        <input type="datetime-local" class="form-control" name="data_agendada" id="rdmData" data-hora-limite="{{ rdm_hora_limite }}">
+                        <div class="form-text">{{ tt('Vazio: aplica assim que for aprovada.') }}</div>
+                        <div class="form-text text-warning-emphasis d-none" id="rdmAvisoMeiaNoite"><i class="bi bi-moon"></i>
+                            {{ tt('A execução com os testes das equipes leva horas: agendada a partir das {hora}h, ela pode virar a meia-noite.') | replace('{hora}', rdm_hora_limite|string) }}</div></div>
                     <div class="col-md-6"><label class="form-label" for="rdmRollback">{{ tt('Plano de rollback') }}</label>
                         <textarea class="form-control" name="plano_rollback" id="rdmRollback" rows="2" maxlength="3000" placeholder="{{ tt('Como voltar atrás se der errado') }}"></textarea></div>
                 </div>
@@ -91,6 +116,14 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
     tipo.addEventListener('change', mostrar);
+    // Orquestrador agendado tarde: avisa que a execução pode virar a meia-noite
+    const data = document.getElementById('rdmData'), aviso = document.getElementById('rdmAvisoMeiaNoite');
+    function conferirHora() {
+        const hora = data.value ? parseInt(data.value.slice(11, 13), 10) : -1;
+        aviso.classList.toggle('d-none', !(tipo.value === 'codigo' && hora >= parseInt(data.dataset.horaLimite, 10)));
+    }
+    data.addEventListener('change', conferirHora);
+    tipo.addEventListener('change', conferirHora);
     modal.addEventListener('show.bs.modal', function (e) {
         const escolhido = e.relatedTarget && e.relatedTarget.dataset.rdmTipo;
         if (escolhido === 'codigo' || escolhido === 'parametros') tipo.value = escolhido;
@@ -101,7 +134,7 @@ document.addEventListener('DOMContentLoaded', function () {
 </script>
 {% endmacro %}
 
-{% macro cor_status(status) %}{{ {'Aguardando aprovação': 'bg-warning', 'Aprovada': 'bg-primary', 'Reprovada': 'bg-danger', 'Aplicada': 'bg-success', 'Cancelada': 'bg-secondary'}.get(status, 'bg-secondary') }}{% endmacro %}
+{% macro cor_status(status) %}{{ {'Aguardando aprovação': 'bg-warning', 'Aprovada': 'bg-primary', 'Em execução': 'bg-info text-dark', 'Reprovada': 'bg-danger', 'Aplicada': 'bg-success', 'Não aplicada': 'bg-danger', 'Cancelada': 'bg-secondary'}.get(status, 'bg-secondary') }}{% endmacro %}
 
 {% macro data(d) %}{{ d.strftime('%d/%m/%Y %H:%M') if d else '—' }}{% endmacro %}
 
@@ -146,7 +179,12 @@ document.addEventListener('DOMContentLoaded', function () {
                             {% for chave, (antes, depois) in (itens.valores or {}).items() %}<div><code>{{ chave }}</code>: {{ antes }} → <b>{{ depois }}</b></div>{% endfor %}
                             {% if r.justificativa %}<div><b>{{ tt('Justificativa') }}:</b> {{ r.justificativa }}</div>{% endif %}
                             {% if r.plano_rollback %}<div><b>{{ tt('Plano de rollback') }}:</b> {{ r.plano_rollback }}</div>{% endif %}
-                        </details>{% endif %}</td>
+                            {% if rdm_executavel(r) %}<div><b>{{ tt('IA') }}:</b> {{ {'gemini': 'Gemini', 'claude': 'Claude', 'openai': 'ChatGPT'}.get(itens.provedor, itens.provedor or '—') }}
+                                · <b>{{ tt('Equipes que validam') }}:</b> {{ (itens.equipes or [])|length }}</div>{% endif %}
+                        </details>{% endif %}
+                        {% if rdm_executavel(r) %}<div class="text-muted"><i class="bi bi-robot"></i> {{ tt('Executada sozinha pelo Agente Orquestrador executor') }}</div>{% endif %}
+                        {% if r.resultado and r.status in ['Aprovada', 'Em execução'] %}<div class="small mt-1 {{ 'text-info-emphasis' if r.status == 'Em execução' else 'text-warning-emphasis' }}">
+                            <i class="bi {{ 'bi-hourglass-split' if r.status == 'Em execução' else 'bi-pause-circle' }}"></i> {{ tt(r.resultado) }}</div>{% endif %}</td>
                     <td>{{ r.solicitante.nome if r.solicitante else '—' }}</td>
                     <td class="text-nowrap">{{ data(r.data_solicitacao) }}</td>
                     <td class="text-nowrap">{{ data(r.data_agendada) if r.data_agendada else tt('ao aprovar') }}</td>

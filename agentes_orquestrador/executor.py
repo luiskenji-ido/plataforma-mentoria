@@ -13,6 +13,9 @@ Uso (a tela chama em segundo plano): python agentes_orquestrador/executor.py --i
    comparando com a execução anterior.
 5. Só com todas as equipes aprovando, o commit fica disponível para o administrador confirmar (commit + push) — ou
    ele clica em rollback e a cópia é descartada: a versão em uso continua a mesma de antes.
+6. Pela requisição de mudança (--rdm): a CR de código aprovada dispara a execução na data agendada e a decisão do
+   administrador já foi dada pelo grupo de aprovação. Todas as equipes aprovando, o commit sai sozinho (com o número
+   da CR); qualquer reprovação ou erro faz o rollback sozinho. O resultado fica no estado para a CR ser atualizada.
 """
 import argparse
 import difflib
@@ -573,10 +576,11 @@ def diff_da_copia(copia):
     return diff, estatistica
 
 
-def executar(ids, provedor, usuario, equipes):
+def executar(ids, provedor, usuario, equipes, rdm=None):
     capacidade = ambiente.capacidades()
     todas = {c['id']: c for c in coletor.coletar()}
     escolhidas = [todas[i] for i in ids if i in todas]
+    fora_da_lista = [i for i in ids if i not in todas]  # já resolvidas (as equipes não pedem mais) desde o pedido
     agora = datetime.now()
     dados = {
         'id': agora.strftime('%Y%m%d_%H%M%S'), 'status': 'executando', 'pid': os.getpid(), 'inicio': agora.isoformat(timespec='seconds'),
@@ -587,12 +591,17 @@ def executar(ids, provedor, usuario, equipes):
         'correcoes': [{k: c[k] for k in ('id', 'titulo', 'equipe', 'equipe_nome', 'agente', 'severidade', 'onde', 'detalhe', 'recomendacao')}
                       | {'status': 'pendente', 'arquivos': [a for a, _ in c['arquivos']]} for c in escolhidas],
         'equipes': {c: {'nome': n, 'status': 'aguardando' if c in equipes else 'fora', 'resumo': ''} for c, n, *_ in EQUIPES_VALIDACAO},
+        'rdm': rdm or None,  # requisição de mudança que disparou a execução (commit ou rollback automáticos)
     }
     execucao = Execucao(dados)
     for item, c in zip(dados['correcoes'], escolhidas):
         item['_correcao'] = c
     execucao.etapa('plano', 'concluido', f"{len(escolhidas)} correção(ões) escolhida(s) · IA: {provedor} · ambiente: {capacidade['nome']}")
     execucao.log(f"Plano: {len(escolhidas)} correção(ões) com {provedor}, por {usuario}, no ambiente {capacidade['nome']}.")
+    if rdm:
+        execucao.log(f"Disparada pela requisição de mudança {rdm.get('numero')} (aprovada por {rdm.get('aprovador') or '—'}).")
+    if fora_da_lista:
+        execucao.log(f"{len(fora_da_lista)} correção(ões) da lista já não são pedidas pelas equipes e ficaram de fora: {', '.join(fora_da_lista)}.")
     try:
         if not capacidade['pode_corrigir']:
             raise RuntimeError('Este ambiente não permite corrigir o código: ' + '; '.join(
@@ -696,6 +705,37 @@ def confirmar(usuario, rdm=None):
     return True, f'Commit {sha[:8]} criado. {push} {recarga}'
 
 
+def finalizar_pela_rdm(rdm):
+    """Fim da execução disparada por uma requisição de mudança aprovada: o grupo de aprovação já decidiu, então o
+    executor faz sozinho o que o administrador faria na tela. Equipes aprovaram → commit + push + recarga (com o número
+    da CR). Reprovação, erro ou nada a corrigir → rollback (o código em uso nunca foi tocado). Grava no estado
+    'resultado_rdm' = {'status': 'aplicada' | 'nao_aplicada', 'motivo', 'commit'} para a CR ser atualizada pela plataforma."""
+    usuario = f"Agente executor ({rdm.get('numero', 'CR')})"
+    dados = ler_estado() or {}
+    situacao = dados.get('status')
+    motivos = {'reprovado': 'Alguma equipe reprovou a correção: rollback automático feito.',
+               'erro': f"Erro na execução: {dados.get('erro', '')[:300]}. Rollback automático feito.",
+               'sem_alteracoes': 'Nenhuma correção de código foi aplicada (as correções da CR já não são pedidas ou a IA não conseguiu corrigir).',
+               'parado': 'A execução foi parada. Rollback automático feito.'}
+    if situacao == 'aguardando_confirmacao':
+        ok, mensagem = confirmar(usuario, rdm)
+        if ok:
+            dados = ler_estado() or {}
+            resultado = {'status': 'aplicada', 'motivo': mensagem, 'commit': dados.get('commit', '')}
+        else:
+            rollback(usuario)
+            resultado = {'status': 'nao_aplicada', 'motivo': f'As equipes aprovaram, mas o commit não foi feito: {mensagem} Rollback automático feito.'}
+    else:
+        if situacao in ('reprovado', 'erro', 'sem_alteracoes', 'parado'):
+            rollback(usuario)
+        resultado = {'status': 'nao_aplicada', 'motivo': motivos.get(situacao, f'Execução terminou como {situacao}.')}
+    dados = ler_estado() or {}
+    dados['resultado_rdm'] = resultado | {'em': datetime.now().isoformat(timespec='seconds')}
+    _gravar_json(ARQUIVO_ESTADO, dados)
+    print(f"{datetime.now():%H:%M:%S}  {rdm.get('numero')}: {resultado['status']} · {resultado['motivo']}", flush=True)
+    return resultado
+
+
 def rollback(usuario):
     """Antes do commit: descarta a cópia — a versão em uso continua exatamente a anterior à mudança."""
     dados = ler_estado()
@@ -734,10 +774,14 @@ if __name__ == '__main__':
     parser.add_argument('--provedor', choices=['gemini', 'claude', 'openai'], default='gemini')
     parser.add_argument('--usuario', default='Administrador')
     parser.add_argument('--equipes', nargs='+', default=[c for c, *_ in EQUIPES_VALIDACAO])
+    parser.add_argument('--rdm', default='', help='JSON da requisição de mudança aprovada: commit ou rollback automáticos')
     args = parser.parse_args()
     try:
         from dotenv import load_dotenv
         load_dotenv(os.path.join(RAIZ, '.env'))
     except ImportError:
         pass
-    executar(args.ids, args.provedor, args.usuario, args.equipes)
+    rdm_dados = json.loads(args.rdm) if args.rdm else None
+    executar(args.ids, args.provedor, args.usuario, args.equipes, rdm_dados)
+    if rdm_dados:
+        finalizar_pela_rdm(rdm_dados)

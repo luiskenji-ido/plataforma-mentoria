@@ -31,6 +31,7 @@ if '--novo-banco' in sys.argv or not os.path.exists(BANCO):
     os.makedirs(os.path.dirname(BANCO), exist_ok=True)
     shutil.copyfile(os.path.join(RAIZ, 'instance', 'mentoria.db'), BANCO)
 os.environ['DATABASE_URL'] = 'sqlite:///' + BANCO.replace('\\', '/')
+os.environ['MENTORIA_SEM_EXECUCAO_AUTOMATICA'] = '1'  # CR de código aprovada na cópia nunca dispara o executor (ele mexe no git real)
 sys.path.insert(0, RAIZ)
 os.chdir(RAIZ)
 

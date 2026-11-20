@@ -292,7 +292,15 @@ def aplicar_mudancas_aprovadas(agora):
     return mudancas.aplicar_vencidas()
 
 
-TAREFAS = [aplicar_mudancas_aprovadas, lembrar_checkout_esquecido, lembrar_encaminhamentos_vencidos, avisar_ocorrencias_atrasadas, enviar_formulario_banca, fechar_checkin_banca_esquecido,
+
+def executar_mudancas_de_codigo(agora):
+    """Requisição de mudança de código aprovada e na data agendada: o Agente Orquestrador executor roda sozinho
+    (commit automático se todas as equipes aprovarem; senão rollback). Também leva o resultado para a CR."""
+    from app import executar_mudancas_de_codigo as executar
+    return executar()
+
+
+TAREFAS = [aplicar_mudancas_aprovadas, executar_mudancas_de_codigo, lembrar_checkout_esquecido, lembrar_encaminhamentos_vencidos, avisar_ocorrencias_atrasadas, enviar_formulario_banca, fechar_checkin_banca_esquecido,
            fechar_presenca_reuniao_esquecida, abrir_microavaliacao, lembrar_avaliacao_pendente, lembrar_avaliacao_reuniao,
            lembrar_saida_esquecida, avisar_prazo_entrega_tcc,
            executar_backups_agendados, aprender_mudancas_da_plataforma, aprender_seguranca, aprender_banco_de_dados, aprender_funcionalidades]

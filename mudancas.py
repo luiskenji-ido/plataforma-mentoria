@@ -8,12 +8,16 @@ Toda mudança sensível passa por aqui antes de valer:
   (variável COMITE_APROVACAO_APELIDO) e os membros escolhidos logo abaixo, na mesma tela.
 - Quem pede não aprova a própria requisição (separação de funções).
 - Parâmetros de regras: o pedido guarda os valores novos; aprovada, a mudança é aplicada na data agendada (ou na hora).
-- Correções de código do Orquestrador: o commit só é confirmado com uma requisição aprovada; o commit leva o número dela.
+- Correções de código do Orquestrador: a CR leva a lista de correções, a IA e as equipes que validam. Aprovada, na data
+  agendada (ou na hora) o Agente Orquestrador executor roda sozinho: Em execução → todas as equipes aprovando, commit
+  automático com o número da CR (Aplicada); reprovação ou erro, rollback automático (Não aplicada).
+  Sem a lista de correções, a CR só libera o commit de uma execução feita pela tela do Orquestrador.
 Todas as funções rodam dentro de um app_context.
 """
 import json
 import os
 import re
+import zlib
 from datetime import datetime
 
 # Regras nomeadas
@@ -21,7 +25,12 @@ PREFIXO_POR_IDIOMA = {'pt': 'RDM', 'en': 'CR', 'es': 'SC'}
 VARIAVEL_GRUPO = 'COMITE_APROVACAO_APELIDO'
 PERFIS_ELEGIVEIS_COMITE = ['Administrador', 'Mentor Administrador']
 AGUARDANDO, APROVADA, REPROVADA, APLICADA, CANCELADA = 'Aguardando aprovação', 'Aprovada', 'Reprovada', 'Aplicada', 'Cancelada'
-STATUS_ABERTOS = [AGUARDANDO, APROVADA]
+EM_EXECUCAO, NAO_APLICADA = 'Em execução', 'Não aplicada'   # CR de código executada pelo Agente Orquestrador executor
+STATUS_ABERTOS = [AGUARDANDO, APROVADA, EM_EXECUCAO]
+STATUS_CANCELAVEIS = [AGUARDANDO, APROVADA]
+# A execução com os testes das equipes leva horas: agendada a partir desta hora, ela pode virar a meia-noite
+HORA_LIMITE_EXECUCAO_CODIGO = 19
+MINUTOS_SEM_SINAL_EXECUCAO = 15   # sem sinal do executor por este tempo, a execução da CR é dada como interrompida
 TIPOS = {'parametros': 'Parâmetros de regras', 'codigo': 'Correção de código (Orquestrador)', 'outro': 'Outra mudança'}
 RISCOS = ['Baixo', 'Médio', 'Alto']
 CODIGO = re.compile(r'^(?:(?:RDM|CR|SC)\s*-?\s*)?(\d{4})-(\d{1,4})$', re.I)
@@ -186,8 +195,8 @@ def decidir(r, usuario, aprovar, motivo=''):
 def cancelar(r, usuario):
     from models import db
     from app import PERFIS_ADMINISTRACAO_SISTEMA
-    if not r or r.status not in STATUS_ABERTOS:
-        return False, 'Só dá para cancelar uma requisição que ainda não foi aplicada.'
+    if not r or r.status not in STATUS_CANCELAVEIS:
+        return False, 'Só dá para cancelar uma requisição que ainda não foi aplicada nem está em execução.'
     if r.solicitante_id != usuario.id and usuario.tipo_usuario not in PERFIS_ADMINISTRACAO_SISTEMA:
         return False, 'Só quem pediu (ou um Administrador) pode cancelar.'
     r.status = CANCELADA
@@ -262,6 +271,77 @@ def registrar_commit(r, usuario, commit, correcoes):
     db.session.commit()
 
 
+# ------------------------------------------------------------------------------ CR de código: execução automática
+def executavel(r):
+    """CR de código com a lista de correções: o executor roda sozinho quando ela é aprovada (na data agendada)."""
+    return bool(r) and r.tipo == 'codigo' and bool(conteudo(r).get('correcoes'))
+
+
+def prontas_para_executar(agora=None):
+    from models import RequisicaoMudanca
+    lista = RequisicaoMudanca.query.filter_by(status=APROVADA, tipo='codigo').order_by(RequisicaoMudanca.data_decisao).all()
+    return [r for r in lista if executavel(r) and no_prazo(r, agora)]
+
+
+def em_execucao():
+    from models import RequisicaoMudanca
+    return RequisicaoMudanca.query.filter_by(status=EM_EXECUCAO).all()
+
+
+def dados_para_o_executor(r):
+    """O que vai no commit e no histórico do Orquestrador."""
+    return {'id': r.id, 'numero': numero(r, 'pt'), 'titulo': r.titulo, 'aprovador': r.aprovador.nome if r.aprovador else '',
+            'data_solicitacao': r.data_solicitacao.isoformat(timespec='minutes') if r.data_solicitacao else '',
+            'data_agendada': r.data_agendada.isoformat(timespec='minutes') if r.data_agendada else '',
+            'data_aprovacao': r.data_decisao.isoformat(timespec='minutes') if r.data_decisao else ''}
+
+
+def iniciar_execucao(r):
+    """Aprovada → Em execução, de forma atômica (dois processos nunca disparam a mesma CR). Devolve True se foi este."""
+    from models import db, RequisicaoMudanca
+    dados = conteudo(r)
+    dados['execucao_iniciada'] = datetime.now().isoformat(timespec='seconds')
+    mudou = RequisicaoMudanca.query.filter_by(id=r.id, status=APROVADA).update(
+        {'status': EM_EXECUCAO, 'conteudo': json.dumps(dados, ensure_ascii=False),
+         'resultado': 'O Agente Orquestrador executor está corrigindo e as equipes vão validar.'}, synchronize_session=False)
+    db.session.commit()
+    if mudou:
+        db.session.refresh(r)
+        _avisar([r.solicitante] + membros(), 'Requisição de mudança em execução',
+                f"{numero(r)} · {r.titulo} — o Agente Orquestrador executor começou.", r, f'rdm-execucao-{r.id}')
+    return bool(mudou)
+
+
+def anotar_espera(r, motivo):
+    """A CR aprovada não pôde começar agora (ambiente, IA, outra execução): fica Aprovada com o motivo e tenta de novo
+    na próxima verificação. O aviso sai uma vez por motivo."""
+    from models import db
+    if r.resultado == motivo:
+        return
+    r.resultado = motivo
+    db.session.commit()
+    _avisar([r.solicitante] + membros(), 'Requisição de mudança aguardando para executar',
+            f"{numero(r)} · {r.titulo} — {motivo}", r, f'rdm-espera-{r.id}-{zlib.crc32(motivo.encode())}')
+
+
+def concluir_execucao(r, aplicada, motivo, commit=''):
+    """Fim da execução: Aplicada (commit automático) ou Não aplicada (rollback automático)."""
+    from models import db
+    dados = conteudo(r)
+    dados['execucao_concluida'] = datetime.now().isoformat(timespec='seconds')
+    if commit:
+        dados['commit'] = commit
+    r.conteudo = json.dumps(dados, ensure_ascii=False)
+    r.status = APLICADA if aplicada else NAO_APLICADA
+    r.data_aplicacao = datetime.now()
+    r.aplicado_por_id = r.aprovador_id  # o executor age em nome de quem aprovou
+    motivo = motivo or ''
+    r.resultado = ((f"Commit {commit[:8]} · " if commit and commit[:8] not in motivo else '') + motivo)[:3000]
+    db.session.commit()
+    _avisar([r.solicitante] + membros(), 'Requisição de mudança aplicada' if aplicada else 'Requisição de mudança não aplicada',
+            f"{numero(r)} · {r.titulo} — {r.resultado[:300]}", r, f'rdm-fim-{r.id}')
+
+
 # ------------------------------------------------------------------------------ listas para as telas
 def abertas(tipo=None):
     from models import RequisicaoMudanca
@@ -272,8 +352,9 @@ def abertas(tipo=None):
 
 
 def aprovadas_para_commit():
-    """Requisições de código aprovadas e já na data agendada: as únicas que liberam o commit do Orquestrador."""
-    return [r for r in abertas('codigo') if r.status == APROVADA and no_prazo(r)]
+    """Requisições de código aprovadas e já na data agendada, sem lista de correções (essas o executor roda sozinho):
+    as únicas que liberam o commit de uma execução feita pela tela do Orquestrador."""
+    return [r for r in abertas('codigo') if r.status == APROVADA and no_prazo(r) and not executavel(r)]
 
 
 def todas(limite=200):

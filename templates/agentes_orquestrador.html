@@ -43,7 +43,8 @@
 <!-- Execução -->
 <div class="card shadow-sm border-0 mb-3 border-start border-4 {{ 'border-warning' if em_execucao else ('border-success' if estado.status in ['aguardando_confirmacao', 'confirmado'] else 'border-secondary') }}" id="cardExecucao">
     <div class="card-header bg-white d-flex justify-content-between align-items-center flex-wrap gap-2">
-        <span class="fw-bold"><i class="bi bi-activity"></i> {{ tt('Execução') }} {{ estado.id }} · {{ tt('IA') }}: {{ estado.provedor|capitalize }} · {{ estado.usuario }}</span>
+        <span class="fw-bold"><i class="bi bi-activity"></i> {{ tt('Execução') }} {{ estado.id }} · {{ tt('IA') }}: {{ estado.provedor|capitalize }} · {{ estado.usuario }}
+            {% if estado.rdm %}<span class="badge bg-info-subtle text-info-emphasis border ms-1" id="badgeExecucaoRdm"><i class="bi bi-robot"></i> {{ estado.rdm.numero }} · {{ tt('commit automático') }}</span>{% endif %}</span>
         <span class="badge fs-6 {{ {'executando': 'bg-warning text-dark', 'aguardando_confirmacao': 'bg-success', 'confirmado': 'bg-primary', 'reprovado': 'bg-danger', 'erro': 'bg-danger', 'revertido': 'bg-secondary', 'sem_alteracoes': 'bg-secondary', 'parado': 'bg-secondary'}.get(estado.status, 'bg-secondary') }}" id="statusExecucao">
             {{ tt({'executando': 'Em execução', 'aguardando_confirmacao': 'Aprovado: aguardando sua confirmação', 'confirmado': 'Commit confirmado', 'reprovado': 'Reprovado pelas equipes', 'erro': 'Erro', 'revertido': 'Rollback feito', 'sem_alteracoes': 'Nada a corrigir em código', 'parado': 'Parado'}.get(estado.status, estado.status)) }}
         </span>
@@ -112,9 +113,14 @@
         {% endif %}
         {% if estado.commit %}<div class="alert alert-success small mb-3"><i class="bi bi-git"></i> Commit <code>{{ estado.commit[:8] }}</code> · {{ estado.resultado_push }} {{ estado.recarga }}</div>{% endif %}
 
-        <!-- decisão -->
+        {% if estado.rdm and estado.resultado_rdm %}<div class="alert {{ 'alert-success' if estado.resultado_rdm.status == 'aplicada' else 'alert-warning' }} small mb-3" id="resultadoRdm">
+            <i class="bi bi-robot"></i> <b>{{ estado.rdm.numero }}</b> · {{ tt('Aplicada') if estado.resultado_rdm.status == 'aplicada' else tt('Não aplicada') }}: {{ estado.resultado_rdm.motivo }}</div>
+        {% elif estado.rdm and estado.status == 'aguardando_confirmacao' %}<div class="alert alert-info small mb-3"><i class="bi bi-robot"></i>
+            {{ tt('Todas as equipes aprovaram: o executor está fazendo o commit e o push da requisição') }} <b>{{ estado.rdm.numero }}</b>.</div>{% endif %}
+
+        <!-- decisão (execução pela tela; a disparada por uma requisição de mudança decide sozinha) -->
         <div class="d-flex flex-wrap gap-2">
-            {% if estado.status == 'aguardando_confirmacao' %}
+            {% if estado.status == 'aguardando_confirmacao' and not estado.rdm %}
             <form method="POST" action="{{ url_for('confirmar_orquestrador') }}" class="m-0 d-flex gap-2 align-items-center flex-wrap" onsubmit="return confirm({{ tt('Confirmar o commit e enviar (push) as correções aprovadas?') | tojson }})">
                 <label class="small fw-bold" for="rdmCommit">{{ tt('Requisição de mudança aprovada') }}</label>
                 <select class="form-select form-select-sm w-auto" name="rdm" id="rdmCommit" required>
@@ -125,7 +131,7 @@
                 {% if not rdm_para_commit %}<span class="small text-muted w-100">{{ tt('O commit só sai com uma requisição de mudança de código aprovada pelo grupo. Use “Criar Requisição de Mudança” no topo.') }}</span>{% endif %}
             </form>
             {% endif %}
-            {% if estado.status in ['aguardando_confirmacao', 'reprovado', 'erro', 'sem_alteracoes'] %}
+            {% if estado.status in ['aguardando_confirmacao', 'reprovado', 'erro', 'sem_alteracoes'] and not estado.rdm %}
             <form method="POST" action="{{ url_for('rollback_orquestrador') }}" class="m-0" onsubmit="return confirm({{ tt('Descartar todas as correções e manter a versão anterior?') | tojson }})">
                 <button class="btn btn-outline-danger fw-bold" type="submit" id="btnRollback"><i class="bi bi-arrow-counterclockwise"></i> {{ tt('Rollback') }}</button></form>
             {% endif %}
