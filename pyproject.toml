@@ -1,0 +1,42 @@
+# Configuração das ferramentas de desenvolvimento (testes, lint e formatação).
+# A aplicação continua instalada por requirements.txt; as ferramentas ficam em requirements-dev.txt.
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra --strict-markers"
+markers = [
+    "unit: testes de unidade (sem rede, banco ou disco)",
+    "integration: testes contra serviços reais em contêineres (MySQL, Redis, MinIO)",
+    "e2e: testes contra a imagem de produção rodando com as dependências",
+]
+filterwarnings = [
+    "ignore::DeprecationWarning:google.*",
+    "ignore::DeprecationWarning:pyasn1.*",
+]
+
+[tool.coverage.run]
+branch = true
+source = ["."]
+omit = [
+    "tests/*", ".venv*/*", "agentes_*/*", "prototipo_ux/*", "migrations/*", "deploy/*",
+    "Agent Reports/*", "Backup_repository/*", "uploads/*", "instance/*",
+]
+
+[tool.coverage.report]
+skip_empty = true
+show_missing = false
+
+[tool.ruff]
+line-length = 140
+target-version = "py312"
+extend-exclude = [
+    ".venv*", "Agent Reports", "Backup_repository", "Log_auditoria_backup", "uploads", "instance",
+    "prototipo_ux/dados", "migrations/versions",
+]
+
+[tool.ruff.lint]
+# Regras padrão do ruff (erros reais de Python) + bugbear (armadilhas comuns)
+select = ["E4", "E7", "E9", "F", "B"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["B011"]
