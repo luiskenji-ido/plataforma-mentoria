@@ -43,8 +43,13 @@ def verificar_tudo():
             resultado[nome] = "ok"
         except Exception as erro:
             resultado[nome] = "falhou"
-            log.warning("verificação de prontidão '%s' falhou: %s: %s", nome, type(erro).__name__, erro,
-                        extra={"duracao_ms": round((time.perf_counter() - inicio) * 1000, 1)})
+            log.warning(
+                "verificação de prontidão '%s' falhou: %s: %s",
+                nome,
+                type(erro).__name__,
+                erro,
+                extra={"duracao_ms": round((time.perf_counter() - inicio) * 1000, 1)},
+            )
     pronto = all(v == "ok" for v in resultado.values()) and not _ESTADO["desligando"]
     return resultado, pronto
 

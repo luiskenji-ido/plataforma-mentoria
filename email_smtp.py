@@ -36,5 +36,9 @@ def _uma_tentativa(mensagem, tempo_limite, fabrica_smtp):
 def enviar(mensagem, tempo_limite=TEMPO_LIMITE, fabrica_smtp=smtplib.SMTP, dormir=None):
     """Envia a mensagem (email.message.EmailMessage). Levanta a exceção se todas as tentativas falharem."""
     extra = {"dormir": dormir} if dormir else {}
-    resiliencia.com_retentativas(lambda: _uma_tentativa(mensagem, tempo_limite, fabrica_smtp),
-                                 repetir_se=lambda erro: isinstance(erro, ERROS_PASSAGEIROS), nome="envio de e-mail (SMTP)", **extra)
+    resiliencia.com_retentativas(
+        lambda: _uma_tentativa(mensagem, tempo_limite, fabrica_smtp),
+        repetir_se=lambda erro: isinstance(erro, ERROS_PASSAGEIROS),
+        nome="envio de e-mail (SMTP)",
+        **extra,
+    )

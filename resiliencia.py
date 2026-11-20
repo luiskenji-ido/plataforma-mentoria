@@ -52,8 +52,15 @@ def sessao_http():
         from requests.adapters import HTTPAdapter
         from urllib3.util.retry import Retry
 
-        regra = Retry(total=TENTATIVAS, connect=TENTATIVAS, read=TENTATIVAS, backoff_factor=ESPERA_INICIAL,
-                      status_forcelist=STATUS_PASSAGEIROS, respect_retry_after_header=True, raise_on_status=False)
+        regra = Retry(
+            total=TENTATIVAS,
+            connect=TENTATIVAS,
+            read=TENTATIVAS,
+            backoff_factor=ESPERA_INICIAL,
+            status_forcelist=STATUS_PASSAGEIROS,
+            respect_retry_after_header=True,
+            raise_on_status=False,
+        )
         sessao = requests.Session()
         adaptador = HTTPAdapter(max_retries=regra, pool_connections=10, pool_maxsize=20)
         sessao.mount("https://", adaptador)

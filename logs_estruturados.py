@@ -24,8 +24,10 @@ from datetime import datetime, timezone
 MASCARA = "***"
 _PADROES = [
     # chave=valor ou "chave": "valor" de campos sensíveis
-    (re.compile(r"(?i)\b(senha|password|passwd|pwd|secret|segredo|token|api[_-]?key|chave)(\"?\s*[:=]\s*\"?)([^\s\"',;&]+)"),
-     lambda m: f"{m.group(1)}{m.group(2)}{MASCARA}"),
+    (
+        re.compile(r"(?i)\b(senha|password|passwd|pwd|secret|segredo|token|api[_-]?key|chave)(\"?\s*[:=]\s*\"?)([^\s\"',;&]+)"),
+        lambda m: f"{m.group(1)}{m.group(2)}{MASCARA}",
+    ),
     (re.compile(r"(?i)\b(bearer|basic)\s+[a-z0-9._~+/=-]+"), lambda m: f"{m.group(1)} {MASCARA}"),
     (re.compile(r"\b(sk-[A-Za-z0-9_-]{8,}|sk-ant-[A-Za-z0-9_-]{8,}|AIza[0-9A-Za-z_-]{20,}|AKIA[0-9A-Z]{16})\b"), lambda m: MASCARA),
     # usuário:senha@ em endereços (banco, SMTP)
@@ -132,9 +134,19 @@ def ligar_no_app(app):
         resposta.headers["X-Request-ID"] = getattr(g, "request_id", "")
         if request.path not in SEM_LOG_DE_ACESSO:
             duracao = (time.perf_counter() - getattr(g, "inicio_requisicao", time.perf_counter())) * 1000
-            log.info("%s %s %s", request.method, request.path, resposta.status_code,
-                     extra={"status": resposta.status_code, "duracao_ms": round(duracao, 1), "metodo": request.method,
-                            "caminho": request.path, "request_id": getattr(g, "request_id", None)})
+            log.info(
+                "%s %s %s",
+                request.method,
+                request.path,
+                resposta.status_code,
+                extra={
+                    "status": resposta.status_code,
+                    "duracao_ms": round(duracao, 1),
+                    "metodo": request.method,
+                    "caminho": request.path,
+                    "request_id": getattr(g, "request_id", None),
+                },
+            )
         return resposta
 
     return app
