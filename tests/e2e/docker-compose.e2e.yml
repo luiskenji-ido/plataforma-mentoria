@@ -1,0 +1,17 @@
+# Acréscimos ao docker-compose.yml só para os testes E2E: MinIO e Redis acessíveis do computador que roda os testes,
+# para conferir onde os dados foram parar. Portas configuráveis para não colidir com o ambiente de desenvolvimento.
+services:
+  minio:
+    ports:
+      - "${PORTA_MINIO_E2E:-19000}:9000"
+  redis:
+    ports:
+      - "${PORTA_REDIS_E2E:-16379}:6379"
+  web:
+    environment:
+      # o teste do limite de tentativas precisa do mesmo IP visto pelo app
+      ATRAS_DE_PROXY: "0"
+      GUNICORN_GRACEFUL_TIMEOUT: "30"
+  worker:
+    environment:
+      TAREFAS_INTERVALO_SEGUNDOS: "30"

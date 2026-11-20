@@ -23,7 +23,7 @@ Há dois caminhos. **Recomendado: máquina virtual**, porque nela tudo funciona 
 
 Passos:
 1. Banco gerenciado: crie um **RDS** MySQL 8 (charset utf8mb4) ou PostgreSQL e o banco `mentoria`.
-2. Imagem: `docker build -f deploy/conteiner/Dockerfile -t mentoria .` (PostgreSQL: `--build-arg BANCO=postgresql`)
+2. Imagem: `docker build -t mentoria .` (PostgreSQL: `--build-arg BANCO=postgresql`)
    e envie ao **ECR**.
 3. Variáveis do serviço (use o **Secrets Manager** para senhas):
    `HOSPEDAGEM=aws_conteiner`, `DATABASE_URL`, `SECRET_KEY`, `APP_BASE_URL`, `MENTORIA_PRODUCAO=1`, `ATRAS_DE_PROXY=1`;

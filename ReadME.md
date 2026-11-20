@@ -272,7 +272,7 @@ mentoria/
 		contêiner /dados/backups (volume); computador instance/backups. Subpastas diario (guarda 7), semanal (4),
 		mensal (12) e manuais. BACKUP_DIR_EXTERNO recebe uma segunda cópia de cada backup fora do servidor (disco de
 		rede, volume da nuvem ou pasta do rclone), com a mesma retenção.
-		Guias: deploy/ubuntu, deploy/aws, deploy/gcp, deploy/azure, deploy/pythonanywhere; imagem em deploy/conteiner/Dockerfile.
+		Guias: deploy/ubuntu, deploy/aws, deploy/gcp, deploy/azure, deploy/pythonanywhere; imagem no Dockerfile da raiz (docker-compose.yml para rodar localmente).
 		Tela: Administração › Sistema › Ambiente e compatibilidade mostra a hospedagem, o banco, as pastas e cada recurso
 		ligado, com atenção ou desligado (com o motivo e como ligar). As rotas dos agentes e o backup consultam a mesma
 		verificação e se desligam sozinhos onde não funcionam. Código: ambiente.py e instalar.py.

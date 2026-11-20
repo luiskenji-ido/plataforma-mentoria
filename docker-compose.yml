@@ -1,0 +1,133 @@
+# Ambiente local completo com os serviços de apoio, igual ao da nuvem (só para desenvolvimento e testes E2E).
+#
+#   cp .env.example .env            e defina ao menos SECRET_KEY (python -c "import secrets; print(secrets.token_hex(32))")
+#   docker compose up --build        plataforma em http://localhost:8080
+#   docker compose down -v           apaga também os dados locais (banco, Redis, MinIO)
+#
+# Serviços: db (MySQL 8.4), redis (limite de tentativas e batimento das tarefas), minio (arquivos, compatível com S3),
+# migrar (aplica as migrações uma vez e sai), web (gunicorn) e worker (tarefas agendadas). As senhas abaixo valem só
+# para este ambiente local; na nuvem, tudo vem do gerenciador de segredos.
+
+name: mentoria
+
+x-app: &app
+  build:
+    context: .
+  image: mentoria:local
+  read_only: true
+  tmpfs:
+    - /tmp
+    - /app/instance
+  environment: &ambiente
+    SECRET_KEY: ${SECRET_KEY:?defina SECRET_KEY no arquivo .env (veja .env.example)}
+    DATABASE_URL: mysql+pymysql://mentoria:${MYSQL_PASSWORD:-mentoria_local}@db:3306/mentoria?charset=utf8mb4
+    REDIS_URL: redis://redis:6379/0
+    ARMAZENAMENTO: s3
+    S3_BUCKET: mentoria-arquivos
+    S3_ENDPOINT: http://minio:9000
+    S3_REGIAO: us-east-1
+    AWS_ACCESS_KEY_ID: ${MINIO_USUARIO:-mentoria}
+    AWS_SECRET_ACCESS_KEY: ${MINIO_SENHA:-mentoria_local_minio}
+    APP_BASE_URL: ${APP_BASE_URL:-http://localhost:8080}
+    HOSPEDAGEM: aws_conteiner
+    MENTORIA_PRODUCAO: ${MENTORIA_PRODUCAO:-0}
+    LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    MAIL_SERVER: ${MAIL_SERVER:-}
+    MAIL_REMETENTE: ${MAIL_REMETENTE:-}
+    MAIL_USERNAME: ${MAIL_USERNAME:-}
+    MAIL_PASSWORD: ${MAIL_PASSWORD:-}
+  depends_on: &dependencias
+    db:
+      condition: service_healthy
+    redis:
+      condition: service_healthy
+    minio-bucket:
+      condition: service_completed_successfully
+
+services:
+  db:
+    image: mysql:8.4.3
+    environment:
+      MYSQL_DATABASE: mentoria
+      MYSQL_USER: mentoria
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-mentoria_local}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-mentoria_local_root}
+    command: ["--character-set-server=utf8mb4", "--collation-server=utf8mb4_unicode_ci"]
+    volumes:
+      - dados_mysql:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-umentoria", "-p${MYSQL_PASSWORD:-mentoria_local}"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+  redis:
+    image: redis:7.4.1-alpine
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  minio:
+    image: minio/minio:RELEASE.2025-04-22T22-12-26Z
+    command: ["server", "/data", "--console-address", ":9001"]
+    environment:
+      MINIO_ROOT_USER: ${MINIO_USUARIO:-mentoria}
+      MINIO_ROOT_PASSWORD: ${MINIO_SENHA:-mentoria_local_minio}
+    volumes:
+      - dados_minio:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  minio-bucket:
+    image: minio/mc:RELEASE.2025-04-16T18-13-26Z
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - >-
+        mc alias set local http://minio:9000 "$${MINIO_USUARIO}" "$${MINIO_SENHA}" &&
+        mc mb --ignore-existing local/mentoria-arquivos &&
+        mc anonymous set none local/mentoria-arquivos
+    environment:
+      MINIO_USUARIO: ${MINIO_USUARIO:-mentoria}
+      MINIO_SENHA: ${MINIO_SENHA:-mentoria_local_minio}
+
+  migrar:
+    <<: *app
+    command: ["flask", "--app", "app", "db", "upgrade"]
+    restart: "no"
+    depends_on: *dependencias
+
+  web:
+    <<: *app
+    ports:
+      - "${PORTA_WEB:-8080}:8080"
+    depends_on:
+      <<: *dependencias
+      migrar:
+        condition: service_completed_successfully
+    stop_grace_period: 40s
+    restart: unless-stopped
+
+  worker:
+    <<: *app
+    command: ["python", "tarefas_agendadas.py", "--continuo"]
+    depends_on:
+      <<: *dependencias
+      migrar:
+        condition: service_completed_successfully
+    healthcheck:
+      disable: true
+    stop_grace_period: 60s
+    restart: unless-stopped
+
+volumes:
+  dados_mysql:
+  dados_minio:

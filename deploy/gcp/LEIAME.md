@@ -19,7 +19,7 @@
 
 Passos:
 1. Banco: **Cloud SQL** MySQL 8 ou PostgreSQL, com o banco `mentoria`; ligue o serviço ao Cloud SQL.
-2. Imagem: `docker build -f deploy/conteiner/Dockerfile -t mentoria .` e envie ao **Artifact Registry**.
+2. Imagem: `docker build -t mentoria .` e envie ao **Artifact Registry**.
 3. Variáveis (senhas no **Secret Manager**): `HOSPEDAGEM=gcp_conteiner`, `DATABASE_URL`, `SECRET_KEY`, `APP_BASE_URL`,
    `MENTORIA_PRODUCAO=1`, `ATRAS_DE_PROXY=1`; com volume: `DISCO_PERSISTENTE=1` e `BACKUP_DIR=/app/instance/backups`.
 4. Primeira vez: um Cloud Run Job com `python instalar.py --respostas respostas.json` (ou `flask db upgrade`).

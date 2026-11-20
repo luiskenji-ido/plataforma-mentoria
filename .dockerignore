@@ -1,14 +1,51 @@
+# Fica de fora da imagem: histórico do Git, segredos, bancos e arquivos locais, testes, relatórios e ferramentas
+
+# Git e editores
 .git
-.venv
-.venv-1
-__pycache__
-*.pyc
+.gitignore
+.github
+.vscode
+.idea
+
+# Segredos e configuração local (chegam pelo ambiente ou como segredo montado)
 .env
 .env.*
+!.env.example
+client_secret.json
+*.pem
+*.key
 instance/
+.secret_key
+
+# Ambientes, caches e bancos locais
+.venv*
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.coverage*
+htmlcov/
+coverage.xml
+*.db
+*.sqlite*
+
+# Dados locais e relatórios (uploads vão para o S3; backups e relatórios não entram na imagem)
 uploads/
-Agent Reports/
 Backup_repository/
 Log_auditoria_backup/
-client_secret.json
-*.db
+relatorio_backups.log
+Agent Reports/
+prototipo_ux/
+infrastructure/
+
+# Testes e documentação que não rodam no contêiner
+tests/
+deploy/
+*.docx
+*.pdf
+*.md
+!agentes_orquestrador/skill_correcao.md
+!requirements*.txt
+docker-compose*.yml
+Dockerfile
+.dockerignore

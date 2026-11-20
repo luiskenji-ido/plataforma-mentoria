@@ -21,7 +21,7 @@ Passos:
 1. Banco gerenciado (MySQL, PostgreSQL ou Azure SQL). No **Azure SQL**, o backup é automático (point-in-time) e a
    plataforma não gera arquivos de backup: a tela de Ambiente mostra o backup como desligado de propósito.
    Para SQL Server o driver ODBC 18 precisa estar na imagem (veja `requirements-sqlserver.txt`).
-2. Imagem: `docker build -f deploy/conteiner/Dockerfile -t mentoria .` e envie ao **Azure Container Registry**.
+2. Imagem: `docker build -t mentoria .` e envie ao **Azure Container Registry**.
 3. Variáveis (senhas no **Key Vault**): `HOSPEDAGEM=azure_conteiner`, `DATABASE_URL`, `SECRET_KEY`, `APP_BASE_URL`,
    `MENTORIA_PRODUCAO=1`, `ATRAS_DE_PROXY=1`; com Azure Files: `DISCO_PERSISTENTE=1` e `BACKUP_DIR=/app/instance/backups`.
 4. Primeira vez: um Job com `python instalar.py --respostas respostas.json` (ou `flask db upgrade`).
