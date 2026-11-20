@@ -132,6 +132,12 @@ def _ler_arquivo(caminho):
         return ''
 
 
+def arquivo_client_secret_google():
+    """Credencial OAuth do Google (Agenda e Gmail). Em contêiner ela é montada como segredo (nunca vai na imagem) e o
+    caminho vem de GOOGLE_CLIENT_SECRETS_FILE; sem a variável, o client_secret.json da pasta da plataforma."""
+    return (os.environ.get('GOOGLE_CLIENT_SECRETS_FILE') or '').strip() or os.path.join(RAIZ, 'client_secret.json')
+
+
 def aws_servico():
     """Qual serviço da AWS está rodando a plataforma, pelas marcas que a própria AWS deixa (sem chamar a rede):
     Lambda e ECS/Fargate pelas variáveis de ambiente, App Runner pela variável dele, Elastic Beanstalk pela pasta
@@ -406,10 +412,11 @@ def recursos():
     itens.append(_item('email', 'E-mail (SMTP)', 'ligado' if os.environ.get('MAIL_SERVER') else 'atencao',
                        'Configurado.' if os.environ.get('MAIL_SERVER') else 'Sem servidor de e-mail: avisos só aparecem na plataforma.',
                        'Preencha MAIL_SERVER, MAIL_USERNAME e MAIL_PASSWORD no .env.', 'Integrações'))
-    google = os.path.exists(os.path.join(RAIZ, 'client_secret.json'))
+    google = os.path.exists(arquivo_client_secret_google())
     itens.append(_item('google', 'Google (Agenda e Gmail)', 'ligado' if google else 'atencao',
                        'Configurado.' if google else 'Sem client_secret.json: Conectar Google fica indisponível.',
-                       'Coloque o client_secret.json do Google Cloud na pasta da plataforma.', 'Integrações'))
+                       'Coloque o client_secret.json do Google Cloud na pasta da plataforma (ou informe o caminho em '
+                       'GOOGLE_CLIENT_SECRETS_FILE).', 'Integrações'))
     try:
         import microsoft365
         m365 = microsoft365.configurado()

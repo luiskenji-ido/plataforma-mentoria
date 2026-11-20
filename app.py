@@ -25,8 +25,12 @@ load_dotenv()
 
 # As chamadas às IAs (Claude, Gemini e ChatGPT/OpenAI) ficam em provedores_ia.py: ordem de modelos por uso, reserva e teto de gasto.
 
-# Isso permite testarmos o login do Google no nosso computador (localhost) sem HTTPS
-os.environ['OAUTHLIB_INSECURE_TRANSPORT'] = '1'
+# Login do Google sem HTTPS só no computador de desenvolvimento (localhost). Em produção o oauthlib exige HTTPS:
+# o endereço de retorno chega como https pelo ProxyFix (seguranca_web.configurar_seguranca).
+import ambiente
+import seguranca_web
+if not seguranca_web.EM_PRODUCAO:
+    os.environ['OAUTHLIB_INSECURE_TRANSPORT'] = '1'
 
 # Dizemos ao Google que só queremos criar/ver eventos na agenda
 SCOPES = ['https://www.googleapis.com/auth/calendar.events']
@@ -3908,7 +3912,7 @@ def opcoes_envio_convite():
     credenciais_agentes.carregar(app.config['SECRET_KEY'])
     conta = conta_microsoft(current_user)
     return {'gmail_email': session.get('gmail_email') if session.get('gmail_token') else None,
-            'gmail_disponivel': os.path.exists(os.path.join(app.root_path, 'client_secret.json')),
+            'gmail_disponivel': os.path.exists(ambiente.arquivo_client_secret_google()),
             'smtp_disponivel': convites_reuniao.smtp_configurado(),
             'microsoft_email': conta.email if conta else None, 'microsoft_disponivel': microsoft365.configurado()}
 
@@ -4059,7 +4063,7 @@ def enviar_convite_reuniao(reuniao, via, emails_escolhidos=None):
     try:
         if via == 'gmail':
             credenciais = convites_reuniao.credenciais_gmail(session['gmail_token'], session.get('gmail_refresh_token'),
-                                                             os.path.join(app.root_path, 'client_secret.json'))
+                                                             ambiente.arquivo_client_secret_google())
             for mensagem in mensagens:
                 convites_reuniao.enviar_gmail(mensagem, credenciais)
             if credenciais.token and credenciais.token != session['gmail_token']:
@@ -4125,7 +4129,7 @@ def conectar_gmail():
     if current_user.tipo_usuario not in PERFIS_GESTAO_REUNIOES:
         flash("Acesso negado.", "danger")
         return redirect(url_for('dashboard'))
-    caminho_secreto = os.path.join(app.root_path, 'client_secret.json')
+    caminho_secreto = ambiente.arquivo_client_secret_google()
     if not os.path.exists(caminho_secreto):
         flash(t('gmail_sem_configuracao', current_user.idioma), "warning")
         return redirect(seguranca_web.destino_interno(request.args.get('voltar'), url_for('reunioes')))
@@ -6326,7 +6330,7 @@ def acao_solicitacao(id, acao):
 @app.route('/conectar-agenda')
 @login_required
 def conectar_agenda():
-    caminho_secreto = os.path.join(app.root_path, 'client_secret.json')
+    caminho_secreto = ambiente.arquivo_client_secret_google()
     
     flow = Flow.from_client_secrets_file(
         caminho_secreto,
@@ -6352,7 +6356,7 @@ def conectar_agenda():
 def oauth2callback():
     import convites_reuniao
     state = session.get('state')
-    caminho_secreto = os.path.join(app.root_path, 'client_secret.json')
+    caminho_secreto = ambiente.arquivo_client_secret_google()
     # O mesmo endereço de retorno serve à Agenda e ao Gmail (só um endereço cadastrado no Google Cloud)
     destino = session.pop('oauth_destino', 'agenda')
 
@@ -6433,7 +6437,7 @@ def sincronizar_evento_google(titulo, descricao, data_inicio, horario_str="09:00
         import json
         from datetime import timedelta
         
-        caminho_secreto = os.path.join(app.root_path, 'client_secret.json')
+        caminho_secreto = ambiente.arquivo_client_secret_google()
         with open(caminho_secreto, 'r') as f:
             dados_cliente = json.load(f)['web']
             
@@ -10099,6 +10103,9 @@ def criar_mudanca():
 def decidir_mudanca(rdm_id):
     import mudancas
     from models import RequisicaoMudanca
+    if not mudancas.pode_ver(current_user):
+        flash("Acesso Negado.", "danger")
+        return redirect(url_for('dashboard'))
     r = db.session.get(RequisicaoMudanca, rdm_id)
     ok, mensagem = mudancas.decidir(r, current_user, request.form.get('decisao') == 'aprovar', request.form.get('motivo'))
     flash(tt(mensagem, current_user.idioma), 'success' if ok else 'warning')
@@ -10115,6 +10122,9 @@ def decidir_mudanca(rdm_id):
 def cancelar_mudanca(rdm_id):
     import mudancas
     from models import RequisicaoMudanca
+    if not mudancas.pode_ver(current_user):
+        flash("Acesso Negado.", "danger")
+        return redirect(url_for('dashboard'))
     ok, mensagem = mudancas.cancelar(db.session.get(RequisicaoMudanca, rdm_id), current_user)
     flash(tt(mensagem, current_user.idioma), 'success' if ok else 'warning')
     return _voltar_mudanca()

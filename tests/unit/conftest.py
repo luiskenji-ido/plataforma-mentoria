@@ -32,6 +32,9 @@ def ambiente_limpo(monkeypatch):
         "DB_POOL_SIZE",
         "DB_POOL_RECYCLE",
         "DB_MAX_OVERFLOW",
+        "MENTORIA_CONTEINER",
+        "MENTORIA_EXIGIR_SECRET_KEY",
+        "GOOGLE_CLIENT_SECRETS_FILE",
     ):
         monkeypatch.delenv(nome, raising=False)
 

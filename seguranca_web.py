@@ -76,8 +76,25 @@ document.addEventListener('submit',function(ev){{por(ev.target)}},true);
 
 
 # ------------------------------------------------------------------------------ chave secreta
+class ChaveSecretaAusente(RuntimeError):
+    """A plataforma não sobe sem uma SECRET_KEY válida onde o disco não guarda o arquivo da chave (contêiner)."""
+
+
+def exige_secret_key_no_ambiente():
+    """Contêiner (várias réplicas, disco que some a cada reinício): a chave PRECISA vir do ambiente. Uma chave gerada em
+    arquivo seria diferente em cada réplica e a cada reinício: sessões cairiam e as credenciais cifradas no banco ficariam
+    ilegíveis. A imagem liga MENTORIA_CONTEINER=1; MENTORIA_EXIGIR_SECRET_KEY=1 força a regra em qualquer lugar."""
+    return os.environ.get("MENTORIA_CONTEINER") == "1" or os.environ.get("MENTORIA_EXIGIR_SECRET_KEY") == "1"
+
+
 def carregar_chave_secreta(pasta_instance):
     chave = os.environ.get("SECRET_KEY", "").strip()
+    if exige_secret_key_no_ambiente():
+        if len(chave) < MINIMO_CARACTERES_SECRET_KEY:
+            raise ChaveSecretaAusente(
+                f"Defina SECRET_KEY no ambiente com pelo menos {MINIMO_CARACTERES_SECRET_KEY} caracteres "
+                '(ex.: python -c "import secrets; print(secrets.token_hex(32))").')
+        return chave
     if chave:
         return chave
     caminho = os.path.join(pasta_instance, ".secret_key")

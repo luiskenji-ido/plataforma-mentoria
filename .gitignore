@@ -19,3 +19,6 @@ Backup_repository/
 
 # Relatórios e evidências dos agentes de teste e de segurança (prints, e-mails de teste, achados)
 Agent Reports/
+
+# Cópia do banco e senha das contas de demonstração do protótipo
+prototipo_ux/dados/

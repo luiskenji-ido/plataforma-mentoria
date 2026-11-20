@@ -10,6 +10,7 @@ markers = [
     "e2e: testes contra a imagem de produção rodando com as dependências",
 ]
 filterwarnings = [
+    "ignore:Cannot correctly sort tables:sqlalchemy.exc.SAWarning",
     "ignore::DeprecationWarning:google.*",
     "ignore::DeprecationWarning:pyasn1.*",
 ]

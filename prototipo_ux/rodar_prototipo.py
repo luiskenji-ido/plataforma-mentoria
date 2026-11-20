@@ -25,7 +25,31 @@ BANCO = os.path.join(PASTA, 'dados', 'prototipo.db')
 SEM_TEMA = '--sem-tema' in sys.argv
 PORTA = 5071 if SEM_TEMA else 5070  # 5060 e 5061 são bloqueadas pelos navegadores
 CONTAS = [('demo_admin@local.com', 'Demo Gestão', 'Administrador'), ('demo_aluno@local.com', 'Demo Aluno', 'Aluno')]
-SENHA_DEMO = 'Demo@Aulas2026x'  # conta de teste local, só existe na cópia do protótipo
+
+
+def _senha_demo():
+    """Senha das contas de demonstração (só existem na cópia do protótipo): PROTOTIPO_SENHA_DEMO no ambiente ou, sem
+    ela, uma senha aleatória gerada uma vez e guardada em prototipo_ux/dados/senha_demo.txt (fora do Git). Os scripts
+    de captura e de contraste importam a mesma senha daqui."""
+    senha = (os.environ.get('PROTOTIPO_SENHA_DEMO') or '').strip()
+    if senha:
+        return senha
+    arquivo = os.path.join(PASTA, 'dados', 'senha_demo.txt')
+    try:
+        with open(arquivo, encoding='utf-8') as f:
+            senha = f.read().strip()
+    except OSError:
+        senha = ''
+    if len(senha) < 12:
+        import secrets
+        senha = 'Demo@9' + secrets.token_urlsafe(12)  # atende à política de senha forte (maiúscula, número, símbolo)
+        os.makedirs(os.path.dirname(arquivo), exist_ok=True)
+        with open(arquivo, 'w', encoding='utf-8') as f:
+            f.write(senha)
+    return senha
+
+
+SENHA_DEMO = _senha_demo()
 
 if '--novo-banco' in sys.argv or not os.path.exists(BANCO):
     os.makedirs(os.path.dirname(BANCO), exist_ok=True)
