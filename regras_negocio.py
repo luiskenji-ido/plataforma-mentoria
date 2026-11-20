@@ -233,10 +233,16 @@ def _historico(chave, acao, anterior, novo, motivo, usuario_id):
                                       usuario_id=usuario_id, data=datetime.utcnow()))
 
 
-def salvar_varios(valores, usuario_id, motivo=''):
-    """valores = {chave: texto}. Valida tudo antes de gravar (inclusive pesos que somam 100%).
-    Devolve (alteradas, erros) — com qualquer erro nada é gravado."""
-    db, ParametroRegra, _ = _modelos()
+def preparar_varios(valores):
+    """Só valida, sem gravar (para a requisição de mudança): devolve ({chave: (anterior, novo) em texto} das regras que
+    MUDAM, erros). Mesmas regras do salvar_varios: tipo, limites e pesos da banca somando 100%."""
+    novos, erros = _validar(valores)
+    if erros:
+        return {}, erros
+    return {c: (para_texto(regra(c)), para_texto(v)) for c, v in novos.items() if v != regra(c)}, {}
+
+
+def _validar(valores):
     gravados = _gravados()
     novos, erros = {}, {}
     for chave, texto in valores.items():
@@ -257,6 +263,15 @@ def salvar_varios(valores, usuario_id, motivo=''):
     pesos = {c: novos.get(c, regra(c)) for c in SOMA_100}
     if any(c in novos for c in SOMA_100) and sum(pesos.values()) != 100:
         erros['banca_peso_escrito'] = f'Os pesos da banca somam {sum(pesos.values())}%: precisam somar 100%.'
+    return novos, erros
+
+
+def salvar_varios(valores, usuario_id, motivo=''):
+    """valores = {chave: texto}. Valida tudo antes de gravar (inclusive pesos que somam 100%).
+    Devolve (alteradas, erros) — com qualquer erro nada é gravado."""
+    db, ParametroRegra, _ = _modelos()
+    gravados = _gravados()
+    novos, erros = _validar(valores)
     if erros:
         return [], erros
     alteradas = []

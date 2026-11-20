@@ -631,7 +631,7 @@
       {% set grupo_admin = ['gerenciar_usuarios', 'gestao_trilha_tcc', 'reunioes', 'agenda_bancas', 'avaliadores_banca', 'indicadores_voluntariado',
                             'gerenciar_solicitacoes', 'gerenciar_grupos', 'perfis_acesso_view', 'parametros_regras', 'identidade_instituicao'] %}
       {% set grupo_sistema = ['ambiente_compatibilidade', 'agentes_ia', 'agentes_seguranca', 'agentes_banco', 'agentes_funcionalidades',
-                              'agentes_orquestrador', 'governanca_aprendizados', 'assistente', 'provedores_ia_view', 'manutencao_banco'] %}
+                              'agentes_orquestrador', 'governanca_aprendizados', 'assistente', 'provedores_ia_view', 'manutencao_banco', 'mudancas_view'] %}
 
       <ul class="navbar-nav me-auto mb-2 mb-xl-0 gap-xl-1">
         <!-- Painel Geral -->
@@ -725,6 +725,10 @@
             <li><a class="dropdown-item fw-bold" href="{{ url_for('identidade_instituicao') }}"><i class="bi bi-building"></i> {{ tt('Identidade da instituição') }}</a></li>
             <li><hr class="dropdown-divider"></li>
             {% endif %}
+            {% if current_user.tipo_usuario not in PERFIS_ADMINISTRACAO_SISTEMA and rdm_pode_ver() %}
+            <li><a class="dropdown-item fw-bold" href="{{ url_for('mudancas_view') }}"><i class="bi bi-clipboard-check"></i> {{ tt('Requisições de mudança') }}</a></li>
+            <li><hr class="dropdown-divider"></li>
+            {% endif %}
             <li><h6 class="dropdown-header">{{ tt('Pessoas') }}</h6></li>
             {% if current_user.tipo_usuario in PERFIS_GESTAO_CADASTROS and pode_modulo('cadastros') %}
             <li><a class="dropdown-item fw-bold" href="{{ url_for('gerenciar_usuarios') }}"><i class="bi bi-people-fill"></i> {{ t('menu_cadastros') }}</a></li>
@@ -767,6 +771,7 @@
             <li><a class="dropdown-item fw-bold" href="{{ url_for('governanca_aprendizados') }}"><i class="bi bi-mortarboard"></i> {{ tt('Governança de aprendizados') }}</a></li>
             {% endif %}
             {% if pode_modulo('assistente') %}<li><a class="dropdown-item fw-bold" href="{{ url_for('assistente') }}"><i class="bi bi-chat-dots"></i> {{ tt('Assistente da Plataforma') }}</a></li>{% endif %}
+            <li><a class="dropdown-item fw-bold" href="{{ url_for('mudancas_view') }}"><i class="bi bi-clipboard-check"></i> {{ tt('Requisições de mudança') }}</a></li>
             {% if pode_modulo('agentes_ia') %}<li><a class="dropdown-item fw-bold" href="{{ url_for('provedores_ia_view') }}"><i class="bi bi-cpu"></i> {{ tt('Provedores de IA e custos') }}</a></li>{% endif %}
             {% if pode_modulo('manutencao') %}<li><a class="dropdown-item fw-bold text-danger" href="{{ url_for('manutencao_banco') }}"><i class="bi bi-database-fill-gear"></i> {{ t('menu_manutencao') }}</a></li>{% endif %}
           </ul>

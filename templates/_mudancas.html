@@ -1,0 +1,129 @@
+{# Requisição de mudança (RDM / CR / SC): peças usadas em Requisições de mudança, Parâmetros de regras e no Orquestrador.
+   Importar com: {% import '_mudancas.html' as rdm with context %} #}
+
+{% macro botao_criar(tipo='outro') %}
+<button type="button" class="btn btn-outline-primary fw-bold" data-bs-toggle="modal" data-bs-target="#modalNovaRdm" data-rdm-tipo="{{ tipo }}" id="btnCriarRdm">
+    <i class="bi bi-clipboard-plus"></i> {{ tt('Criar Requisição de Mudança') }}</button>
+{% endmacro %}
+
+{% macro formulario(correcoes=[], tipo_padrao='outro', voltar='') %}
+<div class="modal fade" id="modalNovaRdm" tabindex="-1" aria-labelledby="tituloNovaRdm" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <form method="POST" action="{{ url_for('criar_mudanca') }}" class="modal-content">
+            <input type="hidden" name="voltar" value="{{ voltar }}">
+            <div class="modal-header">
+                <h5 class="modal-title fw-bold" id="tituloNovaRdm"><i class="bi bi-clipboard-plus"></i> {{ tt('Criar Requisição de Mudança') }} ({{ rdm_prefixo() }})</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ tt('Fechar') }}"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-info small py-2"><i class="bi bi-info-circle"></i>
+                    {{ tt('O pedido fica Aguardando aprovação do grupo') }} <b>{{ rdm_grupo() or '—' }}</b>. {{ tt('Quem pede não aprova a própria requisição.') }}</div>
+                <div class="row g-3">
+                    <div class="col-md-6"><label class="form-label" for="rdmTipo">{{ tt('Tipo de mudança') }}</label>
+                        <select class="form-select" name="tipo" id="rdmTipo">
+                            {% for chave, nome in rdm_tipos().items() %}<option value="{{ chave }}" {{ 'selected' if chave == tipo_padrao }}>{{ tt(nome) }}</option>{% endfor %}
+                        </select></div>
+                    <div class="col-md-6"><label class="form-label" for="rdmRisco">{{ tt('Risco') }}</label>
+                        <select class="form-select" name="risco" id="rdmRisco">{% for r in ['Baixo', 'Médio', 'Alto'] %}<option value="{{ r }}">{{ tt(r) }}</option>{% endfor %}</select></div>
+                    <div class="col-12"><label class="form-label" for="rdmTitulo">{{ tt('Título') }}</label>
+                        <input class="form-control" name="titulo" id="rdmTitulo" required minlength="5" maxlength="200" placeholder="{{ tt('Ex.: corrigir as consultas repetidas da tela Cadastros') }}"></div>
+                    <div class="col-12"><label class="form-label" for="rdmDescricao">{{ tt('O que vai mudar') }}</label>
+                        <textarea class="form-control" name="descricao" id="rdmDescricao" rows="3" maxlength="5000"></textarea></div>
+                    <div class="col-12"><label class="form-label" for="rdmJustificativa">{{ tt('Por que mudar (justificativa)') }}</label>
+                        <textarea class="form-control" name="justificativa" id="rdmJustificativa" rows="2" maxlength="3000"></textarea></div>
+                    <div class="col-md-6"><label class="form-label" for="rdmData">{{ tt('Data agendada para aplicar') }} <span class="text-muted fw-normal">· {{ tt('opcional') }}</span></label>
+                        <input type="datetime-local" class="form-control" name="data_agendada" id="rdmData">
+                        <div class="form-text">{{ tt('Vazio: aplica assim que for aprovada.') }}</div></div>
+                    <div class="col-md-6"><label class="form-label" for="rdmRollback">{{ tt('Plano de rollback') }}</label>
+                        <textarea class="form-control" name="plano_rollback" id="rdmRollback" rows="2" maxlength="3000" placeholder="{{ tt('Como voltar atrás se der errado') }}"></textarea></div>
+                    {% if correcoes %}
+                    <div class="col-12" id="rdmCorrecoes"><span class="form-label d-block">{{ tt('Correções do Orquestrador incluídas') }}</span>
+                        <div class="border rounded p-2 small" style="max-height: 180px; overflow-y: auto;">
+                            {% for c in correcoes %}
+                            <div class="form-check"><input class="form-check-input" type="checkbox" name="correcoes" value="{{ c.id }}" id="rdmCorr_{{ c.id }}">
+                                <label class="form-check-label" for="rdmCorr_{{ c.id }}">{{ tt(c.severidade) }} · {{ c.titulo }} <span class="text-muted">({{ tt(c.equipe_nome) }})</span></label></div>
+                            {% endfor %}
+                        </div></div>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">{{ tt('Cancelar') }}</button>
+                <button type="submit" class="btn btn-primary fw-bold"><i class="bi bi-send"></i> {{ tt('Enviar para aprovação') }}</button>
+            </div>
+        </form>
+    </div>
+</div>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const modal = document.getElementById('modalNovaRdm');
+    if (!modal) return;
+    modal.addEventListener('show.bs.modal', function (e) {
+        const tipo = e.relatedTarget && e.relatedTarget.dataset.rdmTipo;
+        if (tipo) document.getElementById('rdmTipo').value = tipo;
+    });
+});
+</script>
+{% endmacro %}
+
+{% macro cor_status(status) %}{{ {'Aguardando aprovação': 'bg-warning', 'Aprovada': 'bg-primary', 'Reprovada': 'bg-danger', 'Aplicada': 'bg-success', 'Cancelada': 'bg-secondary'}.get(status, 'bg-secondary') }}{% endmacro %}
+
+{% macro data(d) %}{{ d.strftime('%d/%m/%Y %H:%M') if d else '—' }}{% endmacro %}
+
+{% macro acoes(r, voltar='') %}
+{% if rdm_pode_decidir(r) %}
+<form method="POST" action="{{ url_for('decidir_mudanca', rdm_id=r.id) }}" class="d-inline">
+    <input type="hidden" name="voltar" value="{{ voltar }}"><input type="hidden" name="decisao" value="aprovar">
+    <button class="btn btn-sm btn-success fw-bold" type="submit"><i class="bi bi-check2"></i> {{ tt('Aprovar') }}</button></form>
+<form method="POST" action="{{ url_for('decidir_mudanca', rdm_id=r.id) }}" class="d-inline"
+      onsubmit="this.motivo.value = prompt({{ tt('Motivo da reprovação:') | tojson }}) || ''; return this.motivo.value.trim().length > 2;">
+    <input type="hidden" name="voltar" value="{{ voltar }}"><input type="hidden" name="decisao" value="reprovar"><input type="hidden" name="motivo">
+    <button class="btn btn-sm btn-outline-danger fw-bold" type="submit"><i class="bi bi-x-lg"></i> {{ tt('Reprovar') }}</button></form>
+{% elif r.status == 'Aguardando aprovação' and r.solicitante_id == current_user.id %}
+<span class="small text-muted">{{ tt('Aguardando outro membro do grupo') }}</span>
+{% endif %}
+{% if r.status in ['Aguardando aprovação', 'Aprovada'] and (r.solicitante_id == current_user.id or current_user.tipo_usuario in PERFIS_ADMINISTRACAO_SISTEMA) %}
+<form method="POST" action="{{ url_for('cancelar_mudanca', rdm_id=r.id) }}" class="d-inline" onsubmit="return confirm({{ tt('Cancelar esta requisição de mudança?') | tojson }})">
+    <input type="hidden" name="voltar" value="{{ voltar }}">
+    <button class="btn btn-sm btn-outline-secondary" type="submit">{{ tt('Cancelar') }}</button></form>
+{% endif %}
+{% endmacro %}
+
+{% macro pendentes(lista, titulo, voltar='', id_cartao='cardRdmPendentes') %}
+<div class="card shadow-sm border-0 mb-3" id="{{ id_cartao }}">
+    <div class="card-header bg-white fw-bold d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <span><i class="bi bi-hourglass-split"></i> {{ titulo }} ({{ lista|length }})</span>
+        <span class="small text-muted fw-normal">{{ tt('Grupo de aprovação') }}: <b>{{ rdm_grupo() or '—' }}</b></span>
+    </div>
+    <div class="table-responsive">
+        <table class="table table-hover align-middle small mb-0">
+            <thead><tr><th>{{ tt('Número') }}</th><th>{{ tt('Mudança') }}</th><th>{{ tt('Solicitante') }}</th><th>{{ tt('Solicitada em') }}</th>
+                <th>{{ tt('Agendada para') }}</th><th>{{ tt('Status') }}</th><th class="text-end">{{ tt('Ação') }}</th></tr></thead>
+            <tbody>
+                {% for r in lista %}
+                <tr id="rdm_{{ r.id }}">
+                    <td class="text-nowrap fw-bold">{{ rdm_numero(r) }}</td>
+                    <td><b>{{ r.titulo }}</b><div class="text-muted">{{ tt(rdm_tipos().get(r.tipo, r.tipo)) }} · {{ tt('Risco') }} {{ tt(r.risco) }}</div>
+                        {% set itens = rdm_conteudo(r) %}
+                        {% if r.descricao or itens.valores or r.justificativa or r.plano_rollback %}
+                        <details><summary class="text-primary">{{ tt('Detalhes') }}</summary>
+                            {% if r.descricao %}<div style="white-space: pre-line;">{{ r.descricao }}</div>{% endif %}
+                            {% for chave, (antes, depois) in (itens.valores or {}).items() %}<div><code>{{ chave }}</code>: {{ antes }} → <b>{{ depois }}</b></div>{% endfor %}
+                            {% if r.justificativa %}<div><b>{{ tt('Justificativa') }}:</b> {{ r.justificativa }}</div>{% endif %}
+                            {% if r.plano_rollback %}<div><b>{{ tt('Plano de rollback') }}:</b> {{ r.plano_rollback }}</div>{% endif %}
+                        </details>{% endif %}</td>
+                    <td>{{ r.solicitante.nome if r.solicitante else '—' }}</td>
+                    <td class="text-nowrap">{{ data(r.data_solicitacao) }}</td>
+                    <td class="text-nowrap">{{ data(r.data_agendada) if r.data_agendada else tt('ao aprovar') }}</td>
+                    <td><span class="badge {{ cor_status(r.status) }}">{{ tt(r.status) }}</span>
+                        {% if r.aprovador %}<div class="text-muted">{{ r.aprovador.nome }}</div>{% endif %}</td>
+                    <td class="text-end text-nowrap">{{ acoes(r, voltar) }}</td>
+                </tr>
+                {% else %}
+                <tr><td colspan="7" class="text-center text-muted py-3">{{ tt('Nenhuma requisição de mudança pendente.') }}</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endmacro %}

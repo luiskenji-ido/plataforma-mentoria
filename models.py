@@ -1525,6 +1525,51 @@ class UsoIA(db.Model):
 
 
 # ==============================================================================
+# REQUISIÇÃO DE MUDANÇA (RDM / CR / SC): pedido → aprovação do comitê → aplicação (parâmetros e commits do Orquestrador)
+# ==============================================================================
+class RequisicaoMudanca(db.Model):
+    """Uma mudança pedida na plataforma. Só é aplicada depois de aprovada por um membro do grupo de aprovação
+    (Credenciais › Variável apelido B2B-Comite-Aprovacao) que não seja quem pediu. O número aparece como RDM (pt),
+    CR (en) ou SC (es) + o código (ex.: RDM-2026-0001)."""
+    __tablename__ = 'requisicao_mudanca'
+    id = db.Column(db.Integer, primary_key=True)
+    codigo = db.Column(db.String(20), nullable=False, unique=True)     # 2026-0001 (o prefixo vem do idioma)
+    tipo = db.Column(db.String(20), nullable=False, default='outro')   # parametros / codigo / outro
+    titulo = db.Column(db.String(200), nullable=False)
+    descricao = db.Column(TextoLongo, nullable=True)
+    justificativa = db.Column(TextoLongo, nullable=True)
+    risco = db.Column(db.String(10), nullable=False, default='Baixo')
+    plano_rollback = db.Column(TextoLongo, nullable=True)
+    status = db.Column(db.String(30), nullable=False, default='Aguardando aprovação', index=True)
+    conteudo = db.Column(TextoLongo, nullable=True)                    # JSON: o que será aplicado (ex.: valores das regras)
+    grupo_aprovacao = db.Column(db.String(100), nullable=True)          # apelido do grupo no momento do pedido
+    solicitante_id = db.Column(db.Integer, db.ForeignKey('usuario.id'), nullable=False)
+    data_solicitacao = db.Column(db.DateTime, default=datetime.now, nullable=False)
+    data_agendada = db.Column(db.DateTime, nullable=True)
+    aprovador_id = db.Column(db.Integer, db.ForeignKey('usuario.id'), nullable=True)
+    data_decisao = db.Column(db.DateTime, nullable=True)
+    motivo_decisao = db.Column(db.String(500), nullable=True)
+    aplicado_por_id = db.Column(db.Integer, db.ForeignKey('usuario.id'), nullable=True)
+    data_aplicacao = db.Column(db.DateTime, nullable=True)
+    resultado = db.Column(TextoLongo, nullable=True)                    # o que foi aplicado (regras, commit e correções)
+
+    solicitante = db.relationship('Usuario', foreign_keys=[solicitante_id])
+    aprovador = db.relationship('Usuario', foreign_keys=[aprovador_id])
+    aplicado_por = db.relationship('Usuario', foreign_keys=[aplicado_por_id])
+
+
+class MembroComiteMudanca(db.Model):
+    """Quem faz parte do grupo de aprovação das requisições de mudança (escolhido em Credenciais)."""
+    __tablename__ = 'membro_comite_mudanca'
+    id = db.Column(db.Integer, primary_key=True)
+    usuario_id = db.Column(db.Integer, db.ForeignKey('usuario.id'), nullable=False, unique=True)
+    incluido_por_id = db.Column(db.Integer, db.ForeignKey('usuario.id'), nullable=True)
+    incluido_em = db.Column(db.DateTime, default=datetime.now)
+
+    usuario = db.relationship('Usuario', foreign_keys=[usuario_id])
+
+
+# ==============================================================================
 # IDENTIDADE DA INSTITUIÇÃO (uma linha só): nome, apelido dos botões, plataforma, logo e assinatura
 # ==============================================================================
 class IdentidadeInstituicao(db.Model):

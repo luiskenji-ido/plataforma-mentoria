@@ -644,8 +644,11 @@ def executar(ids, provedor, usuario, equipes):
 
 
 # ------------------------------------------------------------------------------ decisão do administrador (chamado pela tela)
-def confirmar(usuario):
-    """Commit na cópia, avança o ramo em uso para ele (fast-forward), push e recarga do site. Devolve (ok, mensagem)."""
+def confirmar(usuario, rdm=None):
+    """Commit na cópia, avança o ramo em uso para ele (fast-forward), push e recarga do site. Devolve (ok, mensagem).
+    rdm = a requisição de mudança aprovada que libera o commit ({numero, titulo, aprovador, data_solicitacao,
+    data_agendada, data_aprovacao}): o número vai na mensagem do commit e tudo fica no histórico."""
+    rdm = rdm or {}
     dados = ler_estado()
     if not dados or dados.get('status') != 'aguardando_confirmacao':
         return False, 'Não há correção aprovada esperando confirmação.'
@@ -659,7 +662,10 @@ def confirmar(usuario):
     git('reset', cwd=dados['copia'])
     git('add', '--', *arquivos, cwd=dados['copia'])
     linhas = [f"- [{i['equipe_nome']}] {i['titulo']}" for i in dados['correcoes'] if i['status'] == 'aplicada']
-    mensagem = (f"Orquestrador: {len(linhas)} correção(ões) aprovada(s) pelas equipes de agentes\n\n" + '\n'.join(linhas) +
+    titulo_commit = (f"{rdm['numero']} · " if rdm.get('numero') else '') + f"Orquestrador: {len(linhas)} correção(ões) aprovada(s) pelas equipes de agentes"
+    mensagem = (f"{titulo_commit}\n\n" + '\n'.join(linhas) +
+                (f"\n\nRequisição de mudança: {rdm['numero']} · {rdm.get('titulo', '')} · aprovada por {rdm.get('aprovador') or '—'}"
+                 if rdm.get('numero') else '') +
                 f"\n\nIA: {dados['provedor']} · Aprovado pelas equipes: " +
                 ', '.join(e['nome'] for e in dados['equipes'].values() if e['status'] == 'aprovado') +
                 f"\nConfirmado por: {usuario} em {datetime.now():%d/%m/%Y %H:%M}")
@@ -681,7 +687,11 @@ def confirmar(usuario):
     _gravar_json(ARQUIVO_ESTADO, dados)
     hist = historico()
     hist.insert(0, {'id': dados['id'], 'commit': sha, 'ramo': ramo_atual, 'data': dados['confirmado_em'], 'usuario': usuario,
-                    'correcoes': linhas, 'push': codigo == 0, 'desfeito': False})
+                    'correcoes': linhas, 'push': codigo == 0, 'desfeito': False,
+                    # requisição de mudança: número, quem aprovou e as datas (solicitação, agendamento e aplicação = data)
+                    'rdm': rdm.get('numero', ''), 'rdm_titulo': rdm.get('titulo', ''), 'aprovador': rdm.get('aprovador', ''),
+                    'data_solicitacao': rdm.get('data_solicitacao', ''), 'data_agendada': rdm.get('data_agendada', ''),
+                    'data_aprovacao': rdm.get('data_aprovacao', '')})
     _gravar_json(ARQUIVO_HISTORICO, hist[:100])
     return True, f'Commit {sha[:8]} criado. {push} {recarga}'
 

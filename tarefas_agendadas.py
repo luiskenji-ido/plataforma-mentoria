@@ -286,7 +286,13 @@ def aprender_funcionalidades(agora):
     return len(conhecimento_funcional.detectar_mudancas('Gerente de Funcionalidades (tarefa de hora em hora)'))
 
 
-TAREFAS = [lembrar_checkout_esquecido, lembrar_encaminhamentos_vencidos, avisar_ocorrencias_atrasadas, enviar_formulario_banca, fechar_checkin_banca_esquecido,
+def aplicar_mudancas_aprovadas(agora):
+    """Requisições de mudança de parâmetros aprovadas cuja data agendada chegou: passam a valer (hora local do servidor)."""
+    import mudancas
+    return mudancas.aplicar_vencidas()
+
+
+TAREFAS = [aplicar_mudancas_aprovadas, lembrar_checkout_esquecido, lembrar_encaminhamentos_vencidos, avisar_ocorrencias_atrasadas, enviar_formulario_banca, fechar_checkin_banca_esquecido,
            fechar_presenca_reuniao_esquecida, abrir_microavaliacao, lembrar_avaliacao_pendente, lembrar_avaliacao_reuniao,
            lembrar_saida_esquecida, avisar_prazo_entrega_tcc,
            executar_backups_agendados, aprender_mudancas_da_plataforma, aprender_seguranca, aprender_banco_de_dados, aprender_funcionalidades]

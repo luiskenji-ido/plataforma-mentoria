@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% block title %}{{ tt('Agente Orquestrador executor') }}{% endblock %}
 {% block content %}
+{% import '_mudancas.html' as rdm with context %}
 {% set cores_sev = {'Crítica': 'bg-dark', 'Alta': 'bg-danger', 'Média': 'bg-warning text-dark', 'Baixa': 'bg-info text-dark'} %}
 {% set rotulos_status = {'pendente': ('Na fila', 'secondary'), 'corrigindo': ('Corrigindo', 'warning text-dark'), 'aplicada': ('Corrigida na cópia', 'success'),
                          'nao_aplicada': ('Não aplicada', 'danger'), 'nao_e_codigo': ('Não é código', 'secondary')} %}
@@ -14,6 +15,7 @@
         <p class="text-muted mb-0">{{ tt('Lê os prompts de correção das quatro equipes de agentes, corrige com IA numa cópia do código, faz os agentes aprenderem e testarem a correção e só libera o commit quando todas as equipes aprovam.') }}</p>
     </div>
     <div class="d-flex gap-2 flex-wrap">
+        {{ rdm.botao_criar('codigo') }}
         <a href="{{ url_for('agentes_ia') }}" class="btn btn-outline-secondary fw-bold"><i class="bi bi-robot"></i> {{ tt('Agente de IA – Fim a Fim') }}</a>
         <a href="{{ url_for('governanca_aprendizados') }}" class="btn btn-outline-primary fw-bold"><i class="bi bi-mortarboard"></i> {{ tt('Governança de aprendizados') }}</a>
     </div>
@@ -113,8 +115,15 @@
         <!-- decisão -->
         <div class="d-flex flex-wrap gap-2">
             {% if estado.status == 'aguardando_confirmacao' %}
-            <form method="POST" action="{{ url_for('confirmar_orquestrador') }}" class="m-0" onsubmit="return confirm({{ tt('Confirmar o commit e enviar (push) as correções aprovadas?') | tojson }})">
-                <button class="btn btn-success fw-bold" type="submit" id="btnConfirmarCommit"><i class="bi bi-git"></i> {{ tt('Confirmar commit e push') }}</button></form>
+            <form method="POST" action="{{ url_for('confirmar_orquestrador') }}" class="m-0 d-flex gap-2 align-items-center flex-wrap" onsubmit="return confirm({{ tt('Confirmar o commit e enviar (push) as correções aprovadas?') | tojson }})">
+                <label class="small fw-bold" for="rdmCommit">{{ tt('Requisição de mudança aprovada') }}</label>
+                <select class="form-select form-select-sm w-auto" name="rdm" id="rdmCommit" required>
+                    {% for r in rdm_para_commit %}<option value="{{ r.codigo }}">{{ rdm_numero(r) }} · {{ r.titulo[:60] }}</option>
+                    {% else %}<option value="">{{ tt('Nenhuma requisição de código aprovada') }}</option>{% endfor %}
+                </select>
+                <button class="btn btn-success fw-bold" type="submit" id="btnConfirmarCommit" {{ 'disabled' if not rdm_para_commit }}><i class="bi bi-git"></i> {{ tt('Confirmar commit e push') }}</button>
+                {% if not rdm_para_commit %}<span class="small text-muted w-100">{{ tt('O commit só sai com uma requisição de mudança de código aprovada pelo grupo. Use “Criar Requisição de Mudança” no topo.') }}</span>{% endif %}
+            </form>
             {% endif %}
             {% if estado.status in ['aguardando_confirmacao', 'reprovado', 'erro', 'sem_alteracoes'] %}
             <form method="POST" action="{{ url_for('rollback_orquestrador') }}" class="m-0" onsubmit="return confirm({{ tt('Descartar todas as correções e manter a versão anterior?') | tojson }})">
@@ -194,8 +203,8 @@
     </div>
 </div>
 
-<div class="row g-3 mb-4">
-    <div class="col-lg-6">
+<div class="row g-3 mb-3">
+    <div class="col-12">
         <div class="card shadow-sm border-0 h-100"><div class="card-header bg-white fw-bold"><i class="bi bi-eye-slash"></i> {{ tt('Ignoradas') }} ({{ ignorados|length }})</div>
             <ul class="list-group list-group-flush small">
                 {% for i in ignorados %}
@@ -205,21 +214,41 @@
                 {% else %}<li class="list-group-item text-muted">{{ tt('Nenhuma correção ignorada.') }}</li>{% endfor %}
             </ul></div>
     </div>
-    <div class="col-lg-6">
-        <div class="card shadow-sm border-0 h-100"><div class="card-header bg-white fw-bold"><i class="bi bi-clock-history"></i> {{ tt('Commits do orquestrador') }}</div>
-            <ul class="list-group list-group-flush small">
+</div>
+
+<!-- Requisições de mudança pendentes -->
+{{ rdm.pendentes(rdm_abertas, tt('Requisições de mudança pendentes'), url_for('agentes_orquestrador'), 'cardRdmPendentes') }}
+
+<!-- Commits do orquestrador: requisição, o que foi commitado, quem aprovou e as datas -->
+{% macro quando(texto) %}{{ texto[:16].replace('T', ' ') if texto else '—' }}{% endmacro %}
+<div class="card shadow-sm border-0 mb-4" id="cardCommitsOrquestrador">
+    <div class="card-header bg-white fw-bold"><i class="bi bi-clock-history"></i> {{ tt('Commits do orquestrador') }}</div>
+    <div class="table-responsive">
+        <table class="table table-hover align-middle small mb-0">
+            <thead><tr><th>{{ tt('Requisição') }}</th><th>{{ tt('O que foi commitado') }}</th><th>{{ tt('Aprovado por') }}</th>
+                <th>{{ tt('Solicitada em') }}</th><th>{{ tt('Agendada para') }}</th><th>{{ tt('Aplicada em') }}</th><th class="text-end">{{ tt('Ação') }}</th></tr></thead>
+            <tbody>
                 {% for h in historico %}
-                <li class="list-group-item"><div class="d-flex justify-content-between gap-2">
-                    <span><code>{{ h.commit[:8] }}</code> · {{ h.data[:16].replace('T', ' ') }} · {{ h.usuario }}{% if h.desfeito %} <span class="badge bg-secondary">{{ tt('desfeito') }}</span>{% endif %}</span>
-                    {% if not h.desfeito %}
-                    <form method="POST" action="{{ url_for('desfazer_orquestrador') }}" class="m-0" onsubmit="return confirm({{ tt('Desfazer este commit (git revert + push) e voltar à versão anterior?') | tojson }})">
-                        <input type="hidden" name="commit" value="{{ h.commit }}"><button class="btn btn-sm btn-outline-danger" type="submit"><i class="bi bi-arrow-counterclockwise"></i> {{ tt('Rollback') }}</button></form>
-                    {% endif %}</div>
-                    <div class="text-muted">{{ h.correcoes | join(' ') }}</div></li>
-                {% else %}<li class="list-group-item text-muted">{{ tt('Nenhum commit feito pelo orquestrador ainda.') }}</li>{% endfor %}
-            </ul></div>
+                <tr>
+                    <td class="text-nowrap fw-bold">{{ h.rdm or '—' }}{% if h.desfeito %} <span class="badge bg-secondary">{{ tt('desfeito') }}</span>{% endif %}</td>
+                    <td><code>{{ h.commit[:8] }}</code>{% if h.rdm_titulo %} · {{ h.rdm_titulo }}{% endif %}
+                        <div class="text-muted">{{ h.correcoes | join(' ') }}</div><div class="text-muted">{{ tt('Confirmado por') }} {{ h.usuario }}</div></td>
+                    <td>{{ h.aprovador or '—' }}</td>
+                    <td class="text-nowrap">{{ quando(h.data_solicitacao) }}</td>
+                    <td class="text-nowrap">{{ quando(h.data_agendada) if h.data_agendada else (tt('ao aprovar') if h.rdm else '—') }}</td>
+                    <td class="text-nowrap">{{ quando(h.data) }}</td>
+                    <td class="text-end">{% if not h.desfeito %}
+                        <form method="POST" action="{{ url_for('desfazer_orquestrador') }}" class="m-0" onsubmit="return confirm({{ tt('Desfazer este commit (git revert + push) e voltar à versão anterior?') | tojson }})">
+                            <input type="hidden" name="commit" value="{{ h.commit }}"><button class="btn btn-sm btn-outline-danger" type="submit"><i class="bi bi-arrow-counterclockwise"></i> {{ tt('Rollback') }}</button></form>
+                        {% endif %}</td>
+                </tr>
+                {% else %}<tr><td colspan="7" class="text-center text-muted py-3">{{ tt('Nenhum commit feito pelo orquestrador ainda.') }}</td></tr>{% endfor %}
+            </tbody>
+        </table>
     </div>
 </div>
+
+{{ rdm.formulario(correcoes, 'codigo', url_for('agentes_orquestrador')) }}
 
 {% if em_execucao %}
 <script>

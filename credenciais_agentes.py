@@ -22,6 +22,8 @@ CAMPOS = {
     'ANTHROPIC_API_KEY': ('Chave da API do Claude (Agente Orquestrador)', 'chave'),
     'GEMINI_API_KEY': ('Chave da API do Gemini (Agente Orquestrador)', 'chave'),
     'OPENAI_API_KEY': ('Chave da API da OpenAI (ChatGPT)', 'chave'),
+    # Grupo que aprova as requisições de mudança (RDM/CR/SC); os membros são escolhidos na mesma tela
+    'COMITE_APROVACAO_APELIDO': ('Variável apelido B2B-Comite-Aprovacao', 'texto'),
     # Integração com o Microsoft 365 (Outlook/Agenda): aplicativo registrado no Microsoft Entra ID
     'MS365_CLIENT_ID': ('ID do aplicativo Microsoft 365 (Entra ID)', 'chave'),
     'MS365_CLIENT_SECRET': ('Segredo do aplicativo Microsoft 365', 'chave'),
@@ -108,5 +110,7 @@ def situacao(segredo):
                        'origem': 'tela' if legivel else ('env' if _do_ambiente.get(chave) else None),
                        'ilegivel': c is not None and not legivel,
                        'ligado': (decifrar(c.valor_cifrado, segredo) if legivel else _do_ambiente.get(chave)) == '1',
+                       # Texto que não é segredo (apelido do grupo, locatário): a tela mostra o valor atual
+                       'valor_texto': ((decifrar(c.valor_cifrado, segredo) if legivel else _do_ambiente.get(chave)) or '') if tipo == 'texto' else '',
                        'atualizado_em': c.atualizado_em if c else None, 'por': c.atualizado_por.nome if c and c.atualizado_por else None})
     return linhas

@@ -33,7 +33,7 @@ PERFIL_DO_AGENTE = {'administrador': 'Administrador', 'mentor_administrador': 'M
                     'encerramento': 'Mentor Administrador'}
 # Módulos cujas regras nomeadas (constantes em MAIÚSCULAS) o Gerente aprende SOZINHO, sem lista fixa: regra nova
 # ou alterada vira aprendizado na próxima detecção. O Agente Dev aponta regra escrita direto no código.
-MODULOS_DE_REGRAS = ['app', 'conteudo_curso', 'tarefas_agendadas', 'seguranca_web', 'base_conhecimento', 'notificacoes']
+MODULOS_DE_REGRAS = ['app', 'conteudo_curso', 'tarefas_agendadas', 'seguranca_web', 'base_conhecimento', 'notificacoes', 'mudancas']
 # Mínimo garantido (as regras históricas); as demais entram pela descoberta automática
 REGRAS_DO_APP = ['PERFIS_SEM_CADASTRO_PROJETO', 'PERFIS_CRIAM_ATIVIDADE_EXTRA', 'PERFIS_GESTAO_REUNIOES', 'PERFIS_GESTAO_BANCA',
                  'PERFIS_ESCALAVEIS_BANCA', 'PERFIS_TRILHA_TCC', 'VERSAO_TERMO_ATUAL', 'TIPOS_ENTREGA_TCC', 'LIMITE_ENTREGA_MB',

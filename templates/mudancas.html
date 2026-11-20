@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block title %}{{ tt('Requisições de mudança') }}{% endblock %}
+{% block content %}
+{% import '_mudancas.html' as rdm with context %}
+
+<div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-3">
+    <div>
+        <h1 class="h2 text-primary fw-bold mb-1"><i class="bi bi-clipboard-check"></i> {{ tt('Requisições de mudança') }} ({{ rdm_prefixo() }})</h1>
+        <p class="text-muted mb-0">{{ tt('Mudanças nos parâmetros de regras e commits do Orquestrador só valem depois da aprovação de um membro do grupo — nunca de quem pediu.') }}</p>
+    </div>
+    <div class="d-flex gap-2 flex-wrap">
+        {{ rdm.botao_criar('outro') }}
+        {% if current_user.tipo_usuario in PERFIS_ADMINISTRACAO_SISTEMA %}
+        <a href="{{ url_for('provedores_ia_view') }}#comiteAprovacao" class="btn btn-outline-secondary fw-bold"><i class="bi bi-people"></i> {{ tt('Grupo de aprovação') }}</a>
+        {% endif %}
+    </div>
+</div>
+
+<div class="alert alert-light border small d-flex gap-2 align-items-start" id="avisoComite">
+    <i class="bi bi-people mt-1"></i>
+    <div><b>{{ rdm_grupo() or tt('Grupo de aprovação sem apelido') }}</b> ·
+        {% for u in membros %}{{ u.nome }}{{ ', ' if not loop.last }}{% else %}<span class="text-danger">{{ tt('nenhum membro: ninguém consegue aprovar.') }}</span>{% endfor %}</div>
+</div>
+
+{{ rdm.pendentes(abertas, tt('Requisições de mudança pendentes'), url_for('mudancas_view'), 'cardRdmPendentes') }}
+
+<div class="card shadow-sm border-0 mb-4" id="cardRdmHistorico">
+    <div class="card-header bg-white fw-bold"><i class="bi bi-clock-history"></i> {{ tt('Histórico das requisições') }}</div>
+    <div class="table-responsive">
+        <table class="table table-hover align-middle small mb-0">
+            <thead><tr><th>{{ tt('Número') }}</th><th>{{ tt('Mudança') }}</th><th>{{ tt('Status') }}</th><th>{{ tt('Solicitante') }}</th><th>{{ tt('Aprovado por') }}</th>
+                <th>{{ tt('Solicitada em') }}</th><th>{{ tt('Agendada para') }}</th><th>{{ tt('Aplicada em') }}</th></tr></thead>
+            <tbody>
+                {% for r in todas %}
+                <tr id="hist_rdm_{{ r.id }}">
+                    <td class="text-nowrap fw-bold">{{ rdm_numero(r) }}</td>
+                    <td><b>{{ r.titulo }}</b><div class="text-muted">{{ tt(rdm_tipos().get(r.tipo, r.tipo)) }}</div>
+                        {% if r.resultado %}<div class="text-muted" style="white-space: pre-line;">{{ r.resultado }}</div>{% endif %}
+                        {% if r.motivo_decisao %}<div class="text-muted">{{ tt('Motivo') }}: {{ r.motivo_decisao }}</div>{% endif %}</td>
+                    <td><span class="badge {{ rdm.cor_status(r.status) }}">{{ tt(r.status) }}</span></td>
+                    <td>{{ r.solicitante.nome if r.solicitante else '—' }}</td>
+                    <td>{{ r.aprovador.nome if r.aprovador else '—' }}</td>
+                    <td class="text-nowrap">{{ rdm.data(r.data_solicitacao) }}</td>
+                    <td class="text-nowrap">{{ rdm.data(r.data_agendada) if r.data_agendada else tt('ao aprovar') }}</td>
+                    <td class="text-nowrap">{{ rdm.data(r.data_aplicacao) }}</td>
+                </tr>
+                {% else %}<tr><td colspan="8" class="text-center text-muted py-3">{{ tt('Nenhuma requisição de mudança ainda.') }}</td></tr>{% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{{ rdm.formulario([], 'outro', url_for('mudancas_view')) }}
+{% endblock %}

@@ -158,13 +158,26 @@
                 </select>
                 {% else %}
                 <input type="{{ 'text' if c.tipo == 'texto' else 'password' }}" class="form-control form-control-sm" id="cred_{{ c.chave }}" name="{{ c.chave }}" autocomplete="new-password"
-                       placeholder="{{ tt('•••••• (deixe em branco para manter)') if c.origem else '' }}">
+                       placeholder="{{ (tt('atual') ~ ': ' ~ c.valor_texto) if c.valor_texto else (tt('•••••• (deixe em branco para manter)') if c.origem else ('B2B-Comite-Aprovacao' if c.chave == 'COMITE_APROVACAO_APELIDO' else '')) }}">
                 {% endif %}
             </div>
             <div class="col-md-2">{% if c.origem == 'tela' or c.ilegivel %}<div class="form-check small"><input class="form-check-input" type="checkbox" id="rem_{{ c.chave }}" name="remover_{{ c.chave }}" value="1">
                 <label class="form-check-label" for="rem_{{ c.chave }}">{{ tt('Remover') }}</label></div>{% endif %}</div>
         </div>
         {% endfor %}
+        <!-- Membros do grupo de aprovação das requisições de mudança -->
+        <div class="border rounded p-2 mb-2" id="comiteAprovacao">
+            <input type="hidden" name="comite_enviado" value="1">
+            <div class="small fw-bold mb-1"><i class="bi bi-people"></i> {{ tt('Membros do grupo de aprovação') }}
+                <span class="badge bg-light text-dark border">{{ comite.grupo or tt('grupo sem apelido') }}</span></div>
+            <div class="small text-muted mb-2">{{ tt('Aprovam as requisições de mudança (parâmetros de regras e commits do Orquestrador). Quem pede uma mudança não aprova a própria: com menos de 2 membros, os pedidos de um membro ficam sem quem aprove.') }}</div>
+            <div class="row row-cols-1 row-cols-md-3 g-1 small">
+                {% for u in comite.elegiveis %}
+                <div class="col"><div class="form-check"><input class="form-check-input" type="checkbox" name="comite_membros" value="{{ u.id }}" id="comite_{{ u.id }}" {{ 'checked' if u.id in comite.ids }}>
+                    <label class="form-check-label" for="comite_{{ u.id }}">{{ u.nome }} <span class="text-muted">· {{ tt(u.tipo_usuario) }}</span></label></div></div>
+                {% else %}<div class="col text-muted">{{ tt('Nenhum Administrador ou Mentor Administrador ativo.') }}</div>{% endfor %}
+            </div>
+        </div>
         <div class="text-end"><button class="btn btn-primary btn-sm fw-bold px-3" type="submit"><i class="bi bi-shield-lock"></i> {{ tt('Salvar credenciais') }}</button></div>
     </form>
 </details>

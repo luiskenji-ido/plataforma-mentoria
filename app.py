@@ -8500,6 +8500,13 @@ def credenciais_agentes_ia():
         alteradas.append(nome)
     db.session.commit()
     credenciais_agentes.carregar(segredo, forcar=True)
+    if request.form.get('comite_enviado'):
+        import mudancas
+        antes = sorted(u.id for u in mudancas.membros())
+        total = mudancas.definir_membros(request.form.getlist('comite_membros'), current_user.id)
+        if sorted(u.id for u in mudancas.membros()) != antes:
+            alteradas.append('Membros do grupo de aprovação')
+            app.logger.info("Grupo de aprovação de mudanças alterado por %s: %s membro(s)", current_user.email, total)
     if alteradas:
         app.logger.info("Credenciais dos agentes alteradas por %s: %s", current_user.email, ', '.join(alteradas))
         flash(tt('Credenciais dos agentes atualizadas: {lista}.', idioma).format(lista=', '.join(tt(a, idioma) for a in alteradas)), 'success')
@@ -8535,7 +8542,12 @@ def provedores_ia_view():
     credenciais_agentes.carregar(app.config['SECRET_KEY'])
     return render_template('provedores_ia.html', r=provedores_ia.resumo_para_tela(), usos=provedores_ia.USOS,
                            provedores=provedores_ia.PROVEDORES, maximo=provedores_ia.MAXIMO_NA_ORDEM,
-                           credenciais=credenciais_agentes.situacao(app.config['SECRET_KEY']))
+                           credenciais=credenciais_agentes.situacao(app.config['SECRET_KEY']), comite=_comite_para_tela())
+
+
+def _comite_para_tela():
+    import mudancas
+    return {'grupo': mudancas.nome_do_grupo(), 'elegiveis': mudancas.elegiveis(), 'ids': {u.id for u in mudancas.membros()}}
 
 
 @app.route('/admin/provedores-ia/uso/<uso>', methods=['POST'])
@@ -9332,6 +9344,7 @@ def agentes_orquestrador():
     bloqueio = _somente_administrador()
     if bloqueio:
         return bloqueio
+    import mudancas
     executor, coletor, ambiente_orq, ia = _orquestrador()
     ignorados = executor.ignorados()
     correcoes = coletor.coletar()
@@ -9342,7 +9355,8 @@ def agentes_orquestrador():
                            ignorados=[{**ignorados[c['id']], **c} for c in correcoes if c['id'] in ignorados],
                            ambiente=ambiente_orq.capacidades(), provedores=ia.provedores_disponiveis(), estado=estado,
                            em_execucao=_orquestrador_em_execucao(estado), historico=executor.historico(),
-                           equipes=executor.EQUIPES_VALIDACAO)
+                           equipes=executor.EQUIPES_VALIDACAO, rdm_abertas=mudancas.abertas(),
+                           rdm_para_commit=mudancas.aprovadas_para_commit())
 
 
 @app.route('/admin/agentes-orquestrador/iniciar', methods=['POST'])
@@ -9452,8 +9466,21 @@ def confirmar_orquestrador():
     bloqueio = _somente_administrador()
     if bloqueio:
         return bloqueio
+    import mudancas
     executor, *_ = _orquestrador()
-    ok, mensagem = executor.confirmar(current_user.nome)
+    idioma = current_user.idioma
+    r = mudancas.achar(request.form.get('rdm'))
+    if not r or r not in mudancas.aprovadas_para_commit():
+        flash(tt('Escolha uma requisição de mudança de código aprovada (e já na data agendada) para confirmar o commit.', idioma), 'warning')
+        return redirect(url_for('agentes_orquestrador'))
+    rdm = {'numero': mudancas.numero(r, 'pt'), 'titulo': r.titulo, 'aprovador': r.aprovador.nome if r.aprovador else '',
+           'data_solicitacao': r.data_solicitacao.isoformat(timespec='minutes') if r.data_solicitacao else '',
+           'data_agendada': r.data_agendada.isoformat(timespec='minutes') if r.data_agendada else '',
+           'data_aprovacao': r.data_decisao.isoformat(timespec='minutes') if r.data_decisao else ''}
+    ok, mensagem = executor.confirmar(current_user.nome, rdm)
+    if ok:
+        registro = (executor.historico() or [{}])[0]
+        mudancas.registrar_commit(r, current_user, registro.get('commit', ''), registro.get('correcoes', []))
     flash(mensagem, 'success' if ok else 'danger')
     return redirect(url_for('agentes_orquestrador'))
 
@@ -9811,21 +9838,128 @@ def parametros_regras():
             else:
                 flash(tt('Regra nova criada. O sistema já pode usá-la em novas funcionalidades.', idioma), 'success')
         else:
+            # Alterar valores passa pela requisição de mudança: fica Aguardando aprovação do grupo e só vale depois
+            import mudancas
             valores = {k[6:]: v for k, v in request.form.items() if k.startswith('valor_')}
-            alteradas, erros = rn.salvar_varios(valores, current_user.id, motivo)
+            mudou, erros = rn.preparar_varios(valores)
             if erros:
                 for chave, erro in erros.items():
                     flash(f"{tt(rn.nome_da_regra(chave), idioma)}: {tt(erro, idioma)}", 'warning')
                 flash(tt('Nada foi gravado. Corrija os valores indicados.', idioma), 'danger')
-            elif alteradas:
-                flash(tt('{n} regra(s) atualizada(s). Passam a valer a partir de agora.', idioma).format(n=len(alteradas)), 'success')
-            else:
+            elif not mudou:
                 flash(tt('Nenhum valor foi alterado.', idioma), 'info')
+            else:
+                pedido = {'valores': mudou, 'motivo': motivo}
+                informado = (request.form.get('rdm') or '').strip()
+                if informado:
+                    r = mudancas.achar(informado)
+                    if not r or r.status != mudancas.AGUARDANDO or r.tipo not in ('parametros', 'outro') or mudancas.conteudo(r).get('valores'):
+                        flash(tt('Requisição de mudança não encontrada, já decidida ou já usada em outra alteração. Deixe o campo vazio para abrir uma nova.', idioma), 'warning')
+                        return redirect(url_for('parametros_regras'))
+                    r.tipo = 'parametros'
+                    mudancas.anexar_conteudo(r, pedido)
+                else:
+                    nomes = ', '.join(rn.nome_da_regra(c) for c in mudou)
+                    r, erro = mudancas.criar('parametros', f"Parâmetros de regras: {nomes}"[:200], current_user,
+                                             descricao='\n'.join(f"{rn.nome_da_regra(c)}: {a} → {n}" for c, (a, n) in mudou.items()),
+                                             justificativa=motivo, conteudo=pedido)
+                    if erro:
+                        flash(tt(erro, idioma), 'warning')
+                        return redirect(url_for('parametros_regras'))
+                flash(tt('Pedido registrado na {numero}: aguardando aprovação do grupo {grupo}. Os valores mudam depois da aprovação.', idioma)
+                      .format(numero=mudancas.numero(r, idioma), grupo=r.grupo_aprovacao or mudancas.nome_do_grupo()), 'success')
         return redirect(url_for('parametros_regras'))
 
     from models import HistoricoParametro
+    import mudancas
+    mudancas.aplicar_vencidas()  # aprovadas cuja data agendada já chegou
     return render_template('parametros_regras.html', itens=rn.listar(), grupos=rn.GRUPOS, tipos=rn.TIPOS, historico=rn.historico(),
-                           nome_da_regra=rn.nome_da_regra, total_historico=HistoricoParametro.query.count())
+                           nome_da_regra=rn.nome_da_regra, total_historico=HistoricoParametro.query.count(),
+                           rdm_pendentes=mudancas.abertas('parametros'))
+
+
+# ==============================================================================
+# REQUISIÇÕES DE MUDANÇA (RDM / CR / SC): pedido, aprovação do grupo e histórico
+# ==============================================================================
+@app.context_processor
+def _requisicoes_de_mudanca_no_template():
+    import mudancas
+    idioma = getattr(current_user, 'idioma', 'pt') if current_user.is_authenticated else 'pt'
+    return {'rdm_numero': lambda r: mudancas.numero(r, idioma), 'rdm_prefixo': lambda: mudancas.prefixo(idioma),
+            'rdm_grupo': mudancas.nome_do_grupo, 'rdm_tipos': lambda: mudancas.TIPOS, 'rdm_conteudo': mudancas.conteudo,
+            'rdm_pode_decidir': lambda r: current_user.is_authenticated and mudancas.pode_decidir(current_user, r),
+            'rdm_pode_ver': lambda: current_user.is_authenticated and mudancas.pode_ver(current_user),
+            'rdm_exemplo': lambda: f"{mudancas.prefixo(idioma)}-{datetime.now().year}-0001"}
+
+
+def _voltar_mudanca(padrao='mudancas_view'):
+    destino = request.form.get('voltar') or ''
+    return redirect(destino if destino.startswith('/') and not destino.startswith('//') else url_for(padrao))
+
+
+@app.route('/admin/mudancas')
+@login_required
+def mudancas_view():
+    import mudancas
+    if not mudancas.pode_ver(current_user):
+        flash("Acesso Negado.", "danger")
+        return redirect(url_for('dashboard'))
+    mudancas.aplicar_vencidas()
+    return render_template('mudancas.html', abertas=mudancas.abertas(), todas=mudancas.todas(), membros=mudancas.membros())
+
+
+@app.route('/admin/mudancas/nova', methods=['POST'])
+@login_required
+def criar_mudanca():
+    import mudancas
+    idioma = current_user.idioma
+    if not mudancas.pode_ver(current_user):
+        flash("Acesso Negado.", "danger")
+        return redirect(url_for('dashboard'))
+    data_agendada = None
+    if request.form.get('data_agendada'):
+        try:
+            data_agendada = datetime.strptime(request.form['data_agendada'], '%Y-%m-%dT%H:%M')
+        except ValueError:
+            flash(tt('Data agendada inválida.', idioma), 'warning')
+            return _voltar_mudanca()
+    descricao = (request.form.get('descricao') or '').strip()
+    correcoes = set(request.form.getlist('correcoes'))
+    conteudo = None
+    if correcoes:
+        _, coletor, *_ = _orquestrador()
+        escolhidas = [c for c in coletor.coletar() if c['id'] in correcoes]
+        conteudo = {'correcoes': [{'id': c['id'], 'titulo': c['titulo'], 'equipe': c['equipe_nome']} for c in escolhidas]}
+        descricao = (descricao + '\n\n' if descricao else '') + '\n'.join(f"- [{c['equipe_nome']}] {c['titulo']}" for c in escolhidas)
+    r, erro = mudancas.criar(request.form.get('tipo', 'outro'), request.form.get('titulo'), current_user, descricao=descricao,
+                             justificativa=request.form.get('justificativa'), risco=request.form.get('risco'),
+                             plano_rollback=request.form.get('plano_rollback'), data_agendada=data_agendada, conteudo=conteudo)
+    if erro:
+        flash(tt(erro, idioma), 'warning')
+    else:
+        flash(tt('{numero} criada: aguardando aprovação do grupo {grupo}.', idioma).format(numero=mudancas.numero(r, idioma), grupo=r.grupo_aprovacao), 'success')
+    return _voltar_mudanca()
+
+
+@app.route('/admin/mudancas/<int:rdm_id>/decidir', methods=['POST'])
+@login_required
+def decidir_mudanca(rdm_id):
+    import mudancas
+    from models import RequisicaoMudanca
+    ok, mensagem = mudancas.decidir(db.session.get(RequisicaoMudanca, rdm_id), current_user,
+                                    request.form.get('decisao') == 'aprovar', request.form.get('motivo'))
+    flash(tt(mensagem, current_user.idioma), 'success' if ok else 'warning')
+    return _voltar_mudanca()
+
+
+@app.route('/admin/mudancas/<int:rdm_id>/cancelar', methods=['POST'])
+@login_required
+def cancelar_mudanca(rdm_id):
+    import mudancas
+    from models import RequisicaoMudanca
+    ok, mensagem = mudancas.cancelar(db.session.get(RequisicaoMudanca, rdm_id), current_user)
+    flash(tt(mensagem, current_user.idioma), 'success' if ok else 'warning')
+    return _voltar_mudanca()
 
 
 @app.route('/admin/perfis', methods=['GET', 'POST'])
