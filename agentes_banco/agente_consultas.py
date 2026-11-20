@@ -63,7 +63,8 @@ class AgenteConsultas(AgenteBanco):
         arquivos = 0
         for raiz, pastas, nomes in os.walk(RAIZ_PROJETO):
             pastas[:] = [p for p in pastas if not p.startswith((".", "venv")) and p not in (
-                "__pycache__", "agentes_omnitest", "agentes_seguranca", "agentes_banco", "Agent Reports", "instance", "node_modules", "site-packages")]
+                "__pycache__", "agentes_omnitest", "agentes_seguranca", "agentes_banco", "Agent Reports", "instance", "node_modules", "site-packages",
+                "tests")]  # tests: a limpeza dos dados de teste não é código da plataforma
             for nome in nomes:
                 if not nome.endswith(".py"):
                     continue

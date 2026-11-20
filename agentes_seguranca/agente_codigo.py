@@ -14,7 +14,8 @@ from base import AgenteSeguranca, RAIZ_PROJETO
 IGNORAR_PASTAS = {".venv", ".venv-1", "__pycache__", "Agent Reports", "instance", "uploads", ".git", "node_modules", ".vscode"}
 # Públicas de propósito. Convidado de reunião: o link pessoal leva um código de 192 bits (secrets.token_urlsafe(24)) e o
 # POST tem limite de tentativas por IP; a logo da instituição aparece no login e na verificação pública de certificados.
-ROTAS_PUBLICAS = {"convidado_reuniao", "agenda_convidado_reuniao", "gravacao_convidado_reuniao", "logo_instituicao", "login", "recuperar_senha", "repositorio_publico", "baixar_repositorio_publico", "verificar_certificado",
+# Sondas de saúde (saude.py: vivo = /healthz, pronto = /readyz): o balanceador chama sem login; não devolvem dados.
+ROTAS_PUBLICAS = {"vivo", "pronto", "convidado_reuniao", "agenda_convidado_reuniao", "gravacao_convidado_reuniao", "logo_instituicao", "login", "recuperar_senha", "repositorio_publico", "baixar_repositorio_publico", "verificar_certificado",
                   "solicitar_mentoria", "oauth2callback", "static", "cadastrar_perguntas", "trocar_senha_obrigatoria",
                   "logo_empresa"}  # logo do parceiro B2B: aparece no certificado e na verificação pública (só imagem, com nosniff)
 PERIGOSAS = {"eval": ("Uso de eval()", "Alta", "A03", "CWE-95"), "exec": ("Uso de exec()", "Alta", "A03", "CWE-95"),

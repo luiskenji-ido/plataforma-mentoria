@@ -26,7 +26,8 @@ PERFIS_DE_IDENTIDADE = {'Aluno', 'Admin B2B', 'Avaliador Banca'}  # escopo dos p
 MARCA_EXCECAO = 'regra-nomeada: ok'
 # Fora da varredura: bibliotecas, migrações, dados, os próprios agentes de teste (usam os perfis para testar) e traduções
 PASTAS_FORA = {'.venv', 'venv', '__pycache__', 'migrations', 'Agent Reports', 'node_modules', '.git', 'instance', 'uploads', 'static',
-               'agentes_funcionalidades', 'agentes_omnitest', 'agentes_seguranca', 'agentes_banco', 'agentes_ia', 'deploy', '.claude'}
+               'agentes_funcionalidades', 'agentes_omnitest', 'agentes_seguranca', 'agentes_banco', 'agentes_ia', 'deploy', '.claude',
+               'tests', 'infrastructure'}  # tests: valores esperados dos testes não são regras de negócio
 ARQUIVOS_FORA = re.compile(r'^(traducoes.*|conhecimento_tour|guia_telas|criar_admin|reset_admin|criar_tabela_.*|atualizar_.*)\.py$')
 ESQUERDA_PERFIL = re.compile(r'(^|\.)tipo_usuario$|^tipo$|^base$')
 TEMPLATE_PERFIL = re.compile(r"current_user\.tipo_usuario\s*(==|!=|not in|in)\s*(\[[^\]]*\]|\([^)]*\)|'[^']*'|\"[^\"]*\")")

@@ -26,6 +26,8 @@ SEM_TEMA = '--sem-tema' in sys.argv
 PORTA = 5071 if SEM_TEMA else 5070  # 5060 e 5061 são bloqueadas pelos navegadores
 CONTAS = [('demo_admin@local.com', 'Demo Gestão', 'Administrador'), ('demo_aluno@local.com', 'Demo Aluno', 'Aluno')]
 
+MINIMO_CARACTERES_SENHA_DEMO = 12  # senha guardada menor que isto é trocada por uma nova
+
 
 def _senha_demo():
     """Senha das contas de demonstração (só existem na cópia do protótipo): PROTOTIPO_SENHA_DEMO no ambiente ou, sem
@@ -40,7 +42,7 @@ def _senha_demo():
             senha = f.read().strip()
     except OSError:
         senha = ''
-    if len(senha) < 12:
+    if len(senha) < MINIMO_CARACTERES_SENHA_DEMO:
         import secrets
         senha = 'Demo@9' + secrets.token_urlsafe(12)  # atende à política de senha forte (maiúscula, número, símbolo)
         os.makedirs(os.path.dirname(arquivo), exist_ok=True)
@@ -77,7 +79,8 @@ def semear_contas():
             if not TermoAceite.query.filter_by(usuario_id=u.id, versao_termo=VERSAO_TERMO_ATUAL).first():
                 db.session.add(TermoAceite(usuario_id=u.id, versao_termo=VERSAO_TERMO_ATUAL))
             if not SegurancaUsuario.query.filter_by(usuario_id=u.id).first():
-                resposta = bcrypt.generate_password_hash('demo').decode()
+                import secrets
+                resposta = bcrypt.generate_password_hash(secrets.token_urlsafe(16)).decode()  # ninguém precisa recuperar a conta demo
                 db.session.add(SegurancaUsuario(usuario_id=u.id, pergunta_1='Qual é a sua cor favorita?', resposta_1=resposta,
                                                 pergunta_2='Em qual cidade você nasceu?', resposta_2=resposta,
                                                 pergunta_3='Qual é o seu prato favorito?', resposta_3=resposta))

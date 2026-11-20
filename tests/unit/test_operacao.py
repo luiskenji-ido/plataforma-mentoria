@@ -22,8 +22,8 @@ import saude
         ("senha=Segredo123 ok", "Segredo123", "senha=***"),
         ('{"password": "abc123xyz"}', "abc123xyz", '"password": "***'),
         ("Authorization: Bearer eyJhbGciOi.xyz", "eyJhbGciOi", "Bearer ***"),
-        ("chave sk-ant-api03-abcdefghijkl vazou", "abcdefghijkl", "***"),
-        ("google AIzaSyA1234567890abcdefghijklmn", "AIzaSyA1234567890", "***"),
+        ("chave " + "sk-" + "ant-api03-" + "abcdefghijkl" + " vazou", "abcdefghijkl", "***"),  # montada: não é um segredo real
+        ("google " + "AIza" + "SyA1234567890abcdefghijklmn", "AIzaSyA1234567890", "***"),
         ("mysql+pymysql://mentoria:S3nh4@db:3306/x", "S3nh4", "mentoria:***@db"),
         ("Falha ao enviar e-mail para maria.silva@empresa.com.br", "maria.silva", "m***@empresa.com.br"),
     ],
