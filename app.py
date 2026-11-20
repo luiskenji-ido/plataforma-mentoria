@@ -596,6 +596,18 @@ def dashboard():
 
     dict_evolucao = {}
     dict_radar = {}
+    agora_painel = datetime.now()
+    # Histórico de progresso de todas as matrículas visíveis numa consulta só (não uma por matrícula)
+    historico_por_acomp = {}
+    ids_acomp = [a.id for a in acompanhamentos]
+    for lote in range(0, len(ids_acomp), 500):
+        for h in HistoricoProgresso.query.filter(HistoricoProgresso.acompanhamento_id.in_(ids_acomp[lote:lote + 500])) \
+                .order_by(HistoricoProgresso.data_registro, HistoricoProgresso.id).all():
+            historico_por_acomp.setdefault(h.acompanhamento_id, []).append(h)
+
+    def mes_do(quando):
+        chave = (quando or agora_painel).strftime('%m/%Y')
+        return dict_evolucao.setdefault(chave, {'horas': 0, 'iniciados': 0, 'cursos_finalizados': 0})
     # Dados extras para os gráficos personalizáveis do painel
     contagem_status, carga_por_tipo, progresso_por_aluno, progresso_por_curso = {}, {}, {}, {}
 
@@ -649,14 +661,25 @@ def dashboard():
                 'risco': risco
             })
 
-        data_base = getattr(a, 'data_inicio', None) or getattr(a, 'data_criacao', None) or datetime.utcnow()
-        mes_ano = data_base.strftime('%m/%Y')
-        if mes_ano not in dict_evolucao:
-            dict_evolucao[mes_ano] = {'horas': 0, 'cursos_finalizados': 0}
-        
-        dict_evolucao[mes_ano]['horas'] += (curso.carga_horaria or 0)
+        # Linha do Tempo de Aprendizado, mês a mês:
+        # - horas estudadas = carga horária × o que o progresso avançou naquele mês (histórico de progresso);
+        #   o avanço sem histórico (registros antigos) entra no mês de início;
+        # - cursos iniciados = matrículas pelo mês de início; cursos concluídos = pelo mês em que chegou a 100%.
+        carga = curso.carga_horaria or 0
+        historico = historico_por_acomp.get(a.id, [])
+        inicio = a.data_inicio or (historico[0].data_registro if historico else None) or agora_painel
+        mes_do(inicio)['iniciados'] += 1
+        alcancado, concluido_em = 0, None
+        for h in historico:
+            if (h.percentual or 0) > alcancado:
+                mes_do(h.data_registro or inicio)['horas'] += carga * ((h.percentual or 0) - alcancado) / 100
+                alcancado = h.percentual or 0
+            if (h.percentual or 0) >= 100 and concluido_em is None:
+                concluido_em = h.data_registro
+        if percentual > alcancado:
+            mes_do(inicio)['horas'] += carga * (percentual - alcancado) / 100
         if a.status == 'Finalizado':
-            dict_evolucao[mes_ano]['cursos_finalizados'] += 1
+            mes_do(concluido_em or a.data_termino or inicio)['cursos_finalizados'] += 1
 
         tipo_curso = getattr(curso, 'tipo', 'Outro')
         if tipo_curso not in dict_radar:
@@ -677,9 +700,11 @@ def dashboard():
     except (ValueError, TypeError):
         meses_ordenados = list(dict_evolucao.keys())
 
+    evolucao_iniciados = []
     for mes in meses_ordenados:
         evolucao_labels.append(mes)
-        evolucao_horas.append(dict_evolucao[mes]['horas'])
+        evolucao_horas.append(round(dict_evolucao[mes]['horas'], 1))
+        evolucao_iniciados.append(dict_evolucao[mes]['iniciados'])
         evolucao_cursos.append(dict_evolucao[mes]['cursos_finalizados'])
 
     for tipo, dados in dict_radar.items():
@@ -750,6 +775,7 @@ def dashboard():
 
     fontes_graficos = montar_fontes_painel(current_user, current_user.idioma, {
         'evolucao_labels': evolucao_labels, 'evolucao_horas': evolucao_horas, 'evolucao_cursos': evolucao_cursos,
+        'evolucao_iniciados': evolucao_iniciados,
         'radar_labels': radar_labels, 'radar_valores': radar_valores, 'contagem_status': contagem_status,
         'saudavel': contador_saudavel, 'atencao': contador_atencao, 'risco': contador_risco,
         'com_certificado': finalizados_com_certificado, 'sem_certificado': finalizados_sem_certificado,
@@ -9606,6 +9632,7 @@ def montar_fontes_painel(usuario, idioma, dados):
     fontes = {
         'evolucao': {'titulo': t('titulo_grafico_evolucao', idioma), 'multi': True, 'labels': dados['evolucao_labels'],
                      'series': [serie(t('label_volume_horas', idioma), dados['evolucao_horas']),
+                                serie(tt('Cursos iniciados', idioma), dados.get('evolucao_iniciados', [])),
                                 serie(t('label_cursos_concluidos', idioma), dados['evolucao_cursos'])]},
         'habilidades': {'titulo': t('titulo_grafico_skills', idioma), 'multi': False, 'labels': dados['radar_labels'],
                         'series': [serie(t('label_progresso_curso', idioma), dados['radar_valores'])], 'max': 100},

@@ -586,7 +586,7 @@ GRÁFICOS DO PAINEL (CHART.JS): dados do perfil + escolha do utilizador
         const tipoChart = { barras: 'bar', barras_h: 'bar', barras_empilhadas: 'bar', linhas: 'line', area: 'line', pizza: 'pie', rosca: 'doughnut', polar: 'polarArea', radar: 'radar', misto: 'bar' }[tipo];
         let datasets;
         if (fonte.multi) {
-            const cores = [cor, '#198754'];
+            const cores = [cor, '#d97706', '#198754'];  // horas, cursos iniciados, cursos concluídos
             datasets = series.map((s, i) => {
                 const tipoSerie = tipo === 'misto' ? (i === 0 ? 'bar' : 'line') : tipoChart;
                 return {

@@ -2581,6 +2581,11 @@ LITERAIS.update({
     'Cadastre as chaves em Provedores de IA e custos › Credenciais.': ('Add the keys in AI providers and costs › Credentials.', 'Registre las claves en Proveedores de IA y costos › Credenciales.'),
 })
 
+# Painel: Linha do Tempo de Aprendizado com cursos iniciados
+LITERAIS.update({
+    'Cursos iniciados': ('Courses started', 'Cursos iniciados'),
+})
+
 _POR_IDIOMA ={'en': {pt: v[0] for pt, v in LITERAIS.items()}, 'es': {pt: v[1] for pt, v in LITERAIS.items()}}
 
 
