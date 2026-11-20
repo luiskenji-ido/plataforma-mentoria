@@ -56,7 +56,14 @@ def _proximo_codigo():
 
 # ------------------------------------------------------------------------------ grupo de aprovação
 def nome_do_grupo():
-    """Apelido cadastrado em Credenciais (as credenciais são carregadas no ambiente do processo)."""
+    """Apelido cadastrado em Credenciais. As credenciais vão para o ambiente do processo só quando alguém as carrega:
+    carrega aqui (no máximo uma leitura do banco por minuto) para valer também logo depois de o servidor reiniciar."""
+    try:
+        from flask import current_app
+        import credenciais_agentes
+        credenciais_agentes.carregar(current_app.config['SECRET_KEY'])
+    except Exception:
+        pass
     return (os.environ.get(VARIAVEL_GRUPO) or '').strip()
 
 
@@ -215,6 +222,36 @@ def aplicar_vencidas(agora=None):
             aplicadas += 1
         db.session.commit()
     return aplicadas
+
+
+def autorizacao_para_parametros(texto, idioma='pt'):
+    """Na tela Parâmetros de regras só se salva com uma CR de parâmetros CRIADA E APROVADA (sem valores: ela autoriza
+    a mudança que a pessoa faz na tela). Devolve (requisicao, erro em português)."""
+    if not (texto or '').strip():
+        return None, ('Para salvar, a requisição de mudança precisa estar criada e aprovada: crie a CR em “Criar Requisição '
+                      'de Mudança” (Parâmetros e regras), espere a aprovação do grupo e informe o número dela aqui.')
+    r = achar(texto)
+    if not r:
+        return None, 'Requisição de mudança não encontrada.'
+    if r.tipo != 'parametros':
+        return None, 'Esta requisição não é de parâmetros e regras.'
+    if r.status == AGUARDANDO:
+        return None, 'Esta requisição ainda aguarda a aprovação do grupo.'
+    if r.status != APROVADA:
+        return None, 'Esta requisição já foi encerrada (aplicada, reprovada ou cancelada). Crie outra.'
+    if conteudo(r).get('valores'):
+        return None, 'Esta requisição já traz os valores novos e passa a valer sozinha na aprovação (ou na data agendada).'
+    if not no_prazo(r):
+        return None, 'Esta requisição está agendada para mais tarde: salve a partir da data agendada.'
+    return r, None
+
+
+def registrar_uso(r, usuario, resumo):
+    """A CR aprovada foi usada na tela Parâmetros de regras: fica Aplicada com o que mudou."""
+    from models import db
+    r.status, r.data_aplicacao, r.aplicado_por_id = APLICADA, datetime.now(), usuario.id
+    r.resultado = resumo
+    db.session.commit()
 
 
 def registrar_commit(r, usuario, commit, correcoes):

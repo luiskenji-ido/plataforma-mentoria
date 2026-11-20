@@ -6,7 +6,7 @@
     <i class="bi bi-clipboard-plus"></i> {{ tt('Criar Requisição de Mudança') }}</button>
 {% endmacro %}
 
-{% macro formulario(correcoes=[], tipo_padrao='outro', voltar='') %}
+{% macro formulario(correcoes=[], regras=[], tipo_padrao='codigo', voltar='') %}
 <div class="modal fade" id="modalNovaRdm" tabindex="-1" aria-labelledby="tituloNovaRdm" aria-hidden="true">
     <div class="modal-dialog modal-lg modal-dialog-scrollable">
         <form method="POST" action="{{ url_for('criar_mudanca') }}" class="modal-content">
@@ -19,14 +19,46 @@
                 <div class="alert alert-info small py-2"><i class="bi bi-info-circle"></i>
                     {{ tt('O pedido fica Aguardando aprovação do grupo') }} <b>{{ rdm_grupo() or '—' }}</b>. {{ tt('Quem pede não aprova a própria requisição.') }}</div>
                 <div class="row g-3">
-                    <div class="col-md-6"><label class="form-label" for="rdmTipo">{{ tt('Tipo de mudança') }}</label>
-                        <select class="form-select" name="tipo" id="rdmTipo">
-                            {% for chave, nome in rdm_tipos().items() %}<option value="{{ chave }}" {{ 'selected' if chave == tipo_padrao }}>{{ tt(nome) }}</option>{% endfor %}
-                        </select></div>
-                    <div class="col-md-6"><label class="form-label" for="rdmRisco">{{ tt('Risco') }}</label>
-                        <select class="form-select" name="risco" id="rdmRisco">{% for r in ['Baixo', 'Médio', 'Alto'] %}<option value="{{ r }}">{{ tt(r) }}</option>{% endfor %}</select></div>
                     <div class="col-12"><label class="form-label" for="rdmTitulo">{{ tt('Título') }}</label>
                         <input class="form-control" name="titulo" id="rdmTitulo" required minlength="5" maxlength="200" placeholder="{{ tt('Ex.: corrigir as consultas repetidas da tela Cadastros') }}"></div>
+                    <div class="col-md-8"><label class="form-label" for="rdmTipo">{{ tt('A mudança é em') }}</label>
+                        <select class="form-select" name="tipo" id="rdmTipo">
+                            <option value="codigo" {{ 'selected' if tipo_padrao != 'parametros' }}>{{ tt('Orquestrador (correções pedidas pelos agentes)') }}</option>
+                            <option value="parametros" {{ 'selected' if tipo_padrao == 'parametros' }}>{{ tt('Parâmetros e regras') }}</option>
+                        </select></div>
+                    <div class="col-md-4"><label class="form-label" for="rdmRisco">{{ tt('Risco') }}</label>
+                        <select class="form-select" name="risco" id="rdmRisco">{% for r in ['Baixo', 'Médio', 'Alto'] %}<option value="{{ r }}">{{ tt(r) }}</option>{% endfor %}</select></div>
+
+                    <!-- Orquestrador: as correções que ainda estão pendentes (as mesmas de "Correções pedidas pelos agentes") -->
+                    <div class="col-12" id="rdmPainelCodigo" data-rdm-painel="codigo">
+                        <span class="form-label d-block">{{ tt('Correções pedidas pelos agentes') }} ({{ correcoes|length }}) · <span class="text-muted fw-normal">{{ tt('marque as que entram nesta mudança') }}</span></span>
+                        <div class="border rounded p-2 small" style="max-height: 220px; overflow-y: auto;">
+                            {% for c in correcoes %}
+                            <div class="form-check"><input class="form-check-input" type="checkbox" name="correcoes" value="{{ c.id }}" id="rdmCorr_{{ c.id }}">
+                                <label class="form-check-label" for="rdmCorr_{{ c.id }}"><b>{{ tt(c.severidade) }}</b> · {{ c.titulo }} <span class="text-muted">({{ tt(c.equipe_nome) }} · {{ c.agente }})</span></label></div>
+                            {% else %}<div class="text-muted">{{ tt('Nenhuma correção pendente: as últimas execuções das equipes não pediram correções.') }}</div>{% endfor %}
+                        </div></div>
+
+                    <!-- Parâmetros e regras: cada regra com o valor atual; preencha só o valor novo das que vão mudar -->
+                    <div class="col-12 d-none" id="rdmPainelParametros" data-rdm-painel="parametros">
+                        <span class="form-label d-block">{{ tt('Regras') }} · <span class="text-muted fw-normal">{{ tt('preencha o valor novo só das regras que vão mudar') }}</span></span>
+                        <div class="border rounded small" style="max-height: 260px; overflow-y: auto;">
+                            <table class="table table-sm align-middle mb-0">
+                                <thead><tr><th>{{ tt('Regra') }}</th><th>{{ tt('Valor atual') }}</th><th style="width: 150px;">{{ tt('Valor novo') }}</th></tr></thead>
+                                <tbody>
+                                    {% for p in regras %}
+                                    <tr><td><label class="mb-0" for="rdmNovo_{{ p.chave }}">{{ tt(p.nome) }}</label>{% if p.personalizado %} <span class="badge bg-info-subtle text-info-emphasis border">{{ tt('criada pela gestão') }}</span>{% endif %}</td>
+                                        <td class="text-nowrap">{{ tt('Sim') if p.valor is sameas true else (tt('Não') if p.valor is sameas false else p.valor) }} <span class="text-muted">{{ tt(p.unidade) }}</span></td>
+                                        <td>{% if p.tipo == 'sim_nao' %}
+                                            <select class="form-select form-select-sm" name="novo_{{ p.chave }}" id="rdmNovo_{{ p.chave }}"><option value="">—</option><option value="sim">{{ tt('Sim') }}</option><option value="nao">{{ tt('Não') }}</option></select>
+                                            {% else %}<input class="form-control form-control-sm" name="novo_{{ p.chave }}" id="rdmNovo_{{ p.chave }}" maxlength="500"
+                                                   {% if p.tipo in ('inteiro', 'decimal') %}inputmode="decimal"{% endif %} placeholder="{{ p.valor }}">{% endif %}</td></tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                        <div class="form-text">{{ tt('Com valores preenchidos, eles passam a valer sozinhos na aprovação (ou na data agendada). Sem valores, a CR aprovada autoriza a mudança feita na tela Parâmetros de regras com o número dela.') }}</div></div>
+
                     <div class="col-12"><label class="form-label" for="rdmDescricao">{{ tt('O que vai mudar') }}</label>
                         <textarea class="form-control" name="descricao" id="rdmDescricao" rows="3" maxlength="5000"></textarea></div>
                     <div class="col-12"><label class="form-label" for="rdmJustificativa">{{ tt('Por que mudar (justificativa)') }}</label>
@@ -36,15 +68,6 @@
                         <div class="form-text">{{ tt('Vazio: aplica assim que for aprovada.') }}</div></div>
                     <div class="col-md-6"><label class="form-label" for="rdmRollback">{{ tt('Plano de rollback') }}</label>
                         <textarea class="form-control" name="plano_rollback" id="rdmRollback" rows="2" maxlength="3000" placeholder="{{ tt('Como voltar atrás se der errado') }}"></textarea></div>
-                    {% if correcoes %}
-                    <div class="col-12" id="rdmCorrecoes"><span class="form-label d-block">{{ tt('Correções do Orquestrador incluídas') }}</span>
-                        <div class="border rounded p-2 small" style="max-height: 180px; overflow-y: auto;">
-                            {% for c in correcoes %}
-                            <div class="form-check"><input class="form-check-input" type="checkbox" name="correcoes" value="{{ c.id }}" id="rdmCorr_{{ c.id }}">
-                                <label class="form-check-label" for="rdmCorr_{{ c.id }}">{{ tt(c.severidade) }} · {{ c.titulo }} <span class="text-muted">({{ tt(c.equipe_nome) }})</span></label></div>
-                            {% endfor %}
-                        </div></div>
-                    {% endif %}
                 </div>
             </div>
             <div class="modal-footer">
@@ -58,10 +81,22 @@
 document.addEventListener('DOMContentLoaded', function () {
     const modal = document.getElementById('modalNovaRdm');
     if (!modal) return;
+    const tipo = document.getElementById('rdmTipo');
+    // Mostra só a lista do que foi escolhido (Orquestrador ou Parâmetros e regras); a outra não vai junto no envio
+    function mostrar() {
+        modal.querySelectorAll('[data-rdm-painel]').forEach(function (painel) {
+            const ativo = painel.dataset.rdmPainel === tipo.value;
+            painel.classList.toggle('d-none', !ativo);
+            painel.querySelectorAll('input, select').forEach(function (campo) { campo.disabled = !ativo; });
+        });
+    }
+    tipo.addEventListener('change', mostrar);
     modal.addEventListener('show.bs.modal', function (e) {
-        const tipo = e.relatedTarget && e.relatedTarget.dataset.rdmTipo;
-        if (tipo) document.getElementById('rdmTipo').value = tipo;
+        const escolhido = e.relatedTarget && e.relatedTarget.dataset.rdmTipo;
+        if (escolhido === 'codigo' || escolhido === 'parametros') tipo.value = escolhido;
+        mostrar();
     });
+    mostrar();
 });
 </script>
 {% endmacro %}

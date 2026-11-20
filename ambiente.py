@@ -33,10 +33,10 @@ RAIZ = os.path.dirname(os.path.abspath(__file__))
 
 HOSPEDAGENS = {
     'servidor': ('Servidor próprio (Linux)', 'vm'),
-    'aws_vm': ('AWS · máquina virtual (EC2 / Lightsail)', 'vm'),
+    'aws_vm': ('AWS · máquina virtual (EC2 / Lightsail / Elastic Beanstalk)', 'vm'),
     'gcp_vm': ('GCP · máquina virtual (Compute Engine)', 'vm'),
     'azure_vm': ('Azure · máquina virtual', 'vm'),
-    'aws_conteiner': ('AWS · contêiner (App Runner / ECS)', 'conteiner'),
+    'aws_conteiner': ('AWS · contêiner (App Runner / ECS / Lambda)', 'conteiner'),
     'gcp_conteiner': ('GCP · contêiner (Cloud Run)', 'conteiner'),
     'azure_conteiner': ('Azure · contêiner (App Service / Container Apps)', 'conteiner'),
     'pythonanywhere': ('PythonAnywhere', 'gerenciada'),
@@ -114,12 +114,44 @@ def hospedagem():
         return 'gcp_conteiner'
     if os.environ.get('WEBSITE_SITE_NAME') or os.environ.get('CONTAINER_APP_NAME'):
         return 'azure_conteiner'
-    if os.environ.get('ECS_CONTAINER_METADATA_URI_V4') or os.environ.get('AWS_APP_RUNNER_SERVICE_ID') \
-            or (os.environ.get('AWS_EXECUTION_ENV') or '').startswith('AWS_ECS'):
+    aws = aws_servico()
+    if aws in ('ecs', 'app_runner', 'lambda'):
         return 'aws_conteiner'
+    if aws in ('elastic_beanstalk', 'ec2'):
+        return 'aws_vm'
     if sys.platform.startswith('linux'):
         return 'servidor'
     return 'computador'
+
+
+def _ler_arquivo(caminho):
+    try:
+        with open(caminho, encoding='utf-8', errors='ignore') as f:
+            return f.read(200).strip()
+    except OSError:
+        return ''
+
+
+def aws_servico():
+    """Qual serviço da AWS está rodando a plataforma, pelas marcas que a própria AWS deixa (sem chamar a rede):
+    Lambda e ECS/Fargate pelas variáveis de ambiente, App Runner pela variável dele, Elastic Beanstalk pela pasta
+    /opt/elasticbeanstalk e EC2 pelo fabricante da máquina (Amazon EC2) ou pelo identificador do hipervisor.
+    Devolve 'lambda', 'ecs', 'app_runner', 'elastic_beanstalk', 'ec2' ou None (não é AWS)."""
+    execucao = os.environ.get('AWS_EXECUTION_ENV') or ''
+    if os.environ.get('AWS_LAMBDA_FUNCTION_NAME') or execucao.startswith('AWS_Lambda'):
+        return 'lambda'
+    if os.environ.get('ECS_CONTAINER_METADATA_URI_V4') or os.environ.get('ECS_CONTAINER_METADATA_URI') or execucao.startswith('AWS_ECS'):
+        return 'ecs'
+    if os.environ.get('AWS_APP_RUNNER_SERVICE_ID'):
+        return 'app_runner'
+    if not sys.platform.startswith('linux'):
+        return None
+    if os.path.isdir('/opt/elasticbeanstalk') or execucao.startswith('AWS_ElasticBeanstalk'):
+        return 'elastic_beanstalk'
+    fabricante = ' '.join(_ler_arquivo(f'/sys/devices/virtual/dmi/id/{c}') for c in ('sys_vendor', 'board_vendor', 'bios_vendor'))
+    if 'Amazon EC2' in fabricante or _ler_arquivo('/sys/hypervisor/uuid').lower().startswith('ec2'):
+        return 'ec2'
+    return None
 
 
 def tipo_hospedagem(chave=None):

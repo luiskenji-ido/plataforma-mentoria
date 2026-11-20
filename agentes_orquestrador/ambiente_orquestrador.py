@@ -2,7 +2,8 @@
 """
 ONDE O ORQUESTRADOR ESTÁ RODANDO E O QUE ELE CONSEGUE FAZER AQUI
 ================================================================
-Computador, PythonAnywhere, Azure (App Service) ou GCP (App Engine / Cloud Run / Compute Engine). Cada ambiente tem
+Computador, PythonAnywhere, Azure (App Service), GCP (App Engine / Cloud Run / Compute Engine) ou AWS (EC2, Elastic
+Beanstalk, ECS/Fargate, App Runner ou Lambda). Cada ambiente tem
 limites diferentes: precisa ser um repositório Git gravável para corrigir e fazer commit, ter o Chromium para os agentes
 Fim a Fim e permitir processos em segundo plano para a validação. A tela mostra tudo isso antes de começar.
 """
@@ -21,7 +22,23 @@ def nome():
         return 'Azure'
     if os.environ.get('K_SERVICE') or os.environ.get('GAE_SERVICE') or os.environ.get('GOOGLE_CLOUD_PROJECT') or os.environ.get('GCE_METADATA_HOST'):
         return 'GCP'
+    servico = _aws()
+    if servico:
+        return 'AWS · ' + {'lambda': 'Lambda', 'ecs': 'ECS / Fargate', 'app_runner': 'App Runner', 'elastic_beanstalk': 'Elastic Beanstalk',
+                           'ec2': 'EC2'}[servico]
     return 'Computador'
+
+
+def _aws():
+    """A mesma detecção da tela Ambiente e compatibilidade (ambiente.aws_servico), sem depender do app."""
+    import sys
+    if RAIZ not in sys.path:
+        sys.path.insert(0, RAIZ)
+    try:
+        import ambiente
+        return ambiente.aws_servico()
+    except Exception:
+        return None
 
 
 def _git(*args, cwd=RAIZ, tempo=20):
@@ -60,14 +77,15 @@ def capacidades():
     gravavel = repositorio and os.access(os.path.join(RAIZ, '.git'), os.W_OK)
     _, remoto, _ = _git('remote', 'get-url', 'origin') if repositorio else (1, '', '')
     _, ramo, _ = _git('rev-parse', '--abbrev-ref', 'HEAD') if repositorio else (1, '', '')
-    efemero = onde == 'GCP' and bool(os.environ.get('K_SERVICE') or os.environ.get('GAE_SERVICE'))
+    # Cloud Run / App Engine e AWS Lambda encerram o processo ao fim da requisição e apagam o disco
+    efemero = (onde == 'GCP' and bool(os.environ.get('K_SERVICE') or os.environ.get('GAE_SERVICE'))) or onde == 'AWS · Lambda'
     chromium = _chromium()
     itens = {
         'git': {'ok': repositorio and gravavel, 'texto': f"Repositório Git gravável (ramo {ramo})" if repositorio and gravavel
                 else 'Sem repositório Git gravável: o código daqui não pode ser corrigido nem ir para commit.'},
         'push': {'ok': bool(remoto), 'texto': f"Push para {remoto}" if remoto else 'Sem remoto "origin": o push não é possível.'},
         'segundo_plano': {'ok': not efemero, 'texto': 'Processos em segundo plano permitidos' if not efemero
-                          else 'Cloud Run / App Engine encerram processos fora da requisição: a validação não roda aqui.'},
+                          else 'Cloud Run, App Engine e AWS Lambda encerram processos fora da requisição: a validação não roda aqui.'},
         'persistente': {'ok': not efemero, 'texto': 'Disco persistente' if not efemero
                         else 'Disco temporário: alterações somem a cada nova instância.'},
         'fim_a_fim': {'ok': chromium, 'texto': 'Chromium disponível para os agentes Fim a Fim' if chromium

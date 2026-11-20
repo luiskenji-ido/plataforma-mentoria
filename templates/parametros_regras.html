@@ -1,5 +1,15 @@
 {% extends "base.html" %}
-{% block title %}{{ tt('Parâmetros de regras') }}{% endblock %}
+{% block title %}{{ tt('Parâmetros de regras') }}<script>
+// Voltar ao padrão e Excluir também precisam do número da requisição aprovada (campo ID da Mudança)
+function rdmInformada() {
+    const campo = document.getElementById('rdmParametros');
+    if (campo && campo.value.trim()) return true;
+    alert({{ tt('Informe no campo ID da Mudança o número da requisição de mudança aprovada.') | tojson }});
+    if (campo) campo.focus();
+    return false;
+}
+</script>
+{% endblock %}
 {% block content %}
 {% import '_mudancas.html' as rdm with context %}
 <style>
@@ -12,12 +22,22 @@
 <div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-3">
     <div>
         <h2 class="text-primary fw-bold mb-1"><i class="bi bi-sliders"></i> {{ tt('Parâmetros de regras') }}</h2>
-        <p class="text-muted mb-0">{{ tt('Os números que definem as regras de negócio da plataforma. Ao salvar, o pedido vira uma requisição de mudança e a regra passa a valer depois da aprovação do grupo; cada mudança fica no histórico com quem, quando e o motivo.') }}</p>
+        <p class="text-muted mb-0">{{ tt('Os números que definem as regras de negócio da plataforma. Cada mudança precisa de uma requisição de mudança aprovada e fica no histórico com quem, quando, o motivo e o número da requisição.') }}</p>
     </div>
     <div class="d-flex gap-2 flex-wrap">
         {{ rdm.botao_criar('parametros') }}
         <a href="{{ url_for('perfis_acesso_view') }}" class="btn btn-outline-secondary fw-bold"><i class="bi bi-person-gear"></i> {{ tt('Acesso às telas e funções') }}</a>
     </div>
+</div>
+
+<div class="alert alert-warning small d-flex gap-2 align-items-start" id="avisoCrParametros">
+    <i class="bi bi-shield-check mt-1"></i>
+    <div><b>{{ tt('Para salvar uma regra, a {prefixo} precisa estar criada e aprovada.') | replace('{prefixo}', rdm_prefixo()) }}</b>
+        <ol class="mb-0 ps-3 mt-1">
+            <li>{{ tt('Crie a requisição em “Criar Requisição de Mudança”, escolhendo Parâmetros e regras.') }}</li>
+            <li>{{ tt('Espere um membro do grupo de aprovação aprovar (quem pede não aprova a própria).') }}</li>
+            <li>{{ tt('Altere os valores aqui, informe o número da requisição aprovada no campo ID da Mudança e salve. Se a requisição já trouxer os valores novos, eles passam a valer sozinhos na aprovação.') }}</li>
+        </ol></div>
 </div>
 
 <div class="alert alert-light border small d-flex gap-2 align-items-start">
@@ -64,10 +84,10 @@
                 <div class="col-lg-3 col-5 small text-lg-end">
                     {% if p.padrao is not none %}
                     <div class="text-muted">{{ tt('Padrão') }}: <b>{{ p.padrao }}</b></div>
-                    {% if p.alterado %}<button class="btn btn-link btn-sm p-0" type="submit" name="restaurar" value="{{ p.chave }}" formnovalidate><i class="bi bi-arrow-counterclockwise"></i> {{ tt('Voltar ao padrão') }}</button>{% endif %}
+                    {% if p.alterado %}<button class="btn btn-link btn-sm p-0" type="submit" name="restaurar" value="{{ p.chave }}" formnovalidate onclick="return rdmInformada();"><i class="bi bi-arrow-counterclockwise"></i> {{ tt('Voltar ao padrão') }}</button>{% endif %}
                     {% else %}
                     <button class="btn btn-link btn-sm p-0 text-danger" type="submit" name="excluir" value="{{ p.chave }}" formnovalidate
-                            onclick="return confirm({{ tt('Excluir esta regra criada pela gestão?') | tojson }})"><i class="bi bi-trash"></i> {{ tt('Excluir') }}</button>
+                            onclick="return rdmInformada() && confirm({{ tt('Excluir esta regra criada pela gestão?') | tojson }})"><i class="bi bi-trash"></i> {{ tt('Excluir') }}</button>
                     {% endif %}
                     {% if p.atualizado_em %}<div class="text-muted">{{ (p.atualizado_em).strftime('%d/%m/%Y') }}{% if p.atualizado_por %} · {{ p.atualizado_por }}{% endif %}</div>{% endif %}
                 </div>
@@ -87,16 +107,16 @@
             <div style="min-width: 210px;">
                 <label class="form-label small fw-bold mb-0" for="rdmParametros">{{ tt('ID da Mudança') }} ({{ rdm_prefixo() }})</label>
                 <input class="form-control font-monospace" id="rdmParametros" name="rdm" maxlength="20" placeholder="{{ rdm_exemplo() }}"
-                       aria-describedby="rdmParametrosAjuda">
+                       aria-describedby="rdmParametrosAjuda" required>
             </div>
-            <button class="btn btn-primary fw-bold px-4" type="submit" id="btnSalvarParametros"><i class="bi bi-send"></i> {{ tt('Pedir aprovação') }}</button>
-            <div class="form-text w-100 mt-0" id="rdmParametrosAjuda">{{ tt('Vazio: abre uma requisição de mudança nova. Preenchido: usa a requisição já criada (aguardando aprovação). Os valores só mudam depois que um membro do grupo aprovar.') }}</div>
+            <button class="btn btn-primary fw-bold px-4" type="submit" id="btnSalvarParametros"><i class="bi bi-check2-circle"></i> {{ tt('Salvar alterações') }}</button>
+            <div class="form-text w-100 mt-0" id="rdmParametrosAjuda">{{ tt('Informe o número da requisição de mudança aprovada (Parâmetros e regras). Ela vale para esta alteração e depois fica como Aplicada.') }}</div>
         </div>
     </div>
 </form>
 
 {{ rdm.pendentes(rdm_pendentes, tt('Mudanças de parâmetros aguardando aprovação'), url_for('parametros_regras'), 'cardRdmParametros') }}
-{{ rdm.formulario([], 'parametros', url_for('parametros_regras')) }}
+{{ rdm.formulario(rdm_form_correcoes(), itens, 'parametros', url_for('parametros_regras')) }}
 
 <div class="row g-3 mb-4">
     <div class="col-lg-5">
@@ -104,6 +124,8 @@
             <div class="card-header bg-white fw-bold text-primary"><i class="bi bi-plus-square"></i> {{ tt('Criar regra nova') }}</div>
             <form method="POST" class="card-body"><div class="row g-2">
                 <input type="hidden" name="acao" value="criar">
+                <div class="col-12"><label class="form-label small fw-bold mb-0" for="rdmCriar">{{ tt('ID da Mudança') }} ({{ rdm_prefixo() }}) · {{ tt('aprovada') }}</label>
+                    <input class="form-control form-control-sm font-monospace" id="rdmCriar" name="rdm_criar" maxlength="20" required placeholder="{{ rdm_exemplo() }}"></div>
                 <div class="col-12"><label class="form-label small fw-bold mb-0" for="novaNome">{{ tt('Nome da regra') }}</label>
                     <input class="form-control form-control-sm" id="novaNome" name="nova_nome" maxlength="150" required placeholder="{{ tt('Ex.: Horas mínimas de mentoria por aluno') }}"></div>
                 <div class="col-7"><label class="form-label small fw-bold mb-0" for="novaChave">{{ tt('Código') }}</label>

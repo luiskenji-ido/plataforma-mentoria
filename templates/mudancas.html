@@ -9,7 +9,7 @@
         <p class="text-muted mb-0">{{ tt('Mudanças nos parâmetros de regras e commits do Orquestrador só valem depois da aprovação de um membro do grupo — nunca de quem pediu.') }}</p>
     </div>
     <div class="d-flex gap-2 flex-wrap">
-        {{ rdm.botao_criar('outro') }}
+        {{ rdm.botao_criar('codigo') }}
         {% if current_user.tipo_usuario in PERFIS_ADMINISTRACAO_SISTEMA %}
         <a href="{{ url_for('provedores_ia_view') }}#comiteAprovacao" class="btn btn-outline-secondary fw-bold"><i class="bi bi-people"></i> {{ tt('Grupo de aprovação') }}</a>
         {% endif %}
@@ -50,5 +50,5 @@
     </div>
 </div>
 
-{{ rdm.formulario([], 'outro', url_for('mudancas_view')) }}
+{{ rdm.formulario(rdm_form_correcoes(), rdm_form_regras(), 'codigo', url_for('mudancas_view')) }}
 {% endblock %}

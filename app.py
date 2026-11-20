@@ -9820,26 +9820,37 @@ def parametros_regras():
         return bloqueio
     idioma = current_user.idioma
     if request.method == 'POST':
+        # Toda mudança nesta tela (salvar valores, voltar ao padrão, excluir ou criar regra) só acontece com uma
+        # requisição de mudança (CR) de parâmetros JÁ CRIADA E APROVADA pelo grupo; usada, ela fica Aplicada
+        import mudancas
         motivo = (request.form.get('motivo') or '').strip()
+        criando = request.form.get('acao') == 'criar'
+        r, erro = mudancas.autorizacao_para_parametros(request.form.get('rdm_criar' if criando else 'rdm'), idioma)
+        if erro:
+            flash(tt(erro, idioma), 'warning')
+            return redirect(url_for('parametros_regras'))
+        numero = mudancas.numero(r, 'pt')
+        motivo_cr = f"{motivo} ({numero})" if motivo else numero
         if request.form.get('restaurar'):
             chave = request.form['restaurar']
-            if rn.restaurar(chave, current_user.id, motivo or 'Voltou ao padrão'):
+            if rn.restaurar(chave, current_user.id, motivo_cr):
+                mudancas.registrar_uso(r, current_user, f"{rn.nome_da_regra(chave)}: voltou ao valor padrão")
                 flash(tt('Regra "{nome}" voltou ao valor padrão.', idioma).format(nome=tt(rn.nome_da_regra(chave), idioma)), 'success')
         elif request.form.get('excluir'):
             chave = request.form['excluir']
             nome = rn.nome_da_regra(chave)
-            if rn.excluir(chave, current_user.id, motivo):
+            if rn.excluir(chave, current_user.id, motivo_cr):
+                mudancas.registrar_uso(r, current_user, f"{nome}: regra excluída")
                 flash(tt('Regra "{nome}" excluída.', idioma).format(nome=nome), 'success')
-        elif request.form.get('acao') == 'criar':
+        elif criando:
             erro = rn.criar(request.form.get('nova_chave'), request.form.get('nova_nome'), request.form.get('nova_tipo'),
                             request.form.get('nova_valor'), request.form.get('nova_descricao'), current_user.id)
             if erro:
                 flash(tt(erro, idioma), 'warning')
             else:
+                mudancas.registrar_uso(r, current_user, f"Regra nova: {request.form.get('nova_nome')} ({request.form.get('nova_chave')})")
                 flash(tt('Regra nova criada. O sistema já pode usá-la em novas funcionalidades.', idioma), 'success')
         else:
-            # Alterar valores passa pela requisição de mudança: fica Aguardando aprovação do grupo e só vale depois
-            import mudancas
             valores = {k[6:]: v for k, v in request.form.items() if k.startswith('valor_')}
             mudou, erros = rn.preparar_varios(valores)
             if erros:
@@ -9849,25 +9860,10 @@ def parametros_regras():
             elif not mudou:
                 flash(tt('Nenhum valor foi alterado.', idioma), 'info')
             else:
-                pedido = {'valores': mudou, 'motivo': motivo}
-                informado = (request.form.get('rdm') or '').strip()
-                if informado:
-                    r = mudancas.achar(informado)
-                    if not r or r.status != mudancas.AGUARDANDO or r.tipo not in ('parametros', 'outro') or mudancas.conteudo(r).get('valores'):
-                        flash(tt('Requisição de mudança não encontrada, já decidida ou já usada em outra alteração. Deixe o campo vazio para abrir uma nova.', idioma), 'warning')
-                        return redirect(url_for('parametros_regras'))
-                    r.tipo = 'parametros'
-                    mudancas.anexar_conteudo(r, pedido)
-                else:
-                    nomes = ', '.join(rn.nome_da_regra(c) for c in mudou)
-                    r, erro = mudancas.criar('parametros', f"Parâmetros de regras: {nomes}"[:200], current_user,
-                                             descricao='\n'.join(f"{rn.nome_da_regra(c)}: {a} → {n}" for c, (a, n) in mudou.items()),
-                                             justificativa=motivo, conteudo=pedido)
-                    if erro:
-                        flash(tt(erro, idioma), 'warning')
-                        return redirect(url_for('parametros_regras'))
-                flash(tt('Pedido registrado na {numero}: aguardando aprovação do grupo {grupo}. Os valores mudam depois da aprovação.', idioma)
-                      .format(numero=mudancas.numero(r, idioma), grupo=r.grupo_aprovacao or mudancas.nome_do_grupo()), 'success')
+                alteradas, _ = rn.salvar_varios(valores, current_user.id, motivo_cr)
+                mudancas.registrar_uso(r, current_user, '\n'.join(f"{rn.nome_da_regra(c)}: {a} → {n}" for c, (a, n) in mudou.items()))
+                flash(tt('{n} regra(s) atualizada(s) com a {numero}. Passam a valer a partir de agora.', idioma)
+                      .format(n=len(alteradas), numero=mudancas.numero(r, idioma)), 'success')
         return redirect(url_for('parametros_regras'))
 
     from models import HistoricoParametro
@@ -9889,7 +9885,23 @@ def _requisicoes_de_mudanca_no_template():
             'rdm_grupo': mudancas.nome_do_grupo, 'rdm_tipos': lambda: mudancas.TIPOS, 'rdm_conteudo': mudancas.conteudo,
             'rdm_pode_decidir': lambda r: current_user.is_authenticated and mudancas.pode_decidir(current_user, r),
             'rdm_pode_ver': lambda: current_user.is_authenticated and mudancas.pode_ver(current_user),
-            'rdm_exemplo': lambda: f"{mudancas.prefixo(idioma)}-{datetime.now().year}-0001"}
+            'rdm_exemplo': lambda: f"{mudancas.prefixo(idioma)}-{datetime.now().year}-0001",
+            'rdm_form_correcoes': _correcoes_para_cr, 'rdm_form_regras': _regras_para_cr}
+
+
+def _correcoes_para_cr():
+    """Correções pedidas pelos agentes que ainda estão pendentes (as mesmas da tela do Orquestrador, sem as ignoradas)."""
+    try:
+        executor, coletor, *_ = _orquestrador()
+        ignoradas = executor.ignorados()
+        return [c for c in coletor.coletar() if c['id'] not in ignoradas]
+    except Exception:
+        return []
+
+
+def _regras_para_cr():
+    import regras_negocio as rn
+    return rn.listar()
 
 
 def _voltar_mudanca(padrao='mudancas_view'):
@@ -9924,14 +9936,28 @@ def criar_mudanca():
             flash(tt('Data agendada inválida.', idioma), 'warning')
             return _voltar_mudanca()
     descricao = (request.form.get('descricao') or '').strip()
-    correcoes = set(request.form.getlist('correcoes'))
+    tipo = request.form.get('tipo', 'outro')
+    correcoes = set(request.form.getlist('correcoes')) if tipo == 'codigo' else set()
     conteudo = None
+    if tipo == 'parametros':
+        import regras_negocio as rn
+        valores = {k[5:]: v.strip() for k, v in request.form.items() if k.startswith('novo_') and v.strip()}
+        if valores:
+            mudou, erros = rn.preparar_varios(valores)
+            if erros:
+                for chave, erro_regra in erros.items():
+                    flash(f"{tt(rn.nome_da_regra(chave), idioma)}: {tt(erro_regra, idioma)}", 'warning')
+                return _voltar_mudanca()
+            if mudou:
+                conteudo = {'valores': mudou, 'motivo': (request.form.get('justificativa') or '').strip()}
+                descricao = (descricao + '\n\n' if descricao else '') + '\n'.join(
+                    f"{rn.nome_da_regra(c)}: {a} → {n}" for c, (a, n) in mudou.items())
     if correcoes:
         _, coletor, *_ = _orquestrador()
         escolhidas = [c for c in coletor.coletar() if c['id'] in correcoes]
         conteudo = {'correcoes': [{'id': c['id'], 'titulo': c['titulo'], 'equipe': c['equipe_nome']} for c in escolhidas]}
         descricao = (descricao + '\n\n' if descricao else '') + '\n'.join(f"- [{c['equipe_nome']}] {c['titulo']}" for c in escolhidas)
-    r, erro = mudancas.criar(request.form.get('tipo', 'outro'), request.form.get('titulo'), current_user, descricao=descricao,
+    r, erro = mudancas.criar(tipo, request.form.get('titulo'), current_user, descricao=descricao,
                              justificativa=request.form.get('justificativa'), risco=request.form.get('risco'),
                              plano_rollback=request.form.get('plano_rollback'), data_agendada=data_agendada, conteudo=conteudo)
     if erro:

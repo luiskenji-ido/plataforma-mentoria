@@ -2672,6 +2672,34 @@ LITERAIS.update({
     'Variável apelido B2B-Comite-Aprovacao': ('Alias variable B2B-Comite-Aprovacao', 'Variable alias B2B-Comite-Aprovacao'),
 })
 
+# Requisição de mudança: Orquestrador ou Parâmetros e regras no formulário; salvar só com a CR aprovada
+LITERAIS.update({
+    'A mudança é em': ('The change is in', 'El cambio es en'),
+    'Altere os valores aqui, informe o número da requisição aprovada no campo ID da Mudança e salve. Se a requisição já trouxer os valores novos, eles passam a valer sozinhos na aprovação.': ('Change the values here, enter the approved request number in the Change ID field and save. If the request already brings the new values, they take effect on their own on approval.', 'Cambie los valores aquí, informe el número de la solicitud aprobada en el campo ID del Cambio y guarde. Si la solicitud ya trae los valores nuevos, valen solos al aprobarse.'),
+    'Com valores preenchidos, eles passam a valer sozinhos na aprovação (ou na data agendada). Sem valores, a CR aprovada autoriza a mudança feita na tela Parâmetros de regras com o número dela.': ('With values filled in, they take effect on their own on approval (or on the scheduled date). Without values, the approved CR authorizes the change made on the Rule parameters screen with its number.', 'Con valores completados, valen solos al aprobarse (o en la fecha programada). Sin valores, la SC aprobada autoriza el cambio hecho en la pantalla Parámetros de reglas con su número.'),
+    'Crie a requisição em “Criar Requisição de Mudança”, escolhendo Parâmetros e regras.': ('Create the request in “Create Change Request”, choosing Parameters and rules.', 'Cree la solicitud en “Crear Solicitud de Cambio”, eligiendo Parámetros y reglas.'),
+    'Espere um membro do grupo de aprovação aprovar (quem pede não aprova a própria).': ('Wait for an approval group member to approve it (the requester does not approve their own).', 'Espere a que un miembro del grupo de aprobación la apruebe (quien pide no aprueba la propia).'),
+    'Esta requisição ainda aguarda a aprovação do grupo.': ('This request is still awaiting the group approval.', 'Esta solicitud todavía espera la aprobación del grupo.'),
+    'Esta requisição está agendada para mais tarde: salve a partir da data agendada.': ('This request is scheduled for later: save from the scheduled date on.', 'Esta solicitud está programada para más tarde: guarde a partir de la fecha programada.'),
+    'Esta requisição já foi encerrada (aplicada, reprovada ou cancelada). Crie outra.': ('This request is already closed (applied, rejected or canceled). Create another one.', 'Esta solicitud ya fue cerrada (aplicada, rechazada o cancelada). Cree otra.'),
+    'Esta requisição já traz os valores novos e passa a valer sozinha na aprovação (ou na data agendada).': ('This request already brings the new values and takes effect on its own on approval (or on the scheduled date).', 'Esta solicitud ya trae los valores nuevos y vale sola al aprobarse (o en la fecha programada).'),
+    'Esta requisição não é de parâmetros e regras.': ('This request is not about parameters and rules.', 'Esta solicitud no es de parámetros y reglas.'),
+    'Informe no campo ID da Mudança o número da requisição de mudança aprovada.': ('Enter the approved change request number in the Change ID field.', 'Informe en el campo ID del Cambio el número de la solicitud de cambio aprobada.'),
+    'Informe o número da requisição de mudança aprovada (Parâmetros e regras). Ela vale para esta alteração e depois fica como Aplicada.': ('Enter the approved change request number (Parameters and rules). It covers this change and then becomes Applied.', 'Informe el número de la solicitud de cambio aprobada (Parámetros y reglas). Vale para este cambio y después queda como Aplicada.'),
+    'Orquestrador (correções pedidas pelos agentes)': ('Orchestrator (fixes requested by the agents)', 'Orquestador (correcciones pedidas por los agentes)'),
+    'Os números que definem as regras de negócio da plataforma. Cada mudança precisa de uma requisição de mudança aprovada e fica no histórico com quem, quando, o motivo e o número da requisição.': ('The numbers that define the platform business rules. Every change needs an approved change request and goes to the history with who, when, why and the request number.', 'Los números que definen las reglas de negocio de la plataforma. Cada cambio necesita una solicitud de cambio aprobada y queda en el historial con quién, cuándo, el motivo y el número de la solicitud.'),
+    'Para salvar uma regra, a {prefixo} precisa estar criada e aprovada.': ('To save a rule, the {prefixo} must be created and approved.', 'Para guardar una regla, la {prefixo} debe estar creada y aprobada.'),
+    'Para salvar, a requisição de mudança precisa estar criada e aprovada: crie a CR em “Criar Requisição de Mudança” (Parâmetros e regras), espere a aprovação do grupo e informe o número dela aqui.': ('To save, the change request must be created and approved: create the CR in “Create Change Request” (Parameters and rules), wait for the group approval and enter its number here.', 'Para guardar, la solicitud de cambio debe estar creada y aprobada: cree la SC en “Crear Solicitud de Cambio” (Parámetros y reglas), espere la aprobación del grupo e informe su número aquí.'),
+    'Parâmetros e regras': ('Parameters and rules', 'Parámetros y reglas'),
+    'Regras': ('Rules', 'Reglas'),
+    'Valor atual': ('Current value', 'Valor actual'),
+    'Valor novo': ('New value', 'Valor nuevo'),
+    'aprovada': ('approved', 'aprobada'),
+    'marque as que entram nesta mudança': ('check the ones included in this change', 'marque las que entran en este cambio'),
+    'preencha o valor novo só das regras que vão mudar': ('fill in the new value only for the rules that will change', 'complete el valor nuevo solo de las reglas que van a cambiar'),
+    '{n} regra(s) atualizada(s) com a {numero}. Passam a valer a partir de agora.': ('{n} rule(s) updated with {numero}. They take effect from now on.', '{n} regla(s) actualizada(s) con la {numero}. Valen a partir de ahora.'),
+})
+
 _POR_IDIOMA ={'en': {pt: v[0] for pt, v in LITERAIS.items()}, 'es': {pt: v[1] for pt, v in LITERAIS.items()}}
 
 
