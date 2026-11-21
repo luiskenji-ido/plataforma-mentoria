@@ -99,6 +99,11 @@ def _criar(titulo, tipo, conteudo, destino, descricao, origem, **extra):
     return criar_aprendizado(titulo, tipo, conteudo, destino, descricao, origem, gerente=GERENTE_BANCO, **extra)
 
 
+def sql_contar_linhas(dialeto, tabela):
+    """COUNT(*) com as aspas do próprio motor (crase no MySQL, aspas duplas no SQLite/PostgreSQL) e o escape dele."""
+    return f'SELECT COUNT(*) FROM {dialeto.identifier_preparer.quote(tabela)}'
+
+
 def _registrar_historico():
     """Uma foto por dia do tamanho do banco e das linhas por tabela (base da previsão de crescimento)."""
     import os
@@ -110,7 +115,7 @@ def _registrar_historico():
     linhas = {}
     with db.engine.connect() as con:
         for tabela in inspect(db.engine).get_table_names():
-            linhas[tabela] = con.exec_driver_sql('SELECT COUNT(*) FROM "' + tabela.replace('"', '') + '"').scalar()
+            linhas[tabela] = con.exec_driver_sql(sql_contar_linhas(db.engine.dialect, tabela)).scalar()
     caminho = backup_servico.caminho_banco() if db.engine.dialect.name == 'sqlite' else None
     historico.append({'dia': hoje, 'bytes': os.path.getsize(caminho) if caminho and os.path.exists(caminho) else None, 'linhas': linhas})
     _gravar_estado('historico_banco', historico[-180:])
