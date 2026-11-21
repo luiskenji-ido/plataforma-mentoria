@@ -364,7 +364,7 @@ def exigir_troca_de_senha():
         return redirect(url_for('trocar_senha_obrigatoria'))
 
 
-# Política de senha forte: o tamanho mínimo vem de Administração › Parâmetros de regras (senha_min_caracteres)
+# Política de senha forte: o tamanho mínimo vem de Sistema › Parâmetros de regras (senha_min_caracteres)
 from regras_negocio import padrao_senha_forte, regra
 PADRAO_EMAIL = r'^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$'
 PERFIS_GESTAO_PROJETO = ['Administrador', 'Mentor Administrador']
@@ -7001,7 +7001,7 @@ def gerenciar_frequencia():
     soma_taxas_presenca = 0
 
     for turma in turmas_ativas:
-        # Regra parametrizada (Administração › Parâmetros de regras): mesma conta usada no diário de classe
+        # Regra parametrizada (Sistema › Parâmetros de regras): mesma conta usada no diário de classe
         for aluno in turma.alunos:
             situacao = situacao_frequencia(aluno, turma, hoje)
             if situacao is None:
@@ -10627,7 +10627,7 @@ MODULOS_TRILHA_PADRAO = [
 </ul>"""),
     ("A banca de avaliação", """
 <p>A nota final do TCC segue a fórmula oficial:</p>
-<p class="fw-bold">Nota final = média ponderada de Escrito, Apresentação e Visual — pesos e nota de aprovação em Administração › Parâmetros de regras (padrão 40% / 40% / 20%, aprovado a partir de 7,0).</p>
+<p class="fw-bold">Nota final = média ponderada de Escrito, Apresentação e Visual — pesos e nota de aprovação em Sistema › Parâmetros de regras (padrão 40% / 40% / 20%, aprovado a partir de 7,0).</p>
 <ul>
 <li>Cada avaliador registra suas notas com comentários e justificativas.</li>
 <li>As perguntas feitas aos jovens e as respostas deles ficam registradas para feedback.</li>

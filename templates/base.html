@@ -629,8 +629,8 @@
                                  'ocorrencias', 'nova_ocorrencia', 'detalhe_ocorrencia', 'desistencias', 'avaliacoes'] %}
       {% set grupo_projetos = ['projetos', 'minhas_bancas', 'biblioteca_tccs', 'meus_certificados', 'painel_banca'] %}
       {% set grupo_admin = ['gerenciar_usuarios', 'gestao_trilha_tcc', 'reunioes', 'agenda_bancas', 'avaliadores_banca', 'indicadores_voluntariado',
-                            'gerenciar_grupos', 'perfis_acesso_view', 'parametros_regras', 'identidade_instituicao'] %}
-      {% set grupo_sistema = ['ambiente_compatibilidade', 'agentes_ia', 'agentes_seguranca', 'agentes_banco', 'agentes_funcionalidades',
+                            'gerenciar_grupos', 'perfis_acesso_view', 'identidade_instituicao'] %}
+      {% set grupo_sistema = ['ambiente_compatibilidade', 'parametros_regras', 'agentes_ia', 'agentes_seguranca', 'agentes_banco', 'agentes_funcionalidades',
                               'agentes_orquestrador', 'governanca_aprendizados', 'assistente', 'provedores_ia_view', 'manutencao_banco', 'mudancas_view'] %}
 
       <ul class="navbar-nav me-auto mb-2 mb-xl-0 gap-xl-1">
@@ -736,9 +736,6 @@
             {% if current_user.tipo_usuario in PERFIS_ADMINISTRACAO_SISTEMA and pode_modulo('perfis_acesso') %}
             <li><a class="dropdown-item fw-bold" href="{{ url_for('perfis_acesso_view') }}"><i class="bi bi-person-gear"></i> {{ tt('Perfis de acesso') }}</a></li>
             {% endif %}
-            {% if current_user.tipo_usuario in PERFIS_ADMINISTRACAO_SISTEMA and pode_modulo('parametros') %}
-            <li><a class="dropdown-item fw-bold" href="{{ url_for('parametros_regras') }}"><i class="bi bi-sliders"></i> {{ tt('Parâmetros de regras') }}</a></li>
-            {% endif %}
             <li><hr class="dropdown-divider"></li>
             <li><h6 class="dropdown-header">{{ tt('Programa') }}</h6></li>
             {% if current_user.tipo_usuario in PERFIS_GESTAO_TRILHA_TCC and pode_modulo('trilha_gestao') %}
@@ -751,7 +748,7 @@
           </ul>
         </li>
         {% endif %}
-        {% if current_user.is_authenticated and current_user.tipo_usuario in PERFIS_ADMINISTRACAO_SISTEMA and (pode_modulo('agentes_ia') or pode_modulo('manutencao') or pode_modulo('assistente')) %}
+        {% if current_user.is_authenticated and current_user.tipo_usuario in PERFIS_ADMINISTRACAO_SISTEMA and (pode_modulo('agentes_ia') or pode_modulo('manutencao') or pode_modulo('assistente') or pode_modulo('parametros')) %}
         <!-- Sistema: separado de Administração (configuração técnica, agentes de IA, custos e manutenção) -->
         <li class="nav-item dropdown">
           <a class="nav-link dropdown-toggle fw-bold {% if ep in grupo_sistema %}{{ ativo }}{% endif %}" href="#" id="menuSistema" role="button" data-bs-toggle="dropdown" aria-expanded="false">
@@ -759,6 +756,7 @@
           </a>
           <ul class="dropdown-menu shadow border-0" aria-labelledby="menuSistema">
             {% if pode_modulo('manutencao') %}<li><a class="dropdown-item fw-bold" href="{{ url_for('ambiente_compatibilidade') }}"><i class="bi bi-hdd-network"></i> {{ tt('Ambiente e compatibilidade') }}</a></li>{% endif %}
+            {% if pode_modulo('parametros') %}<li><a class="dropdown-item fw-bold" href="{{ url_for('parametros_regras') }}"><i class="bi bi-sliders"></i> {{ tt('Parâmetros de regras') }}</a></li>{% endif %}
             {% if pode_modulo('agentes_ia') %}
             <li><a class="dropdown-item fw-bold" href="{{ url_for('agentes_ia') }}"><i class="bi bi-robot"></i> {{ tt('Agente de IA – Fim a Fim') }}</a></li>
             <li><a class="dropdown-item fw-bold" href="{{ url_for('agentes_seguranca') }}"><i class="bi bi-shield-lock-fill"></i> {{ tt('Agentes de Segurança') }}</a></li>

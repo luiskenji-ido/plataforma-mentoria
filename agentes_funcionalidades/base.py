@@ -71,7 +71,7 @@ JS_LAYOUT = """() => {
 
 
 def regra_da_plataforma(chave):
-    """Valor atual de uma regra parametrizada (Administração › Parâmetros de regras), lido como a plataforma lê."""
+    """Valor atual de uma regra parametrizada (Sistema › Parâmetros de regras), lido como a plataforma lê."""
     from app import app
     from regras_negocio import regra
     with app.app_context():

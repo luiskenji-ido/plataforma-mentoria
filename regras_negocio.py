@@ -3,7 +3,7 @@
 PARÂMETROS DAS REGRAS DE NEGÓCIO
 ================================
 Um único lugar para os números que definem as regras da plataforma (frequência mínima do MEC, nota de aprovação,
-pesos da banca, política de senha...). A gestão muda pela tela Administração › Parâmetros de regras; o código lê com
+pesos da banca, política de senha...). A gestão muda pela tela Sistema › Parâmetros de regras; o código lê com
     from regras_negocio import regra
     regra('freq_minima_pct')   # → 75
 Sem valor gravado (ou fora de uma requisição), vale o padrão do catálogo — o sistema funciona igual a antes.

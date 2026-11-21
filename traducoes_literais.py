@@ -2174,9 +2174,9 @@ for _pt, _tr in {
     'Com aulas cadastradas, o progresso do aluno no Acompanhamento passa a ser automático: cada aula conta quando o vídeo é assistido (sem pular), o texto é lido até o fim ou o material é aberto, e o teste é aprovado.': (
         'With lessons registered, the student\'s progress in Follow-up becomes automatic: each lesson counts when the video is watched (without skipping), the text is read to the end or the material is opened, and the quiz is passed.',
         'Con clases registradas, el progreso del alumno en el Seguimiento pasa a ser automático: cada clase cuenta cuando el video se ve (sin saltar), el texto se lee hasta el final o el material se abre, y la prueba se aprueba.'),
-    'As regras (quanto do vídeo, nota mínima e número de perguntas) ficam em Administração › Parâmetros de regras › Conteúdo dos cursos.': (
-        'The rules (how much of the video, minimum score and number of questions) are in Administration › Rule parameters › Course content.',
-        'Las reglas (cuánto del video, nota mínima y número de preguntas) están en Administración › Parámetros de reglas › Contenido de los cursos.'),
+    'As regras (quanto do vídeo, nota mínima e número de perguntas) ficam em Sistema › Parâmetros de regras › Conteúdo dos cursos.': (
+        'The rules (how much of the video, minimum score and number of questions) are in System › Rule parameters › Course content.',
+        'Las reglas (cuánto del video, nota mínima y número de preguntas) están en Sistema › Parámetros de reglas › Contenido de los cursos.'),
     'Importar o material do curso': ('Import the course material', 'Importar el material del curso'),
     'Envie a apostila em PDF, Word, Markdown, TXT ou HTML. A plataforma separa os capítulos sozinha (títulos do Word, “Capítulo 1”, “Aula 2”, “Módulo 3”, “1. Introdução”…) e cria uma aula para cada um.': (
         'Upload the handbook as PDF, Word, Markdown, TXT or HTML. The platform splits the chapters by itself (Word headings, “Chapter 1”, “Lesson 2”, “Module 3”, “1. Introduction”…) and creates one lesson for each.',
