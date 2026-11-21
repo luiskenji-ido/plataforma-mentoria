@@ -32,7 +32,7 @@ CLASSE_DA_BASE = {"Administrador": AgenteAdministrador, "Aluno": AgenteAluno, "P
 ROTAS_DO_MODULO = {"painel": ["dashboard"], "sessoes": ["sessoes"], "acompanhamento": ["acompanhamento"], "atividades_extras": ["atividades_extras"],
                    "hub": ["hub_educacional"], "diario": ["frequencia", "notas"], "projetos": ["projetos"], "bancas": ["minhas_bancas", "banca"],
                    "biblioteca": ["biblioteca"], "certificados": ["certificados"], "demandas": ["demandas"], "voluntariado": ["esg_csv", "esg_pdf"],
-                   "cadastros": ["usuarios", "grupos"], "solicitacoes": ["solicitacoes"], "reunioes": ["reunioes"],
+                   "cadastros": ["usuarios", "grupos"], "reunioes": ["reunioes"],
                    "agenda_bancas": ["agenda_bancas", "avaliadores_banca"], "indicadores": ["indicadores"], "agentes_ia": ["agentes_ia"],
                    "manutencao": ["banco"]}
 MODULO_DA_ROTA = {rota: modulo for modulo, rotas in ROTAS_DO_MODULO.items() for rota in rotas}

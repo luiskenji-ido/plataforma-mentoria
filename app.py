@@ -6,6 +6,7 @@ from werkzeug.utils import secure_filename
 
 # Importações do Flask
 from flask import Flask, render_template, request, redirect, url_for, flash, send_file, session, jsonify
+import click
 
 # Importações do Google Calendar
 from google_auth_oauthlib.flow import Flow
@@ -51,7 +52,7 @@ from flask_login import LoginManager, login_user, logout_user, login_required, c
 from flask_bcrypt import Bcrypt
 
 # Importações do Banco de Dados
-from models import db, Usuario, Curso, Acompanhamento, SessaoMentoria, FeedbackSessao, QADuvida, HistoricoProgresso, aluno_mentor, HistoricoSenha, SegurancaUsuario, SolicitacaoMentoria, RegistroBackup, Projeto, Tarefa, Grupo, Frequencia, AvaliacaoProjeto, Empresa, Turma, turma_aluno, CheckinAula
+from models import db, Usuario, Curso, Acompanhamento, SessaoMentoria, FeedbackSessao, QADuvida, HistoricoProgresso, aluno_mentor, HistoricoSenha, SegurancaUsuario, RegistroBackup, Projeto, Tarefa, Grupo, Frequencia, AvaliacaoProjeto, Empresa, Turma, turma_aluno, CheckinAula
 import os
 
 # Importações para Upload de Arquivos
@@ -114,7 +115,6 @@ PERFIS_GESTAO_LOGOS = ['Administrador', 'Mentor Administrador']                 
 PERFIS_GESTAO_TRILHA_TCC = ['Administrador', 'Mentor Administrador']
 PERFIS_ADMINISTRACAO_SISTEMA = ['Administrador']                                       # parâmetros, perfis, banco, backups, identidade e agentes
 PERFIS_USAM_ASSISTENTE = ['Administrador']                                             # Assistente da Plataforma (chat da base de conhecimento)
-PERFIS_DECIDEM_SOLICITACOES = ['Mentor Administrador']                                 # aprova ou recusa os pedidos de mentoria
 PERFIS_REGISTRAM_FREQUENCIA = ['Aluno', 'Mentor', 'Professor']                        # registro de presença diária obrigatório
 PERFIS_GESTORES_DE_TURMA = ['Administrador', 'Admin B2B']                             # podem ser o gestor de uma turma
 PERFIS_GESTAO_ENTREGAS_TCC = ['Administrador', 'Mentor Administrador']                # enviam a entrega por qualquer projeto
@@ -368,6 +368,7 @@ def exigir_troca_de_senha():
 from regras_negocio import padrao_senha_forte, regra
 PADRAO_EMAIL = r'^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$'
 PERFIS_GESTAO_PROJETO = ['Administrador', 'Mentor Administrador']
+PERFIS_REDEFINEM_MFA = ['Administrador']   # apaga o MFA de alguém (celular perdido): a pessoa configura de novo no login
 
 
 def gerar_senha_provisoria():
@@ -389,6 +390,286 @@ def pode_atribuir_nivel(usuario_logado, tipo_usuario):
 def pode_mexer_no_projeto(usuario, projeto):
     """Tarefas e exclusão do projeto: membros do grupo do projeto e a gestão (nunca outro grupo)."""
     return projeto is not None and (usuario.tipo_usuario in PERFIS_GESTAO_PROJETO or usuario in membros_do_projeto(projeto))
+
+
+import autenticacao  # noqa: E402  (MFA, primeiro acesso e acesso de emergência)
+import time as _tempo  # noqa: E402
+
+# Login pelo Google (SSO): só e-mail verificado de quem JÁ tem cadastro; usa o mesmo client_secret.json e o mesmo
+# endereço de retorno (/oauth2callback) da Agenda e do Gmail.
+ESCOPOS_LOGIN_GOOGLE = ['openid', 'https://www.googleapis.com/auth/userinfo.email']
+
+
+def login_google_disponivel():
+    return os.path.exists(ambiente.arquivo_client_secret_google())
+
+
+def primeiro_acesso_disponivel():
+    """Banco sem Administrador ativo: a tela de login oferece o primeiro acesso (o código vai para o log do servidor)."""
+    try:
+        return autenticacao.garantir_codigo_primeiro_acesso(app.logger)
+    except Exception as erro:
+        db.session.rollback()
+        app.logger.warning("Primeiro acesso: não foi possível conferir os Administradores (%s)", erro)
+        return False
+
+
+@app.context_processor
+def _contexto_login():
+    return {'login_google_disponivel': login_google_disponivel, 'primeiro_acesso_disponivel': primeiro_acesso_disponivel}
+
+
+def concluir_login(usuario):
+    """Último passo de todo login (senha, MFA ou Google): sessão aberta e as mesmas regras de antes do painel."""
+    session.pop('mfa_pendente', None)
+    session.pop('mfa_configuracao', None)
+    usuario.tentativas_login = 0
+    usuario.ultimo_acesso = datetime.now()
+    db.session.commit()
+    login_user(usuario)
+    # Regra A: Força troca de senha
+    if getattr(usuario, 'forcar_troca_senha', False):
+        flash('Por medida de segurança, defina uma nova senha definitiva.', 'warning')
+        return redirect(url_for('trocar_senha_obrigatoria'))
+    # Regra B: Força cadastrar as perguntas de segurança
+    if not SegurancaUsuario.query.filter_by(usuario_id=usuario.id).first():
+        flash('Ação Necessária: Configure suas 3 perguntas de recuperação de conta.', 'info')
+        return redirect(url_for('cadastrar_perguntas'))
+    return redirect(url_for('dashboard'))
+
+
+def iniciar_segundo_fator(usuario, origem):
+    """Senha (ou Google) conferida: a sessão ainda NÃO está aberta; falta o código do app autenticador."""
+    session.pop('mfa_configuracao', None)
+    session['mfa_pendente'] = {'id': usuario.id, 'desde': _tempo.time(), 'origem': origem, 'erros': 0}
+    return redirect(url_for('verificar_mfa'))
+
+
+def _sair_do_mfa(mensagem, categoria='warning'):
+    session.pop('mfa_pendente', None)
+    session.pop('mfa_configuracao', None)
+    flash(tt(mensagem, session.get('idioma', 'pt')), categoria)
+    return redirect(url_for('login'))
+
+
+@app.route('/mfa', methods=['GET', 'POST'])
+def verificar_mfa():
+    """Segundo fator do login: confere o código do app (ou um código de recuperação). Quem ainda não tem MFA e é
+    obrigado a usar configura aqui mesmo: lê o QR code, digita o código e guarda os códigos de recuperação."""
+    pendente = session.get('mfa_pendente')
+    if not autenticacao.segredo_da_sessao_valido(pendente):
+        return _sair_do_mfa('O tempo para digitar o código acabou. Entre de novo com a sua senha.')
+    usuario = db.session.get(Usuario, pendente.get('id'))
+    if not usuario or usuario.status in ('Bloqueado', 'Desistente'):
+        return _sair_do_mfa('Entre de novo com a sua senha.')
+    idioma = session.get('idioma', 'pt')
+    segredo_app = app.config['SECRET_KEY']
+
+    if pendente.get('confirmado'):           # acabou de configurar e guardou os códigos: entra
+        return concluir_login(usuario)
+
+    if usuario.mfa_ativo:
+        segredo = autenticacao.decifrar_segredo(usuario.mfa_segredo, segredo_app)
+        if request.method == 'POST':
+            codigo = request.form.get('codigo', '')
+            por_recuperacao = request.form.get('modo') == 'recuperacao'
+            if por_recuperacao:
+                aceito = autenticacao.usar_codigo_recuperacao(usuario, codigo)
+            else:
+                passo = autenticacao.conferir_totp(segredo, codigo, usuario.mfa_ultimo_passo) if segredo else None
+                aceito = passo is not None
+                if aceito:
+                    usuario.mfa_ultimo_passo = passo
+            if aceito:
+                db.session.commit()
+                if por_recuperacao:
+                    flash(tt('Código de recuperação usado. Restam {n}.', idioma).replace('{n}', str(autenticacao.codigos_restantes(usuario))), 'info')
+                return concluir_login(usuario)
+            pendente['erros'] = int(pendente.get('erros', 0)) + 1
+            session['mfa_pendente'] = pendente
+            app.logger.info("MFA: código recusado para o usuário %s (%s de %s)", usuario.id, pendente['erros'], autenticacao.TENTATIVAS_MFA)
+            if pendente['erros'] >= autenticacao.TENTATIVAS_MFA:
+                usuario.tentativas_login = (usuario.tentativas_login or 0) + 1
+                db.session.commit()
+                return _sair_do_mfa('Muitos códigos errados. Entre de novo com a sua senha.', 'danger')
+            flash(tt('Código inválido ou já usado. Confira o app e tente de novo.', idioma), 'danger')
+        return render_template('mfa.html', modo='verificar', usuario=usuario, segredo_ilegivel=segredo is None)
+
+    # Configuração (MFA obrigatório e ainda não ativado)
+    conf = session.get('mfa_configuracao')
+    segredo = autenticacao.decifrar_segredo((conf or {}).get('segredo'), segredo_app) if conf and conf.get('id') == usuario.id else None
+    if not segredo:
+        segredo = autenticacao.gerar_segredo()
+        session['mfa_configuracao'] = {'id': usuario.id, 'segredo': autenticacao.cifrar_segredo(segredo, segredo_app)}
+    if request.method == 'POST':
+        passo = autenticacao.conferir_totp(segredo, request.form.get('codigo', ''))
+        if passo is not None:
+            codigos = autenticacao.ativar(usuario, segredo, segredo_app, passo)
+            db.session.commit()
+            session.pop('mfa_configuracao', None)
+            pendente['confirmado'] = True
+            session['mfa_pendente'] = pendente
+            app.logger.info("MFA ativado pelo usuário %s", usuario.id)
+            return render_template('mfa.html', modo='codigos', usuario=usuario, codigos=codigos)
+        flash(tt('O código não confere. Confira se o relógio do celular está certo e digite o código que aparece agora.', idioma), 'danger')
+    uri = autenticacao.uri_otpauth(segredo, usuario.email, autenticacao.nome_emissor())
+    return render_template('mfa.html', modo='configurar', usuario=usuario, qr=autenticacao.qr_svg(uri),
+                           segredo_texto=' '.join(segredo[i:i + 4] for i in range(0, len(segredo), 4)))
+
+
+@app.route('/primeiro-acesso', methods=['GET', 'POST'])
+def primeiro_acesso():
+    """Banco sem Administrador ativo (instalação nova, mudança de servidor): cria o primeiro com o código de uso único
+    que só quem tem acesso ao servidor vê. Existindo um Administrador, a tela não existe."""
+    if current_user.is_authenticated or not primeiro_acesso_disponivel():
+        return redirect(url_for('login'))
+    idioma = session.get('idioma', 'pt')
+    if request.method == 'POST':
+        codigo = request.form.get('codigo', '')
+        nome = (request.form.get('nome') or '').strip()
+        email = (request.form.get('email') or '').strip().lower()
+        senha = request.form.get('senha') or ''
+        erro = None
+        if not autenticacao.conferir_codigo_primeiro_acesso(codigo):
+            erro = 'Código de primeiro acesso inválido ou vencido. Veja o log do servidor ou gere outro com: flask --app app primeiro-acesso'
+            app.logger.warning("Primeiro acesso: código recusado")
+        elif not nome or not re.match(PADRAO_EMAIL, email):
+            erro = 'Informe o nome e um e-mail válido.'
+        elif not re.match(padrao_senha_forte(), senha):
+            erro = f"A senha deve ter no mínimo {regra('senha_min_caracteres')} caracteres (maiúsculas, minúsculas, números e especiais)."
+        elif senha != request.form.get('senha_confirmacao'):
+            erro = 'A confirmação não é igual à senha.'
+        elif Usuario.query.filter(db.func.lower(Usuario.email) == email).first():
+            erro = 'Já existe uma conta com este e-mail. Para devolver o acesso a ela, use no servidor: flask --app app admin-emergencia --email ' + email
+        if erro:
+            flash(tt(erro, idioma), 'danger')
+            return render_template('primeiro_acesso.html', nome=nome, email=email)
+        hash_senha = bcrypt.generate_password_hash(senha).decode('utf-8')
+        admin = Usuario(nome=nome, email=email, senha=hash_senha, tipo_usuario='Administrador', status='Ativo',  # regra-nomeada: ok (perfil-alvo é dado)
+                        forcar_troca_senha=False, data_ultima_troca_senha=datetime.utcnow(), criado_por='Primeiro acesso')
+        db.session.add(admin)
+        db.session.flush()
+        db.session.add(HistoricoSenha(usuario_id=admin.id, senha_hash=hash_senha))
+        db.session.commit()
+        autenticacao.encerrar_primeiro_acesso()
+        app.logger.warning("Primeiro acesso: Administrador %s criado pela tela de primeiro acesso", admin.id)
+        flash(tt('Administrador criado. Entre com o e-mail e a senha que você acabou de definir.', idioma), 'success')
+        return redirect(url_for('login'))
+    return render_template('primeiro_acesso.html', nome='', email='')
+
+
+@app.route('/login/google')
+def login_google():
+    if current_user.is_authenticated:
+        return redirect(url_for('login'))
+    if not login_google_disponivel():
+        flash(tt('O login pelo Google não está configurado nesta instalação.', session.get('idioma', 'pt')), 'warning')
+        return redirect(url_for('login'))
+    flow = Flow.from_client_secrets_file(ambiente.arquivo_client_secret_google(), scopes=ESCOPOS_LOGIN_GOOGLE,
+                                         redirect_uri=url_for('oauth2callback', _external=True))
+    endereco, state = flow.authorization_url(prompt='select_account')
+    session['state'] = state
+    session['code_verifier'] = flow.code_verifier
+    session['oauth_destino'] = 'login'
+    return redirect(endereco)
+
+
+def _client_id_google():
+    import json as _json
+    with open(ambiente.arquivo_client_secret_google(), encoding='utf-8') as f:
+        dados = _json.load(f)
+    return (dados.get('web') or dados.get('installed') or {}).get('client_id')
+
+
+def _retorno_login_google():
+    """Volta do Google no login: confere a assinatura do id_token, o e-mail verificado e o cadastro."""
+    from google.oauth2 import id_token as google_id_token
+    from google.auth.transport import requests as google_requests
+    idioma = session.get('idioma', 'pt')
+    flow = Flow.from_client_secrets_file(ambiente.arquivo_client_secret_google(), scopes=ESCOPOS_LOGIN_GOOGLE,
+                                         state=session.pop('state', None), redirect_uri=url_for('oauth2callback', _external=True))
+    flow.code_verifier = session.pop('code_verifier', None)
+    try:
+        flow.fetch_token(authorization_response=request.url)
+        info = google_id_token.verify_oauth2_token(flow.credentials.id_token, google_requests.Request(), _client_id_google())
+    except Exception as erro:
+        app.logger.warning("Login pelo Google não concluído: %s: %s", type(erro).__name__, erro)
+        flash(tt('Não foi possível entrar com o Google. Tente de novo ou use o e-mail e a senha.', idioma), 'warning')
+        return redirect(url_for('login'))
+    return _entrar_com_conta_google(info)
+
+
+def _entrar_com_conta_google(info):
+    """Conta Google já conferida (id_token válido): entra quem tem cadastro com o mesmo e-mail verificado."""
+    idioma = session.get('idioma', 'pt')
+    email = (info.get('email') or '').strip().lower()
+    usuario = Usuario.query.filter(db.func.lower(Usuario.email) == email).first() if email and info.get('email_verified') else None
+    if usuario and (conta_de_teste_bloqueada(usuario.email) or autenticacao.conta_de_teste(usuario.email)):
+        usuario = None
+    if not usuario:
+        app.logger.info("Login pelo Google recusado: conta sem cadastro na plataforma")
+        flash(tt('Esta conta Google não tem cadastro na plataforma. Use o e-mail cadastrado ou procure a coordenação.', idioma), 'warning')
+        return redirect(url_for('login'))
+    if usuario.status == 'Bloqueado':
+        flash('Sua conta foi bloqueada por excesso de tentativas falhas. Procure a Administração.', 'danger')
+        return redirect(url_for('login'))
+    if usuario.status == 'Desistente':
+        flash('Sua participação no programa foi encerrada. Para voltar, procure a coordenação.', 'warning')
+        return redirect(url_for('login'))
+    if autenticacao.exige_mfa(usuario, 'google'):
+        return iniciar_segundo_fator(usuario, 'google')
+    return concluir_login(usuario)
+
+
+@app.cli.command('primeiro-acesso')
+def cli_primeiro_acesso():
+    """Mostra um código novo de primeiro acesso (só funciona com o banco sem Administrador ativo)."""
+    if autenticacao.ha_administrador():
+        print('Já existe Administrador ativo. Perdeu o acesso? Use: flask --app app admin-emergencia --email <e-mail>')
+        return
+    codigo = autenticacao.novo_codigo_primeiro_acesso()
+    print(f'Código de primeiro acesso (vale {autenticacao.HORAS_CODIGO_PRIMEIRO_ACESSO}h, uso único): {codigo}')
+    print("Abra a tela de login e clique em 'Configurar o primeiro acesso'.")
+
+
+@app.cli.command('admin-emergencia')
+@click.option('--email', required=True, help='E-mail do Administrador (cria se não existir).')
+@click.option('--nome', default='Administrador', help='Nome, se for criar.')
+@click.option('--promover', is_flag=True, help='Promove a Administrador uma conta existente de outro perfil.')
+def cli_admin_emergencia(email, nome, promover):
+    """Devolve o acesso de Administrador: cria a conta ou, se já existe, gera senha provisória, desbloqueia e apaga o MFA.
+    Só roda no servidor (ou no contêiner), por quem tem acesso a ele."""
+    email = email.strip().lower()
+    if not re.match(PADRAO_EMAIL, email):
+        raise click.BadParameter('e-mail inválido', param_hint='--email')
+    senha = gerar_senha_provisoria()
+    hash_senha = bcrypt.generate_password_hash(senha).decode('utf-8')
+    usuario = Usuario.query.filter(db.func.lower(Usuario.email) == email).first()
+    if usuario and usuario.tipo_usuario != 'Administrador' and not promover:  # regra-nomeada: ok (perfil-alvo é dado)
+        print(f'A conta {email} é do perfil {usuario.tipo_usuario}. Para torná-la Administrador, repita com --promover.')
+        return
+    if usuario:
+        usuario.tipo_usuario = 'Administrador'  # regra-nomeada: ok (perfil-alvo é dado)
+        usuario.perfil_personalizado_id = None
+        acao = 'com acesso devolvido'
+    else:
+        usuario = Usuario(nome=nome.strip() or 'Administrador', email=email, tipo_usuario='Administrador',  # regra-nomeada: ok (perfil-alvo é dado)
+                          criado_por='Acesso de emergência')
+        db.session.add(usuario)
+        acao = 'criado'
+    usuario.senha = hash_senha
+    usuario.status = 'Ativo'
+    usuario.tentativas_login = 0
+    usuario.forcar_troca_senha = True
+    usuario.data_ultima_troca_senha = datetime.utcnow()
+    autenticacao.redefinir(usuario)
+    db.session.commit()
+    autenticacao.encerrar_primeiro_acesso()
+    app.logger.warning("Acesso de emergência: Administrador %s %s pela linha de comando", usuario.id, acao)
+    print('-' * 72)
+    print(f' Administrador {acao}\n   Login: {email}\n   Senha provisória: {senha}')
+    print(' Anote agora: ela não fica gravada. No login o sistema pede uma senha nova e a configuração do MFA.')
+    print('-' * 72)
 
 
 @app.route('/', methods=['GET', 'POST'])
@@ -429,27 +710,13 @@ def login():
                 flash('Sua participação no programa foi encerrada. Para voltar, procure a coordenação.', 'warning')
                 return render_template('index.html')
 
-            # Se a senha estiver correta
+            # Se a senha estiver correta: segundo fator (MFA) quando exigido; senão entra direto
             if bcrypt.check_password_hash(usuario.senha, senha_digitada):
-                # Zera as falhas e loga o usuário
                 usuario.tentativas_login = 0
-                usuario.ultimo_acesso = datetime.now()
                 db.session.commit()
-                login_user(usuario)
-                
-                # Regra A: Força troca de senha
-                if getattr(usuario, 'forcar_troca_senha', False):
-                    flash('Por medida de segurança, defina uma nova senha definitiva.', 'warning')
-                    return redirect(url_for('trocar_senha_obrigatoria'))
-                
-                # Regra B: Força cadastrar as perguntas de segurança
-                tem_perguntas = SegurancaUsuario.query.filter_by(usuario_id=usuario.id).first()
-                if not tem_perguntas:
-                    flash('Ação Necessária: Configure suas 3 perguntas de recuperação de conta.', 'info')
-                    return redirect(url_for('cadastrar_perguntas'))
-
-                # Passou por todas as regras, vai pro painel
-                return redirect(url_for('dashboard'))
+                if autenticacao.exige_mfa(usuario, 'senha'):
+                    return iniciar_segundo_fator(usuario, 'senha')
+                return concluir_login(usuario)
             
             # Se a senha estiver errada
             else:
@@ -1047,14 +1314,7 @@ def gerenciar_usuarios():
     # Busca todos os dados para montar a tela de Cadastros
     usuarios = Usuario.query.order_by(Usuario.nome).all()
     mentores = Usuario.query.filter(Usuario.tipo_usuario.in_(PERFIS_ORIENTADORES)).all()
-    solicitacoes = SolicitacaoMentoria.query.order_by(SolicitacaoMentoria.data_solicitacao.desc()).all()
-
-
-    # Puxa os dados da URL caso o admin tenha clicado em "Aprovar"
-    fill_nome = request.args.get('fill_nome', '')
-    fill_email = request.args.get('fill_email', '')
-
-    return render_template('admin_usuarios.html', usuarios=usuarios, mentores=mentores, solicitacoes=solicitacoes, fill_nome=fill_nome, fill_email=fill_email, calcular_match=calcular_match_inteligente)
+    return render_template('admin_usuarios.html', usuarios=usuarios, mentores=mentores, calcular_match=calcular_match_inteligente)
     
 # ---------------------------------------------------------
 # Rota de Edição de Usuários (AGORA COM MÚLTIPLOS MENTORES)
@@ -1098,6 +1358,9 @@ def editar_usuario(id):
         # NOVO: Apaga as perguntas de segurança do banco se a caixa vermelha foi marcada
         if request.form.get('resetar_perguntas') == 'True':
             SegurancaUsuario.query.filter_by(usuario_id=usuario.id).delete()
+        if request.form.get('redefinir_mfa') == 'True' and current_user.tipo_usuario in PERFIS_REDEFINEM_MFA:
+            autenticacao.redefinir(usuario)
+            app.logger.info("MFA do usuário %s redefinido pelo usuário %s", usuario.id, current_user.id)
         usuario.perfil_aluno = request.form.get('perfil_aluno')
         usuario.objetivo_principal = request.form.get('objetivo_principal')
         usuario.expectativa_mentoria = request.form.get('expectativa_mentoria')
@@ -5988,7 +6251,6 @@ def manutencao_banco():
                 HistoricoSenha.query.filter(HistoricoSenha.usuario_id != current_user.id).delete()
                 SegurancaUsuario.query.filter(SegurancaUsuario.usuario_id != current_user.id).delete()
                 Curso.query.delete()
-                SolicitacaoMentoria.query.delete()
                 db.session.execute(aluno_mentor.delete())
                 Usuario.query.filter(Usuario.id != current_user.id).delete()
                 db.session.commit()
@@ -6264,99 +6526,15 @@ def cadastrar_perguntas():
 
 
 # ==============================================================================
-# ROTA: RECEBER SOLICITAÇÃO (Tela de Login)
-# ==============================================================================
-@app.route('/solicitar-mentoria', methods=['POST'])
-def solicitar_mentoria():
-    nome = (request.form.get('nome') or '').strip()
-    email = (request.form.get('email') or '').strip().lower()
-    motivo = (request.form.get('motivo') or '').strip()
-    idioma = session.get('idioma', 'pt')
-    if not nome or not re.match(r'^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$', email):
-        flash(tt('Informe seu nome e um e-mail válido para pedir a mentoria.', idioma), 'warning')
-        return redirect(url_for('login'))
-
-    # Trava: Impede de pedir mentoria se o e-mail já for de um aluno matriculado
-    ja_existe = Usuario.query.filter_by(email=email).first()
-    if ja_existe:
-        flash('Este e-mail já possui um cadastro ativo no sistema.', 'warning')
-        return redirect(url_for('login'))
-
-    nova_solicitacao = SolicitacaoMentoria(nome=nome, email=email, motivo=motivo)
-    db.session.add(nova_solicitacao)
-    db.session.commit()
-
-    flash('Solicitação enviada com sucesso! Aguarde o contato da administração.', 'success')
-    return redirect(url_for('login'))
-
-# ==============================================================================
-# ROTA: TELA EXCLUSIVA DE SOLICITAÇÕES E FILTRO DE DATAS
-# ==============================================================================
-# ROTA: TELA EXCLUSIVA DE SOLICITAÇÕES E FILTRO DE DATAS
-@app.route('/admin/solicitacoes', methods=['GET'])
-@login_required
-def gerenciar_solicitacoes():
-    # TRAVA DE SEGURANÇA: Apenas 'Mentor Administrador' passa daqui
-    if current_user.tipo_usuario not in PERFIS_DECIDEM_SOLICITACOES:
-        flash("Acesso negado.", "danger")
-        return redirect(url_for('dashboard'))
-
-    # Pega as datas digitadas no filtro
-    data_inicio = request.args.get('data_inicio')
-    data_fim = request.args.get('data_fim')
-
-    # Prepara a busca no banco
-    query = SolicitacaoMentoria.query
-
-    # Filtra a partir da Data Inicial
-    if data_inicio:
-        data_inicio_dt = datetime.strptime(data_inicio, '%Y-%m-%d')
-        query = query.filter(SolicitacaoMentoria.data_solicitacao >= data_inicio_dt)
-
-    # Filtra até o final do dia da Data Final (23:59)
-    if data_fim:
-        data_fim_dt = datetime.strptime(data_fim + ' 23:59:59', '%Y-%m-%d %H:%M:%S')
-        query = query.filter(SolicitacaoMentoria.data_solicitacao <= data_fim_dt)
-
-    # Ordena da solicitação mais recente para a mais antiga
-    solicitacoes = query.order_by(SolicitacaoMentoria.data_solicitacao.desc()).all()
-
-    return render_template('admin_solicitacoes.html',
-                            solicitacoes=solicitacoes,
-                            data_inicio=data_inicio, data_fim=data_fim)
-
-# ==============================================================================
-# ROTA: APROVAR OU NEGAR SOLICITAÇÃO
-# ==============================================================================
-# ROTA: APROVAR OU NEGAR SOLICITAÇÃO
-@app.route('/admin/solicitacao/<int:id>/<acao>')
-@login_required
-def acao_solicitacao(id, acao):
-    # TRAVA DE SEGURANÇA: Apenas 'Mentor Administrador' pode aprovar ou negar
-    if current_user.tipo_usuario not in PERFIS_DECIDEM_SOLICITACOES:
-        return redirect(url_for('dashboard'))
-
-    solicitacao = SolicitacaoMentoria.query.get_or_404(id)
-
-    if acao == 'negar':
-        solicitacao.status = 'Negado'
-        db.session.commit()
-        flash(f'Solicitação de {solicitacao.nome} foi negada.', 'info')
-        return redirect(url_for('gerenciar_solicitacoes'))
-
-    elif acao == 'aprovar':
-        solicitacao.status = 'Aprovado'
-        db.session.commit()
-        flash('Solicitação aprovada! Finalize o cadastro escolhendo a senha e o mentor abaixo.', 'success')
-        return redirect(url_for('gerenciar_usuarios', fill_nome=solicitacao.nome, fill_email=solicitacao.email))
-
-# ==============================================================================
 # INTEGRAÇÃO COM GOOGLE CALENDAR
 # ==============================================================================
 @app.route('/conectar-agenda')
 @login_required
 def conectar_agenda():
     caminho_secreto = ambiente.arquivo_client_secret_google()
+    if not os.path.exists(caminho_secreto):   # instalação sem o client_secret.json: avisa em vez de dar erro 500
+        flash(tt('A conexão com o Google Agenda não está configurada nesta instalação. Procure a Administração.', current_user.idioma), 'warning')
+        return redirect(url_for('acompanhamento'))
     
     flow = Flow.from_client_secrets_file(
         caminho_secreto,
@@ -6378,13 +6556,16 @@ def conectar_agenda():
     return redirect(authorization_url)
 
 @app.route('/oauth2callback')
-@login_required
 def oauth2callback():
     import convites_reuniao
+    # O mesmo endereço de retorno serve ao login pelo Google, à Agenda e ao Gmail (só um endereço no Google Cloud)
+    destino = session.pop('oauth_destino', 'agenda')
+    if destino == 'login':
+        return _retorno_login_google()
+    if not current_user.is_authenticated:
+        return redirect(url_for('login'))
     state = session.get('state')
     caminho_secreto = ambiente.arquivo_client_secret_google()
-    # O mesmo endereço de retorno serve à Agenda e ao Gmail (só um endereço cadastrado no Google Cloud)
-    destino = session.pop('oauth_destino', 'agenda')
 
     flow = Flow.from_client_secrets_file(
         caminho_secreto,
@@ -8636,6 +8817,29 @@ def provedores_ia_modelos():
     except ValueError as e:
         flash(tt(str(e), current_user.idioma), 'danger')
     return redirect(url_for('provedores_ia_view'))
+
+
+@app.route('/admin/provedores-ia/conferir-catalogo', methods=['POST'])
+@login_required
+def provedores_ia_conferir():
+    """Conferir agora: o Agente de Preços e Modelos de IA confere preços e modelos na hora (não gasta tokens)."""
+    bloqueio = _somente_administrador()
+    if bloqueio:
+        return bloqueio
+    import credenciais_agentes
+    import agente_catalogo_ia
+    credenciais_agentes.carregar(app.config['SECRET_KEY'])
+    try:
+        r = agente_catalogo_ia.conferir(forcar=True, quem=f'{agente_catalogo_ia.NOME} (pedido por {current_user.nome})')
+    except Exception as erro:
+        db.session.rollback()
+        app.logger.warning("Conferência do catálogo de IA falhou: %s: %s", type(erro).__name__, erro)
+        flash(tt('A conferência não terminou. Tente de novo em alguns minutos.', current_user.idioma), 'danger')
+        return redirect(url_for('provedores_ia_view'))
+    flash(tt('Catálogo conferido: {p} preço(s) atualizado(s), {n} modelo(s) novo(s), {f} fora do ar, {v} para revisar.', current_user.idioma)
+          .format(p=r['precos_atualizados'], n=r['modelos_novos'], f=r['modelos_fora_do_ar'], v=r['precos_para_revisar']),
+          'warning' if r['erros'] else 'success')
+    return redirect(url_for('provedores_ia_view') + '#cardCatalogoIa')
 
 
 # ==============================================================================

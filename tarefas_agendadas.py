@@ -293,6 +293,16 @@ def aprender_funcionalidades(agora):
     return len(conhecimento_funcional.detectar_mudancas('Gerente de Funcionalidades (tarefa de hora em hora)'))
 
 
+def conferir_catalogo_de_ia(agora):
+    """Agente de Preços e Modelos de IA: uma vez por dia confere os preços e os modelos de cada provedor (log na tela
+    Provedores de IA). Não usa IA. Devolve quantas mudanças aplicou."""
+    import credenciais_agentes
+    import agente_catalogo_ia
+    credenciais_agentes.carregar(app.config['SECRET_KEY'])
+    resumo = agente_catalogo_ia.conferir()
+    return 0 if resumo is None else resumo['precos_atualizados'] + resumo['modelos_novos']
+
+
 def aplicar_mudancas_aprovadas(agora):
     """Requisições de mudança de parâmetros aprovadas cuja data agendada chegou: passam a valer (hora local do servidor)."""
     import mudancas
@@ -310,7 +320,8 @@ def executar_mudancas_de_codigo(agora):
 TAREFAS = [aplicar_mudancas_aprovadas, executar_mudancas_de_codigo, lembrar_checkout_esquecido, lembrar_encaminhamentos_vencidos, avisar_ocorrencias_atrasadas, enviar_formulario_banca, fechar_checkin_banca_esquecido,
            fechar_presenca_reuniao_esquecida, abrir_microavaliacao, lembrar_avaliacao_pendente, lembrar_avaliacao_reuniao,
            lembrar_saida_esquecida, avisar_prazo_entrega_tcc,
-           executar_backups_agendados, aprender_mudancas_da_plataforma, aprender_seguranca, aprender_banco_de_dados, aprender_funcionalidades]
+           executar_backups_agendados, aprender_mudancas_da_plataforma, aprender_seguranca, aprender_banco_de_dados, aprender_funcionalidades,
+           conferir_catalogo_de_ia]
 
 
 def executar_tarefas(parar=None):

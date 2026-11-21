@@ -399,7 +399,7 @@ LITERAIS = {
     'Projetos (TCC)': ('Projects (final paper)', 'Proyectos (TCC)'), 'Bancas (Minhas bancas e Sala da Banca)': ('Panels (My panels and Panel Room)', 'Tribunales (Mis tribunales y Sala del Tribunal)'),
     'Biblioteca de TCCs': ('Final paper library', 'Biblioteca de TCC'), 'Certificados': ('Certificates', 'Certificados'),
     'Portal de Demandas': ('Requests Portal', 'Portal de Solicitudes'), 'Relógio de voluntariado e relatórios ESG': ('Volunteering clock and ESG reports', 'Reloj de voluntariado e informes ESG'),
-    'Cadastros e grupos': ('Users and groups', 'Registros y grupos'), 'Solicitações de mentoria': ('Mentoring requests', 'Solicitudes de mentoría'),
+    'Cadastros e grupos': ('Users and groups', 'Registros y grupos'),
     'Gestão da trilha do TCC': ('Final paper track management', 'Gestión de la ruta del TCC'), 'Reuniões {apelido} × B2B': ('{apelido} × B2B meetings', 'Reuniones {apelido} × B2B'),
     'Agenda de bancas e avaliadores': ('Panel schedule and evaluators', 'Agenda de tribunales y evaluadores'), 'Indicadores de voluntariado': ('Volunteering indicators', 'Indicadores de voluntariado'),
     'Agentes IA e governança de aprendizados': ('AI agents and learning governance', 'Agentes IA y gobernanza de aprendizajes'),
@@ -2084,7 +2084,6 @@ LITERAIS.update({
     'O progresso da tarefa deve ficar entre 0 e 100%.': ('Task progress must be between 0 and 100%.', 'El progreso de la tarea debe estar entre 0 y 100%.'),
     'As notas do projeto devem ficar entre 0 e 10.': ('Project grades must be between 0 and 10.', 'Las notas del proyecto deben estar entre 0 y 10.'),
     'Informe o título e a descrição do chamado.': ('Enter the ticket title and description.', 'Indique el título y la descripción del ticket.'),
-    'Informe seu nome e um e-mail válido para pedir a mentoria.': ('Enter your name and a valid e-mail to request mentoring.', 'Indique su nombre y un correo válido para solicitar la mentoría.'),
     'Situação de frequência inválida.': ('Invalid attendance status.', 'Situación de asistencia inválida.'),
     'Acesso negado: você só valida a frequência dos jovens que acompanha.': ('Access denied: you can only validate the attendance of the students you follow.', 'Acceso denegado: solo valida la asistencia de los jóvenes que acompaña.'),
 })
@@ -2378,13 +2377,7 @@ for _pt, _tr in {
         'El acompañamiento adecuado es el puente entre tu potencial y tus mayores logros. Entra y continúa tu camino.'),
     'Acesso à Mentoria': ('Mentorship access', 'Acceso a la Mentoría'), 'Senha': ('Password', 'Contraseña'),
     'Esqueci minha senha': ('I forgot my password', 'Olvidé mi contraseña'), 'Entrar': ('Sign in', 'Entrar'),
-    'Ainda não faz parte? Deseja acelerar sua carreira?': ('Not a member yet? Want to boost your career?', '¿Aún no formas parte? ¿Quieres acelerar tu carrera?'),
-    'Solicitar Mentoria': ('Request mentorship', 'Solicitar mentoría'), 'Interesse em Mentoria': ('Interest in mentorship', 'Interés en la mentoría'),
-    'Sua solicitação será enviada diretamente para o grupo de Mentor Administrador.': (
-        'Your request will be sent directly to the Mentor Administrator group.', 'Tu solicitud se enviará directamente al grupo de Mentor Administrador.'),
-    'Seu Nome Completo': ('Your full name', 'Tu nombre completo'), 'Seu E-mail': ('Your email', 'Tu correo electrónico'),
-    'Por que você deseja ser mentorado?': ('Why do you want to be mentored?', '¿Por qué quieres recibir mentoría?'),
-    'Enviar Solicitação': ('Send request', 'Enviar solicitud'), 'Recuperar Senha': ('Recover password', 'Recuperar contraseña'),
+    'Seu E-mail': ('Your email', 'Tu correo electrónico'), 'Recuperar Senha': ('Recover password', 'Recuperar contraseña'),
     'Para proteger sua conta, digite o e-mail cadastrado. Você precisará responder às suas perguntas de segurança na próxima tela.': (
         'To protect your account, enter your registered email. You will need to answer your security questions on the next screen.',
         'Para proteger tu cuenta, escribe el correo registrado. Tendrás que responder tus preguntas de seguridad en la siguiente pantalla.'),
@@ -2714,6 +2707,124 @@ LITERAIS.update({
     'A execução foi parada na tela do Orquestrador: rollback feito, nada mudou no código em uso.': ('The run was stopped on the Orchestrator screen: rollback done, nothing changed in the code in use.', 'La ejecución se detuvo en la pantalla del Orquestador: rollback hecho, nada cambió en el código en uso.'),
     'A execução foi interrompida (o executor parou de dar sinal): rollback feito, nada mudou no código em uso.': ('The run was interrupted (the executor stopped responding): rollback done, nothing changed in the code in use.', 'La ejecución se interrumpió (el ejecutor dejó de dar señal): rollback hecho, nada cambió en el código en uso.'),
     'O Agente Orquestrador executor não começou a execução desta requisição.': ('The Orchestrator executor Agent did not start running this request.', 'El Agente Orquestador ejecutor no comenzó la ejecución de esta solicitud.'),
+})
+
+# MFA, primeiro acesso, login pelo Google, Agente de Preços e Modelos de IA e Ambiente (nuvens por coluna)
+LITERAIS.update({
+    'Verificação em duas etapas': ('Two-step verification', 'Verificación en dos pasos'),
+    'A chave do servidor mudou e o seu app autenticador não vale mais aqui. Use um código de recuperação ou peça ao Administrador para redefinir o seu MFA.': (
+        'The server key changed and your authenticator app no longer works here. Use a recovery code or ask the Administrator to reset your MFA.',
+        'La clave del servidor cambió y tu app de autenticación ya no sirve aquí. Usa un código de recuperación o pide al Administrador que restablezca tu MFA.'),
+    'Código de 6 dígitos do app autenticador': ('6-digit code from the authenticator app', 'Código de 6 dígitos de la app de autenticación'),
+    'Confirmar e entrar': ('Confirm and sign in', 'Confirmar y entrar'),
+    'Perdeu o celular? Use um código de recuperação': ('Lost your phone? Use a recovery code', '¿Perdiste el celular? Usa un código de recuperación'),
+    'Código de recuperação (ex.: ABCDE-FGHJK)': ('Recovery code (e.g. ABCDE-FGHJK)', 'Código de recuperación (ej.: ABCDE-FGHJK)'),
+    'Entrar com o código de recuperação': ('Sign in with the recovery code', 'Entrar con el código de recuperación'),
+    'Sem códigos? O Administrador pode redefinir o seu MFA em Cadastros & Usuários.': (
+        'No codes? The Administrator can reset your MFA in Users.', '¿Sin códigos? El Administrador puede restablecer tu MFA en Registros y usuarios.'),
+    'Para proteger a sua conta, a plataforma pede, além da senha, um código que muda a cada 30 segundos no seu celular.': (
+        'To protect your account, besides the password the platform asks for a code that changes every 30 seconds on your phone.',
+        'Para proteger tu cuenta, además de la contraseña la plataforma pide un código que cambia cada 30 segundos en tu celular.'),
+    'Instale um app autenticador: Google Authenticator, Microsoft Authenticator ou outro de sua preferência.': (
+        'Install an authenticator app: Google Authenticator, Microsoft Authenticator or another of your choice.',
+        'Instala una app de autenticación: Google Authenticator, Microsoft Authenticator u otra de tu preferencia.'),
+    'No app, toque em adicionar conta e leia o QR code abaixo.': ('In the app, tap add account and scan the QR code below.',
+                                                                   'En la app, toca agregar cuenta y lee el código QR de abajo.'),
+    'Digite o código de 6 dígitos que aparecer no app.': ('Enter the 6-digit code shown in the app.', 'Escribe el código de 6 dígitos que aparece en la app.'),
+    'Não consegue ler o QR code? Digite esta chave no app:': ("Can't scan the QR code? Enter this key in the app:", '¿No puedes leer el código QR? Escribe esta clave en la app:'),
+    'Ativar a verificação em duas etapas': ('Turn on two-step verification', 'Activar la verificación en dos pasos'),
+    'Verificação em duas etapas ativada.': ('Two-step verification turned on.', 'Verificación en dos pasos activada.'),
+    'Guarde os seus códigos de recuperação': ('Save your recovery codes', 'Guarda tus códigos de recuperación'),
+    'Cada código vale uma vez e serve para entrar se você perder o celular. Eles aparecem só agora: anote ou imprima e guarde em lugar seguro.': (
+        'Each code works once and lets you sign in if you lose your phone. They are shown only now: write them down or print them and keep them safe.',
+        'Cada código vale una vez y sirve para entrar si pierdes el celular. Aparecen solo ahora: anótalos o imprímelos y guárdalos en un lugar seguro.'),
+    'Já guardei os códigos, continuar': ("I've saved the codes, continue", 'Ya guardé los códigos, continuar'),
+    'Voltar para o login': ('Back to sign in', 'Volver al inicio de sesión'),
+    'Primeiro acesso': ('First access', 'Primer acceso'),
+    'Esta instalação ainda não tem nenhum Administrador. Crie o primeiro: depois ele cadastra as outras pessoas, os perfis e as regras.': (
+        'This installation has no Administrator yet. Create the first one: then they register the other people, profiles and rules.',
+        'Esta instalación aún no tiene ningún Administrador. Crea el primero: después registra a las demás personas, los perfiles y las reglas.'),
+    'Onde está o código de primeiro acesso': ('Where to find the first access code', 'Dónde está el código de primer acceso'),
+    'Só quem tem acesso ao servidor vê o código. Ele está no log da plataforma (linha "PRIMEIRO ACESSO") ou pode ser gerado de novo com o comando:': (
+        'Only someone with access to the server can see the code. It is in the platform log (line "PRIMEIRO ACESSO") or can be generated again with the command:',
+        'Solo quien tiene acceso al servidor ve el código. Está en el log de la plataforma (línea "PRIMEIRO ACESSO") o se puede generar de nuevo con el comando:'),
+    'No Docker:': ('On Docker:', 'En Docker:'),
+    'Código de primeiro acesso': ('First access code', 'Código de primer acceso'),
+    'Nome do Administrador': ('Administrator name', 'Nombre del Administrador'),
+    'E-mail (será o login)': ('E-mail (will be the login)', 'Correo (será el usuario)'),
+    'Confirme a senha': ('Confirm the password', 'Confirma la contraseña'),
+    'Criar o Administrador': ('Create the Administrator', 'Crear el Administrador'),
+    'Perdeu o acesso a um Administrador que já existe? No servidor, rode: flask --app app admin-emergencia --email seu@email': (
+        'Lost access to an existing Administrator? On the server, run: flask --app app admin-emergencia --email your@email',
+        '¿Perdiste el acceso a un Administrador que ya existe? En el servidor, ejecuta: flask --app app admin-emergencia --email tu@correo'),
+    'ou': ('or', 'o'),
+    'Entrar com o Google': ('Sign in with Google', 'Entrar con Google'),
+    'Nenhum Administrador cadastrado nesta instalação.': ('No Administrator registered in this installation.', 'Ningún Administrador registrado en esta instalación.'),
+    'Configurar o primeiro acesso': ('Set up the first access', 'Configurar el primer acceso'),
+    'Redefinir a verificação em duas etapas (MFA)': ('Reset two-step verification (MFA)', 'Restablecer la verificación en dos pasos (MFA)'),
+    'MFA ativo: configura de novo no próximo login (celular perdido ou trocado).': (
+        'MFA on: sets it up again at the next sign-in (lost or new phone).', 'MFA activo: lo configura de nuevo en el próximo inicio de sesión (celular perdido o cambiado).'),
+    'MFA ainda não ativado por esta pessoa.': ('This person has not turned on MFA yet.', 'Esta persona aún no activó el MFA.'),
+    'O provedor não lista mais este modelo: troque-o nas ordens acima.': (
+        'The provider no longer lists this model: replace it in the orders above.', 'El proveedor ya no lista este modelo: cámbialo en los órdenes de arriba.'),
+    'Preço atualizado pelo agente em': ('Price updated by the agent on', 'Precio actualizado por el agente el'),
+    'Atualizações automáticas de preços e modelos': ('Automatic price and model updates', 'Actualizaciones automáticas de precios y modelos'),
+    'Conferir agora': ('Check now', 'Verificar ahora'),
+    'O Agente de Preços e Modelos de IA confere uma vez por dia o preço de cada modelo e, com a chave do provedor cadastrada, a lista de modelos do próprio provedor. Preço que mudou é atualizado sozinho; mudança muito grande fica para você conferir. Não gasta tokens.': (
+        "Once a day the AI Prices and Models Agent checks each model's price and, when the provider key is registered, the provider's own model list. "
+        'Changed prices are updated automatically; very large changes wait for your review. It uses no tokens.',
+        'Una vez al día el Agente de Precios y Modelos de IA verifica el precio de cada modelo y, con la clave del proveedor registrada, la lista de modelos '
+        'del propio proveedor. El precio que cambió se actualiza solo; un cambio muy grande queda para tu revisión. No gasta tokens.'),
+    'Última conferência': ('Last check', 'Última verificación'),
+    'ainda não rodou neste servidor': ('has not run on this server yet', 'aún no se ejecutó en este servidor'),
+    'Antes': ('Before', 'Antes'),
+    'Depois': ('After', 'Después'),
+    'Nenhuma conferência registrada ainda. Clique em Conferir agora ou aguarde a tarefa diária.': (
+        'No check recorded yet. Click Check now or wait for the daily task.', 'Aún no hay verificaciones. Haz clic en Verificar ahora o espera la tarea diaria.'),
+    'Este servidor': ('This server', 'Este servidor'),
+    'coluna destacada': ('highlighted column', 'columna destacada'),
+    'Código de recuperação usado. Restam {n}.': ('Recovery code used. {n} left.', 'Código de recuperación usado. Quedan {n}.'),
+    'Código inválido ou já usado. Confira o app e tente de novo.': ('Invalid or already used code. Check the app and try again.',
+                                                                     'Código inválido o ya usado. Revisa la app e inténtalo de nuevo.'),
+    'O código não confere. Confira se o relógio do celular está certo e digite o código que aparece agora.': (
+        "The code doesn't match. Check that your phone's clock is right and enter the code shown now.",
+        'El código no coincide. Revisa que el reloj del celular esté bien y escribe el código que aparece ahora.'),
+    'Administrador criado. Entre com o e-mail e a senha que você acabou de definir.': (
+        'Administrator created. Sign in with the e-mail and password you just set.', 'Administrador creado. Entra con el correo y la contraseña que acabas de definir.'),
+    'O login pelo Google não está configurado nesta instalação.': ('Sign-in with Google is not set up in this installation.',
+                                                                    'El inicio de sesión con Google no está configurado en esta instalación.'),
+    'Não foi possível entrar com o Google. Tente de novo ou use o e-mail e a senha.': (
+        "Couldn't sign in with Google. Try again or use your e-mail and password.", 'No fue posible entrar con Google. Inténtalo de nuevo o usa el correo y la contraseña.'),
+    'Esta conta Google não tem cadastro na plataforma. Use o e-mail cadastrado ou procure a coordenação.': (
+        'This Google account is not registered on the platform. Use your registered e-mail or contact the coordination.',
+        'Esta cuenta de Google no está registrada en la plataforma. Usa el correo registrado o busca a la coordinación.'),
+    'A conexão com o Google Agenda não está configurada nesta instalação. Procure a Administração.': (
+        'The Google Calendar connection is not set up in this installation. Contact the Administration.',
+        'La conexión con Google Calendar no está configurada en esta instalación. Busca a la Administración.'),
+    'A conferência não terminou. Tente de novo em alguns minutos.': ("The check didn't finish. Try again in a few minutes.",
+                                                                     'La verificación no terminó. Inténtalo de nuevo en unos minutos.'),
+    'Catálogo conferido: {p} preço(s) atualizado(s), {n} modelo(s) novo(s), {f} fora do ar, {v} para revisar.': (
+        'Catalog checked: {p} price(s) updated, {n} new model(s), {f} offline, {v} to review.',
+        'Catálogo verificado: {p} precio(s) actualizado(s), {n} modelo(s) nuevo(s), {f} fuera de servicio, {v} para revisar.'),
+    'Hospedagem gerenciada': ('Managed hosting', 'Hosting gestionado'),
+    'Conferência': ('Check', 'Verificación'),
+    'Preço atualizado': ('Price updated', 'Precio actualizado'),
+    'Preço para revisar': ('Price to review', 'Precio para revisar'),
+    'Modelo novo': ('New model', 'Modelo nuevo'),
+    'Modelo fora do ar': ('Model offline', 'Modelo fuera de servicio'),
+    'Falha na consulta': ('Lookup failed', 'Falla en la consulta'),
+    'O tempo para digitar o código acabou. Entre de novo com a sua senha.': ('Time to enter the code ran out. Sign in again with your password.',
+                                                                             'Se acabó el tiempo para escribir el código. Entra de nuevo con tu contraseña.'),
+    'Entre de novo com a sua senha.': ('Sign in again with your password.', 'Entra de nuevo con tu contraseña.'),
+    'Muitos códigos errados. Entre de novo com a sua senha.': ('Too many wrong codes. Sign in again with your password.',
+                                                               'Demasiados códigos incorrectos. Entra de nuevo con tu contraseña.'),
+    'Código de primeiro acesso inválido ou vencido. Veja o log do servidor ou gere outro com: flask --app app primeiro-acesso': (
+        'Invalid or expired first access code. Check the server log or generate another with: flask --app app primeiro-acesso',
+        'Código de primer acceso inválido o vencido. Mira el log del servidor o genera otro con: flask --app app primeiro-acesso'),
+    'Informe o nome e um e-mail válido.': ('Enter the name and a valid e-mail.', 'Indica el nombre y un correo válido.'),
+    'A confirmação não é igual à senha.': ("The confirmation doesn't match the password.", 'La confirmación no es igual a la contraseña.'),
+    'Verificação em duas etapas (MFA) obrigatória': ('Mandatory two-step verification (MFA)', 'Verificación en dos pasos (MFA) obligatoria'),
+    'Pedir o código do MFA também no login pelo Google': ('Also ask for the MFA code on Google sign-in', 'Pedir el código del MFA también al entrar con Google'),
 })
 
 _POR_IDIOMA ={'en': {pt: v[0] for pt, v in LITERAIS.items()}, 'es': {pt: v[1] for pt, v in LITERAIS.items()}}

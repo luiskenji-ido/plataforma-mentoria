@@ -17,7 +17,6 @@ TEXTOS_ADEQUACOES = {
         'menu_notas': 'Gestão de Notas',
         'menu_administracao': 'Administração',
         'menu_cadastros': 'Cadastros & Usuários',
-        'menu_solicitacoes': 'Solicitações',
         'menu_manutencao': 'Manutenção (BD)',
         # --- Portal de Demandas ---
         'demanda_historico': 'Histórico da conversa',
@@ -43,7 +42,6 @@ TEXTOS_ADEQUACOES = {
         'menu_notas': 'Grade Management',
         'menu_administracao': 'Administration',
         'menu_cadastros': 'Users & Registrations',
-        'menu_solicitacoes': 'Mentoring Requests',
         'menu_manutencao': 'Maintenance (DB)',
         'demanda_historico': 'Conversation history',
         'demanda_sem_comentarios': 'There are no messages in this ticket yet.',
@@ -68,7 +66,6 @@ TEXTOS_ADEQUACOES = {
         'menu_notas': 'Gestión de Notas',
         'menu_administracao': 'Administración',
         'menu_cadastros': 'Registros y Usuarios',
-        'menu_solicitacoes': 'Solicitudes de Mentoría',
         'menu_manutencao': 'Mantenimiento (BD)',
         'demanda_historico': 'Historial de la conversación',
         'demanda_sem_comentarios': 'Todavía no hay mensajes en este ticket.',

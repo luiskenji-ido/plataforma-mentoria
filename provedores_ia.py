@@ -136,6 +136,13 @@ def modelos(hoje=None, precos_da_tela=True):
         if dados.get('provedor') in PROVEDORES and mid not in lista:
             lista[mid] = {'provedor': dados['provedor'], 'nome': dados.get('nome') or mid, 'entrada': None, 'saida': None,
                           'extra': True, 'reajuste': None}
+    # Preços conferidos pelo Agente de Preços e Modelos de IA (agente_catalogo_ia.py): valem mais que os do código
+    for mid, dados in _ler('precos_automaticos', {}).items():
+        if mid in lista and isinstance(dados, dict) and dados.get('entrada') is not None and dados.get('saida') is not None:
+            lista[mid].update(entrada=dados['entrada'], saida=dados['saida'], conferido_em=dados.get('data'), reajuste=None)
+    for mid in _ler('modelos_ausentes', []):
+        if mid in lista:
+            lista[mid]['fora_do_ar'] = True
     for mid, valores in precos.items():
         if mid in lista and isinstance(valores, list) and len(valores) == 2:
             if valores[0] is not None:
@@ -591,6 +598,18 @@ def _totais_por_categoria(kpis):
     return totais
 
 
+def _situacao_do_catalogo():
+    """Última conferência do Agente de Preços e Modelos de IA e o log recente (para a tela)."""
+    import agente_catalogo_ia
+    ultima = agente_catalogo_ia.ultima_conferencia() or {}
+    try:
+        quando = datetime.fromisoformat(ultima.get('data', '')).strftime('%d/%m/%Y %H:%M')
+    except ValueError:
+        quando = None
+    return {'quando': quando, 'resumo': ultima.get('resumo') or {}, 'log': agente_catalogo_ia.log_recente(),
+            'horas': agente_catalogo_ia.HORAS_ENTRE_CONFERENCIAS}
+
+
 def resumo_para_tela():
     from models import db, UsoIA
     importar_uso_externo()
@@ -612,4 +631,5 @@ def resumo_para_tela():
                             'custo': round(c or 0, 4)} for m, n, e, s, c in por_modelo],
             'falhas': falhas, 'recentes': recentes,
             'chaves': {p: chave_configurada(p) for p in PROVEDORES}, 'precos_conferidos_em': PRECOS_CONFERIDOS_EM,
+            'catalogo': _situacao_do_catalogo(),
             'sem_preco': [m for m, d in catalogo.items() if d['entrada'] is None or d['saida'] is None]}

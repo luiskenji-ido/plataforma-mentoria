@@ -71,11 +71,11 @@
                 <div class="row align-items-end">
                     <div class="col-md-3 mb-3">
                         <label for="f_nome" class="form-label text-muted">{{ t('nome') }}</label>
-                        <input id="f_nome" type="text" name="nome" class="form-control" value="{{ fill_nome }}" required>
+                        <input id="f_nome" type="text" name="nome" class="form-control" required>
                     </div>
                     <div class="col-md-3 mb-3">
                         <label for="f_email" class="form-label text-muted">{{ t('email') }}</label>
-                        <input id="f_email" type="email" name="email" class="form-control" placeholder="exemplo@dominio.com" value="{{ fill_email }}" required>
+                        <input id="f_email" type="email" name="email" class="form-control" placeholder="exemplo@dominio.com" required>
                     </div>
                     <div class="col-md-2 mb-3">
                         <label for="tipo_usuario_novo" class="form-label text-muted">{{ t('nivel') }}</label>
@@ -305,6 +305,15 @@
                                     {{ tt('Reiniciar Perguntas de Segurança (O aluno recadastrará no próximo login)') }}
                                 </label>
                             </div>
+                            {% if current_user.tipo_usuario in PERFIS_REDEFINEM_MFA %}
+                            <div class="form-check mt-2">
+                                <input class="form-check-input border-danger" type="checkbox" name="redefinir_mfa" value="True" id="redefinir_mfa_{{ u.id }}" {% if not u.mfa_ativo %}disabled{% endif %}>
+                                <label class="form-check-label text-danger fw-bold" for="redefinir_mfa_{{ u.id }}">
+                                    {{ tt('Redefinir a verificação em duas etapas (MFA)') }}
+                                    <span class="d-block small fw-normal text-muted">{{ tt('MFA ativo: configura de novo no próximo login (celular perdido ou trocado).') if u.mfa_ativo else tt('MFA ainda não ativado por esta pessoa.') }}</span>
+                                </label>
+                            </div>
+                            {% endif %}
                         </div>
 
                         {% if u.tipo_usuario == 'Aluno' %}

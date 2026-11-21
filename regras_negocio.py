@@ -60,6 +60,13 @@ CATALOGO = {
     'login_tentativas_bloqueio': ('seguranca', 'Tentativas de login antes do bloqueio',
                                   'Depois deste número de senhas erradas seguidas, a conta é bloqueada.',
                                   'inteiro', 5, 3, 20, 'tentativas', 'Login'),
+    'mfa_obrigatorio': ('seguranca', 'Verificação em duas etapas (MFA) obrigatória',
+                        'Todos entram com a senha e o código do app autenticador (Google Authenticator, Microsoft Authenticator…). '
+                        'Desligado, o MFA fica opcional: vale só para quem já ativou.',
+                        'sim_nao', True, None, None, '', 'Login'),
+    'mfa_no_login_google': ('seguranca', 'Pedir o código do MFA também no login pelo Google',
+                            'Desligado, quem entra com a conta Google usa a verificação em duas etapas do próprio Google.',
+                            'sim_nao', False, None, None, '', 'Login com Google'),
     'senha_dias_expiracao': ('seguranca', 'Validade da senha', 'Dias até a plataforma pedir uma senha nova (aviso no painel).',
                              'inteiro', 90, 15, 365, 'dias', 'Painel (aviso de troca de senha)'),
     'ocorrencia_prazo_dias': ('acompanhamento', 'Prazo para responder uma ocorrência',

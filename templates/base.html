@@ -629,7 +629,7 @@
                                  'ocorrencias', 'nova_ocorrencia', 'detalhe_ocorrencia', 'desistencias', 'avaliacoes'] %}
       {% set grupo_projetos = ['projetos', 'minhas_bancas', 'biblioteca_tccs', 'meus_certificados', 'painel_banca'] %}
       {% set grupo_admin = ['gerenciar_usuarios', 'gestao_trilha_tcc', 'reunioes', 'agenda_bancas', 'avaliadores_banca', 'indicadores_voluntariado',
-                            'gerenciar_solicitacoes', 'gerenciar_grupos', 'perfis_acesso_view', 'parametros_regras', 'identidade_instituicao'] %}
+                            'gerenciar_grupos', 'perfis_acesso_view', 'parametros_regras', 'identidade_instituicao'] %}
       {% set grupo_sistema = ['ambiente_compatibilidade', 'agentes_ia', 'agentes_seguranca', 'agentes_banco', 'agentes_funcionalidades',
                               'agentes_orquestrador', 'governanca_aprendizados', 'assistente', 'provedores_ia_view', 'manutencao_banco', 'mudancas_view'] %}
 
@@ -738,9 +738,6 @@
             {% endif %}
             {% if current_user.tipo_usuario in PERFIS_ADMINISTRACAO_SISTEMA and pode_modulo('parametros') %}
             <li><a class="dropdown-item fw-bold" href="{{ url_for('parametros_regras') }}"><i class="bi bi-sliders"></i> {{ tt('Parâmetros de regras') }}</a></li>
-            {% endif %}
-            {% if current_user.tipo_usuario in PERFIS_DECIDEM_SOLICITACOES and pode_modulo('solicitacoes') %}
-            <li><a class="dropdown-item fw-bold" href="{{ url_for('gerenciar_solicitacoes') }}"><i class="bi bi-envelope-paper-fill"></i> {{ t('menu_solicitacoes') }}</a></li>
             {% endif %}
             <li><hr class="dropdown-divider"></li>
             <li><h6 class="dropdown-header">{{ tt('Programa') }}</h6></li>

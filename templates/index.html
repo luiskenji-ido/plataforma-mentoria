@@ -97,54 +97,20 @@
                     <!-- Botão de Entrar -->
                     <button type="submit" class="btn btn-primary btn-lg w-100 mb-4">{{ tt('Entrar') }}</button>
                 </form>
-                
-                <!-- Área de Solicitação de Mentoria -->
-<hr class="mt-4 mb-3">
-<div class="text-center">
-    <p class="text-muted small mb-2">{{ tt('Ainda não faz parte? Deseja acelerar sua carreira?') }}</p>
-    <button type="button" class="btn btn-outline-success w-100" data-bs-toggle="modal" data-bs-target="#modalSolicitarMentoria">
-        {{ tt('Solicitar Mentoria') }}
-    </button>
-</div>
-
-                <!-- MODAL: Solicitar Mentoria -->
-<div class="modal fade" id="modalSolicitarMentoria" tabindex="-1">
-    <div class="modal-dialog">
-        <div class="modal-content shadow">
-            
-            <!-- A tag FORM precisa englobar os campos E os botões para funcionar -->
-            <form action="{{ url_for('solicitar_mentoria') }}" method="POST">
-                
-                <div class="modal-header bg-success text-white">
-                    <h5 class="modal-title fw-bold">{{ tt('Interesse em Mentoria') }}</h5>
-                    <button aria-label="{{ tt('Fechar') }}" type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                {% if login_google_disponivel() %}
+                <div class="d-flex align-items-center gap-2 mb-3 text-muted small"><hr class="flex-grow-1 my-0"><span>{{ tt('ou') }}</span><hr class="flex-grow-1 my-0"></div>
+                <a href="{{ url_for('login_google') }}" class="btn btn-outline-secondary btn-lg w-100 mb-4 d-flex align-items-center justify-content-center gap-2" id="btnLoginGoogle">
+                    <svg width="20" height="20" viewBox="0 0 48 48" aria-hidden="true"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.4-.4-3.5z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-8l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.2-4.1 5.6l6.2 5.2C37 39.2 44 34 44 24c0-1.3-.1-2.4-.4-3.5z"/></svg>
+                    {{ tt('Entrar com o Google') }}
+                </a>
+                {% endif %}
+                {% if primeiro_acesso_disponivel() %}
+                <div class="alert alert-warning small" id="avisoPrimeiroAcesso">
+                    <div class="fw-bold">{{ tt('Nenhum Administrador cadastrado nesta instalação.') }}</div>
+                    <a href="{{ url_for('primeiro_acesso') }}" class="fw-bold">{{ tt('Configurar o primeiro acesso') }}</a>
                 </div>
+                {% endif %}
                 
-                <div class="modal-body p-4">
-                    <p class="small text-muted mb-4">{{ tt('Sua solicitação será enviada diretamente para o grupo de Mentor Administrador.') }}</p>
-                    
-                    <div class="mb-3">
-                        <input type="text" name="nome" class="form-control" placeholder="{{ tt('Seu Nome Completo') }}" aria-label="{{ tt('Seu Nome Completo') }}" required>
-                    </div>
-                    <div class="mb-3">
-                        <input type="email" name="email" class="form-control" placeholder="{{ tt('Seu E-mail') }}" aria-label="{{ tt('Seu E-mail') }}" required>
-                    </div>
-                    <div class="mb-3">
-                        <textarea name="motivo" class="form-control" rows="4" placeholder="{{ tt('Por que você deseja ser mentorado?') }}" aria-label="{{ tt('Por que você deseja ser mentorado?') }}" required></textarea>
-                    </div>
-                </div>
-                
-                <div class="modal-footer bg-light">
-                    <button type="button" class="btn btn-secondary fw-bold" data-bs-dismiss="modal">{{ tt('Cancelar') }}</button>
-                    <!-- O botão type="submit" agora enviará os dados para a rota do Python -->
-                    <button type="submit" class="btn btn-success fw-bold">{{ tt('Enviar Solicitação') }}</button>
-                </div>
-                
-            </form>
-            
-        </div>
-    </div>
-</div>
 
 <!-- ============================================================================== -->
 <!-- MODAL DE RECUPERAÇÃO DE SENHA (Abre ao clicar em "Esqueci minha senha")        -->

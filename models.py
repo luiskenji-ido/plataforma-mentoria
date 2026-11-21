@@ -53,7 +53,13 @@ class Usuario(db.Model, UserMixin):
     perfil_aluno = db.Column(TextoLongo, nullable=True)
     objetivo_principal = db.Column(TextoLongo, nullable=True)
     expectativa_mentoria = db.Column(TextoLongo, nullable=True)
-    
+    # MFA (app autenticador, TOTP): segredo cifrado com a SECRET_KEY, códigos de recuperação guardados só como hash
+    mfa_ativo = db.Column(db.Boolean, default=False, nullable=False, server_default=db.false())
+    mfa_segredo = db.Column(db.String(255), nullable=True)
+    mfa_codigos_recuperacao = db.Column(TextoLongo, nullable=True)   # JSON: lista de sha256 dos códigos ainda não usados
+    mfa_ultimo_passo = db.Column(db.Integer, nullable=True)           # último código aceito (o mesmo código não vale duas vezes)
+    mfa_ativado_em = db.Column(db.DateTime, nullable=True)
+
     # -------------------------------------------------------------
     # A LIGAÇÃO OFICIAL: Isso diz ao banco que um Aluno tem uma lista
     # de mentores, baseada naquela tabela ponte que criamos lá em cima!
@@ -299,18 +305,6 @@ class SegurancaUsuario(db.Model):
     
     pergunta_3 = db.Column(db.String(200), nullable=False)
     resposta_3 = db.Column(db.String(200), nullable=False)
-
-
-# ==============================================================================
-# 10. TABELA: Histórico de Solicitações de Mentoria (Fila de Aprovação)
-# ==============================================================================
-class SolicitacaoMentoria(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    nome = db.Column(db.String(100), nullable=False)
-    email = db.Column(db.String(120), nullable=False)
-    motivo = db.Column(TextoLongo, nullable=False)
-    status = db.Column(db.String(20), default='Pendente') # Pendente, Aprovado, Negado
-    data_solicitacao = db.Column(db.DateTime, default=datetime.utcnow)
 
 
 # ==============================================================================
@@ -1588,3 +1582,28 @@ class IdentidadeInstituicao(db.Model):
     atualizado_por_id = db.Column(db.Integer, db.ForeignKey('usuario.id'), nullable=True)
 
     atualizado_por = db.relationship('Usuario')
+
+
+class ConfiguracaoSistema(db.Model):
+    """Valores internos da plataforma (JSON por chave), ex.: o código de primeiro acesso (só o hash) e a última
+    conferência do catálogo de IA. Não é tela: quem muda são as próprias rotinas."""
+    __tablename__ = 'configuracao_sistema'
+    id = db.Column(db.Integer, primary_key=True)
+    chave = db.Column(db.String(60), unique=True, nullable=False)
+    valor = db.Column(TextoLongo, nullable=False, default='{}')
+    atualizado_em = db.Column(db.DateTime, default=datetime.now, onupdate=datetime.now)
+
+
+class LogCatalogoIA(db.Model):
+    """Log do Agente de Preços e Modelos de IA: cada conferência diária, preço atualizado, modelo novo ou fora do ar."""
+    __tablename__ = 'log_catalogo_ia'
+    id = db.Column(db.Integer, primary_key=True)
+    data = db.Column(db.DateTime, default=datetime.now, nullable=False, index=True)
+    tipo = db.Column(db.String(30), nullable=False)          # conferencia, preco, preco_revisar, modelo_novo, modelo_ausente, erro
+    provedor = db.Column(db.String(20), nullable=True)
+    modelo = db.Column(db.String(80), nullable=True)
+    antes = db.Column(db.String(120), nullable=True)
+    depois = db.Column(db.String(120), nullable=True)
+    aplicado = db.Column(db.Boolean, default=False, nullable=False)
+    detalhe = db.Column(TextoLongo, nullable=True)
+    fonte = db.Column(db.String(255), nullable=True)

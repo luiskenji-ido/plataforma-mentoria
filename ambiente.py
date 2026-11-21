@@ -87,6 +87,12 @@ MATRIZ = [
     ('Agente Orquestrador (corrige o código)',  ('ligado', 'precisa do Git'), ('desligado', 'código só de leitura'), ('limitado', 'Git e processos limitados')),
 ]
 COLUNAS_MATRIZ = {'vm': 1, 'conteiner': 2, 'gerenciada': 3, 'computador': 1}
+# Cabeçalho da matriz: o tipo de hospedagem e as nuvens de cada um (a mesma ordem das colunas)
+NOMES_COLUNAS = [
+    ('vm', 'Máquina virtual', ['AWS EC2 / Lightsail', 'GCP Compute Engine', 'Azure VM', 'Servidor próprio']),
+    ('conteiner', 'Contêiner', ['AWS App Runner / ECS', 'GCP Cloud Run', 'Azure Container Apps']),
+    ('gerenciada', 'Hospedagem gerenciada', ['PythonAnywhere']),
+]
 
 _CACHE = {}
 
@@ -171,6 +177,11 @@ def nome_hospedagem(chave=None):
 def disco_persistente():
     """Contêiner só guarda arquivos com volume montado (DISCO_PERSISTENTE=1, gravado pelo instalador)."""
     return tipo_hospedagem() != 'conteiner' or os.environ.get('DISCO_PERSISTENTE') == '1'
+
+
+def arquivos_em_bucket():
+    """Arquivos enviados num bucket compatível com S3 (ARMAZENAMENTO=s3): não dependem do disco do servidor."""
+    return (os.environ.get('ARMAZENAMENTO') or '').strip().lower() == 's3'
 
 
 def dialeto_do_banco():
@@ -400,7 +411,8 @@ def recursos():
                            f"sudo apt install {apt}" if apt else '', 'Backup'))
     elif not disco_persistente():
         itens.append(_item('backup', 'Backup pela plataforma', 'desligado', 'O disco do contêiner é apagado a cada reinício.',
-                           'Monte um volume e defina DISCO_PERSISTENTE=1 e BACKUP_DIR; ou use o backup do banco gerenciado.', 'Backup'))
+                           'Monte um volume e defina DISCO_PERSISTENTE=1 e BACKUP_DIR (no Docker Desktop, o docker-compose.ec2.yml '
+                           'já faz isso); ou use o backup do banco gerenciado.', 'Backup'))
     elif not _gravavel(pasta):
         itens.append(_item('backup', 'Backup pela plataforma', 'desligado', f'Sem permissão para gravar em {pasta}.',
                            f'sudo mkdir -p {pasta} && sudo chown <usuário do site> {pasta}', 'Backup'))
@@ -419,9 +431,13 @@ def recursos():
                            'Defina BACKUP_DIR_EXTERNO com um disco de rede, um volume da nuvem ou uma pasta sincronizada pelo rclone.', 'Backup'))
 
     # Arquivos e tarefas
-    itens.append(_item('arquivos', 'Arquivos enviados, logos e documentos', 'ligado' if disco_persistente() else 'desligado',
-                       'Gravados no disco do servidor.' if disco_persistente() else 'O disco do contêiner é apagado a cada reinício.',
-                       '' if disco_persistente() else 'Monte volumes em /app/uploads e /app/instance e defina DISCO_PERSISTENTE=1.'))
+    if arquivos_em_bucket():
+        itens.append(_item('arquivos', 'Arquivos enviados, logos e documentos', 'ligado',
+                           f"No bucket {os.environ.get('S3_BUCKET') or ''} (compatível com S3): não dependem do disco do servidor."))
+    else:
+        itens.append(_item('arquivos', 'Arquivos enviados, logos e documentos', 'ligado' if disco_persistente() else 'desligado',
+                           'Gravados no disco do servidor.' if disco_persistente() else 'O disco do contêiner é apagado a cada reinício.',
+                           '' if disco_persistente() else 'Use ARMAZENAMENTO=s3 (bucket) ou monte volumes em /app/uploads e /app/instance e defina DISCO_PERSISTENTE=1.'))
     ultima = ultima_execucao_das_tarefas()
     if ultima and (datetime.now() - ultima).total_seconds() < 3 * 3600:
         itens.append(_item('tarefas', 'Lembretes, avisos e backups agendados', 'ligado', f"Última execução: {ultima:%d/%m/%Y %H:%M}."))
@@ -464,7 +480,8 @@ def recursos():
     segundo_plano = tipo != 'conteiner'
     itens.append(_item('agentes', 'Agentes de Segurança, Banco e Funcionalidades', 'ligado' if segundo_plano else 'desligado',
                        'Rodam em segundo plano neste servidor.' if segundo_plano else 'O contêiner encerra processos em segundo plano.',
-                       '' if segundo_plano else 'Rode os agentes numa máquina virtual ou no computador de desenvolvimento.', 'Agentes'))
+                       '' if segundo_plano else 'Rode os agentes numa máquina virtual (no Docker Desktop, simule a EC2 com '
+                                                'docker compose -f docker-compose.yml -f docker-compose.ec2.yml up -d).', 'Agentes'))
     chromium = chromium_disponivel()
     fim_a_fim = segundo_plano and chromium
     itens.append(_item('omnitest', 'Agentes OmniTest (testes no navegador)', 'ligado' if fim_a_fim else 'desligado',
@@ -518,6 +535,6 @@ def resumo():
         'pasta_padrao': pasta_backups_padrao(chave), 'livre': espaco_livre(pasta_backups()),
         'agendamentos_padrao': AGENDAMENTOS_PADRAO,
         'itens': itens, 'contagem': {e: sum(1 for i in itens if i['estado'] == e) for e in ('ligado', 'atencao', 'desligado')},
-        'matriz': MATRIZ, 'coluna': coluna, 'hospedagens': HOSPEDAGENS, 'bancos': BANCOS, 'bancos_por_tipo': BANCOS_POR_TIPO,
+        'matriz': MATRIZ, 'coluna': coluna, 'nomes_colunas': NOMES_COLUNAS, 'hospedagens': HOSPEDAGENS, 'bancos': BANCOS, 'bancos_por_tipo': BANCOS_POR_TIPO,
         'python': sys.version.split()[0],
     }

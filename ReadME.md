@@ -44,7 +44,6 @@ mentoria/
 	│   ├── admin_usuarios.html			# Governança de acessos, com suporte a múltiplos mentores e reset de segurança    		
 	│   ├── admin_cursos.html			# Catálogo de portfólio e auditoria      		
 	│   ├── admin_banco.html			# Gestão administrativa do banco de dados, backups e auditoria          	
-    │   ├── admin_solicitacoes.html		# Gestão de solicitações de mentoria (Apenas Mentor Administrador)  	
 	│   ├── cadastrar_perguntas.html	# Configuração de segurança  	
 	│   ├── perguntas_seguranca.html 	# Recuperação de senha baseada em perguntas 	
     │   └── trocar_senha.html			# Interface de troca de senha obrigatória 			
@@ -61,7 +60,7 @@ mentoria/
 
 	Mentor: Acompanha seus alunos, gerencia sessões e possui poder de alterar status avançados (Pendente, Desistência) e gerenciar Prioridades. Possui acesso de edição ao Parecer Oficial, respondendo ativamente aos alunos via Q&A.
 
-	Mentor Administrador: Governança total do catálogo de cursos, recebe e aprova solicitações de mentoria e acessa a visão executiva de todos os usuários. Visualização restrita da página de Solicitações.
+	Mentor Administrador: Governança total do catálogo de cursos e visão executiva de todos os usuários.
 
 	Administrador: Controle absoluto do sistema e da tabela core de usuários. Visualização restrita da página de Solicitações (não tem acesso).
 
@@ -243,6 +242,23 @@ mentoria/
 		Nos textos traduzidos use os marcadores {apelido}, {instituicao} e {plataforma}: t() e tt() trocam pelo
 		cadastrado. Nos templates: {{ marca.apelido }}, {{ marca.nome }}, {{ marca.plataforma }}. Código: identidade.py.
 
+	🔐 Acesso: MFA, login pelo Google, primeiro acesso e emergência
+		MFA: senha + código de 6 dígitos de um app autenticador (Google/Microsoft Authenticator…), com 10 códigos de recuperação.
+		Obrigatório por padrão (Parâmetros de regras › Senhas e acesso › mfa_obrigatorio); contas de teste @local.com não usam.
+		Celular perdido: o Administrador marca "Redefinir a verificação em duas etapas" na edição do usuário. Código: autenticacao.py.
+		Login pelo Google: botão na tela de login quando há client_secret.json; entra só quem já tem cadastro com o mesmo e-mail
+		verificado. Usa o mesmo endereço de retorno da Agenda (/oauth2callback). MFA no Google: parâmetro mfa_no_login_google.
+		Primeiro acesso (banco sem Administrador, ex.: depois de mudar de servidor): a tela de login mostra "Configurar o primeiro
+		acesso", que pede o código de uso único do log do servidor (linha PRIMEIRO ACESSO) ou de: flask --app app primeiro-acesso
+		Emergência (perdeu o acesso de um Administrador): flask --app app admin-emergencia --email voce@instituicao.org
+		(no Docker: docker compose exec web flask --app app admin-emergencia --email ...). Senha provisória, desbloqueio e MFA refeito.
+
+	🔄 Agente de Preços e Modelos de IA (agente_catalogo_ia.py)
+		Uma vez por dia (tarefa de hora em hora) confere o preço de cada modelo na tabela pública de preços (PRECOS_IA_FONTE_URL
+		para outra fonte) e, com a chave do provedor, a lista de modelos do próprio provedor (não gasta tokens). Preço que mudou é
+		atualizado sozinho; mudança maior que 3x fica para revisar; modelo novo da mesma geração entra na lista; modelo que sumiu é
+		marcado "fora do ar". Log e botão "Conferir agora" em Provedores de IA › Atualizações automáticas.
+
 	🗄️ Banco de dados (SQLite, MySQL, PostgreSQL)
 		O endereço vem de DATABASE_URL (arquivo .env). Sem ela, usa o SQLite de desenvolvimento (instance/mentoria.db).
 		- MySQL / MariaDB: mysql+pymysql://usuario:senha@localhost:3306/mentoria?charset=utf8mb4
@@ -273,6 +289,8 @@ mentoria/
 		mensal (12) e manuais. BACKUP_DIR_EXTERNO recebe uma segunda cópia de cada backup fora do servidor (disco de
 		rede, volume da nuvem ou pasta do rclone), com a mesma retenção.
 		Guias: deploy/ubuntu, deploy/aws, deploy/gcp, deploy/azure, deploy/pythonanywhere; imagem no Dockerfile da raiz (docker-compose.yml para rodar localmente).
+		Docker Desktop: docker-compose.yml simula um CONTÊINER (agentes desligados de propósito). Para simular uma EC2 (agentes,
+		Chromium e backup em volume): docker compose -f docker-compose.yml -f docker-compose.ec2.yml up -d --build
 		Tela: Administração › Sistema › Ambiente e compatibilidade mostra a hospedagem, o banco, as pastas e cada recurso
 		ligado, com atenção ou desligado (com o motivo e como ligar). As rotas dos agentes e o backup consultam a mesma
 		verificação e se desligam sozinhos onde não funcionam. Código: ambiente.py e instalar.py.

@@ -1,0 +1,45 @@
+# Simulação de MÁQUINA VIRTUAL (AWS EC2) no Docker Desktop — complemento do docker-compose.yml
+#
+#   docker compose -f docker-compose.yml -f docker-compose.ec2.yml up -d --build
+#   docker compose -f docker-compose.yml -f docker-compose.ec2.yml down          (-v apaga também os dados)
+#
+# O docker-compose.yml sozinho simula um CONTÊINER gerenciado (App Runner/ECS): lá, de propósito, os agentes ficam
+# desligados e o backup depende de volume. Este arquivo muda para o comportamento de uma EC2:
+#   - HOSPEDAGEM=aws_vm: a tela Ambiente e compatibilidade mostra "AWS · máquina virtual" e libera os agentes;
+#   - disco que não se apaga: volumes para instance/, backups e relatórios dos agentes (DISCO_PERSISTENTE=1);
+#   - imagem com o Chromium (AGENTES=1) para os agentes OmniTest e os prints dos Agentes de Funcionalidades;
+#   - backup pela plataforma: a imagem já leva o mysqldump; os arquivos ficam no volume /dados/backups.
+# O que continua diferente de uma EC2 de verdade: o Agente Orquestrador (corrige o código) precisa do código num
+# repositório Git gravável, e a imagem não leva o .git. Ele só funciona numa VM instalada pelo roteiro (git clone).
+# Para a simulação mais fiel, use uma VM Ubuntu 24.04 (WSL2 ou Multipass) e siga deploy/aws/Roteiro_deploy_AWS.docx.
+
+x-ec2: &ec2
+  build:
+    context: .
+    args:
+      AGENTES: "1"
+  image: mentoria:ec2
+  read_only: false
+  tmpfs: !override
+    - /tmp
+  environment:
+    HOSPEDAGEM: aws_vm
+    DISCO_PERSISTENTE: "1"
+    BACKUP_DIR: /dados/backups
+  volumes:
+    - instance_ec2:/app/instance
+    - backups_ec2:/dados/backups
+    - relatorios_ec2:/app/Agent Reports
+
+services:
+  migrar:
+    <<: *ec2
+  web:
+    <<: *ec2
+  worker:
+    <<: *ec2
+
+volumes:
+  instance_ec2:
+  backups_ec2:
+  relatorios_ec2:

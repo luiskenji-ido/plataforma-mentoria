@@ -195,6 +195,8 @@
                             {% for mid, m in r.modelos.items() %}
                             <tr>
                                 <td><span class="fw-bold">{{ m.nome }}</span><div class="text-muted"><code>{{ mid }}</code></div>
+                                    {% if m.fora_do_ar %}<div class="text-danger small fw-bold"><i class="bi bi-x-octagon"></i> {{ tt('O provedor não lista mais este modelo: troque-o nas ordens acima.') }}</div>{% endif %}
+                                    {% if m.conferido_em %}<div class="text-success small"><i class="bi bi-arrow-repeat"></i> {{ tt('Preço atualizado pelo agente em') }} {{ m.conferido_em[:10] | replace('-', '/') }}</div>{% endif %}
                                     {% if m.reajuste %}<div class="text-warning-emphasis small"><i class="bi bi-graph-up-arrow"></i> {{ tt('Reajuste anunciado pelo provedor:') }} US$ {{ m.reajuste.entrada }}/{{ m.reajuste.saida }} {{ tt('a partir de') }} {{ m.reajuste.data }}</div>{% endif %}</td>
                                 <td>{{ provedores[m.provedor][0] }}{% if not r.chaves[m.provedor] %} <span class="badge text-bg-warning">{{ tt('sem chave') }}</span>{% endif %}</td>
                                 <td><input type="text" inputmode="decimal" class="form-control form-control-sm" name="entrada_{{ mid }}" value="{{ m.entrada if m.entrada is not none }}" aria-label="{{ tt('Entrada') }} {{ mid }}"></td>
@@ -232,6 +234,43 @@
                     <div class="form-text">{{ tt('Use o identificador exato do site do provedor. Depois preencha os preços.') }}</div></div>
             </div></form>
         </div>
+    </div>
+</div>
+
+<!-- AGENTE DE PREÇOS E MODELOS DE IA -->
+<div class="card shadow-sm border-0 mb-3" id="cardCatalogoIa">
+    <div class="card-header bg-white d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <span class="fw-bold text-primary"><i class="bi bi-arrow-repeat"></i> {{ tt('Atualizações automáticas de preços e modelos') }}</span>
+        <form method="POST" action="{{ url_for('provedores_ia_conferir') }}" class="m-0">
+            <button type="submit" class="btn btn-sm btn-outline-primary fw-bold"><i class="bi bi-search"></i> {{ tt('Conferir agora') }}</button>
+        </form>
+    </div>
+    <div class="card-body small pb-2">
+        <p class="mb-2 text-muted">{{ tt('O Agente de Preços e Modelos de IA confere uma vez por dia o preço de cada modelo e, com a chave do provedor cadastrada, a lista de modelos do próprio provedor. Preço que mudou é atualizado sozinho; mudança muito grande fica para você conferir. Não gasta tokens.') }}</p>
+        <div><span class="fw-bold">{{ tt('Última conferência') }}:</span>
+            {% if r.catalogo.quando %}{{ r.catalogo.quando }}{% else %}<span class="text-warning-emphasis">{{ tt('ainda não rodou neste servidor') }}</span>{% endif %}</div>
+    </div>
+    <div class="table-responsive">
+        <table class="table table-sm align-middle small mb-0">
+            <thead><tr><th>{{ tt('Quando') }}</th><th>{{ tt('O que aconteceu') }}</th><th>{{ tt('Modelo') }}</th><th>{{ tt('Antes') }}</th><th>{{ tt('Depois') }}</th><th>{{ tt('Detalhe') }}</th></tr></thead>
+            <tbody>
+                {% set tipos = {'conferencia': ('Conferência', 'secondary'), 'preco': ('Preço atualizado', 'success'), 'preco_revisar': ('Preço para revisar', 'warning'),
+                                'modelo_novo': ('Modelo novo', 'primary'), 'modelo_ausente': ('Modelo fora do ar', 'danger'), 'erro': ('Falha na consulta', 'danger')} %}
+                {% for l in r.catalogo.log %}
+                {% set tp = tipos.get(l.tipo, (l.tipo, 'secondary')) %}
+                <tr>
+                    <td class="text-nowrap">{{ l.data.strftime('%d/%m/%Y %H:%M') }}</td>
+                    <td><span class="badge text-bg-{{ tp[1] }}">{{ tt(tp[0]) }}</span></td>
+                    <td>{% if l.modelo %}<code>{{ l.modelo }}</code>{% endif %}</td>
+                    <td class="text-nowrap">{{ l.antes or '' }}</td>
+                    <td class="text-nowrap">{{ l.depois or '' }}</td>
+                    <td>{{ l.detalhe or '' }}</td>
+                </tr>
+                {% else %}
+                <tr><td colspan="6" class="text-muted py-3">{{ tt('Nenhuma conferência registrada ainda. Clique em Conferir agora ou aguarde a tarefa diária.') }}</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
     </div>
 </div>
 

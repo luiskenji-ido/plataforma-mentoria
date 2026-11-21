@@ -46,9 +46,9 @@ class AgenteAluno(AgenteOmniTest):
     # Regra 1 (revista com a coordenação instituição/B2B): o Aluno não acede ao Relógio de Voluntariado nem à Sala da Banca,
     # mas usa o Portal de Demandas para registar pedidos (nada por WhatsApp ou e-mail)
     ROTAS_BLOQUEADAS = ["hub_educacional", "frequencia", "notas", "usuarios", "grupos",
-                        "solicitacoes", "banco", "banca", "esg_csv", "esg_pdf", "reunioes", "agenda_bancas", "avaliadores_banca", "minhas_bancas", "indicadores", "agentes_ia"]
+                        "banco", "banca", "esg_csv", "esg_pdf", "reunioes", "agenda_bancas", "avaliadores_banca", "minhas_bancas", "indicadores", "agentes_ia"]
     MENU_VISIVEL = ["dashboard", "sessoes", "acompanhamento", "projetos", "biblioteca", "demandas", "atividades_extras"]
-    MENU_OCULTO = ["hub_educacional", "frequencia", "notas", "usuarios", "solicitacoes", "banco", "reunioes"]
+    MENU_OCULTO = ["hub_educacional", "frequencia", "notas", "usuarios", "banco", "reunioes"]
 
     # ==========================================================================
     # TESTES APÓS O LOGIN
@@ -366,6 +366,17 @@ class AgenteAluno(AgenteOmniTest):
         else:
             self.registrar("Acompanhamento", "Cursos do aluno", APROVADO, f"{len(cursos)} curso(s) exibidos.", evidencia=False)
 
+    @staticmethod
+    def _google_configurado():
+        """Esta instalação tem a credencial OAuth do Google (o agente roda no mesmo servidor da plataforma)?"""
+        import os
+        import sys
+        raiz = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        if raiz not in sys.path:
+            sys.path.insert(0, raiz)
+        import ambiente
+        return os.path.exists(ambiente.arquivo_client_secret_google())
+
     def acompanhamento_conectar_agenda(self):
         self.visitar("/acompanhamento")
         # A agenda é uma lista (menu) com Google Agenda e Microsoft 365: abre a lista antes de procurar as opções
@@ -397,6 +408,12 @@ class AgenteAluno(AgenteOmniTest):
         # 1) O servidor deve redirecionar para o OAuth do Google com o escopo do Calendar
         resposta = self.context.request.get(BASE_URL + "/conectar-agenda", max_redirects=0)
         destino = resposta.headers.get("location", "")
+        if resposta.status < 500 and "accounts.google.com" not in destino and not self._google_configurado():
+            self.registrar("Acompanhamento", "Conectar Agenda → OAuth Google", ALERTA,
+                           f"Instalação sem client_secret.json: o botão avisa e volta para {destino or 'a mesma tela'} (sem erro).",
+                           esperado="Redirecionamento para accounts.google.com quando o Google estiver configurado",
+                           dica="Coloque o client_secret.json (ou GOOGLE_CLIENT_SECRETS_FILE) para ligar a Agenda do Google.")
+            return
         if resposta.status >= 500 or "accounts.google.com" not in destino:
             self.registrar("Acompanhamento", "Conectar Agenda → OAuth Google", FALHA,
                            f"HTTP {resposta.status}; destino '{destino or 'nenhum'}'.",

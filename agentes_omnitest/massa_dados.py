@@ -39,10 +39,12 @@ def _usuarios():
 
 
 def _salvar_pdf(pasta, nome):
-    caminho = os.path.join(pasta, nome)
-    if not os.path.exists(caminho):
-        with open(caminho, "wb") as f:
-            f.write(PDF_TESTE)
+    """Grava pelo armazenamento da plataforma (disco local ou bucket S3), como o app grava os TCCs: chave 'tcc/<nome>'."""
+    import armazenamento
+    destino = armazenamento.atual()
+    chave = f"tcc/{nome}"
+    if not destino.existe(chave):
+        destino.salvar(chave, PDF_TESTE)
     return nome
 
 
@@ -187,8 +189,15 @@ def remover_massa():
                         EnvioFormularioBanca, CertificadoEmitido, TCCAcervo, PerfilAvaliador, Usuario)
 
     def apagar_arquivo(pasta, nome):
-        if nome and os.path.exists(os.path.join(pasta, nome)):
-            os.remove(os.path.join(pasta, nome))
+        """Apaga pelo armazenamento da plataforma (disco ou bucket S3): chave '<tcc|acervo…>/<nome>'."""
+        if not nome:
+            return
+        import armazenamento
+        try:
+            armazenamento.atual().apagar(f"{os.path.basename(pasta)}/{nome}")
+        except Exception:
+            if os.path.exists(os.path.join(pasta, nome)):
+                os.remove(os.path.join(pasta, nome))
 
     with app.app_context():
         projetos, grupos = ids_da_massa()

@@ -4,6 +4,11 @@
 #
 #   docker build -t mentoria .                                   (MySQL, padrão)
 #   docker build --build-arg BANCO=postgresql -t mentoria .      (acrescenta o driver do PostgreSQL)
+#   docker build --build-arg AGENTES=1 -t mentoria:ec2 .        (navegador Chromium para os agentes OmniTest e prints:
+#                                                                 simulação de máquina virtual, docker-compose.ec2.yml)
+#
+# A imagem leva o programa de backup do banco escolhido (mysqldump/mariadb-dump ou pg_dump): com um volume em BACKUP_DIR
+# o backup pela plataforma funciona também no contêiner.
 #
 # Processos (mesma imagem, comando diferente):
 #   web      gunicorn --config gunicorn.conf.py app:app          (padrão)
@@ -32,12 +37,23 @@ RUN if [ -f requirements.lock ]; then pip install --require-hashes -r requiremen
 
 # ---------------------------------------------------------------- estágio 2: execução (só o necessário)
 FROM ${PYTHON_IMAGE} AS runtime
+ARG BANCO=mysql
+ARG AGENTES=0
+ARG PLAYWRIGHT_VERSAO=1.64.1
 RUN apt-get update \
  && apt-get install -y --no-install-recommends tini \
+    $(if [ "$BANCO" = "mysql" ]; then echo default-mysql-client; elif [ "$BANCO" = "postgresql" ]; then echo postgresql-client; fi) \
  && rm -rf /var/lib/apt/lists/* \
  && groupadd --system --gid 10001 mentoria \
  && useradd --system --uid 10001 --gid mentoria --home-dir /app --shell /usr/sbin/nologin mentoria
 COPY --from=build /opt/venv /opt/venv
+# Agentes no navegador (só com AGENTES=1): Playwright + Chromium numa pasta fixa, legível pelo usuário sem privilégios
+ENV PLAYWRIGHT_BROWSERS_PATH=/opt/ms-playwright
+RUN if [ "$AGENTES" = "1" ]; then \
+      /opt/venv/bin/pip install --no-cache-dir "playwright==${PLAYWRIGHT_VERSAO}" \
+      && /opt/venv/bin/python -m playwright install --with-deps chromium \
+      && rm -rf /var/lib/apt/lists/*; \
+    fi
 ENV PATH=/opt/venv/bin:$PATH \
     PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
@@ -51,8 +67,8 @@ WORKDIR /app
 COPY --chown=root:root . .
 # Bytecode gerado na imagem: com o sistema de arquivos só de leitura nada é escrito ao importar
 RUN python -m compileall -q -j 0 /app /opt/venv >/dev/null \
- && mkdir -p /app/instance /app/uploads \
- && chown mentoria:mentoria /app/instance /app/uploads
+ && mkdir -p /app/instance /app/uploads "/app/Agent Reports" /dados/backups \
+ && chown mentoria:mentoria /app/instance /app/uploads "/app/Agent Reports" /dados/backups
 USER 10001:10001
 EXPOSE 8080
 HEALTHCHECK --interval=30s --timeout=5s --start-period=40s --retries=3 \

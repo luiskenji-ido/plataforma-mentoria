@@ -19,7 +19,7 @@ import contraste  # noqa: E402
 VERSOES = {'atual': 'http://127.0.0.1:5071', 'prototipo': 'http://127.0.0.1:5070'}
 TELAS = ['/dashboard', '/admin/turmas', '/bancas', '/bancas/avaliadores', '/acompanhamento', '/projetos', '/sessoes',
          '/reunioes', '/avaliacoes', '/demandas', '/admin/usuarios', '/admin/grupos', '/admin/notas', '/admin/frequencia',
-         '/admin/solicitacoes', '/biblioteca', '/onboarding/trilha-tcc/gestao', '/admin/cursos/3/conteudo',
+         '/biblioteca', '/onboarding/trilha-tcc/gestao', '/admin/cursos/3/conteudo',
          '/admin/agentes-seguranca', '/admin/agentes-funcionalidades', '/admin/parametros-regras', '/admin/identidade',
          '/certificados', '/indicadores-voluntariado', '/atividades-extras', '/ocorrencias', '/desistencias']
 TELAS_ALUNO = ['/dashboard', '/meus-cursos/7', '/acompanhamento', '/projetos']

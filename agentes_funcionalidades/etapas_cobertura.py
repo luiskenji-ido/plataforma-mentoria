@@ -20,7 +20,7 @@ o que é preferência de uma conta de teste compartilhada volta ao valor de ante
 import json
 from datetime import datetime, timedelta, date
 
-from base import MARCA, DOMINIO, FALHA, senha_forte, mensagens
+from base import MARCA, FALHA, senha_forte, mensagens
 
 PDF_MINIMO = (b"%PDF-1.4\n1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj 2 0 obj<</Type/Pages/Kids[3 0 R]/Count 1>>endobj "
               b"3 0 obj<</Type/Page/Parent 2 0 R/MediaBox[0 0 200 200]>>endobj\ntrailer<</Root 1 0 R>>\n%%EOF\n")
@@ -63,7 +63,6 @@ class EtapasCobertura:
         self.notificacoes_e_preferencia()
         self.graficos_do_painel()
         self.tour_desativado()
-        self.solicitacao_publica_de_mentoria()
         self.logo_publico_da_instituicao()
 
     def logo_publico_da_instituicao(self):
@@ -210,27 +209,6 @@ class EtapasCobertura:
         self.confere(fraca == u.nome and nome == f"{u.nome} (editado)", "Edição de usuário: senha fraca recusada, nome alterado", "VAL",
                      "Troca para senha fraca recusada; nome atualizado sem mexer no e-mail nem na senha.",
                      f"Com senha fraca: '{fraca}'; depois: '{nome}'.", "Edição aplica a política de senha", "Alta", print_de="/admin/usuarios")
-
-    def solicitacao_publica_de_mentoria(self):
-        """Formulário público da tela de login: quem já tem cadastro não pede de novo; e-mail é obrigatório."""
-        m = _m()
-        from base import Cliente
-        self.etapa("Pedido público de mentoria (tela de login)")
-        self.cobertura.add("solicitar_mentoria")
-        publico = Cliente()
-        publico.pedir("GET", "/")
-        email_novo = f"interessado_{DOMINIO}"
-        publico.pedir("POST", "/solicitar-mentoria", {"nome": f"{MARCA} Interessado", "email": email_novo, "motivo": "Quero participar"})
-        criada = self.banco(lambda: m.SolicitacaoMentoria.query.filter_by(email=email_novo).count())
-        publico.pedir("POST", "/solicitar-mentoria", {"nome": f"{MARCA} Já cadastrado", "email": self.email_logado, "motivo": "x"})
-        duplicada = self.banco(lambda: m.SolicitacaoMentoria.query.filter_by(email=self.email_logado).count())
-        publico.pedir("POST", "/solicitar-mentoria", {"nome": f"{MARCA} Sem e-mail", "email": "", "motivo": "x"})
-        sem_email = self.banco(lambda: m.SolicitacaoMentoria.query.filter(m.SolicitacaoMentoria.nome == f"{MARCA} Sem e-mail").count())
-        self.confere(criada == 1 and duplicada == 0 and sem_email == 0, "Pedido público de mentoria com validação", "VAL",
-                     "Pedido novo gravado; e-mail já cadastrado e pedido sem e-mail recusados.",
-                     f"Novo: {criada}; e-mail já cadastrado: {duplicada}; sem e-mail: {sem_email}.",
-                     "Pedido de mentoria exige e-mail válido e não duplica quem já tem conta", "Média",
-                     "Em solicitar_mentoria, exigir nome e e-mail válido antes de gravar.")
 
     # ==========================================================================================================
     # MENTOR ADMINISTRADOR

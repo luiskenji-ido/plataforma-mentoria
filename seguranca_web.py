@@ -37,7 +37,7 @@ MINIMO_CARACTERES_SECRET_KEY = 32  # SECRET_KEY curta é trocada por uma nova (s
 LIMITE_UPLOAD_MB = 50  # maior arquivo aceito (backups, entregas de TCC e currículos)
 
 # Limite de requisições POST por IP: endpoint -> (máximo, janela em segundos)
-LIMITES = {"login": (30, 60), "recuperar_senha": (15, 60), "chat_ia": (20, 60), "convidado_reuniao": (30, 60)}
+LIMITES = {"login": (30, 60), "verificar_mfa": (20, 60), "primeiro_acesso": (10, 60), "login_google": (20, 60), "recuperar_senha": (15, 60), "chat_ia": (20, 60), "convidado_reuniao": (30, 60)}
 
 # Origens externas que as páginas usam (bibliotecas de CDN, fontes e ícones)
 CDNS = "https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://unpkg.com"

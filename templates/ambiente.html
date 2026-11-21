@@ -114,13 +114,15 @@
     <!-- MATRIZ DE COMPATIBILIDADE -->
     <div class="col-lg-7">
         <div class="card shadow-sm border-0 h-100" id="cardMatriz">
-            <div class="card-header bg-white fw-bold text-primary"><i class="bi bi-grid-3x3-gap"></i> {{ tt('Compatibilidade por tipo de hospedagem') }}</div>
+            <div class="card-header bg-white fw-bold text-primary"><i class="bi bi-grid-3x3-gap"></i> {{ tt('Compatibilidade por tipo de hospedagem') }}
+                <div class="small fw-normal text-muted mt-1">{{ tt('Este servidor') }}: <span class="fw-bold">{{ tt(a.hospedagem_nome) }}</span> · {{ tt('coluna destacada') }}</div></div>
             <div class="table-responsive">
                 <table class="table table-sm align-middle mb-0 small">
                     <thead class="table-light">
                         <tr><th>{{ tt('Recurso') }}</th>
-                            {% for col, nome in [(1, tt('Máquina virtual')), (2, tt('Contêiner')), (3, 'PythonAnywhere')] %}
-                            <th class="{{ 'table-primary' if col == a.coluna }}">{{ nome }}</th>{% endfor %}</tr>
+                            {% for tipo, nome, nuvens in a.nomes_colunas %}
+                            <th class="{{ 'table-primary' if loop.index == a.coluna }}">{{ tt(nome) }}
+                                <div class="small fw-normal text-muted mt-1" style="text-transform: none; letter-spacing: 0;">{{ nuvens | join(' · ') }}</div></th>{% endfor %}</tr>
                     </thead>
                     <tbody>
                     {% for linha in a.matriz %}
