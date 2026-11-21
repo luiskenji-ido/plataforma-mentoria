@@ -476,10 +476,11 @@ def verificar_mfa():
             if por_recuperacao:
                 aceito = autenticacao.usar_codigo_recuperacao(usuario, codigo)
             else:
-                passo = autenticacao.conferir_totp(segredo, codigo, usuario.mfa_ultimo_passo) if segredo else None
+                passo = autenticacao.conferir_totp(segredo, codigo, usuario.mfa_ultimo_passo, desvio=usuario.mfa_desvio) if segredo else None
                 aceito = passo is not None
                 if aceito:
                     usuario.mfa_ultimo_passo = passo
+                    usuario.mfa_desvio = passo - autenticacao.passo_atual()   # acompanha o relógio (acertado ou não)
             if aceito:
                 db.session.commit()
                 if por_recuperacao:
@@ -495,18 +496,18 @@ def verificar_mfa():
             flash(tt('Código inválido ou já usado. Confira o app e tente de novo.', idioma), 'danger')
         return render_template('mfa.html', modo='verificar', usuario=usuario, segredo_ilegivel=segredo is None)
 
-    # Configuração (MFA obrigatório e ainda não ativado)
-    conf = session.get('mfa_configuracao')
-    segredo = autenticacao.decifrar_segredo((conf or {}).get('segredo'), segredo_app) if conf and conf.get('id') == usuario.id else None
-    if not segredo:
-        segredo = autenticacao.gerar_segredo()
-        session['mfa_configuracao'] = {'id': usuario.id, 'segredo': autenticacao.cifrar_segredo(segredo, segredo_app)}
+    # Configuração (MFA obrigatório e ainda não ativado): o mesmo QR code vale até a ativação
+    segredo = autenticacao.segredo_em_configuracao(usuario, segredo_app)
+    db.session.commit()
     if request.method == 'POST':
-        passo = autenticacao.conferir_totp(segredo, request.form.get('codigo', ''))
+        passo = autenticacao.conferir_totp(segredo, request.form.get('codigo', ''), janela=autenticacao.JANELA_ATIVACAO)
         if passo is not None:
             codigos = autenticacao.ativar(usuario, segredo, segredo_app, passo)
             db.session.commit()
-            session.pop('mfa_configuracao', None)
+            if passo != autenticacao.passo_atual():
+                app.logger.warning("MFA: o relógio do celular do usuário %s está %+d s do relógio do servidor (compensado). "
+                                   "Confira se o relógio do servidor está sincronizado.", usuario.id,
+                                   (passo - autenticacao.passo_atual()) * autenticacao.PASSO_SEGUNDOS)
             pendente['confirmado'] = True
             session['mfa_pendente'] = pendente
             app.logger.info("MFA ativado pelo usuário %s", usuario.id)

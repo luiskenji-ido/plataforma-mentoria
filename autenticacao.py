@@ -28,6 +28,7 @@ from datetime import datetime, timedelta
 PASSO_SEGUNDOS = 30
 DIGITOS = 6
 JANELA = 1                      # aceita o código anterior e o seguinte (relógio do celular um pouco fora)
+JANELA_ATIVACAO = 10            # na ativação aceita até 5 min de diferença entre os relógios e guarda essa diferença
 CODIGOS_RECUPERACAO = 10
 MINUTOS_PENDENTE = 10           # tempo para digitar o código depois da senha
 TENTATIVAS_MFA = 5              # códigos errados antes de voltar para a senha
@@ -58,13 +59,17 @@ def codigo_atual(segredo, agora=None):
     return _codigo_no_passo(segredo, passo_atual(agora))
 
 
-def conferir_totp(segredo, codigo, ultimo_passo=None, agora=None):
-    """Passo aceito (int) ou None. Recusa o código de um passo já usado (não vale reaproveitar o mesmo código)."""
+def conferir_totp(segredo, codigo, ultimo_passo=None, agora=None, desvio=0, janela=JANELA):
+    """Passo aceito (int) ou None. Recusa o código de um passo já usado (não vale reaproveitar o mesmo código).
+    desvio = diferença conhecida entre o relógio do celular e o do servidor (em passos de 30 s, medida na ativação):
+    confere em volta da hora do servidor e em volta da hora do celular, assim funciona com ou sem o relógio acertado."""
     codigo = ''.join(c for c in str(codigo or '') if c.isdigit())
     if len(codigo) != DIGITOS or not segredo:
         return None
     atual = passo_atual(agora)
-    for passo in range(atual - JANELA, atual + JANELA + 1):
+    desvio = int(desvio or 0)
+    candidatos = set(range(atual - janela, atual + janela + 1)) | set(range(atual + desvio - JANELA, atual + desvio + JANELA + 1))
+    for passo in sorted(candidatos, key=lambda p: abs(p - atual)):
         if ultimo_passo is not None and passo <= ultimo_passo:
             continue
         if hmac.compare_digest(_codigo_no_passo(segredo, passo), codigo):
@@ -151,9 +156,21 @@ def codigos_restantes(usuario):
         return 0
 
 
-def ativar(usuario, segredo, segredo_app, passo):
-    """Grava o MFA do usuário e devolve os códigos de recuperação (mostrar uma única vez). Quem chama faz o commit."""
+def segredo_em_configuracao(usuario, segredo_app):
+    """Segredo da configuração em andamento: o mesmo QR code vale até a ativação, mesmo saindo e entrando de novo
+    (antes, cada login gerava outro QR e o app ficava com uma conta antiga que nunca conferia). Quem chama faz o commit."""
+    segredo = None if usuario.mfa_ativo else decifrar_segredo(usuario.mfa_segredo, segredo_app)
+    if not segredo:
+        segredo = gerar_segredo()
+        usuario.mfa_segredo = cifrar_segredo(segredo, segredo_app)
+    return segredo
+
+
+def ativar(usuario, segredo, segredo_app, passo, agora=None):
+    """Grava o MFA do usuário e devolve os códigos de recuperação (mostrar uma única vez). Quem chama faz o commit.
+    Guarda a diferença entre o relógio do celular e o do servidor (mfa_desvio) medida neste código."""
     codigos, hashes = gerar_codigos_recuperacao()
+    usuario.mfa_desvio = passo - passo_atual(agora)
     usuario.mfa_segredo = cifrar_segredo(segredo, segredo_app)
     usuario.mfa_codigos_recuperacao = hashes
     usuario.mfa_ultimo_passo = passo
@@ -169,6 +186,7 @@ def redefinir(usuario):
     usuario.mfa_codigos_recuperacao = None
     usuario.mfa_ultimo_passo = None
     usuario.mfa_ativado_em = None
+    usuario.mfa_desvio = None
 
 
 def conta_de_teste(email):

@@ -59,6 +59,7 @@ class Usuario(db.Model, UserMixin):
     mfa_codigos_recuperacao = db.Column(TextoLongo, nullable=True)   # JSON: lista de sha256 dos códigos ainda não usados
     mfa_ultimo_passo = db.Column(db.Integer, nullable=True)           # último código aceito (o mesmo código não vale duas vezes)
     mfa_ativado_em = db.Column(db.DateTime, nullable=True)
+    mfa_desvio = db.Column(db.Integer, nullable=True)                 # relógio do celular − do servidor, em passos de 30 s
 
     # -------------------------------------------------------------
     # A LIGAÇÃO OFICIAL: Isso diz ao banco que um Aluno tem uma lista

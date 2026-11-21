@@ -90,3 +90,30 @@ def test_contas_de_teste_nao_usam_mfa(monkeypatch):
     assert a.exige_mfa(real)
     monkeypatch.setattr(regras_negocio, "regra", lambda chave, padrao=None: chave != "mfa_no_login_google")
     assert not a.exige_mfa(real, "google")
+
+
+def test_relogio_do_servidor_atrasado_e_compensado():
+    # servidor 104 s atrasado em relação ao celular (o caso do computador local sem a hora sincronizada)
+    segredo = a.gerar_segredo()
+    servidor = 1_800_000_000
+    celular = servidor + 104
+    codigo = a.codigo_atual(segredo, agora=celular)
+    assert a.conferir_totp(segredo, codigo, agora=servidor) is None  # janela normal: não confere
+    passo = a.conferir_totp(segredo, codigo, agora=servidor, janela=a.JANELA_ATIVACAO)  # ativação: confere
+    usuario = types.SimpleNamespace()
+    a.ativar(usuario, segredo, "chave", passo, agora=servidor)
+    assert usuario.mfa_desvio == 3
+    # próximos logins: com o mesmo atraso, confere pelo desvio guardado
+    depois = servidor + 600
+    assert a.conferir_totp(segredo, a.codigo_atual(segredo, agora=depois + 104), passo, agora=depois, desvio=3)
+    # relógio do servidor acertado depois: continua conferindo pela hora certa
+    assert a.conferir_totp(segredo, a.codigo_atual(segredo, agora=depois + 704), passo, agora=depois + 704, desvio=3)
+    # mais de 5 min de diferença: nem a ativação aceita
+    assert a.conferir_totp(segredo, a.codigo_atual(segredo, agora=servidor + 400), agora=servidor, janela=a.JANELA_ATIVACAO) is None
+
+
+def test_mesmo_qr_code_ate_ativar():
+    usuario = types.SimpleNamespace(mfa_ativo=False, mfa_segredo=None)
+    primeiro = a.segredo_em_configuracao(usuario, "chave")
+    assert a.segredo_em_configuracao(usuario, "chave") == primeiro  # sair e entrar de novo: mesmo segredo
+    assert a.segredo_em_configuracao(usuario, "outra-chave") != primeiro  # SECRET_KEY trocada: segredo novo
