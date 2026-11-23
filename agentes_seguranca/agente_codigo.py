@@ -186,7 +186,7 @@ class AgenteCodigo(AgenteSeguranca):
         if contagem["sql_interno"]:
             self.achado(f"{len(contagem['sql_interno'])} SQL dinâmico montado com nomes internos", "Baixa", "A03", "CWE-89", "; ".join(contagem["sql_interno"][:8]),
                         "O SQL usa f-string com nomes de tabela/coluna internos (não vêm do usuário). Hoje é seguro, mas é um padrão frágil.",
-                        "Validar os nomes contra uma lista fixa (como backup_servico.TABELAS_PRESERVADAS) e manter os valores como parâmetros.")
+                        "Validar os nomes contra uma lista fixa (uma tupla de nomes permitidos) e manter os valores como parâmetros.")
         if contagem["random"]:
             self.achado("Token/código gerado com o módulo random", "Média", "A02", "CWE-338", "; ".join(contagem["random"][:6]),
                         "random não é criptograficamente seguro.", "Usar secrets.token_hex / secrets.choice.")

@@ -17,12 +17,12 @@ class AgenteProfessor(AgenteOmniTest):
     ROTAS_PERMITIDAS = ["dashboard", "sessoes", "acompanhamento", "projetos", "biblioteca",
                         "frequencia", "notas", "demandas", "atividades_extras", "certificados", "repositorio"]
     # Reuniões instituição × B2B: só quem participou vê a ata (o perfil de teste não participa de nenhuma)
-    ROTAS_BLOQUEADAS = ["hub_educacional", "usuarios", "grupos", "banco", "esg_csv", "esg_pdf", "reunioes", "agenda_bancas", "avaliadores_banca", "minhas_bancas", "indicadores", "agentes_ia",
+    ROTAS_BLOQUEADAS = ["hub_educacional", "usuarios", "grupos", "esg_csv", "esg_pdf", "reunioes", "agenda_bancas", "avaliadores_banca", "minhas_bancas", "indicadores", "agentes_ia",
                         # Sala da Banca: só quem está escalado na banca daquele TCC
                         "banca"]
     MENU_VISIVEL = ["dashboard", "sessoes", "acompanhamento", "projetos", "biblioteca", "demandas", "atividades_extras", "frequencia", "notas"]
     # O Hub Educacional nega o acesso ao Professor, por isso não deveria estar no menu
-    MENU_OCULTO = ["hub_educacional", "usuarios", "banco"]
+    MENU_OCULTO = ["hub_educacional", "usuarios"]
 
     ROTEIRO = [
         "Relógio de Voluntariado visível e modal de lançamento manual com os campos obrigatórios (Regra 4)",

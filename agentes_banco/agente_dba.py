@@ -49,14 +49,14 @@ class AgenteDBA(AgenteBanco):
         from app import app
         with app.app_context():
             from app import db
-            import backup_servico
             import banco_manutencao
+            from banco_config import caminho_banco_sqlite
             self.db, self.bm = db, banco_manutencao
             if db.engine.dialect.name != "sqlite":
                 self.achado(f"Motor {db.engine.dialect.name}: rotina do DBA para SQLite não se aplica", "Informativa", "CFG", "SQLALCHEMY_DATABASE_URI",
                             "As verificações abaixo são específicas do SQLite.", "Usar as ferramentas de manutenção do motor em uso (ver o Agente Multi-banco).")
                 return
-            self.caminho = backup_servico.caminho_banco()
+            self.caminho = caminho_banco_sqlite()
             self.con = sqlite3.connect(f"file:{self.caminho}?mode=ro", uri=True)
             try:
                 self.integridade()

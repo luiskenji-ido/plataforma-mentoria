@@ -3,7 +3,8 @@
 CLIENTE DO SERVIÇO PRIVADO DE BACKUP (LK-Plataforma-Mentoria/mentoria-backup)
 =============================================================================
 Ligado por BACKUP_SERVICO_URL (ex.: https://backup.mentoria.interno:8443, pelo enlace privado entre os hosts).
-Sem a variável, a plataforma continua usando o backup local (backup_servico.py), como antes.
+Backup e restauração não existem mais na plataforma: sem a variável, as ações que exigem backup prévio (DBA,
+agentes de funcionalidades) são recusadas e as telas mostram que o serviço não está configurado.
 
 - pedir_backup(): backup prévio antes de uma ação do DBA ou dos agentes. POST /api/v1/backups com Idempotency-Key
   (repetido até 2 vezes só em erro de conexão) e depois GET /api/v1/backups/<id> a cada 5 s até Concluído/Verificado
@@ -12,9 +13,8 @@ Sem a variável, a plataforma continua usando o backup local (backup_servico.py)
 - saude(): indicadores para as telas (GET /api/v1/saude), com tempo-limite de 2 s e cache de 60 s; None se não responder.
 
 Variáveis: BACKUP_SERVICO_URL, BACKUP_SERVICO_TOKEN (gerado no serviço: flask --app servico tokens gerar),
-BACKUP_SERVICO_CA (certificado da CA interna, para conferir o TLS), BACKUP_SERVICO_PRAZO (1800).
-Agendamento: BACKUP_AGENDADOR=monolito (padrão) ou servico. Com 'servico' a plataforma não roda backups agendados
-em nenhum dos três lugares (requisições, thread do 'python app.py' e worker das tarefas).
+BACKUP_SERVICO_CA (certificado da CA interna, para conferir o TLS), BACKUP_SERVICO_PRAZO (1800) e BACKUP_PAINEL_URL
+(atalho para a tela do serviço, que só abre pela VPN). Backups agendados rodam só no serviço.
 """
 
 import logging
@@ -46,11 +46,6 @@ def url_base():
 
 def configurado():
     return bool(url_base())
-
-
-def agendador_no_monolito():
-    """False quando os backups agendados passaram para o serviço (BACKUP_AGENDADOR=servico)."""
-    return (os.environ.get("BACKUP_AGENDADOR") or "monolito").strip().lower() != "servico"
 
 
 def _sessao():
@@ -114,7 +109,7 @@ def _data(valor):
 
 
 def saude(sessao=None, relogio=time.monotonic):
-    """Indicadores do serviço no mesmo formato de backup_servico.saude() (mais 'ultimo_verificado'), ou None."""
+    """Indicadores do serviço (ativos, pausados, ultimo, ultimo_verificado, proximo, falhas, situacao, motivo), ou None."""
     if not configurado():
         return None
     if _cache["valor"] is not None and relogio() - _cache["quando"] < CACHE_SAUDE:
@@ -136,3 +131,21 @@ def saude(sessao=None, relogio=time.monotonic):
 
 def esquecer_cache():
     _cache.update(quando=0.0, valor=None)
+
+
+def endereco_do_painel():
+    """Endereço da tela do serviço de backup para os administradores (BACKUP_PAINEL_URL), ou ''. Só abre pela VPN:
+    a plataforma pública apenas mostra o atalho, nunca as operações."""
+    return (os.environ.get("BACKUP_PAINEL_URL") or "").strip()
+
+
+def agendamentos(sessao=None):
+    """Agendamentos do serviço (GET /api/v1/agendamentos, só leitura) ou [] se não responder."""
+    if not configurado():
+        return []
+    try:
+        resposta = (sessao or _sessao()).get(f"{url_base()}/api/v1/agendamentos", timeout=(TEMPO_SAUDE, TEMPO_SAUDE))
+        return resposta.json() if resposta.status_code == 200 else []
+    except Exception as erro:
+        log.warning("serviço de backup inacessível para os agendamentos: %s", type(erro).__name__)
+        return []

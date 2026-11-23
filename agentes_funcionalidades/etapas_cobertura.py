@@ -58,8 +58,7 @@ class EtapasCobertura:
     # ==========================================================================================================
     def cobertura_administrador(self):
         self.perfis_de_acesso_invalidos()
-        self.manutencao_do_banco_protegida()
-        self.backups_padrao()
+        self.backup_fora_da_plataforma()
         self.notificacoes_e_preferencia()
         self.graficos_do_painel()
         self.tour_desativado()
@@ -88,47 +87,14 @@ class EtapasCobertura:
                      "Os três cadastros inválidos foram recusados; nenhum perfil criado.", f"Perfis antes {antes}, depois {depois}.",
                      "Perfil personalizado exige nome único e um perfil-base do sistema", "Alta", print_de="/admin/perfis")
 
-    def manutencao_do_banco_protegida(self):
-        m = _m()
-        self.etapa("Manutenção do banco: ações perigosas protegidas")
-        usuarios = self.banco(lambda: m.Usuario.query.count())
-        backups = self.banco(lambda: m.RegistroBackup.query.count())
-        self.post("/admin/banco", {"acao": "limpar", "confirmacao": "apagar tudo"})
-        self.confere(self.banco(lambda: m.Usuario.query.count()) == usuarios and self.banco(lambda: m.RegistroBackup.query.count()) == backups,
-                     "Apagar os dados exige digitar APAGAR", "SEG", "Limpeza recusada sem a confirmação; nenhum dado nem backup mexido.",
-                     "A limpeza andou sem a confirmação exata.", "Zona de perigo só com a palavra de confirmação", "Crítica",
-                     print_de="/admin/banco")
-        agendamentos = self.banco(lambda: m.AgendamentoBackup.query.count())
-        self.post("/admin/banco", {"acao": "novo_agendamento", "frequencia": "Diário", "horario": "25:00",
-                                   "data_inicio": date.today().isoformat(), "retencao": "7", "pasta": "funcional"})
-        self.post("/admin/banco", {"acao": "novo_agendamento", "frequencia": "Diário", "horario": "03:00",
-                                   "data_inicio": date.today().isoformat(), "retencao": "999", "pasta": "funcional"})
-        self.confere(self.banco(lambda: m.AgendamentoBackup.query.count()) == agendamentos, "Agendamento de backup inválido é recusado", "VAL",
-                     "Horário 25:00 e retenção 999 recusados.", "Criou agendamento com horário ou retenção inválidos.",
-                     "Agendamento com horário HH:MM válido e retenção de 1 a 365", "Média")
-
-    def backups_padrao(self):
-        m = _m()
-        self.etapa("Backups padrão (Ambiente e compatibilidade)")
-        antes = self.banco(lambda: sorted(a.id for a in m.AgendamentoBackup.query.all()))
-        self.post("/admin/ambiente/backups-padrao", {})
-        depois = self.banco(lambda: sorted((a.id, a.frequencia, a.retencao) for a in m.AgendamentoBackup.query.all()))
-        if antes:
-            self.confere([d[0] for d in depois] == antes, "Backups padrão não mexem em agendamentos existentes", "REG",
-                         f"{len(antes)} agendamento(s) existente(s) mantido(s) sem alteração.", "Os agendamentos existentes mudaram.",
-                         "Os padrões só são criados quando não há nenhum agendamento", "Alta", print_de="/admin/ambiente")
-            return
-        novos = [d for d in depois if d[0] not in antes]
-        self.confere(sorted((f, r) for _, f, r in novos) == [("Diário", 7), ("Mensal", 12), ("Semanal", 4)],
-                     "Cria os backups padrão Diário (7), Semanal (4) e Mensal (12)", "REG", "Três agendamentos padrão criados.",
-                     f"Criados: {novos}.", "Instalação nova ganha os backups padrão", "Alta", print_de="/admin/ambiente")
-
-        def desfazer():  # a instalação de teste volta a não ter agendamentos
-            ids = [d[0] for d in novos]
-            m.AlteracaoAgendamentoBackup.query.filter(m.AlteracaoAgendamentoBackup.agendamento_id.in_(ids)).delete(synchronize_session=False)
-            m.AgendamentoBackup.query.filter(m.AgendamentoBackup.id.in_(ids)).delete(synchronize_session=False)
-            m.db.session.commit()
-        self.banco(desfazer)
+    def backup_fora_da_plataforma(self):
+        self.etapa("Backup e restauração fora da plataforma pública")
+        respostas = {caminho: self.cliente.pedir(metodo, caminho)[0] for metodo, caminho in
+                     (("GET", "/admin/banco"), ("POST", "/admin/banco"), ("POST", "/admin/ambiente/backups-padrao"),
+                      ("GET", "/admin/banco/relatorio/execucoes.csv"))}
+        self.confere(set(respostas.values()) == {404}, "Os endereços antigos de backup respondem 404", "SEG",
+                     "Nenhuma operação de backup ou restauração na plataforma pública.", f"Respostas: {respostas}.",
+                     "Backup e restauração só no serviço privado (mentoria-backup), pela VPN", "Crítica")
 
     def notificacoes_e_preferencia(self):
         m = _m()

@@ -122,15 +122,13 @@ def preparar(estado):
 
     def backup():
         import cliente_backup
-        if cliente_backup.configurado():  # serviço privado de backup
-            try:
-                execucao = cliente_backup.pedir_backup("pre_funcionalidades: agentes de funcionalidades", pasta="pre_funcionalidades")
-                return execucao["status"], execucao.get("arquivo"), execucao.get("detalhes")
-            except cliente_backup.ErroServicoBackup as erro:
-                return "Falha", None, str(erro)
-        import backup_servico
-        registro = backup_servico.fazer_backup("Imediato", "pre_funcionalidades")
-        return registro.status, registro.arquivo, registro.detalhes
+        if not cliente_backup.configurado():
+            return "Falha", None, "configure o serviço privado de backup (BACKUP_SERVICO_URL e BACKUP_SERVICO_TOKEN)"
+        try:
+            execucao = cliente_backup.pedir_backup("pre_funcionalidades: agentes de funcionalidades", pasta="pre_funcionalidades")
+            return execucao["status"], execucao.get("arquivo"), execucao.get("detalhes")
+        except cliente_backup.ErroServicoBackup as erro:
+            return "Falha", None, str(erro)
     situacao, arquivo, detalhes = com_app(backup)
     if situacao not in ("Concluído", "Sucesso"):
         raise RuntimeError(f"backup antes do teste falhou: {detalhes}")

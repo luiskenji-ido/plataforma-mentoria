@@ -75,9 +75,10 @@ def _tabelas():
 
 
 def _agendamentos():
-    from models import AgendamentoBackup
-    return {str(a.id): {'frequencia': a.frequencia, 'horario': a.horario, 'status': a.status, 'retencao': a.retencao, 'pasta': a.pasta}
-            for a in AgendamentoBackup.query.all()}
+    """Agendamentos de backup do serviço privado (só leitura pela API); vazio se não configurado ou fora do ar."""
+    import cliente_backup
+    return {str(a['id']): {'frequencia': a['frequencia'], 'horario': a['horario'], 'status': a['status'], 'retencao': a['retencao'],
+                           'pasta': a['pasta']} for a in cliente_backup.agendamentos()}
 
 
 DRIVERS = {'postgresql': ('psycopg', 'psycopg2', 'psycopg2-binary'), 'mysql': ('pymysql', 'mysqlclient', 'mysql-connector-python'),
@@ -107,7 +108,7 @@ def sql_contar_linhas(dialeto, tabela):
 def _registrar_historico():
     """Uma foto por dia do tamanho do banco e das linhas por tabela (base da previsão de crescimento)."""
     import os
-    import backup_servico
+    from banco_config import caminho_banco_sqlite
     historico = _estado('historico_banco', [])
     hoje = datetime.now().strftime('%Y-%m-%d')
     if historico and historico[-1]['dia'] == hoje:
@@ -116,7 +117,7 @@ def _registrar_historico():
     with db.engine.connect() as con:
         for tabela in inspect(db.engine).get_table_names():
             linhas[tabela] = con.exec_driver_sql(sql_contar_linhas(db.engine.dialect, tabela)).scalar()
-    caminho = backup_servico.caminho_banco() if db.engine.dialect.name == 'sqlite' else None
+    caminho = caminho_banco_sqlite() if db.engine.dialect.name == 'sqlite' else None
     historico.append({'dia': hoje, 'bytes': os.path.getsize(caminho) if caminho and os.path.exists(caminho) else None, 'linhas': linhas})
     _gravar_estado('historico_banco', historico[-180:])
 

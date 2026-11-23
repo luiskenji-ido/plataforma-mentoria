@@ -32,10 +32,8 @@ def test_readyz_com_banco_fora_do_ar_da_503(app_real, monkeypatch):
 
 def test_sondas_nao_exigem_login_nem_disparam_tarefas(app_real, monkeypatch):
     chamadas = []
-    monkeypatch.setattr(app_real, "_ULTIMA_VERIFICACAO_BACKUP", [__import__("datetime").datetime.min])
-    import backup_servico
-
-    monkeypatch.setattr(backup_servico, "executar_vencidos", lambda agora: chamadas.append(agora))
+    monkeypatch.setattr(app_real, "_ULTIMA_VERIFICACAO_TAREFAS", [__import__("datetime").datetime.min])
+    monkeypatch.setattr(app_real, "_executar_mudancas_com_seguranca", lambda: chamadas.append(1))
     app_real.app.test_client().get("/readyz")
     assert chamadas == []
 

@@ -78,7 +78,7 @@ MATRIZ = [
     # recurso,                                  vm,          conteiner,                                   gerenciada (PythonAnywhere)
     ('Telas, cadastros, relatórios e certificados', ('ligado', ''), ('ligado', ''), ('ligado', '')),
     ('Arquivos enviados, logos e documentos',   ('ligado', ''), ('limitado', 'só com volume montado em /app/uploads e /app/instance'), ('ligado', '')),
-    ('Backups agendados',                       ('ligado', ''), ('limitado', 'use o backup do banco gerenciado; com volume, também o da plataforma'), ('ligado', 'tarefa agendada na aba Tasks')),
+    ('Backups agendados',                       ('ligado', 'serviço privado de backup'), ('ligado', 'serviço privado de backup'), ('ligado', 'serviço privado de backup')),
     ('Lembretes e avisos automáticos',          ('ligado', 'timer do systemd'), ('limitado', 'agendador da nuvem chamando tarefas_agendadas.py'), ('ligado', 'aba Tasks')),
     ('E-mail, Google e Microsoft 365',          ('ligado', ''), ('ligado', ''), ('ligado', 'Google e Microsoft exigem conta paga (lista de sites liberados)')),
     ('Assistente e IAs (Claude / Gemini)',      ('ligado', ''), ('ligado', ''), ('ligado', 'conta paga para acessar as APIs')),
@@ -398,37 +398,22 @@ def recursos():
         itens.append(_item('banco_local', 'Banco num contêiner', 'desligado', 'O SQLite fica no disco do contêiner e se perde a cada reinício.',
                            'Use um banco gerenciado (RDS, Cloud SQL ou Azure Database) no DATABASE_URL.', 'Banco de dados'))
 
-    # Backup
-    pasta = pasta_backups()
-    ferramenta = ferramenta_backup(d)
-    if d == 'mssql':
-        itens.append(_item('backup', 'Backup pela plataforma', 'desligado',
-                           'No SQL Server o backup é feito pelo próprio servidor do banco (ou pelo Azure), não pela plataforma.',
-                           'Configure o plano de manutenção do SQL Server ou o backup automático do Azure SQL.', 'Backup'))
-    elif not ferramenta:
-        apt = BANCOS[d].get('apt', '')
-        itens.append(_item('backup', 'Backup pela plataforma', 'desligado', f"Falta o programa {BANCOS[d]['backup']} neste servidor.",
-                           f"sudo apt install {apt}" if apt else '', 'Backup'))
-    elif not disco_persistente():
-        itens.append(_item('backup', 'Backup pela plataforma', 'desligado', 'O disco do contêiner é apagado a cada reinício.',
-                           'Monte um volume e defina DISCO_PERSISTENTE=1 e BACKUP_DIR (no Docker Desktop, o docker-compose.ec2.yml '
-                           'já faz isso); ou use o backup do banco gerenciado.', 'Backup'))
-    elif not _gravavel(pasta):
-        itens.append(_item('backup', 'Backup pela plataforma', 'desligado', f'Sem permissão para gravar em {pasta}.',
-                           f'sudo mkdir -p {pasta} && sudo chown <usuário do site> {pasta}', 'Backup'))
+    # Backup: serviço privado mentoria-backup (host separado, sem acesso público)
+    import cliente_backup
+    if not cliente_backup.configurado():
+        itens.append(_item('backup', 'Backups (serviço privado de backup)', 'desligado',
+                           'A plataforma não faz backups: eles rodam no serviço privado, que não está configurado aqui.',
+                           'Defina BACKUP_SERVICO_URL e BACKUP_SERVICO_TOKEN (README do mentoria-ecossistema).', 'Backup'))
     else:
-        livre = espaco_livre(pasta)
-        pouco = livre is not None and livre < 1024 ** 3
-        itens.append(_item('backup', 'Backup pela plataforma', 'atencao' if pouco else 'ligado',
-                           f'Pasta {pasta}' + (' · menos de 1 GB livre' if pouco else ''), 'Libere espaço no disco.' if pouco else '', 'Backup'))
-    externa = pasta_backups_externa()
-    if externa and _gravavel(externa):
-        itens.append(_item('backup_externo', 'Cópia dos backups fora do servidor', 'ligado', f'Pasta {externa}', '', 'Backup'))
-    else:
-        itens.append(_item('backup_externo', 'Cópia dos backups fora do servidor', 'atencao',
-                           'Sem segunda cópia: se o disco do servidor falhar, o banco e os backups se perdem juntos.' if not externa
-                           else f'Sem permissão para gravar em {externa}.',
-                           'Defina BACKUP_DIR_EXTERNO com um disco de rede, um volume da nuvem ou uma pasta sincronizada pelo rclone.', 'Backup'))
+        saude = cliente_backup.saude()
+        if saude is None:
+            itens.append(_item('backup', 'Backups (serviço privado de backup)', 'atencao', 'O serviço de backup não respondeu agora.',
+                               'Confira o serviço no host de backup e o enlace privado entre os hosts.', 'Backup'))
+        else:
+            estado = {'Saudável': 'ligado', 'Atenção': 'atencao'}.get(saude.get('situacao'), 'desligado')
+            itens.append(_item('backup', 'Backups (serviço privado de backup)', estado,
+                               f"Situação: {saude.get('situacao')}" + (f" · {saude['motivo']}" if saude.get('motivo') else ''),
+                               '' if estado == 'ligado' else 'Veja os detalhes na tela do serviço de backup (pela VPN).', 'Backup'))
 
     # Arquivos e tarefas
     if arquivos_em_bucket():
@@ -501,23 +486,11 @@ def disponivel(chave):
         'agentes': lambda: (tipo_hospedagem() != 'conteiner', 'O contêiner encerra processos em segundo plano: rode os agentes numa máquina virtual.'),
         'omnitest': lambda: (tipo_hospedagem() != 'conteiner' and chromium_disponivel(),
                              'Sem o navegador Chromium neste servidor: os agentes OmniTest não rodam aqui.'),
-        'backup': lambda: _backup_disponivel(),
     }
     if chave not in rapidos:
         return True, ''
     ok, motivo = rapidos[chave]()
     return bool(ok), ('' if ok else motivo)
-
-
-def _backup_disponivel():
-    d = dialeto_do_banco()
-    if d == 'mssql':
-        return False, 'No SQL Server o backup é feito pelo próprio servidor do banco (ou pelo Azure), não pela plataforma.'
-    if not ferramenta_backup(d):
-        return False, f"Falta o programa {BANCOS.get(d, {}).get('backup')} neste servidor (veja Ambiente e compatibilidade)."
-    if not disco_persistente():
-        return False, 'O disco do contêiner é apagado a cada reinício: monte um volume ou use o backup do banco gerenciado.'
-    return True, ''
 
 
 def resumo():

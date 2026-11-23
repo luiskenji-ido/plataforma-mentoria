@@ -3,7 +3,8 @@
 AÇÕES DO DBA (Administração › Agentes de Banco de Dados)
 =======================================================
 Os agentes só LEEM o banco. As ações que alteram o banco são disparadas pelo administrador na tela e seguem sempre:
-  1. backup imediato validado (backup_servico, pasta "pre_manutencao"); se o backup falhar, nada é alterado;
+  1. backup imediato validado, pedido ao serviço privado de backup (cliente_backup, pasta "pre_manutencao");
+     se o serviço não estiver configurado, não responder ou o backup falhar, nada é alterado;
   2. a ação (ANALYZE + PRAGMA optimize, VACUUM, criação de índices sugeridos, verificação de integridade);
      no MySQL / MariaDB: ANALYZE TABLE, OPTIMIZE TABLE, CREATE INDEX e CHECK TABLE em todas as tabelas da plataforma;
   3. registro no histórico de manutenção (tabela manutencao_banco_dados), com duração e o arquivo de backup.
@@ -141,16 +142,13 @@ def _backup_antes(usuario_id, acao=None):
         except cliente_backup.ErroServicoBackup as erro:
             raise RuntimeError(f"backup de segurança falhou, nada foi alterado: {erro}") from erro
         return execucao.get('arquivo')
-    import backup_servico
-    registro = backup_servico.fazer_backup('Imediato', 'pre_manutencao', usuario_id)
-    if registro.status not in backup_servico.STATUS_OK:
-        raise RuntimeError(f"backup de segurança falhou, nada foi alterado: {registro.detalhes}")
-    return registro.arquivo
+    raise RuntimeError('backup de segurança indisponível, nada foi alterado: configure o serviço privado de backup '
+                       '(BACKUP_SERVICO_URL e BACKUP_SERVICO_TOKEN)')
 
 
 def executar(acao, usuario_id, indices=None):
     """Executa uma ação do DBA. Devolve o registro ManutencaoBanco (status Concluída ou Falha)."""
-    import backup_servico
+    from banco_config import caminho_banco_sqlite
     if acao not in ACOES:
         raise ValueError('ação desconhecida')
     inicio = time.time()
@@ -165,7 +163,7 @@ def executar(acao, usuario_id, indices=None):
             registro.status = _executar_mysql(acao, registro, indices)
             caminho = None
         elif acao == 'integridade':
-            caminho = backup_servico.caminho_banco()
+            caminho = caminho_banco_sqlite()
             con = sqlite3.connect(f"file:{caminho}?mode=ro", uri=True)
             try:
                 resultado = [r[0] for r in con.execute('PRAGMA integrity_check').fetchall()]
@@ -175,7 +173,7 @@ def executar(acao, usuario_id, indices=None):
             registro.detalhes = f"integrity_check: {'; '.join(resultado[:5])} · foreign_key_check: {len(chaves)} registro(s) órfão(s)"
             registro.status = 'Concluída' if resultado == ['ok'] else 'Falha'
         else:
-            caminho = backup_servico.caminho_banco()
+            caminho = caminho_banco_sqlite()
             registro.backup_arquivo = _backup_antes(usuario_id, acao)
             db.session.commit()
             db.session.remove()

@@ -343,18 +343,9 @@ def main():
     os.environ.pop('PULAR_ATUALIZACAO_BANCO', None)
     print('\nCriando ou atualizando a estrutura do banco...')
     from app import app                          # noqa: E402  (atualizar_estrutura_banco roda na importação)
-    import backup_servico
     with app.app_context():
-        criados = backup_servico.criar_agendamentos_padrao()
-        pastas = []
-        for _, _, pasta, _ in ambiente.AGENDAMENTOS_PADRAO + [('', '', 'manuais', 0)]:
-            try:
-                pastas.append(backup_servico.pasta_de(pasta))
-            except OSError as e:
-                print(f"  ! Sem permissão para criar {e.filename}: sudo mkdir -p {e.filename} && sudo chown {getpass.getuser()} {e.filename}")
-        print(f"Backups agendados padrão: {'criados (Diário 7, Semanal 4, Mensal 12)' if criados else 'já existiam, mantidos'}.")
-        if pastas:
-            print('Pastas de backup: ' + ', '.join(pastas))
+        print('Backups: ficam no serviço privado mentoria-backup, num servidor separado (agendamentos padrão: '
+              'flask --app servico agendamentos-padrao, lá). Aqui, defina BACKUP_SERVICO_URL e BACKUP_SERVICO_TOKEN.')
         criar_primeiro_administrador(p)
         situacao = ambiente.recursos()
     print('\nSituação dos recursos neste servidor:')

@@ -34,7 +34,7 @@ ROTAS_DO_MODULO = {"painel": ["dashboard"], "sessoes": ["sessoes"], "acompanhame
                    "biblioteca": ["biblioteca"], "certificados": ["certificados"], "demandas": ["demandas"], "voluntariado": ["esg_csv", "esg_pdf"],
                    "cadastros": ["usuarios", "grupos"], "reunioes": ["reunioes"],
                    "agenda_bancas": ["agenda_bancas", "avaliadores_banca"], "indicadores": ["indicadores"], "agentes_ia": ["agentes_ia"],
-                   "manutencao": ["banco"]}
+                   "manutencao": []}
 MODULO_DA_ROTA = {rota: modulo for modulo, rotas in ROTAS_DO_MODULO.items() for rota in rotas}
 
 

@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "_backup_privado.html" import atalho_backup with context %}
 {% block title %}{{ tt('Agentes de Funcionalidades') }}{% endblock %}
 {% block content %}
 <style>
@@ -125,7 +126,7 @@
         <h2 class="fw-bold mb-1 titulo-func"><i class="bi bi-diagram-3-fill"></i> {{ tt('Agentes de Funcionalidades') }}</h2>
         <a href="{{ url_for('agentes_ia') }}" class="small fw-bold me-3"><i class="bi bi-robot"></i> {{ tt('Agentes de testes fim a fim') }}</a>
         <a href="{{ url_for('agentes_seguranca') }}" class="small fw-bold me-3 text-danger"><i class="bi bi-shield-lock-fill"></i> {{ tt('Agentes de Segurança') }}</a>
-        <a href="{{ url_for('manutencao_banco') }}" class="small fw-bold me-3"><i class="bi bi-person-workspace"></i> {{ t('menu_manutencao') }}</a>
+        <span class="me-3">{{ atalho_backup('small fw-bold') }}</span>
         <a href="{{ url_for('agentes_banco') }}" class="small fw-bold me-3"><i class="bi bi-database-fill-check"></i> {{ tt('Agentes de Banco de Dados') }}</a>
         <a href="{{ url_for('governanca_aprendizados') }}" class="small fw-bold"><i class="bi bi-mortarboard"></i> {{ tt('Governança de aprendizados') }}</a>
         <p class="text-muted mb-0">{{ tt('O Gerente de Funcionalidades conduz o fluxo completo da plataforma como uma corrida de revezamento: cada agente entra com o seu perfil, testa todas as funções do seu acesso, valida as regras de negócio, cria os usuários e os dados do próximo e passa a vez. No fim, gera os relatórios com evidências e os prompts de correção.') }}</p>

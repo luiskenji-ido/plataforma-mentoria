@@ -46,9 +46,9 @@ class AgenteAluno(AgenteOmniTest):
     # Regra 1 (revista com a coordenação instituição/B2B): o Aluno não acede ao Relógio de Voluntariado nem à Sala da Banca,
     # mas usa o Portal de Demandas para registar pedidos (nada por WhatsApp ou e-mail)
     ROTAS_BLOQUEADAS = ["hub_educacional", "frequencia", "notas", "usuarios", "grupos",
-                        "banco", "banca", "esg_csv", "esg_pdf", "reunioes", "agenda_bancas", "avaliadores_banca", "minhas_bancas", "indicadores", "agentes_ia"]
+                        "banca", "esg_csv", "esg_pdf", "reunioes", "agenda_bancas", "avaliadores_banca", "minhas_bancas", "indicadores", "agentes_ia"]
     MENU_VISIVEL = ["dashboard", "sessoes", "acompanhamento", "projetos", "biblioteca", "demandas", "atividades_extras"]
-    MENU_OCULTO = ["hub_educacional", "frequencia", "notas", "usuarios", "banco", "reunioes"]
+    MENU_OCULTO = ["hub_educacional", "frequencia", "notas", "usuarios", "reunioes"]
 
     # ==========================================================================
     # TESTES APÓS O LOGIN

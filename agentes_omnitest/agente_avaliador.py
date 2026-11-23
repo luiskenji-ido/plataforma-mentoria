@@ -25,11 +25,11 @@ class AgenteAvaliador(AgenteOmniTest):
     # O /dashboard só redireciona para Minhas bancas (não é bloqueio nem página própria), por isso fica fora da matriz
     ROTAS_PERMITIDAS = ["minhas_bancas", "banca", "biblioteca", "demandas", "certificados", "repositorio"]
     ROTAS_BLOQUEADAS = ["sessoes", "acompanhamento", "projetos", "hub_educacional", "frequencia", "notas", "usuarios", "grupos",
-                        "banco", "esg_csv", "esg_pdf", "atividades_extras", "reunioes", "agenda_bancas",
+                        "esg_csv", "esg_pdf", "atividades_extras", "reunioes", "agenda_bancas",
                         "avaliadores_banca", "indicadores", "agentes_ia"]
     MENU_VISIVEL = ["minhas_bancas", "biblioteca", "demandas", "certificados"]
     MENU_OCULTO = ["sessoes", "acompanhamento", "projetos", "hub_educacional", "frequencia", "notas", "usuarios",
-                   "atividades_extras", "reunioes", "agenda_bancas", "avaliadores_banca", "indicadores", "banco"]
+                   "atividades_extras", "reunioes", "agenda_bancas", "avaliadores_banca", "indicadores"]
 
     ROTEIRO = [
         "Massa de dados [OmniTest]: banca em andamento (daqui a 1 hora) e banca realizada com resultado publicado",

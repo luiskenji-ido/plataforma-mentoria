@@ -78,3 +78,12 @@ def endereco_sem_senha(url=None):
         return make_url(url or endereco_do_banco()).render_as_string(hide_password=True)
     except Exception:
         return dialeto(url)
+
+
+def caminho_banco_sqlite():
+    """Arquivo do banco SQLite em uso (DBA, agentes e conhecimento do banco). Rodar dentro de um app_context."""
+    from flask import current_app
+    from models import db
+
+    banco = db.engine.url.database or ''
+    return banco if os.path.isabs(banco) else os.path.join(current_app.instance_path, 'mentoria.db')

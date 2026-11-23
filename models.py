@@ -312,6 +312,8 @@ class SegurancaUsuario(db.Model):
 # 11. TABELA: Registro de Backup
 # ==============================================================================
 class RegistroBackup(db.Model):
+    """LEGADO: o histórico de backups mora no serviço privado mentoria-backup (importado de lá por 'flask importar').
+    A tabela fica até a remoção aprovada (passo M8); nada na plataforma escreve nela."""
     id = db.Column(db.Integer, primary_key=True)
     tipo = db.Column(db.String(50)) # 'Agendado' ou 'Imediato'
     status = db.Column(db.String(50)) # 'Pendente', 'Sucesso' ou 'Falha'
@@ -1088,7 +1090,7 @@ class MaterialApoio(db.Model):
 # MANUTENÇÃO (DB): agendamentos de backup e trilha de auditoria das alterações
 # ==============================================================================
 class AgendamentoBackup(db.Model):
-    """Backup automático. Roda pelo tarefas_agendadas.py (de hora em hora) e também quando o app está em uso."""
+    """LEGADO (passo M8): os agendamentos de backup moram no serviço privado mentoria-backup. Nada na plataforma escreve aqui."""
     __tablename__ = 'agendamento_backup'
     id = db.Column(db.Integer, primary_key=True)
     frequencia = db.Column(db.String(20), nullable=False, default='Diário')  # Diário / Semanal / Mensal
@@ -1106,7 +1108,7 @@ class AgendamentoBackup(db.Model):
 
 
 class AlteracaoAgendamentoBackup(db.Model):
-    """Quem criou, editou, pausou, retomou, executou ou excluiu cada agendamento (fica mesmo após a exclusão)."""
+    """LEGADO (passo M8): auditoria dos agendamentos, importada pelo serviço privado mentoria-backup."""
     __tablename__ = 'alteracao_agendamento_backup'
     id = db.Column(db.Integer, primary_key=True)
     agendamento_id = db.Column(db.Integer, nullable=False)  # sem FK: o registro sobrevive à exclusão do agendamento
