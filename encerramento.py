@@ -30,7 +30,7 @@ def conexoes_abertas(linhas, porta):
     conexoes = pendentes = 0
     for linha in linhas:
         campos = linha.split()
-        if len(campos) < 5 or ":" not in campos[1] or ":" not in campos[4]:
+        if len(campos) < 5 or ":" not in campos[1] or ":" not in campos[4]:  # regra-nomeada: ok (colunas do /proc/net/tcp)
             continue
         try:
             porta_local = int(campos[1].rsplit(":", 1)[1], 16)

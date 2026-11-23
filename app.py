@@ -131,8 +131,6 @@ DURACAO_MINIMA_ATIVIDADE_MIN = 10         # atividade extra
 DURACAO_MINIMA_REUNIAO_MIN = 5
 DURACAO_MAXIMA_EVENTO_MIN = 12 * 60       # atividade extra e reunião
 CICLO_AVALIACAO_MAXIMO_DIAS = 90
-import backup_regras  # noqa: E402
-RETENCAO_BACKUP_MAXIMA = backup_regras.RETENCAO_MAXIMA   # cópias guardadas por agendamento de backup (regra em backup_regras.py)
 
 
 # Quem responde às dúvidas do Q&A do Acompanhamento e recebe o aviso no sino (só dos próprios alunos)
@@ -1601,7 +1599,6 @@ def _gerar_testes(aula_ids, usuario_id, usar_ia):
 
 
 def _gerar_testes_em_segundo_plano(aula_ids, usuario_id):
-    import threading
 
     def trabalho():
         with app.app_context():
@@ -5779,30 +5776,15 @@ def _recurso_indisponivel(chave):
 @app.route('/admin/ambiente')
 @login_required
 def ambiente_compatibilidade():
-    """Onde a plataforma está publicada, o banco em uso, as pastas de backup e o que funciona aqui (ligado, atenção
-    ou desligado, com o motivo e como ligar). Só o Administrador."""
+    """Onde a plataforma está publicada, o banco em uso e o que funciona aqui (ligado, atenção ou desligado, com o motivo
+    e como ligar). Os backups ficam no serviço privado (mentoria-backup): aqui só os indicadores dele. Só o Administrador."""
     bloqueio = _somente_administrador()
     if bloqueio:
         return bloqueio
     import ambiente
-    import backup_servico
-    from models import AgendamentoBackup
-    return render_template('ambiente.html', a=ambiente.resumo(), agendamentos=AgendamentoBackup.query.order_by(AgendamentoBackup.id).all(),
-                           tamanho_legivel=backup_servico.tamanho_legivel)
-
-
-@app.route('/admin/ambiente/backups-padrao', methods=['POST'])
-@login_required
-def ambiente_backups_padrao():
-    """Cria os agendamentos padrão (Diário 7, Semanal 4, Mensal 12) quando ainda não há nenhum."""
-    bloqueio = _somente_administrador()
-    if bloqueio:
-        return bloqueio
-    import backup_servico
-    criados = backup_servico.criar_agendamentos_padrao(current_user.id)
-    flash(tt('Agendamentos padrão criados: Diário, Semanal e Mensal.', current_user.idioma) if criados
-          else tt('Já existem agendamentos de backup: nada foi alterado.', current_user.idioma), 'success' if criados else 'info')
-    return redirect(url_for('ambiente_compatibilidade'))
+    import cliente_backup
+    return render_template('ambiente.html', a=ambiente.resumo(), saude_backup=cliente_backup.saude(),
+                           backup_configurado=cliente_backup.configurado())
 
 
 @app.route('/admin/identidade', methods=['GET', 'POST'])
@@ -6124,40 +6106,33 @@ def emitir_certificado(projeto_id, usuario_id):
 # ===========================================================================
 import os
 
-# Backup e restauração (Manutenção (DB)): rotas em rotas_backup.py, com os mesmos endpoints de antes
-import rotas_backup  # noqa: E402
-rotas_backup.registrar(app, PERFIS_ADMINISTRACAO_SISTEMA, lambda: atualizar_estrutura_banco())
+# Backup e restauração saíram desta aplicação: rodam no serviço privado mentoria-backup (host sem acesso público,
+# só pela VPN). Os endereços antigos (/admin/banco, /admin/banco/arquivo, /admin/banco/relatorio/<tipo>.csv e
+# /admin/ambiente/backups-padrao) não existem mais aqui (404).
 
 
-# Agendamentos vencidos também rodam quando o app está em uso (no máximo uma verificação a cada 5 minutos);
-# no PythonAnywhere quem garante a execução é o tarefas_agendadas.py, de hora em hora.
+# Requisições de mudança aprovadas também rodam quando o app está em uso (no máximo uma verificação a cada 5 minutos);
+# no PythonAnywhere quem garante a execução é o tarefas_agendadas.py, de hora em hora. Backups agendados não rodam
+# mais aqui: só no serviço privado de backup.
 def tarefas_no_processo_web():
-    """MENTORIA_TAREFAS_NO_WEB=0 (contêiner): o processo web só atende pedidos; backups e requisições de mudança ficam
-    com o processo worker. Sem a variável (PythonAnywhere, servidor), o comportamento de sempre."""
+    """MENTORIA_TAREFAS_NO_WEB=0 (contêiner): o processo web só atende pedidos; as requisições de mudança ficam com o
+    processo worker. Sem a variável (PythonAnywhere, servidor), o comportamento de sempre."""
     return os.environ.get('MENTORIA_TAREFAS_NO_WEB', '1') != '0'
 
 
-_ULTIMA_VERIFICACAO_BACKUP = [datetime.min]
+_ULTIMA_VERIFICACAO_TAREFAS = [datetime.min]
 
 
 @app.before_request
-def verificar_backups_agendados():
-    import cliente_backup
+def executar_tarefas_no_processo_web():
     if os.environ.get('MENTORIA_VALIDACAO') == '1':
-        return  # instância de validação do Orquestrador (cópia do banco): nunca grava backups nas pastas reais
+        return  # instância de validação do Orquestrador (cópia do banco)
     if not tarefas_no_processo_web() or request.blueprint == 'saude':
         return  # contêiner: as tarefas rodam no serviço "worker" (tarefas_agendadas.py --continuo), não nas requisições
     agora = datetime.now()
-    if agora - _ULTIMA_VERIFICACAO_BACKUP[0] < timedelta(minutes=5):
+    if agora - _ULTIMA_VERIFICACAO_TAREFAS[0] < timedelta(minutes=5):
         return
-    _ULTIMA_VERIFICACAO_BACKUP[0] = agora
-    if cliente_backup.agendador_no_monolito():  # BACKUP_AGENDADOR=servico: só o serviço privado de backup agenda
-        try:
-            import backup_servico
-            backup_servico.executar_vencidos(agora)
-        except Exception as e:
-            db.session.rollback()
-            app.logger.warning(f"Verificação de backups agendados falhou: {e}")
+    _ULTIMA_VERIFICACAO_TAREFAS[0] = agora
     _executar_mudancas_com_seguranca()  # requisições de mudança de código aprovadas e na data agendada
 
 
@@ -6606,31 +6581,6 @@ def sincronizar_agenda_acompanhamento(acomp_id):
 
     return redirect(url_for('acompanhamento', abrir_modal=regstro.id))
 
-
-# =========================================================================
-# MOTOR DE BACKUP EM SEGUNDO PLANO (WATCHER)
-# =========================================================================
-def rotina_de_backups(app_context):
-    """Com 'python app.py' no computador: confere os agendamentos de backup a cada minuto."""
-    import backup_servico
-    with app_context:
-        while True:
-            try:
-                backup_servico.executar_vencidos()
-            except Exception as e:
-                db.session.rollback()
-                app.logger.warning("Backup agendado falhou: %s: %s", type(e).__name__, e)
-            time.sleep(60)
-
-def iniciar_agendador(app):
-    import cliente_backup
-    if not cliente_backup.agendador_no_monolito():
-        app.logger.info("Backups agendados: rodam no serviço privado de backup (BACKUP_AGENDADOR=servico)")
-        return
-    # Inicia a tarefa invisível junto com o servidor Flask
-    thread = threading.Thread(target=rotina_de_backups, args=(app.app_context(),))
-    thread.daemon = True # Permite que a thread seja encerrada ao fechar o terminal
-    thread.start()
 
 # ==============================================================================
 # ROTA: PAINEL DE GESTÃO E VALIDAÇÃO DE FREQUÊNCIA (COM FILTROS E RANKING)
@@ -9179,8 +9129,8 @@ def estado_agentes_banco():
 @login_required
 def agentes_banco():
     import importlib.util
-    import backup_servico
     import banco_manutencao
+    import cliente_backup
     import conhecimento_banco
     bloqueio = _somente_administrador()
     if bloqueio:
@@ -9189,8 +9139,7 @@ def agentes_banco():
     try:
         aprendizado = conhecimento_banco.resumo_para_tela()
         indices = banco_manutencao.indices_sugeridos() if banco_manutencao.suportado() else []
-        import cliente_backup
-        saude_backup = cliente_backup.saude() if cliente_backup.configurado() else backup_servico.saude()
+        saude_backup = cliente_backup.saude()  # serviço privado de backup (None se não configurado ou fora do ar)
     except Exception as e:
         db.session.rollback()
         app.logger.warning(f"Agentes de Banco de Dados: {e}")
@@ -10579,8 +10528,6 @@ def _rotinas_de_dados_ao_iniciar():
         db.session.rollback()
     migrar_respostas_seguranca()
     garantir_modulos_trilha_tcc()
-    import backup_servico
-    backup_servico.migrar_agendamentos_antigos()
     try:
         import conhecimento
         conhecimento.garantir_fontes_padrao()
@@ -10610,10 +10557,11 @@ def _versao_tema():
 
 app.jinja_env.globals['versao_tema'] = _versao_tema()
 
+import cliente_backup  # noqa: E402
+app.jinja_env.globals['painel_backup'] = cliente_backup.endereco_do_painel
+
 
 if __name__ == '__main__':
-    # Liga a tarefa de backup automático em segundo plano
-    iniciar_agendador(app)
     # O servidor de desenvolvimento não anuncia versões do Werkzeug/Python no cabeçalho Server
     from werkzeug.serving import WSGIRequestHandler
     WSGIRequestHandler.server_version, WSGIRequestHandler.sys_version = 'Mentoria', ''

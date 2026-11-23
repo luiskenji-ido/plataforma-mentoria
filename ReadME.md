@@ -43,7 +43,6 @@ mentoria/
 	│   ├── projetos.html				# Gestão de Projetos/TCC com Subtarefas em cascata e equipes de apoio        		
 	│   ├── admin_usuarios.html			# Governança de acessos, com suporte a múltiplos mentores e reset de segurança    		
 	│   ├── admin_cursos.html			# Catálogo de portfólio e auditoria      		
-	│   ├── admin_banco.html			# Gestão administrativa do banco de dados, backups e auditoria          	
 	│   ├── cadastrar_perguntas.html	# Configuração de segurança  	
 	│   ├── perguntas_seguranca.html 	# Recuperação de senha baseada em perguntas 	
     │   └── trocar_senha.html			# Interface de troca de senha obrigatória 			
@@ -150,7 +149,7 @@ mentoria/
 
 		Governança Multi-Mentor: Checkboxes de seleção múltipla para mentores.
 
-		Rotina de Backup em Background: Watcher assíncrono para backups programados do SQLite sem impactar a performance.
+		Backups: no serviço privado mentoria-backup (servidor separado, sem acesso público); veja "Backup e restauração" abaixo.
 
 ⚙️ Instruções de Instalação e Execução
 
@@ -268,48 +267,42 @@ mentoria/
 		    PULAR_ATUALIZACAO_BANCO=1 flask --app app db migrate -m "o que mudou"
 		Trocar de motor numa instalação com dados: copiar_banco.py copia todas as tabelas e confere as quantidades.
 		    python copiar_banco.py --de sqlite:///mentoria.db --para "mysql+pymysql://..."   (--substituir apaga o destino)
-		Backup (Manutenção › DB): SQLite gera .db; MySQL gera .sql.gz pelo mysqldump (pacote mysql-client); PostgreSQL
-		gera .dump pelo pg_dump (pacote postgresql-client). A senha vai num arquivo temporário, nunca na linha de comando.
-		Um .db também restaura num MySQL ou PostgreSQL. No SQL Server o backup é do próprio servidor do banco (ou do Azure).
+		Backup e restauração: no serviço privado mentoria-backup (veja "Backup e restauração" abaixo), não nesta aplicação.
 		Drivers opcionais: requirements-postgresql.txt (psycopg) e requirements-sqlserver.txt (pyodbc + ODBC Driver 18).
 		Textos longos usam LONGTEXT no MySQL (o TEXT de lá guarda só 64 KB). Código: banco_config.py.
 
 	🧭 Instalador e hospedagens (cada cliente escolhe a nuvem e o banco)
-		python3 instalar.py pergunta a hospedagem, o banco, a conexão e as pastas de backup, grava o .env, cria o banco e
-		a estrutura, copia os dados de um SQLite antigo (opcional) e cria os backups agendados padrão. Pode rodar de novo.
+		python3 instalar.py pergunta a hospedagem, o banco e a conexão, grava o .env, cria o banco e a estrutura e copia
+		os dados de um SQLite antigo (opcional). Pode rodar de novo. Os backups são do serviço privado mentoria-backup.
 		Hospedagens (HOSPEDAGEM no .env) e o que funciona em cada uma:
 		- Servidor próprio ou máquina virtual na AWS (EC2/Lightsail), GCP (Compute Engine) ou Azure: tudo funciona.
-		- Contêiner (AWS App Runner/ECS, GCP Cloud Run, Azure App Service/Container Apps): banco gerenciado; arquivos e
-		  backups só com volume montado; agentes e Orquestrador desligados; tarefas por agendador da nuvem.
+		- Contêiner (AWS App Runner/ECS, GCP Cloud Run, Azure App Service/Container Apps): banco gerenciado; arquivos no
+		  bucket (ARMAZENAMENTO=s3); agentes e Orquestrador desligados; tarefas por agendador da nuvem.
 		- PythonAnywhere: MySQL incluso (PostgreSQL pago, sem SQL Server); agentes OmniTest desligados (sem Chromium).
 		Bancos por hospedagem: máquina virtual = MySQL, PostgreSQL, SQL Server ou SQLite; contêiner = MySQL, PostgreSQL ou
 		SQL Server gerenciados; PythonAnywhere = MySQL, PostgreSQL ou SQLite.
-		Pastas de backup padrão (BACKUP_DIR): máquina virtual /var/backups/mentoria; PythonAnywhere ~/backups/mentoria;
-		contêiner /dados/backups (volume); computador instance/backups. Subpastas diario (guarda 7), semanal (4),
-		mensal (12) e manuais. BACKUP_DIR_EXTERNO recebe uma segunda cópia de cada backup fora do servidor (disco de
-		rede, volume da nuvem ou pasta do rclone), com a mesma retenção.
 		Guias: deploy/ubuntu, deploy/aws, deploy/gcp, deploy/azure, deploy/pythonanywhere; imagem no Dockerfile da raiz (docker-compose.yml para rodar localmente).
 		Docker Desktop: docker-compose.yml simula um CONTÊINER (agentes desligados de propósito). Para simular uma EC2 (agentes,
-		Chromium e backup em volume): docker compose -f docker-compose.yml -f docker-compose.ec2.yml up -d --build
-		Tela: Administração › Sistema › Ambiente e compatibilidade mostra a hospedagem, o banco, as pastas e cada recurso
-		ligado, com atenção ou desligado (com o motivo e como ligar). As rotas dos agentes e o backup consultam a mesma
-		verificação e se desligam sozinhos onde não funcionam. Código: ambiente.py e instalar.py.
+		Chromium): docker compose -f docker-compose.yml -f docker-compose.ec2.yml up -d --build. O ecossistema completo, com o
+		serviço de backup, sobe pelo docker compose do repositório LK-Plataforma-Mentoria/mentoria-ecossistema.
+		Tela: Administração › Sistema › Ambiente e compatibilidade mostra a hospedagem, o banco, a situação dos backups
+		(indicadores do serviço privado) e cada recurso ligado, com atenção ou desligado (com o motivo e como ligar).
+		Código: ambiente.py e instalar.py.
 
 	🐧 Instalação em servidor Ubuntu 24.04 (uma instalação por cliente)
 		Arquivos prontos em deploy/ubuntu/ (systemd, nginx, tarefas de hora em hora e o modelo do .env).
 		1. Pacotes (MySQL; para PostgreSQL troque por postgresql postgresql-client):
 		    sudo apt update && sudo apt install -y python3-venv python3-dev build-essential git nginx mysql-server mysql-client
-		2. Usuário do sistema, código e pasta de backups:
+		2. Usuário do sistema e código:
 		    sudo adduser --system --group --home /srv/mentoria mentoria
 		    sudo -u mentoria git clone <repositório> /srv/mentoria   (ou copie os arquivos)
 		    cd /srv/mentoria && sudo -u mentoria python3 -m venv .venv
 		    sudo -u mentoria .venv/bin/pip install -r requirements.txt
-		    sudo mkdir -p /var/backups/mentoria && sudo chown mentoria: /var/backups/mentoria
 		3. Instalador: sudo -u mentoria .venv/bin/python instalar.py
 		   Escolha "Servidor próprio" (ou a máquina virtual da sua nuvem), o banco e "o banco fica neste mesmo servidor".
 		   Ele grava o .env (só o dono lê) e o SQL que cria o banco e o usuário; rode o comando que ele mostrar
 		   (ex.: sudo mysql -e "source /srv/mentoria/instance/criar_banco_mysql.sql"), apague o arquivo e rode o instalador de novo para criar a
-		   estrutura e os backups agendados. Vindo de uma instalação SQLite (ex.: PythonAnywhere), informe o arquivo
+		   estrutura. Vindo de uma instalação SQLite (ex.: PythonAnywhere), informe o arquivo
 		   mentoria.db quando ele perguntar e copie também a pasta uploads/.
 		6. Serviços:
 		    sudo cp deploy/ubuntu/mentoria.service deploy/ubuntu/mentoria-tarefas.* /etc/systemd/system/
@@ -318,13 +311,95 @@ mentoria/
 		   domínio, ative o site, sudo nginx -t && sudo systemctl reload nginx e depois sudo certbot --nginx -d <domínio>.
 		8. Primeiro acesso: entre como Administrador e preencha Administração › Sistema › Identidade da instituição.
 		Atualizar a versão: git pull, pip install -r requirements.txt, flask --app app db upgrade e
-		sudo systemctl restart mentoria. Backups: o instalador cria Diário, Semanal e Mensal (Manutenção › DB para
-		mudar); as tarefas de hora em hora executam. Configure BACKUP_DIR_EXTERNO para a cópia fora do servidor.
+		sudo systemctl restart mentoria. Backups: no serviço privado mentoria-backup (BACKUP_SERVICO_URL e BACKUP_SERVICO_TOKEN).
 
 	5️⃣ Start da Aplicação
 		Inicie o servidor Flask principal:
 		python app.py
 		Acesse a aplicação via navegador no endereço: http://127.0.0.1:5000
+
+---
+
+## 🛠️ Operação (dependências, configuração, execução, portas, sondas e testes)
+
+### Dependências
+- Python 3.12 e `requirements.txt` (desenvolvimento: `requirements-dev.txt`, com pytest, ruff e Testcontainers).
+- Banco: MySQL 8.4 (produção), PostgreSQL ou SQLite (desenvolvimento). Redis e um bucket S3/MinIO quando roda em contêiner.
+- **Serviço privado de backup** [LK-Plataforma-Mentoria/mentoria-backup](https://github.com/LK-Plataforma-Mentoria/mentoria-backup):
+  sem ele a plataforma funciona, mas não há backup e as ações do DBA que pedem backup prévio são recusadas.
+
+### Configuração
+Todas as variáveis estão em `.env.example`, com o que cada uma faz. As do backup:
+
+| Variável | Para quê |
+|---|---|
+| `BACKUP_SERVICO_URL` | endereço do serviço de backup pelo enlace privado (ex.: `https://backup.mentoria.interno:8443`) |
+| `BACKUP_SERVICO_TOKEN` | token de serviço gerado lá (`flask --app servico tokens gerar --nome mentoria-web`) |
+| `BACKUP_SERVICO_CA` | certificado da CA interna que assinou o TLS do serviço |
+| `BACKUP_SERVICO_PRAZO` | segundos para esperar um backup prévio (1800) |
+| `BACKUP_PAINEL_URL` | atalho no menu dos administradores para a tela do serviço (abre só pela VPN) |
+
+### Rodar direto pelo framework
+
+```bash
+python3.12 -m venv .venv && . .venv/bin/activate && pip install -r requirements-dev.txt
+```
+
+```bash
+cp .env.example .env    # defina ao menos SECRET_KEY e DATABASE_URL
+```
+
+```bash
+flask --app app db upgrade
+```
+
+```bash
+python app.py           # http://127.0.0.1:5000 (aplica as migrações ao iniciar)
+```
+
+```bash
+python tarefas_agendadas.py --continuo   # lembretes e requisições de mudança
+```
+
+### Rodar com Docker
+- Só a plataforma, com MySQL, Redis e MinIO: `docker compose up -d --build` (http://localhost:8080).
+- O ecossistema completo, com o serviço de backup e as redes que simulam os hosts: `docker compose up -d --build` no repositório
+  [LK-Plataforma-Mentoria/mentoria-ecossistema](https://github.com/LK-Plataforma-Mentoria/mentoria-ecossistema).
+
+### Portas e sondas
+
+| Porta | Rota | O que responde |
+|---|---|---|
+| 5000 (`python app.py`) / 8080 (contêiner) | `GET /healthz` | `200` se o processo responde (sem dependências) |
+| idem | `GET /readyz` | `200` com banco, Redis e armazenamento ok; senão `503` (o balanceador tira a réplica) |
+
+### Ordem de subida
+`db`, `redis` e `minio` saudáveis → `migrar` (`flask --app app db upgrade`) termina → `web` e `worker`. A plataforma **não**
+depende do serviço de backup para subir: sem ele, só as ações do DBA com backup prévio ficam recusadas, e as telas mostram os
+indicadores como indisponíveis.
+
+### Backup e restauração
+Ficam no serviço privado mentoria-backup, num servidor separado e sem acesso público (só pela VPN). Esta aplicação:
+- não tem tela, rota, tarefa agendada nem permissão de backup ou restauração. Os endereços antigos `/admin/banco`,
+  `/admin/banco/arquivo`, `/admin/banco/relatorio/<tipo>.csv` e `/admin/ambiente/backups-padrao` respondem `404`;
+- pede o backup prévio ao serviço antes das ações do DBA (`POST /api/v1/backups`) e mostra os indicadores dele
+  (`GET /api/v1/saude`) em *Ambiente e compatibilidade* e no Gerente de Banco de Dados;
+- não leva `mysqldump`/`pg_dump` na imagem, nem credenciais com poder de copiar ou restaurar o banco.
+
+As tabelas antigas (`registro_backup`, `agendamento_backup`, `alteracao_agendamento_backup`) continuam no banco até a remoção
+aprovada (passo M8). O histórico delas é importado pelo serviço: `flask --app servico importar`.
+
+### Testes
+
+| Camada | Comando | Precisa de |
+|---|---|---|
+| Lint | `ruff check .` | — |
+| Unidade | `pytest tests/unit -q` | nada |
+| Integração | `pytest tests/integration -q` | Docker (MySQL 8.4 via Testcontainers) |
+| Ponta a ponta | `pytest tests/e2e -q` | Docker (imagem + MySQL, Redis e MinIO) |
+| Ecossistema (com o backup) | `pytest tests/e2e -q` no mentoria-ecossistema | Docker |
+
+Fluxo de branches: gitflow (`develop` é a integração; cada mudança vem de uma `feature/*` por PR).
 
 ✨ Autor
 

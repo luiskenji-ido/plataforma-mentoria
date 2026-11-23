@@ -7,12 +7,12 @@
 #   docker build --build-arg AGENTES=1 -t mentoria:ec2 .        (navegador Chromium para os agentes OmniTest e prints:
 #                                                                 simulação de máquina virtual, docker-compose.ec2.yml)
 #
-# A imagem leva o programa de backup do banco escolhido (mysqldump/mariadb-dump ou pg_dump): com um volume em BACKUP_DIR
-# o backup pela plataforma funciona também no contêiner.
+# Backup e restauração NÃO fazem parte desta imagem: rodam no serviço privado mentoria-backup (outro host, sem acesso
+# público). Por isso a imagem pública não leva mysqldump/pg_dump nem credenciais com poder de copiar ou restaurar o banco.
 #
 # Processos (mesma imagem, comando diferente):
 #   web      gunicorn --config gunicorn.conf.py app:app          (padrão)
-#   worker   python tarefas_agendadas.py --continuo              (backups, lembretes, requisições de mudança)
+#   worker   python tarefas_agendadas.py --continuo              (lembretes e requisições de mudança)
 #   migrar   flask --app app db upgrade                          (uma vez por versão, antes do web)
 #
 # Segurança: usuário sem privilégios (uid 10001), sistema de arquivos só de leitura (monte /tmp e /app/instance como
@@ -42,7 +42,6 @@ ARG AGENTES=0
 ARG PLAYWRIGHT_VERSAO=1.64.1
 RUN apt-get update \
  && apt-get install -y --no-install-recommends tini \
-    $(if [ "$BANCO" = "mysql" ]; then echo default-mysql-client; elif [ "$BANCO" = "postgresql" ]; then echo postgresql-client; fi) \
  && rm -rf /var/lib/apt/lists/* \
  && groupadd --system --gid 10001 mentoria \
  && useradd --system --uid 10001 --gid mentoria --home-dir /app --shell /usr/sbin/nologin mentoria

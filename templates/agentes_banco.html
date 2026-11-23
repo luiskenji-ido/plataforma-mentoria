@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "_backup_privado.html" import atalho_backup, situacao_backup with context %}
 {% block title %}{{ tt('Agentes de Banco de Dados') }}{% endblock %}
 {% block content %}
 <style>
@@ -125,7 +126,7 @@
         <h2 class="fw-bold mb-1 titulo-banco"><i class="bi bi-database-fill-check"></i> {{ tt('Agentes de Banco de Dados') }}</h2>
         <a href="{{ url_for('agentes_ia') }}" class="small fw-bold me-3"><i class="bi bi-robot"></i> {{ tt('Agentes de testes fim a fim') }}</a>
         <a href="{{ url_for('agentes_seguranca') }}" class="small fw-bold me-3 text-danger"><i class="bi bi-shield-lock-fill"></i> {{ tt('Agentes de Segurança') }}</a>
-        <a href="{{ url_for('manutencao_banco') }}" class="small fw-bold me-3"><i class="bi bi-database-fill-gear"></i> {{ t('menu_manutencao') }}</a>
+        <span class="me-3">{{ atalho_backup('small fw-bold') }}</span>
         <a href="{{ url_for('governanca_aprendizados') }}" class="small fw-bold"><i class="bi bi-mortarboard"></i> {{ tt('Governança de aprendizados') }}</a>
         <p class="text-muted mb-0">{{ tt('O Gerente de Banco de Dados coordena 5 especialistas: revisam as consultas e o desempenho, o esquema e os índices, os backups e a restauração, a manutenção e os logs, e a migração para outros bancos. No fim, gera relatórios em PDF e prompts de melhoria para qualquer LLM.') }}</p>
     </div>
@@ -400,19 +401,9 @@
             <div class="col-lg-5">
                 <div class="card shadow-sm border-0 h-100" id="cardBackupBanco"><div class="card-body">
                     <h6 class="fw-bold mb-2"><i class="bi bi-cloud-check text-info-emphasis"></i> {{ tt('Situação dos backups') }}</h6>
-                    {% if saude_backup %}
-                    {% set cor_backup = {'Saudável': 'success', 'Atenção': 'warning', 'Crítica': 'danger'}.get(saude_backup.situacao, 'secondary') %}
-                    <div class="mb-2"><span class="badge bg-{{ cor_backup }} fs-6">{{ tt(saude_backup.situacao) }}</span>
-                        {% if saude_backup.motivo %}<span class="small text-muted ms-1">{{ tt(saude_backup.motivo) }}</span>{% endif %}</div>
-                    <ul class="list-unstyled small mb-3">
-                        <li><i class="bi bi-calendar-check"></i> {{ tt('Agendamentos ativos') }}: <b>{{ saude_backup.ativos }}</b>{% if saude_backup.pausados %} · {{ tt('pausados') }}: {{ saude_backup.pausados }}{% endif %}</li>
-                        <li><i class="bi bi-clock-history"></i> {{ tt('Último backup bem-sucedido') }}: <b>{{ saude_backup.ultimo.strftime('%d/%m/%Y %H:%M') if saude_backup.ultimo else '—' }}</b></li>
-                        <li><i class="bi bi-alarm"></i> {{ tt('Próximo agendado') }}: <b>{{ saude_backup.proximo.strftime('%d/%m/%Y %H:%M') if saude_backup.proximo else '—' }}</b></li>
-                        <li><i class="bi bi-x-octagon"></i> {{ tt('Falhas registradas') }}: <b>{{ saude_backup.falhas }}</b></li>
-                    </ul>
-                    {% endif %}
-                    <a href="{{ url_for('manutencao_banco') }}" class="btn btn-sm btn-outline-info fw-bold"><i class="bi bi-database-fill-gear"></i> {{ tt('Gerenciar backups e agendamentos') }}</a>
-                    <small class="text-muted d-block mt-2">{{ tt('O Agente Backup e Recuperação confere tudo isso a cada análise e faz um teste de restauração numa cópia temporária.') }}</small>
+                    {{ situacao_backup(saude_backup) }}
+                    {{ atalho_backup() }}
+                    <small class="text-muted d-block mt-2">{{ tt('Indicadores do serviço privado de backup. Lá cada backup pode ter a restauração testada num banco descartável antes de valer para produção.') }}</small>
                 </div></div>
             </div>
         </div>

@@ -1,48 +1,72 @@
-"""Monólito ligado ao serviço privado de backup: o agendador num lugar só e o backup prévio do DBA pela API."""
+"""Backup e restauração fora da plataforma pública: endereços antigos, worker e o backup prévio do DBA pelo serviço."""
 
 from datetime import datetime
 
 import pytest
 
-
-@pytest.fixture
-def agendador_no_servico(monkeypatch):
-    monkeypatch.setenv("BACKUP_AGENDADOR", "servico")
-
-
-def test_com_agendador_no_servico_as_requisicoes_nao_rodam_backup(app_real, monkeypatch, agendador_no_servico):
-    import backup_servico
-
-    chamadas, mudancas = [], []
-    monkeypatch.setattr(app_real, "_ULTIMA_VERIFICACAO_BACKUP", [datetime.min])
-    monkeypatch.setattr(backup_servico, "executar_vencidos", lambda agora: chamadas.append(agora))
-    monkeypatch.setattr(app_real, "_executar_mudancas_com_seguranca", lambda: mudancas.append(1))
-    app_real.app.test_client().get("/")
-    assert chamadas == [] and mudancas == [1]  # as requisições de mudança continuam com o mesmo intervalo
+ENDERECOS_ANTIGOS = [
+    ("get", "/admin/banco"),
+    ("post", "/admin/banco"),
+    ("get", "/admin/banco/arquivo?f=manuais/x.sql.gz"),
+    ("get", "/admin/banco/relatorio/execucoes.csv"),
+    ("get", "/admin/banco/relatorio/alteracoes.csv"),
+    ("post", "/admin/ambiente/backups-padrao"),
+]
 
 
-def test_sem_a_variavel_o_comportamento_de_sempre(app_real, monkeypatch):
-    import backup_servico
+@pytest.mark.parametrize("perfil", ["Administrador", "Mentor Administrador", "Aluno"])
+def test_enderecos_antigos_de_backup_nao_existem(novo_usuario, novo_navegador, perfil):
+    _, email, senha = novo_usuario(perfil)
+    nav = novo_navegador()
+    nav.entrar(email, senha)
+    for metodo, caminho in ENDERECOS_ANTIGOS:
+        r = getattr(nav, metodo)(caminho, data={"acao": "backup"}) if metodo == "post" else nav.get(caminho)
+        assert r.status_code == 404, (perfil, metodo, caminho, r.status_code)
 
-    monkeypatch.delenv("BACKUP_AGENDADOR", raising=False)
-    chamadas = []
-    monkeypatch.setattr(app_real, "_ULTIMA_VERIFICACAO_BACKUP", [datetime.min])
-    monkeypatch.setattr(backup_servico, "executar_vencidos", lambda agora: chamadas.append(agora))
-    app_real.app.test_client().get("/")
-    assert len(chamadas) == 1
+
+def test_menu_e_telas_nao_apontam_para_backup(novo_usuario, novo_navegador, monkeypatch):
+    _, email, senha = novo_usuario("Administrador")
+    nav = novo_navegador()
+    nav.entrar(email, senha)
+    for caminho in ("/dashboard", "/admin/ambiente", "/admin/agentes-banco", "/admin/agentes-funcionalidades"):
+        r = nav.get(caminho)
+        assert r.status_code == 200, caminho
+        assert b"/admin/banco" not in r.data, caminho
+    monkeypatch.setenv("BACKUP_PAINEL_URL", "https://backup.mentoria.interno:8443/admin/banco")
+    assert b"https://backup.mentoria.interno:8443/admin/banco" in nav.get("/admin/ambiente").data  # só o atalho para a VPN
 
 
-def test_com_agendador_no_servico_o_worker_e_a_thread_nao_rodam_backup(app_real, monkeypatch, agendador_no_servico):
-    import threading
-
-    import backup_servico
+def test_worker_e_requisicoes_nao_rodam_backup(app_real):
     import tarefas_agendadas
 
-    monkeypatch.setattr(backup_servico, "executar_vencidos", lambda *_: pytest.fail("o worker rodou backup agendado"))
-    assert tarefas_agendadas.executar_backups_agendados(datetime.now()) == 0
-    antes = threading.active_count()
-    app_real.iniciar_agendador(app_real.app)
-    assert threading.active_count() == antes  # a thread do 'python app.py' não foi criada
+    nomes = [t.__name__ for t in tarefas_agendadas.TAREFAS]
+    assert not [n for n in nomes if "backup" in n]
+    assert not hasattr(app_real, "iniciar_agendador") and not hasattr(app_real, "rotina_de_backups")
+
+
+def test_requisicoes_de_mudanca_seguem_no_intervalo_de_5_min(app_real, monkeypatch):
+    mudancas = []
+    monkeypatch.setattr(app_real, "_ULTIMA_VERIFICACAO_TAREFAS", [datetime.min])
+    monkeypatch.setattr(app_real, "_executar_mudancas_com_seguranca", lambda: mudancas.append(1))
+    cliente = app_real.app.test_client()
+    cliente.get("/")
+    cliente.get("/")
+    assert mudancas == [1]
+
+
+def test_dba_sem_servico_configurado_nao_altera_nada(app_real, monkeypatch, novo_usuario):
+    import banco_manutencao
+
+    admin_id, _, _ = novo_usuario("Administrador")
+    monkeypatch.delenv("BACKUP_SERVICO_URL", raising=False)
+    executou = []
+    monkeypatch.setattr(banco_manutencao, "_executar_mysql", lambda *a: executou.append(a) or "Concluída")
+    with app_real.app.app_context():
+        registro = banco_manutencao.executar("otimizar", admin_id)
+        assert registro.status == "Falha" and "BACKUP_SERVICO_URL" in registro.detalhes
+        app_real.db.session.delete(registro)
+        app_real.db.session.commit()
+    assert executou == []
 
 
 def test_dba_com_servico_fora_do_ar_nao_altera_nada(app_real, monkeypatch, novo_usuario):

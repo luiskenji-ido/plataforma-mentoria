@@ -1,4 +1,4 @@
-"""cliente_backup: backup prévio pelo serviço privado (consulta, idempotência, recusas) e o interruptor do agendador."""
+"""cliente_backup: backup prévio pelo serviço privado (consulta, idempotência, recusas), indicadores e atalho."""
 
 import pytest
 import requests
@@ -121,10 +121,13 @@ def test_sem_url_o_cliente_fica_desligado(monkeypatch):
     assert not cb.configurado() and cb.saude() is None
 
 
-@pytest.mark.parametrize("valor, no_monolito", [(None, True), ("monolito", True), ("servico", False), (" Servico ", False)])
-def test_interruptor_do_agendador(monkeypatch, valor, no_monolito):
-    if valor is None:
-        monkeypatch.delenv("BACKUP_AGENDADOR", raising=False)
-    else:
-        monkeypatch.setenv("BACKUP_AGENDADOR", valor)
-    assert cb.agendador_no_monolito() is no_monolito
+def test_atalho_do_painel(monkeypatch):
+    monkeypatch.setenv("BACKUP_PAINEL_URL", " https://backup.mentoria.interno:8443/admin/banco ")
+    assert cb.endereco_do_painel() == "https://backup.mentoria.interno:8443/admin/banco"
+    monkeypatch.delenv("BACKUP_PAINEL_URL")
+    assert cb.endereco_do_painel() == ""
+
+
+def test_agendamentos_sem_resposta_e_lista_vazia():
+    assert cb.agendamentos(sessao=Sessao(gets=[requests.ConnectTimeout()])) == []
+    assert cb.agendamentos(sessao=Sessao(gets=[Resposta(200, [{"id": 1}])])) == [{"id": 1}]

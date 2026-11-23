@@ -1,0 +1,27 @@
+{# Atalho para o serviço privado de backup (mentoria-backup). Backup e restauração não existem nesta aplicação:
+   só abrem pela VPN, no endereço de BACKUP_PAINEL_URL. Sem a variável, só o aviso. #}
+{% macro atalho_backup(classe='btn btn-sm btn-outline-info fw-bold') -%}
+{%- set endereco = painel_backup() -%}
+{%- if endereco -%}
+<a href="{{ endereco }}" class="{{ classe }}" target="_blank" rel="noopener noreferrer"><i class="bi bi-shield-lock"></i> {{ tt('Backups (serviço privado, só pela VPN)') }}</a>
+{%- else -%}
+<span class="small text-muted"><i class="bi bi-shield-lock"></i> {{ tt('Backup e restauração ficam no serviço privado de backup, acessível só pela VPN.') }}</span>
+{%- endif -%}
+{%- endmacro %}
+
+{% macro situacao_backup(saude) -%}
+{% if saude %}
+{% set cor_backup = {'Saudável': 'success', 'Atenção': 'warning', 'Crítica': 'danger'}.get(saude.situacao, 'secondary') %}
+<div class="mb-2"><span class="badge bg-{{ cor_backup }} fs-6">{{ tt(saude.situacao) }}</span>
+    {% if saude.motivo %}<span class="small text-muted ms-1">{{ tt(saude.motivo) }}</span>{% endif %}</div>
+<ul class="list-unstyled small mb-3">
+    <li><i class="bi bi-calendar-check"></i> {{ tt('Agendamentos ativos') }}: <b>{{ saude.ativos }}</b>{% if saude.pausados %} · {{ tt('pausados') }}: {{ saude.pausados }}{% endif %}</li>
+    <li><i class="bi bi-clock-history"></i> {{ tt('Último backup bem-sucedido') }}: <b>{{ saude.ultimo.strftime('%d/%m/%Y %H:%M') if saude.ultimo else '—' }}</b></li>
+    <li><i class="bi bi-patch-check"></i> {{ tt('Último backup verificado (restauração testada)') }}: <b>{{ saude.ultimo_verificado.strftime('%d/%m/%Y %H:%M') if saude.ultimo_verificado else '—' }}</b></li>
+    <li><i class="bi bi-alarm"></i> {{ tt('Próximo agendado') }}: <b>{{ saude.proximo.strftime('%d/%m/%Y %H:%M') if saude.proximo else '—' }}</b></li>
+    <li><i class="bi bi-x-octagon"></i> {{ tt('Falhas registradas') }}: <b>{{ saude.falhas }}</b></li>
+</ul>
+{% else %}
+<p class="small text-muted">{{ tt('Sem os indicadores do serviço de backup agora (não configurado ou fora do alcance).') }}</p>
+{% endif %}
+{%- endmacro %}

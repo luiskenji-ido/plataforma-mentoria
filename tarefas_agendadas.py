@@ -1,5 +1,5 @@
 """
-TAREFAS AGENDADAS DA PLATAFORMA (lembretes automáticos e backups agendados)
+TAREFAS AGENDADAS DA PLATAFORMA (lembretes automáticos; backups agendados ficam no serviço privado de backup)
 =======================================================
 Rode de hora em hora. Cada tarefa usa uma 'referencia' na notificação,
 por isso rodar várias vezes não repete o mesmo aviso.
@@ -255,16 +255,6 @@ def fechar_presenca_reuniao_esquecida(agora):
 
 
 # As próximas adequações acrescentam aqui os lembretes delas
-def executar_backups_agendados(agora):
-    """Manutenção (DB): roda os agendamentos de backup vencidos (Diário, Semanal ou Mensal)."""
-    import cliente_backup
-    if not cliente_backup.agendador_no_monolito():
-        log.info("backups agendados desligados aqui: rodam no serviço privado de backup (BACKUP_AGENDADOR=servico)")
-        return 0
-    import backup_servico
-    return backup_servico.executar_vencidos(agora)
-
-
 def aprender_mudancas_da_plataforma(agora):
     """Agente Gerente Técnico: percebe perfis e rotas novos e distribui os aprendizados aos agentes (autônomo)."""
     import conhecimento
@@ -324,7 +314,7 @@ def executar_mudancas_de_codigo(agora):
 TAREFAS = [aplicar_mudancas_aprovadas, executar_mudancas_de_codigo, lembrar_checkout_esquecido, lembrar_encaminhamentos_vencidos, avisar_ocorrencias_atrasadas, enviar_formulario_banca, fechar_checkin_banca_esquecido,
            fechar_presenca_reuniao_esquecida, abrir_microavaliacao, lembrar_avaliacao_pendente, lembrar_avaliacao_reuniao,
            lembrar_saida_esquecida, avisar_prazo_entrega_tcc,
-           executar_backups_agendados, aprender_mudancas_da_plataforma, aprender_seguranca, aprender_banco_de_dados, aprender_funcionalidades,
+           aprender_mudancas_da_plataforma, aprender_seguranca, aprender_banco_de_dados, aprender_funcionalidades,
            conferir_catalogo_de_ia]
 
 
