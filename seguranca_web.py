@@ -76,6 +76,9 @@ document.addEventListener('submit',function(ev){{por(ev.target)}},true);
 
 
 # ------------------------------------------------------------------------------ chave secreta
+NOME_SERVIDOR = "Mentoria"  # cabeçalho Server: não anuncia o servidor nem versões
+
+
 class ChaveSecretaAusente(RuntimeError):
     """A plataforma não sobe sem uma SECRET_KEY válida onde o disco não guarda o arquivo da chave (contêiner)."""
 
@@ -360,7 +363,8 @@ def configurar_seguranca(app, traduzir=None):
         resposta.headers.setdefault("Permissions-Policy", "camera=(), microphone=(), geolocation=(), payment=()")
         if request.is_secure or EM_PRODUCAO:
             resposta.headers.setdefault("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
-        resposta.headers["Server"] = "Mentoria"
+        if "gunicorn.socket" not in request.environ:  # sob o gunicorn, quem escreve o Server é o gunicorn.conf.py
+            resposta.headers["Server"] = NOME_SERVIDOR
         # Token CSRF em todo formulário POST das páginas HTML
         if (resposta.mimetype == "text/html" and resposta.status_code == 200 and not resposta.direct_passthrough
                 and not resposta.is_streamed):

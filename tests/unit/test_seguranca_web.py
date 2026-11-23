@@ -167,3 +167,36 @@ def test_chave_do_redis_nao_aceita_caracteres_de_controle():
 def test_sem_redis_url_o_limitador_e_em_memoria(monkeypatch):
     monkeypatch.delenv("REDIS_URL", raising=False)
     assert isinstance(sw.criar_limitador(), sw.LimitadorRequisicoes)
+
+
+# ------------------------------------------------------------------------------ cabeçalho Server
+@pytest.fixture
+def app_protegido(monkeypatch, tmp_path):
+    monkeypatch.setenv("SECRET_KEY", "x" * 64)
+    protegido = Flask(__name__, instance_path=str(tmp_path))
+    sw.configurar_seguranca(protegido)
+    protegido.add_url_rule("/ping", "ping", lambda: "ok")
+    return protegido
+
+
+def test_fora_do_gunicorn_o_app_escreve_o_server(app_protegido):
+    assert app_protegido.test_client().get("/ping").headers["Server"] == sw.NOME_SERVIDOR
+
+
+def test_sob_o_gunicorn_o_app_nao_repete_o_server(app_protegido):
+    """O gunicorn.conf.py já faz o gunicorn escrever 'Server: Mentoria'; um segundo cabeçalho viraria 'gunicorn, Mentoria'."""
+    resposta = app_protegido.test_client().get("/ping", environ_base={"gunicorn.socket": object()})
+    assert "Server" not in resposta.headers
+
+
+def test_gunicorn_conf_troca_o_nome_do_servidor():
+    import runpy
+
+    import gunicorn.http.wsgi as wsgi
+
+    original = wsgi.SERVER
+    try:
+        runpy.run_path("gunicorn.conf.py")
+        assert wsgi.SERVER == sw.NOME_SERVIDOR
+    finally:
+        wsgi.SERVER = original

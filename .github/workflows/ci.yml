@@ -30,7 +30,7 @@ jobs:
       - name: Ruff (erros e armadilhas)
         run: ruff check .
       - name: Ruff (formatação do código novo)
-        run: ruff format --check tests armazenamento.py backup_regras.py email_smtp.py gunicorn.conf.py logs_estruturados.py resiliencia.py rotas_backup.py saude.py
+        run: ruff format --check tests armazenamento.py backup_regras.py email_smtp.py encerramento.py gunicorn.conf.py logs_estruturados.py resiliencia.py rotas_backup.py saude.py
       - name: Vulnerabilidades conhecidas nas dependências
         run: |
           pip-audit -r requirements.txt --no-deps --disable-pip --progress-spinner off
