@@ -257,6 +257,10 @@ def fechar_presenca_reuniao_esquecida(agora):
 # As próximas adequações acrescentam aqui os lembretes delas
 def executar_backups_agendados(agora):
     """Manutenção (DB): roda os agendamentos de backup vencidos (Diário, Semanal ou Mensal)."""
+    import cliente_backup
+    if not cliente_backup.agendador_no_monolito():
+        log.info("backups agendados desligados aqui: rodam no serviço privado de backup (BACKUP_AGENDADOR=servico)")
+        return 0
     import backup_servico
     return backup_servico.executar_vencidos(agora)
 

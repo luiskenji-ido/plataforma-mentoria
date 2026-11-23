@@ -6142,6 +6142,7 @@ _ULTIMA_VERIFICACAO_BACKUP = [datetime.min]
 
 @app.before_request
 def verificar_backups_agendados():
+    import cliente_backup
     if os.environ.get('MENTORIA_VALIDACAO') == '1':
         return  # instância de validação do Orquestrador (cópia do banco): nunca grava backups nas pastas reais
     if not tarefas_no_processo_web() or request.blueprint == 'saude':
@@ -6150,12 +6151,13 @@ def verificar_backups_agendados():
     if agora - _ULTIMA_VERIFICACAO_BACKUP[0] < timedelta(minutes=5):
         return
     _ULTIMA_VERIFICACAO_BACKUP[0] = agora
-    try:
-        import backup_servico
-        backup_servico.executar_vencidos(agora)
-    except Exception as e:
-        db.session.rollback()
-        app.logger.warning(f"Verificação de backups agendados falhou: {e}")
+    if cliente_backup.agendador_no_monolito():  # BACKUP_AGENDADOR=servico: só o serviço privado de backup agenda
+        try:
+            import backup_servico
+            backup_servico.executar_vencidos(agora)
+        except Exception as e:
+            db.session.rollback()
+            app.logger.warning(f"Verificação de backups agendados falhou: {e}")
     _executar_mudancas_com_seguranca()  # requisições de mudança de código aprovadas e na data agendada
 
 
@@ -6621,6 +6623,10 @@ def rotina_de_backups(app_context):
             time.sleep(60)
 
 def iniciar_agendador(app):
+    import cliente_backup
+    if not cliente_backup.agendador_no_monolito():
+        app.logger.info("Backups agendados: rodam no serviço privado de backup (BACKUP_AGENDADOR=servico)")
+        return
     # Inicia a tarefa invisível junto com o servidor Flask
     thread = threading.Thread(target=rotina_de_backups, args=(app.app_context(),))
     thread.daemon = True # Permite que a thread seja encerrada ao fechar o terminal
@@ -9183,7 +9189,8 @@ def agentes_banco():
     try:
         aprendizado = conhecimento_banco.resumo_para_tela()
         indices = banco_manutencao.indices_sugeridos() if banco_manutencao.suportado() else []
-        saude_backup = backup_servico.saude()
+        import cliente_backup
+        saude_backup = cliente_backup.saude() if cliente_backup.configurado() else backup_servico.saude()
     except Exception as e:
         db.session.rollback()
         app.logger.warning(f"Agentes de Banco de Dados: {e}")

@@ -132,7 +132,15 @@ def _calcular_indices_sugeridos():
     return lista
 
 
-def _backup_antes(usuario_id):
+def _backup_antes(usuario_id, acao=None):
+    import cliente_backup
+    if cliente_backup.configurado():  # serviço privado de backup (mentoria-backup)
+        from models import Usuario
+        try:
+            execucao = cliente_backup.pedir_backup(f"pre_manutencao: {acao or 'DBA'}", db.session.get(Usuario, usuario_id))
+        except cliente_backup.ErroServicoBackup as erro:
+            raise RuntimeError(f"backup de segurança falhou, nada foi alterado: {erro}") from erro
+        return execucao.get('arquivo')
     import backup_servico
     registro = backup_servico.fazer_backup('Imediato', 'pre_manutencao', usuario_id)
     if registro.status not in backup_servico.STATUS_OK:
@@ -152,7 +160,7 @@ def executar(acao, usuario_id, indices=None):
             raise RuntimeError('as ações automáticas do DBA estão disponíveis para SQLite e MySQL; use as ferramentas do seu banco')
         if _eh_mysql():
             if acao != 'integridade':
-                registro.backup_arquivo = _backup_antes(usuario_id)
+                registro.backup_arquivo = _backup_antes(usuario_id, acao)
                 db.session.commit()
             registro.status = _executar_mysql(acao, registro, indices)
             caminho = None
@@ -168,7 +176,7 @@ def executar(acao, usuario_id, indices=None):
             registro.status = 'Concluída' if resultado == ['ok'] else 'Falha'
         else:
             caminho = backup_servico.caminho_banco()
-            registro.backup_arquivo = _backup_antes(usuario_id)
+            registro.backup_arquivo = _backup_antes(usuario_id, acao)
             db.session.commit()
             db.session.remove()
             db.engine.dispose()  # libera as conexões antes de mexer no arquivo

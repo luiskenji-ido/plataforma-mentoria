@@ -121,6 +121,13 @@ def preparar(estado):
     import limpeza
 
     def backup():
+        import cliente_backup
+        if cliente_backup.configurado():  # serviço privado de backup
+            try:
+                execucao = cliente_backup.pedir_backup("pre_funcionalidades: agentes de funcionalidades", pasta="pre_funcionalidades")
+                return execucao["status"], execucao.get("arquivo"), execucao.get("detalhes")
+            except cliente_backup.ErroServicoBackup as erro:
+                return "Falha", None, str(erro)
         import backup_servico
         registro = backup_servico.fazer_backup("Imediato", "pre_funcionalidades")
         return registro.status, registro.arquivo, registro.detalhes
