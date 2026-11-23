@@ -69,7 +69,7 @@ class AgenteAdministrador(AgenteOmniTest):
             self.registrar("Manutenção (DB)", "Relatório para auditoria (CSV)", APROVADO, f"{len(resposta.text().splitlines()) - 1} linha(s).", evidencia=False)
         else:
             self.registrar("Manutenção (DB)", "Relatório para auditoria (CSV)", FALHA, f"HTTP {resposta.status}.",
-                           arquivos="app.py (relatorio_auditoria_backup), backup_servico.py (exportar_historico_csv)")
+                           arquivos="rotas_backup.py (relatorio_auditoria_backup), backup_servico.py (exportar_historico_csv)")
 
     def ciclo_agendamento_backup(self):
         """Cria um agendamento de teste pela tela, pausa, retoma e exclui. Confere cada passo no banco."""
@@ -92,7 +92,7 @@ class AgenteAdministrador(AgenteOmniTest):
         aid, status = consultar_banco(agendamento)
         if not aid:
             self.registrar("Manutenção (DB)", "Ciclo de agendamento", FALHA, "O agendamento não foi criado.",
-                           arquivos="app.py (manutencao_banco: novo_agendamento), templates/admin_banco.html")
+                           arquivos="rotas_backup.py (manutencao_banco: novo_agendamento), backup_regras.py (validar_agendamento), templates/admin_banco.html")
             return
         passos = []
         for acao, esperado in (("pausar", "Pausado"), ("retomar", "Ativo")):
@@ -116,7 +116,7 @@ class AgenteAdministrador(AgenteOmniTest):
         else:
             self.registrar("Manutenção (DB)", "Ciclo de agendamento", FALHA,
                            f"Pausar/retomar/excluir/registro: {passos}; ações registradas: {sorted(acoes)}.",
-                           arquivos="app.py (manutencao_banco), backup_servico.py (registrar_alteracao), templates/admin_banco.html")
+                           arquivos="rotas_backup.py (manutencao_banco), backup_servico.py (registrar_alteracao), templates/admin_banco.html")
 
 
 if __name__ == "__main__":

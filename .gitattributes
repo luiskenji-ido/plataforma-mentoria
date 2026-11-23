@@ -5,3 +5,16 @@
 *.conf text eol=lf
 Dockerfile text eol=lf
 deploy/** text eol=lf
+
+# Binários nunca são texto (a regra deploy/** acima trocava CRLF dentro de .docx/.png e corrompia os arquivos)
+*.docx binary
+*.pptx binary
+*.xlsx binary
+*.pdf binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.zip binary
+*.gz binary
