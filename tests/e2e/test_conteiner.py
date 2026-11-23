@@ -15,10 +15,19 @@ PNG = b"\x89PNG\r\n\x1a\n" + secrets.token_bytes(256)
 
 
 # ------------------------------------------------------------------ imagem e sondas
+def _inspecionar(conteiner):
+    return json.loads(subprocess.run(["docker", "inspect", conteiner], capture_output=True, text=True).stdout)[0]
+
+
 def test_conteiner_roda_sem_root_e_com_disco_so_de_leitura(pilha):
-    info = json.loads(subprocess.run(["docker", "inspect", pilha.id_do_conteiner("web")], capture_output=True, text=True).stdout)[0]
+    info = _inspecionar(pilha.id_do_conteiner("web"))
     assert info["Config"]["User"] == "10001:10001"
     assert info["HostConfig"]["ReadonlyRootfs"] is True
+    # O HEALTHCHECK da imagem roda à parte do /readyz que a pilha espera: aguarda a primeira sondagem (--start-interval)
+    prazo = time.time() + 60
+    while info["State"]["Health"]["Status"] == "starting" and time.time() < prazo:
+        time.sleep(1)
+        info = _inspecionar(pilha.id_do_conteiner("web"))
     assert info["State"]["Health"]["Status"] == "healthy"
 
 
@@ -63,11 +72,17 @@ def test_limite_de_tentativas_de_login_e_compartilhado_no_redis(pilha):
     cliente = redis.Redis(host="127.0.0.1", port=pilha.porta_redis)
     s = requests.Session()
     s.get(pilha.url + "/", timeout=10)
-    respostas = [
-        s.post(pilha.url + "/", data={"email": f"x{i}@local.com", "senha": "errada"}, allow_redirects=False, timeout=10) for i in range(32)
-    ]
-    assert 429 in [r.status_code for r in respostas]
-    assert cliente.keys("mentoria:limite:login:*")
+    try:
+        respostas = [
+            s.post(pilha.url + "/", data={"email": f"x{i}@local.com", "senha": "errada"}, allow_redirects=False, timeout=10)
+            for i in range(32)
+        ]
+        assert 429 in [r.status_code for r in respostas]
+        assert cliente.keys("mentoria:limite:login:*")
+    finally:
+        # O limite é por IP e os testes saem todos do mesmo IP: sem isto, os logins dos testes seguintes recebem 429
+        for chave in cliente.scan_iter("mentoria:limite:login:*"):
+            cliente.delete(chave)
 
 
 # ------------------------------------------------------------------ arquivos no MinIO (S3)
@@ -162,7 +177,13 @@ def test_sigterm_termina_o_pedido_em_andamento_e_sai_limpo(pilha, admin, senha_a
     web = pilha.id_do_conteiner("web")
     subprocess.run(["docker", "kill", "--signal", "SIGTERM", web], check=True, capture_output=True)
     t.join(90)
-    estado = json.loads(subprocess.run(["docker", "inspect", web], capture_output=True, text=True).stdout)[0]["State"]
+    # Depois dos workers, o processo principal ainda espera os clientes fecharem as conexões (encerramento.py), no
+    # máximo GUNICORN_PRAZO_ENTREGA segundos: a sessão do teste guarda a conexão aberta no pool, então pode levar esse tempo.
+    prazo = time.time() + 45
+    estado = _inspecionar(web)["State"]
+    while estado["Running"] and time.time() < prazo:
+        time.sleep(1)
+        estado = _inspecionar(web)["State"]
     try:
         assert recebido["erro"] is None and recebido["bytes"] == tamanho
         assert estado["Running"] is False and estado["ExitCode"] == 0

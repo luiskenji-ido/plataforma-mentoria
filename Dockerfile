@@ -71,7 +71,8 @@ RUN python -m compileall -q -j 0 /app /opt/venv >/dev/null \
  && chown mentoria:mentoria /app/instance /app/uploads "/app/Agent Reports" /dados/backups
 USER 10001:10001
 EXPOSE 8080
-HEALTHCHECK --interval=30s --timeout=5s --start-period=40s --retries=3 \
+# --start-interval: durante a partida, sonda a cada 2 s (fica healthy logo que o app responde, sem esperar 30 s)
+HEALTHCHECK --interval=30s --timeout=5s --start-period=40s --start-interval=2s --retries=3 \
     CMD ["python", "-c", "import os, urllib.request; urllib.request.urlopen('http://127.0.0.1:%s/healthz' % os.environ.get('PORT', '8080'), timeout=4)"]
 # tini como PID 1: repassa o SIGTERM ao gunicorn (desligamento gracioso) e recolhe processos filhos
 ENTRYPOINT ["/usr/bin/tini", "--"]

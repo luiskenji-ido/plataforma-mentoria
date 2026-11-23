@@ -52,7 +52,7 @@ class AgenteMentorAdministrador(AgenteOmniTest):
         else:
             self.registrar("Manutenção (DB)", "Coerência menu × rota", FALHA,
                            "🔓 A rota abre por URL direta, mas a Manutenção é exclusiva do Administrador.",
-                           arquivos="app.py (manutencao_banco)")
+                           arquivos="rotas_backup.py (manutencao_banco)")
 
 
 if __name__ == "__main__":

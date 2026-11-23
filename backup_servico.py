@@ -30,22 +30,18 @@ import logging
 import gzip
 import shutil
 import sqlite3
-import calendar
 import tempfile
 import subprocess
-from datetime import datetime, timedelta, time as hora_do_dia
+from datetime import datetime
 
 from flask import current_app
 from werkzeug.utils import secure_filename
 
+import backup_regras as regras
+from backup_regras import DIAS_SEM_BACKUP_ATENCAO, EXTENSOES, FREQUENCIAS, STATUS_OK, TIPOS_BACKUP  # noqa: F401 (API pública)
 from models import db, RegistroBackup, AgendamentoBackup, AlteracaoAgendamentoBackup
 
-FREQUENCIAS = ['Diário', 'Semanal', 'Mensal']
-STATUS_OK = ('Concluído', 'Sucesso')          # 'Sucesso' = registros antigos
-TIPOS_BACKUP = ('Imediato', 'Agendado', 'Agendado (manual)')
-DIAS_SEM_BACKUP_ATENCAO = 8                   # sem backup bem-sucedido há mais tempo que isto: "Atenção"
 TABELAS_PRESERVADAS = ('agendamento_backup', 'alteracao_agendamento_backup', 'registro_backup')
-EXTENSOES = ('.db', '.sql.gz', '.dump')       # SQLite, MySQL e PostgreSQL
 
 
 def motor():
@@ -191,7 +187,7 @@ def copiar_banco(subpasta, prefixo):
 
 def fazer_backup(tipo, subpasta, usuario_id=None, agendamento=None):
     """Backup + registro no histórico. Devolve o RegistroBackup (status Concluído ou Falha)."""
-    prefixo = f"mentoria_backup_ag{agendamento.id}_{_sem_acento(agendamento.frequencia)}" if agendamento else "mentoria_backup"
+    prefixo = regras.prefixo_do_arquivo(agendamento.id, agendamento.frequencia) if agendamento else regras.prefixo_do_arquivo()
     try:
         caminho, tamanho, duracao = copiar_banco(subpasta, prefixo)
         nome = os.path.basename(caminho)
@@ -211,17 +207,14 @@ def fazer_backup(tipo, subpasta, usuario_id=None, agendamento=None):
                          agendamento_id=agendamento.id if agendamento else None)
 
 
-def _sem_acento(texto):
-    return {'Diário': 'diario', 'Semanal': 'semanal', 'Mensal': 'mensal'}.get(texto, re.sub(r'\W', '', texto.lower()))
+_sem_acento = regras.frequencia_sem_acento
 
 
 def aplicar_retencao(agendamento):
     """Mantém só os N arquivos mais novos deste agendamento. Devolve quantos foram apagados."""
     pasta = pasta_de(agendamento.pasta)
-    proprios = sorted((n for n in os.listdir(pasta) if n.startswith(f"mentoria_backup_ag{agendamento.id}_") and n.endswith(EXTENSOES)),
-                      reverse=True)  # o nome tem a data: ordem alfabética = cronológica
     apagados = 0
-    for nome in proprios[max(agendamento.retencao or 1, 1):]:
+    for nome in regras.arquivos_excedentes(os.listdir(pasta), agendamento.id, agendamento.retencao):
         os.remove(os.path.join(pasta, nome))
         apagados += 1
     # A cópia fora do servidor segue a mesma retenção
@@ -229,9 +222,7 @@ def aplicar_retencao(agendamento):
     externa = ambiente.pasta_backups_externa()
     pasta_fora = os.path.join(externa, nome_de_pasta(agendamento.pasta)) if externa else ''
     if pasta_fora and os.path.isdir(pasta_fora):
-        fora = sorted((n for n in os.listdir(pasta_fora) if n.startswith(f"mentoria_backup_ag{agendamento.id}_") and n.endswith(EXTENSOES)),
-                      reverse=True)
-        for nome in fora[max(agendamento.retencao or 1, 1):]:
+        for nome in regras.arquivos_excedentes(os.listdir(pasta_fora), agendamento.id, agendamento.retencao):
             try:
                 os.remove(os.path.join(pasta_fora, nome))
             except OSError:
@@ -283,28 +274,12 @@ def criar_agendamentos_padrao(usuario_id=None):
 # ------------------------------------------------------------------------------
 # Agendamentos
 # ------------------------------------------------------------------------------
-def _somar_meses(data, meses):
-    mes = data.month - 1 + meses
-    ano, mes = data.year + mes // 12, mes % 12 + 1
-    return data.replace(year=ano, month=mes, day=min(data.day, calendar.monthrange(ano, mes)[1]))
+_somar_meses = regras.somar_meses
 
 
 def calcular_proxima(agendamento, depois_de):
     """Primeira data/hora do agendamento estritamente depois de 'depois_de'."""
-    horas, minutos = (int(x) for x in (agendamento.horario or '03:00').split(':'))
-    base = datetime.combine(agendamento.data_inicio, hora_do_dia(horas, minutos))
-    if base > depois_de:
-        return base
-    if agendamento.frequencia == 'Mensal':
-        n = (depois_de.year - base.year) * 12 + depois_de.month - base.month
-        candidato = _somar_meses(base, max(n, 0))
-        while candidato <= depois_de:
-            n += 1
-            candidato = _somar_meses(base, n)
-        return candidato
-    passo = timedelta(days=7 if agendamento.frequencia == 'Semanal' else 1)
-    saltos = int((depois_de - base) / passo) + 1
-    return base + saltos * passo
+    return regras.proxima_execucao(agendamento.frequencia, agendamento.horario, agendamento.data_inicio, depois_de)
 
 
 def registrar_alteracao(agendamento_id, acao, detalhes, usuario_id):
@@ -331,12 +306,31 @@ def executar_vencidos(agora=None):
     agora = agora or datetime.now()
     vencidos = AgendamentoBackup.query.filter(AgendamentoBackup.status == 'Ativo',
                                               AgendamentoBackup.proxima_execucao <= agora).all()
+    executados = 0
     for agendamento in vencidos:
-        # "Reserva" a execução antes de copiar: outro processo que olhar agora já vê a próxima data
-        agendamento.proxima_execucao = calcular_proxima(agendamento, agora)
-        db.session.commit()
-        executar_agendamento(agendamento)
-    return len(vencidos)
+        if reservar_execucao(agendamento, agora):
+            executar_agendamento(agendamento)
+            executados += 1
+    return executados
+
+
+def reservar_execucao(agendamento, agora):
+    """Reserva a execução antes de copiar, de forma atômica: só o processo cujo UPDATE muda a linha roda o backup.
+    Vários processos (workers do gunicorn, worker das tarefas, 'python app.py') podem ver o mesmo agendamento
+    vencido ao mesmo tempo; o UPDATE condicional na próxima execução lida garante uma única execução por vencimento."""
+    lida = agendamento.proxima_execucao
+    proxima = calcular_proxima(agendamento, agora)
+    tabela = AgendamentoBackup.__table__
+    resultado = db.session.execute(
+        tabela.update()
+        .where(tabela.c.id == agendamento.id, tabela.c.status == 'Ativo', tabela.c.proxima_execucao == lida)
+        .values(proxima_execucao=proxima))
+    db.session.commit()
+    if resultado.rowcount != 1:
+        db.session.expire(agendamento)
+        return False
+    db.session.refresh(agendamento)
+    return True
 
 
 # ------------------------------------------------------------------------------
@@ -350,14 +344,8 @@ def saude():
     ultimo = backups.order_by(RegistroBackup.data_registro.desc()).first()
     falhas = RegistroBackup.query.filter_by(status='Falha').count()
     proximas = [a.proxima_execucao for a in ativos if a.proxima_execucao]
-    if ultimo and ultimo.status == 'Falha':
-        situacao, motivo = 'Crítica', 'O último backup falhou.'
-    elif not ativos:
-        situacao, motivo = 'Atenção', 'Nenhum agendamento ativo.'
-    elif not ultimo_ok or ultimo_ok.data_registro < datetime.now() - timedelta(days=DIAS_SEM_BACKUP_ATENCAO):
-        situacao, motivo = 'Atenção', 'Nenhum backup bem-sucedido nos últimos 8 dias.'
-    else:
-        situacao, motivo = 'Saudável', ''
+    situacao, motivo = regras.classificar_saude(datetime.now(), len(ativos), ultimo.status if ultimo else None,
+                                                ultimo_ok.data_registro if ultimo_ok else None)
     return {'ativos': len(ativos), 'pausados': pausados, 'ultimo': ultimo_ok.data_registro if ultimo_ok else None,
             'proximo': min(proximas) if proximas else None, 'falhas': falhas, 'situacao': situacao, 'motivo': motivo}
 
@@ -442,6 +430,19 @@ def restaurar(caminho_arquivo, usuario_id, atualizar_estrutura):
     return True, seguranca.arquivo
 
 
+def historico_filtrado(data_inicio, data_fim):
+    """Consulta do histórico (mais novo primeiro) entre as datas AAAA-MM-DD; data inválida é ignorada."""
+    consulta = RegistroBackup.query
+    try:
+        if data_inicio:
+            consulta = consulta.filter(RegistroBackup.data_registro >= datetime.strptime(data_inicio, '%Y-%m-%d'))
+        if data_fim:
+            consulta = consulta.filter(RegistroBackup.data_registro <= datetime.strptime(data_fim + ' 23:59:59', '%Y-%m-%d %H:%M:%S'))
+    except ValueError:
+        pass
+    return consulta.order_by(RegistroBackup.data_registro.desc())
+
+
 def exportar_historico_csv(registros, destino_arquivo=None):
     """Linhas do histórico em CSV (para o relatório de auditoria ou o arquivo guardado antes de apagar)."""
     cabecalho = ['Data/Hora', 'Tipo', 'Status', 'Arquivo', 'Tamanho', 'Duração (s)', 'Usuário', 'Pasta', 'Agendamento', 'Detalhes']
@@ -521,6 +522,10 @@ def _arquivo_de_credenciais():
         linhas.append(f'port={int(url.port)}')
     if url.query.get('unix_socket'):
         linhas.append(f'socket={valor(url.query["unix_socket"])}')
+    else:
+        # Mesmo caminho que o app (PyMySQL usa TCP sem unix_socket). Sem isto, host=localhost faz o cliente mysql
+        # procurar o socket local e falhar com um MySQL só acessível por TCP (porta publicada do Docker, túnel).
+        linhas.append('protocol=TCP')
     descritor, caminho = tempfile.mkstemp(prefix='mentoria_', suffix='.cnf')
     with os.fdopen(descritor, 'w', encoding='utf-8') as f:
         f.write('\n'.join(linhas) + '\n')
